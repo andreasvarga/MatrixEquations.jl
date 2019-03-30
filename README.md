@@ -1,2 +1,2 @@
 # MatrixEquations
-Solution of control related matrix equations using Julia
+Solution of control system related matrix equations using Julia
