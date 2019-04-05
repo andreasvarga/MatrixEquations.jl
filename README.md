@@ -22,7 +22,7 @@ The implementation of Riccati equation solvers employ orthogonal Schur vectors
 based methods and their extensions to linear matrix pencil based reduction approaches.   
 
 ## Future plans
-The collection of tools will be extended by adding new functionality, as the solution
+The collection of tools will be extended by adding new functionality, such as the solution
 of classes of Sylvester equations and Sylvester systems of equations, the solution of stable Lyapunov
 equations directly for the Cholesky factors of the solutions, computation of condition
 number estimators for Lyapunov equations, etc.
