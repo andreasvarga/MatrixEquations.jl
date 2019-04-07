@@ -1,4 +1,4 @@
-# MatrixEquations
+# MatrixEquations.jl
 Solution of some control system related matrix equations using Julia
 
 ## About
