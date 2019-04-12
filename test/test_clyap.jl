@@ -1,3 +1,5 @@
+module Test_clyap
+
 using LinearAlgebra
 using MatrixEquations
 using Test
@@ -163,4 +165,6 @@ x = copy(qr)
 @time lyapcs!(as,x,adj=true);
 @test norm(as'*x+x*as+qr)/norm(x)/norm(as) < reltol
 end
+end
+
 end

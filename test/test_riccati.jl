@@ -1,3 +1,5 @@
+module Test_riccati
+
 using LinearAlgebra
 using MatrixEquations
 using Test
@@ -127,6 +129,8 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f,er))))/norm(clseig)  < rtol
 @test norm(ac'*x*ac-ec'*x*ec-(ac'*x*bc+sc)*inv(rc+bc'*x*bc)*(bc'*x*ac+sc')+qc)/norm(x) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol
+end
+
 end
 
 end

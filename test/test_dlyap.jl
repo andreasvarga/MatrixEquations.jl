@@ -1,3 +1,5 @@
+module Test_dlyap
+
 using LinearAlgebra
 using MatrixEquations
 using Test
@@ -150,4 +152,6 @@ x = copy(qr)
 @time glyapds!(as,es,x,adj=true);
 @test norm(as'*x*as+qr-es'*x*es)/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
 end
+end
+
 end

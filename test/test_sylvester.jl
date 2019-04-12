@@ -1,3 +1,5 @@
+module Test_sylvester
+
 using LinearAlgebra
 using MatrixEquations
 using Test
@@ -72,5 +74,7 @@ reltol = sqrt(eps(1.))
 
 @time x = sylvdkr(ac',bc,dc,ec',c,-1)
 @test norm(ac'*x*bc-dc*x*ec'-c)/norm(x) < reltol
+
+end
 
 end

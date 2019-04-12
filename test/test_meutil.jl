@@ -1,3 +1,5 @@
+module Test_meutil
+
 using LinearAlgebra
 using MatrixEquations
 using Test
@@ -23,4 +25,6 @@ x = copy(qr); @time utqu!(x,ur,adj=true);
 @time x = utqu(qr,ur,adj=true);
 @time y = ur*qr*ur';
 @test norm(x-y) < sqrt(eps(1.))
+end
+
 end
