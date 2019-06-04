@@ -10,12 +10,11 @@ codes for complex data significantly outperform similar functions available in
 the MATLAB Control System Toolbox (which rely on SLICOT), while performing at
 practically same performance level for real data.
 
-The available functions in the `MatrixEquation` collection cover both standard
-and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data.
-The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure
+The available functions in the `MatrixEquation.jl` package cover both standard
+and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data. The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure
 exploiting solvers for which the input data are in Schur or generalized Schur forms.
 The implementation of Riccati equation solvers employ orthogonal Schur vectors
-based methods and their extensions to linear matrix pencil based reduction approaches.
+based methods and their extensions to linear matrix pencil based reduction approaches. The calls of all functions with adjoint (in complex case) or transposed (in real case) arguments are fully supported by appropriate computational algorithms, thus the matrix copying operations are mostly avoided.  This contrasts with the current practice used in Julia (up to V1.1), where operations on adjoint or transposed matrices often fails (see, for example, the Linear Algebra functions [lyap](https://docs.julialang.org/en/v1.1/stdlib/LinearAlgebra/#LinearAlgebra.lyap) and [sylvester](https://docs.julialang.org/en/v1.1/stdlib/LinearAlgebra/#LinearAlgebra.sylvester)).   
 
 The current version of the package includes the following functions:
 
@@ -31,7 +30,7 @@ The current version of the package includes the following functions:
  A'XE+E'XA-(A'XB+S)R^(-1)(B'XA+S')+Q = 0.
  * **ared**	 Solution of the discrete Riccati equation
  A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0.
- * **gared**	  Solution of the discrete Riccati equation
+ * **gared**	  Solution of the generalized discrete Riccati equation
  A'XA - E'XE - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0.
 
  **Solution of Sylvester equations and systems**
@@ -41,7 +40,7 @@ The current version of the package includes the following functions:
    * **sylvsys**	 Solution of the Sylvester system of matrix equations AX+YB = C, DX+YE = F.
    * **dsylvsys**	 Solution of the dual Sylvester system of matrix equations AX+DY = C, XB+YE = F.
 
-The above general solvers of Lyapunov and Sylvester equations rely on a rich set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
+The above general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
 
 ## Future plans
 The collection of tools will be extended by adding new functionality, such as the solution of stable Lyapunov equations directly for the Cholesky factors of the solutions, computation of condition number estimators for Lyapunov and Sylvester equations, etc.
