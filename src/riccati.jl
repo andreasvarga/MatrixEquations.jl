@@ -80,14 +80,14 @@ function arec(A, B, Q, R, S = 0)
        Dinv = Diagonal(1 ./ D)
        Bu = B*SR.Z
        #G = Bu*Dinv*Bu'
-       G = utqu(Dinv,Bu,adj=true)
+       G = utqu(Dinv,Bu')
        if S0flag
           sol = arec(A,Q,G)
           f = SR.Z*Dinv*Bu'*sol[1]
        else
           Su = S*SR.Z
           #Q -= Su*Dinv*Su'
-          Q -= utqu(Dinv,Su,adj=true)
+          Q -= utqu(Dinv,Su')
           sol = arec(A-Bu*Dinv*Su',Q,G)
           f = SR.Z*Dinv*(Bu'*sol[1]+Su')
        end

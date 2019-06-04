@@ -1,208 +1,251 @@
 # Continuous Lyapunov equations
 lyapc(A::T1, C::T2) where {T1<:Number,T2<:Number} = -C/(A+A')
-glyapc(A::T1, E::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = -C/(A*E'+A'*E)
+lyapc(A::T1, E::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = -C/(A*E'+A'*E)
 """
-`X = lyapc(A, C, adj = false)` computes `X`, the hermitian/symmetric solution
+`X = lyapc(A, C)` computes `X`, the symmetric or hermitian solution
 of the continuous Lyapunov equation
 
-      op(A)X + Xop(A)' + C = 0,
+      AX + XA' + C = 0,
 
-where `C` is a hermitian/symmetric matrix, and `op(A) = A` if `adj = false`
-and `op(A) = A'` if `adj = true`.
-
-Reference
-R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
-Comm. ACM, 15:820–826, 1972.
+where `A` is a square real or complex matrix and `C` is a symmetric or hermitian
+matrix. `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 """
-function lyapc(A, C; adj = false)
+function lyapc(A, C)
+   """
+   The Bartels-Steward Schur form based method is employed.
+
+   Reference:
+   R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+   Comm. ACM, 15:820–826, 1972.
+   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
+   realAC = isreal(A) & isreal(C)
 
    # Reduce A to Schur form and transform C
-   a, z = schur(A)
-   #x = z'*C*z
-   x = utqu(C,z)
-   lyapcs!(a, x, adj = adj)
-   #x = z*x*z'
-   utqu!(x,z,adj = true)
-end
-function lyapc(A::Union{Adjoint, Transpose}, C)
-   lyapc(A.parent, C, adj = true)
-end
-function lyapc(A::Array{Complex{Float64},2}, C::Array{Float64,2}; adj = false)
-   lyapc(A,convert(Array{Complex{Float64},2},C),adj = adj)
+   adj = isa(A,Adjoint)
+   if adj
+      if realAC
+         AS, Q = schur(A.parent)
+      else
+         AS, Q = schur(complex(A.parent))
+      end
+   else
+      if realAC
+         AS, Q = schur(A)
+      else
+         AS, Q = schur(complex(A))
+      end
+   end
+
+   #X = Q'*C*Q
+   X = utqu(C,Q)
+   lyapcs!(AS, X, adj = adj)
+   #X <- Q*X*Q'
+   utqu!(X,Q')
 end
 """
-`X = glyapc(A, E, C, adj = false)` computes `X`, the hermitian/symmetric
-solution of the continuous generalized Lyapunov equation
+`X = lyapc(A, E, C)` computes `X`, the symmetric or hermitian solution of the
+continuous generalized Lyapunov equation
 
-     op(A)Xop(E)' + op(E)Xop(A)' + C = 0,
+     AXE' + EXA' + C = 0,
 
-where `C` is a hermitian/symmetric matrix, and `op(M) = M` if `adj = false`
-and `op(M) = M'` if `adj = true`, for `M = A` or `M = E`.
-
-Reference
-T. Penzl. Numerical solution of generalized Lyapunov equations.
-Adv. Comput. Math., 8:33–48, 1998.
+where `A` and `E` are square real or complex matrices and `C` is a symmetric or
+hermitian matrix. The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 """
-function glyapc(A, E, C; adj = false)
+function lyapc(A, E, C)
+   """
+   The extension of the Bartels-Steward method based on the generalized Schur form
+   is employed.
+
+   Reference:
+   T. Penzl. Numerical solution of generalized Lyapunov equations.
+   Adv. Comput. Math., 8:33–48, 1998.
+   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
    if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      lyapc(A, C, adj = adj)
+      lyapc(A, C)
       return
    end
 
+   realAEC = isreal(A) & isreal(E) & isreal(C)
+   adjA = isa(A,Adjoint)
+   adjE = isa(E,Adjoint)
+   if adjA && ~adjE
+      A = copy(A)
+      adjA = false
+   elseif ~adjA && adjE
+      E = copy(E)
+      adjE = false
+   end
+
+   adj = adjA & adjE
+
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
-   as, es, q, z = schur(A,E)
+   if adj
+      if realAEC
+         as, es, q, z = schur(A.parent,E.parent)
+      else
+         as, es, q, z = schur(complex(A.parent),complex(E.parent))
+      end
+   else
+      if realAEC
+         as, es, q, z = schur(A,E)
+      else
+         as, es, q, z = schur(complex(A),complex(E))
+      end
+   end
    if adj
       #x = z'*C*z
       x = utqu(C,z)
-      glyapcs!(as,es,x,adj = true)
+      lyapcs!(as,es,x,adj = true)
       #x = q*x*q'
-      utqu!(x,q,adj = true)
+      utqu!(x,q')
    else
       #x = q'*C*q
       x = utqu(C,q)
-      glyapcs!(as,es,x)
+      lyapcs!(as,es,x)
       #x = z*x*z'
-      utqu!(x,z,adj = true)
+      utqu!(x,z')
    end
 end
-function glyapc(A::Union{Adjoint, Transpose}, E::Union{Adjoint, Transpose}, C)
-   glyapc(A.parent, E.parent, C, adj = true)
-end
-function glyapc(A::Union{Adjoint, Transpose}, E, C)
-   glyapc(copy(A), E, C, adj = false)
-end
-function glyapc(A, E::Union{Adjoint, Transpose}, C)
-   glyapc(A, copy(E), C, adj = false)
-end
-function glyapc(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Float64,2}; adj = false)
-   glyapc(A,E,convert(Array{Complex{Float64},2},C),adj = adj)
-end
-
 # Discrete Lyapunov equations
 lyapd(A::T1, C::T2) where {T1<:Number,T2<:Number} = C/(one(C)-A'*A)
-glyapd(A::T1, E::T3, C::T2) where {T1<:Number,T2<:Number,T3<:Number} = C/(E'*E-A'*A)
+lyapd(A::T1, E::T3, C::T2) where {T1<:Number,T2<:Number,T3<:Number} = C/(E'*E-A'*A)
 """
-`X = lyapd(A, C, adj = false)` computes `X`, the hermitian/symmetric solution
+`X = lyapd(A, C)` computes `X`, the symmetric or hermitian solution
 of the discrete Lyapunov equation
 
-     op(A)Xop(A)' + C = X,
+       AXA' - X + C = 0,
 
-where `C` is a hermitian/symmetric matrix, and `op(A) = A` if `adj = false`
-and `op(A) = A'` if `adj = true`.
-
-Reference
-G. Kitagawa. An Algorithm for solving the matrix equation X = F X F' + S,
-International Journal of Control, 25:745-753, 1977.
+where `A` is a square real or complex matrix and `C` is a symmetric or hermitian
+matrix. `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 """
-function lyapd(A, C; adj = false)
+function lyapd(A, C)
+   """
+   The discrete analog of the Bartels-Steward method based on the Schur form
+   is employed.
+
+   Reference:
+   G. Kitagawa. An Algorithm for solving the matrix equation X = F X F' + S,
+   International Journal of Control, 25:745-753, 1977.
+   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
+   realAC = isreal(A) & isreal(C)
 
    # Reduce A to Schur form and transform C
-   a, z = schur(A)
-   #x = z'*C*z
-   x = utqu(C,z)
-   lyapds!(a,x,adj = adj)
-   #x = z*x*z'
-   utqu!(x,z,adj = true)
+   adj = isa(A,Adjoint)
+   if adj
+      if realAC
+         AS, Q = schur(A.parent)
+      else
+         AS, Q = schur(complex(A.parent))
+      end
+   else
+      if realAC
+         AS, Q = schur(A)
+      else
+         AS, Q = schur(complex(A))
+      end
+   end
+   #X = Q'*C*Q
+   X = utqu(C,Q)
+   lyapds!(AS, X, adj = adj)
+   #X <- Q*X*Q'
+   utqu!(X,Q')
 end
-function lyapd(A::Union{Adjoint, Transpose}, C)
-   lyapd(A.parent, C, adj = true)
-end
-function lyapd(A::Array{Complex{Float64},2}, C::Array{Float64,2}; adj = false)
-   lyapd(A,convert(Array{Complex{Float64},2},C),adj = adj)
-end
+
 """
-`X = glyapd(A, E, C, adj = false)` computes `X`, the hermitian/symmetric solution
+`X = lyapd(A, E, C)` computes `X`, the symmetric or hermitian solution
 of the discrete generalized Lyapunov equation
 
-         op(A)Xop(A)' + C = op(E)Xop(E)',
+         AXA' - EXE' + C = 0,
 
-where `C` is a hermitian/symmetric matrix, and `op(M) = M` if `adj = false`
-and `op(M) = M'` if `adj = true`, for `M = A` or `M = E`.
-
-Reference:
-T. Penzl. Numerical solution of generalized Lyapunov equations.
-Adv. Comput. Math., 8:33–48, 1998.
+where `A` and `E` are square real or complex matrices and `C` is a symmetric
+or hermitian matrix. The pencil `A-λE` must not have two eigenvalues `α` and `β`
+such that `αβ = 1`.
 """
-function glyapd(A, E, C; adj = false)
+function lyapd(A, E, C)
+   """
+   The extension of the Bartels-Steward method based on the generalized Schur form
+   is employed.
+
+   Reference:
+   T. Penzl. Numerical solution of generalized Lyapunov equations.
+   Adv. Comput. Math., 8:33–48, 1998.
+   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
    if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      lyapd(A, C, adj = adj)
+      lyapd(A, C)
       return
    end
 
+   realAEC = isreal(A) & isreal(E) & isreal(C)
+   adjA = isa(A,Adjoint)
+   adjE = isa(E,Adjoint)
+   if adjA && ~adjE
+      A = copy(A)
+      adjA = false
+   elseif ~adjA && adjE
+      E = copy(E)
+      adjE = false
+   end
+
+   adj = adjA & adjE
+
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
-   as, es, q, z = schur(A,E)
+   if adj
+      if realAEC
+         as, es, q, z = schur(A.parent,E.parent)
+      else
+         as, es, q, z = schur(complex(A.parent),complex(E.parent))
+      end
+   else
+      if realAEC
+         as, es, q, z = schur(A,E)
+      else
+         as, es, q, z = schur(complex(A),complex(E))
+      end
+   end
    if adj
       #x = z'*C*z
       x = utqu(C,z)
-      glyapds!(as,es,x,adj = true)
+      lyapds!(as,es,x,adj = true)
       #x = q*x*q'
-      utqu!(x,q,adj = true)
+      utqu!(x,q')
    else
       #x = q'*C*q
       x = utqu(C,q)
-      glyapds!(as,es,x)
+      lyapds!(as,es,x)
       #x = z*x*z'
-      utqu!(x,z,adj = true)
+      utqu!(x,z')
    end
 end
-function glyapd(A::Union{Adjoint, Transpose}, E::Union{Adjoint, Transpose}, C)
-   glyapd(A.parent, E.parent, C, adj = true)
-end
-function glyapd(A::Union{Adjoint, Transpose}, E, C)
-   glyapd(copy(A), E, C, adj = false)
-end
-function glyapd(A, E::Union{Adjoint, Transpose}, C)
-   glyapd(A, copy(E), C, adj = false)
-end
-function glyapd(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Float64,2}; adj = false)
-   glyapd(A,E,convert(Array{Complex{Float64},2},C),adj = adj)
-end
 """
-`lyapcs!(A, C, adj = false)` solves the continuous Lyapunov matrix equation
+`lyapcs!(A,C;adj = false)` solves the continuous Lyapunov matrix equation
 
-                AX + XA' + C = 0
+                op(A)X + Xop(A)' + C = 0
 
-with `A` in a real or complex Schur form and `C` a symmetric/hermitian matrix.
-The computed symmetric/hermitian solution `X` is contained in `C`.
-
-`lyapcs!(A,C,adj = true)` solves the continuous Lyapunov matrix equation
-
-                A'X + XA + C = 0
-
-with `A` in a real or complex Schur form. `C` contains on output the solution `X`.
-
-`lyapcs!(A,C)` is equivalent to  `lyapcs!(A,C,adj = false)`.
+where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
+A is a square real matrix in a real Schur form, or a square complex matrix in a
+complex Schur form and `C` is a symmetric or hermitian matrix.
+`A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+`C` contains on output the solution `X`.
 """
 function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
-   """
-   lyapcs!(A,C,adj = false) solves the continuous Lyapunov matrix equation
-                   A*X + X*A' + C = 0
-   with A in a real Schur form. C contains on output the solution X.
-
-   lyapcs(A,C,adj = true) solves the continuous Lyapunov matrix equation
-                   A'*X + X*A + C = 0
-   with A in a real Schur form. C contains on output the solution X.
-
-   lyapcs!(A,C) is equivalent to  lyapcs(A,C,adj = false).
-   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
@@ -323,17 +366,6 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
 end
 
 function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
-   """
-   lyapcs!(A,C,adj = false) solves the continuous Lyapunov matrix equation
-                   A*X + X*A' + C = 0
-   with A in a complex Schur form. C contains on output the solution X.
-
-   lyapcs(A,C,adj = true) solves the continuous Lyapunov matrix equation
-                   A'*X + X*A + C = 0
-   with A in a complex Schur form. C contains on output the solution X.
-
-   lyapcs!(A,C) is equivalent to lyapcs(A,C,adj = false).
-   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -405,42 +437,19 @@ function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
        end
    end
 end
-
 """
-`glyapcs!(A, E, C,adj = false)` solves the generalized continuous Lyapunov
+`lyapcs!(A, E, C; adj = false)` solves the generalized continuous Lyapunov
 matrix equation
 
-                A*X*E' + E*X*A' + C = 0
+                op(A)Xop(E)' + op(E)Xop(A)' + C = 0
 
-with `(A,E)` in a generalized real or complex Schur form and `C` a
-symmetric/hermitian matrix. The computed symmetric/hermitian solution `X`
-is contained in `C`.
-
-`glyapcs!(A,E,C,adj = true)` solves the generalized continuous Lyapunov
-matrix equation
-
-                A'*X*E + E'*X*A + C = 0
-
-with `(A,E)` in a generalized real or complex Schur form and `C` a
-symmetric/hermitian matrix. The computed symmetric/hermitian solution `X`
-is contained in `C`.
-
-`glyapcs!(A,E,C)` is equivalent to `glyapcs!(A,E,C,adj = false)`.
+where `op(A) = A` and `op(E) = E` if `adj = false` and `op(A) = A'` and
+`op(E) = E'` if `adj = true`. The pair `(A,E)` is in a generalized real or
+complex Schur form and `C` is a symmetric or hermitian matrix.
+The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function glyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
-   """
-   glyapcs!(A,C,E,adj = false) solves the generalized continuous Lyapunov
-   matrix equation
-                   A*X*E' + E*X*A' + C = 0
-   with (A,E) in a generalized real Schur form. C contains on output the solution X.
-
-   glyapcs!(A,C,E,adj = true) solves the generalized continuous Lyapunov
-   matrix equation
-                   A'*X*E + E'*X*A + C = 0
-   with (A,E) in a generalized real Schur form. C contains on output the solution X.
-
-   glyapcs!(A,E,C) is equivalent to glyapcs!(A,E,C,adj = false).
-   """
+function lyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
@@ -601,20 +610,7 @@ function glyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Compl
       end
    end
 end
-function glyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
-   """
-   glyapcs!(A,C,E,adj = false) solves the generalized continuous Lyapunov
-   matrix equation
-                   A*X*E' + E*X*A' + C = 0
-   with (A,E) in a generalized complex Schur form. C contains on output the solution X.
-
-   glyapcs!(A,C,E,adj = true) solves the generalized continuous Lyapunov
-   matrix equation
-                   A'*X*E + E'*X*A + C = 0
-   with (A,E) in a generalized complex Schur form. C contains on output the solution X.
-
-   glyapcs!(A,E,C) is equivalent to glyapcs!(A,E,C,adj = false).
-   """
+function lyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -691,33 +687,16 @@ function glyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C:
 end
 
 """
-`lyapds!(A, C, adj = false)` solves the discrete Lyapunov matrix equation
+`lyapds!(A, C; adj = false)` solves the discrete Lyapunov matrix equation
 
-                AXA' + C = X
+                op(A)Xop(A)' -X + C = 0 ,
 
-with `A` in a real or complex Schur form and `C` a symmetric/hermitian matrix.
-The computed symmetric/hermitian solution `X` is contained in `C`.
-
-`lyapds!(A,C,adj = true)` solves the discrete Lyapunov matrix equation
-
-                AXA' + C = X
-
-with `A` in a real or complex Schur form. `C` contains on output the solution `X`.
-
-`lyapds!(A,C)` is equivalent to  `lyapds!(A,C,adj = false)`.
+where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
+`A` is in a real or complex Schur form and `C` a symmetric or hermitian matrix.
+`A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The computed symmetric or hermitian solution `X` is contained in `C`.
 """
 function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
-   """
-   lyapds!(A,C,adj = false) solves the discrete Lyapunov matrix equation
-                   A*X*A' + C = X
-   with A in a real Schur form. C contains on output the solution X.
-
-   lyapds(A,C,adj = true) solves the discrete Lyapunov matrix equation
-                   A'*X*A + C = X
-   with A in a real Schur form. C contains on output the solution X.
-
-   lyapds!(A,C) is equivalent to lyapds(A,C,adj = false).
-   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
@@ -849,17 +828,6 @@ function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
 end
 
 function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
-   """
-   lyapds!(A,C,adj = false) solves the discrete Lyapunov matrix equation
-                   A*X*A' + C = X
-   with A in a complex Schur form. C contains on output the solution X.
-
-   lyapds(A,C,adj = true) solves the discrete Lyapunov matrix equation
-                   A'*X*A + C = X
-   with A in a complex Schur form. C contains on output the solution X.
-
-   lyapds!(A,C) is equivalent to lyapds(A,C,adj = false).
-   """
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n  || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -920,42 +888,19 @@ function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
       end
    end
 end
-
 """
-`glyapds!(A, E, C,adj = false)` solves the generalized discrete Lyapunov
+`lyapds!(A, E, C; adj = false)` solves the generalized discrete Lyapunov
 matrix equation
 
-                A*X*A' + C = E*X*E'
+                op(A)Xop(A)' - op(E)Xop(E)' + C = 0,
 
-with `(A,E)` in a generalized real or complex Schur form and `C` a
-symmetric/hermitian matrix. The computed symmetric/hermitian solution `X`
-is contained in `C`.
-
-`glyapds!(A,E,C,adj = true)` solves the generalized discrete Lyapunov
-matrix equation
-
-                A'*X*A + C = E'*X*E
-
-with `(A,E)` in a generalized real or complex Schur form and `C` a
-symmetric/hermitian matrix. The computed symmetric/hermitian solution `X`
-is contained in `C`.
-
-`glyapds!(A,E,C)` is equivalent to `glyapds!(A,E,C,adj = false)`.
+where `op(A) = A` and `op(E) = E` if `adj = false` and `op(A) = A'` and
+`op(E) = E'` if `adj = true`. The pair `(A,E)` in a generalized real or
+complex Schur form and `C` a symmetric or hermitian matrix.
+The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function glyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
-   """
-   glyapds!(A,C,E,adj = false) solves the generalized discrete Lyapunov
-   matrix equation
-                   A*X*E' + E*X*A' + C = 0
-   with (A,E) in a generalized real Schur form. C contains on output the solution X.
-
-   glyapds!(A,C,E,adj = true) solves the generalized discrete Lyapunov
-   matrix equation
-                   A'*X*E + E'*X*A + C = 0
-   with (A,E) in a generalized real Schur form. C contains on output the solution X.
-
-   glyapds!(A,E,C) is equivalent to glyapds!(A,E,C,adj = false).
-   """
+function lyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
@@ -1116,20 +1061,7 @@ function glyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Compl
    end
 end
 
-function glyapds!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
-   """
-   glyapds!(A,C,E,adj = false) solves the generalized discrete Lyapunov
-   matrix equation
-                   A*X*E' + E*X*A' + C = 0
-   with (A,E) in a generalized complex Schur form. C contains on output the solution X.
-
-   glyapds!(A,C,E,adj = true) solves the generalized discrete Lyapunov
-   matrix equation
-                   A'*X*E + E'*X*A + C = 0
-   with (A,E) in a generalized complex Schur form. C contains on output the solution X.
-
-   glyapds!(A,E,C) is equivalent to glyapds!(A,E,C,adj = false).
-   """
+function lyapds!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n  || ~ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))

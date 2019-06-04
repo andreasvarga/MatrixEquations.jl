@@ -1,10 +1,9 @@
 """
-`utqu!(Q,U;adj = false)` computes the symmetric/hermitian product `op(U)'Qop(U)`,
-where `Q` is a symmetric/hermitian matrix, `U` is a square matrix, and
-`op(U) = U` if `adj = false` and `op(U) = U'` if `adj = true`.
+`utqu!(Q,U)` efficiently computes the symmetric/hermitian product `U'QU`,
+where `Q` is a symmetric/hermitian matrix and `U` is a square matrix.
 The resulting product overwrites `Q`.
 """
-function utqu!(Q,U;adj = false)
+function utqu!(Q,U)
    n = LinearAlgebra.checksquare(Q)
    if ~ishermitian(Q)
       error("Q must be a symmetric/hermitian matrix")
@@ -15,12 +14,10 @@ function utqu!(Q,U;adj = false)
 
    idiag = diagind(Q)
    Q[idiag] = Q[idiag]/2
-   if adj
-      #tmp = (U*UpperTriangular(triu(Q)))*U'
-      tmp = (U*UpperTriangular(Q))*U'
+   if isa(U,Adjoint)
+      tmp = U.parent*(UpperTriangular(Q)*U)
    else
-      #tmp = U'*(UpperTriangular(triu(Q))*U)
-      tmp = U'*(UpperTriangular(Q)*U)
+      tmp = Adjoint(U)*(UpperTriangular(Q)*U)
    end
    #Q = tmp+tmp'
    for j = 1:n
@@ -33,17 +30,17 @@ function utqu!(Q,U;adj = false)
    return Q
 end
 """
-`X = utqu(Q,U;adj = false)` computes `X = op(U)'Qop(U)`, where `Q` is a
-symmetric/hermitian matrix, `op(U) = U` if `adj = false` and
-`op(U) = U'` if `adj = true`.
+`X = utqu(Q,U)` efficiently computes the symmetric/hermitian product `U'QU`,
+where Q is symmetric/hermitian matrix.
 """
-function utqu(Q,U;adj = false)
+function utqu(Q,U)
    n = LinearAlgebra.checksquare(Q)
    if ~ishermitian(Q)
       error("Q must be a symmetric/hermitian matrix")
    end
+   adj = isa(U,Adjoint)
    if adj
-      m, n1 = size(U)
+      m, n1 = size(U.parent)
       if n1 != n
          throw(DimensionMismatch("U must be a matrix of column dimension $n"))
       end
@@ -58,9 +55,9 @@ function utqu(Q,U;adj = false)
    idiag = diagind(Q)
    t[idiag] = t[idiag]/2
    if adj
-      t = (U*UpperTriangular(t))*U'
+      t = U.parent*(UpperTriangular(t)*U)
    else
-      t = U'*(UpperTriangular(t)*U)
+      t = Adjoint(U)*(UpperTriangular(t)*U)
    end
    #X = t+t'
    X = similar(t)

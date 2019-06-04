@@ -7,7 +7,7 @@ using Test
 @testset "Testing algebraic Riccati equation solvers" begin
 
 
-n, p, m = 300, 50, 50
+#n, p, m = 300, 50, 50
 n, p, m = 50, 10, 10
 ar = rand(n,n)
 er = rand(n,n)

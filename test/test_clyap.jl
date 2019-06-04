@@ -25,16 +25,10 @@ reltol = eps(float(max(n,100)))
 @time x = lyapc(ac',qc);
 @test norm(ac'*x+x*ac+qc)/norm(x)/norm(ac) < reltol
 
-@time x = lyapc(ac,qc,adj=true);
-@test norm(ac'*x+x*ac+qc)/norm(x)/norm(ac)  < reltol
-
 @time x = lyapc(ar,qr)
 @test norm(ar*x+x*ar'+qr)/norm(x)/norm(ar)  < reltol
 
 @time x = lyapc(ar',qr)
-@test norm(ar'*x+x*ar+qr)/norm(x)/norm(ar) < reltol
-
-@time x = lyapc(ar,qr,adj=true)
 @test norm(ar'*x+x*ar+qr)/norm(x)/norm(ar) < reltol
 
 @time x = lyapc(ac,qr);
@@ -43,98 +37,81 @@ reltol = eps(float(max(n,100)))
 @time x = lyapc(ac',qr);
 @test norm(ac'*x+x*ac+qr)/norm(x)/norm(ac) < reltol
 
-@time x = lyapc(ac,qr,adj=true)
-@test norm(ac'*x+x*ac+qr)/norm(x)/norm(ac) < reltol
-
 @time x = lyapc(ar,qc);
 @test norm(ar*x+x*ar'+qc)/norm(x)/norm(ar) < reltol
 
 @time x = lyapc(ar',qc);
 @test norm(ar'*x+x*ar+qc)/norm(x)/norm(ar)  < reltol
 
-@time x = lyapc(ar,qc,adj = true);
-@test norm(ar'*x+x*ar+qc)/norm(x)/norm(ar)  < reltol
 end
 
 
 @testset "Continuous generalized Lyapunov equations" begin
-@time x = glyapc(ac,ec,qc);
+@time x = lyapc(ac,ec,qc);
 @test norm(ac*x*ec'+ec*x*ac'+qc)/norm(x)/norm(ac)/norm(ec) < reltol
 
-@time x = glyapc(ac',ec',qc);
+@time x = lyapc(ac',ec',qc);
 @test norm(ac'*x*ec+ec'*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
 
-@time x = glyapc(ac,ec,qc,adj=true);
-@test norm(ac'*x*ec+ec'*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
-
-@time x = glyapc(ac',ec,qc);
+@time x = lyapc(ac',ec,qc);
 @test norm(ac'*x*ec'+ec*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
 
-@time x = glyapc(ac,ec',qc);
+@time x = lyapc(ac,ec',qc);
 @test norm(ac*x*ec+ec'*x*ac'+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
 
-@time x = glyapc(ar,er,qr);
+@time x = lyapc(ar,er,qr);
 @test norm(ar*x*er'+er*x*ar'+qr)/norm(x)/norm(ar)/norm(er)  < reltol
 
-@time x = glyapc(ar',er',qr);
+@time x = lyapc(ar',er',qr);
 @test norm(ar'*x*er+er'*x*ar+qr)/norm(x)/norm(ar)/norm(er) < reltol
 
-@time x = glyapc(ar,er,qr,adj=true);
-@test norm(ar'*x*er+er'*x*ar+qr)/norm(x)/norm(ar)/norm(er) < reltol
-
-@time x = glyapc(ar',er,qr);
+@time x = lyapc(ar',er,qr);
 @test norm(ar'*x*er'+er*x*ar+qr)/norm(x)/norm(ar)/norm(er) < reltol
 
-@time x = glyapc(ar,er',qr);
+@time x = lyapc(ar,er',qr);
 @test norm(ar*x*er+er'*x*ar'+qr)/norm(x)/norm(ar)/norm(er) < reltol
 
-@time x = glyapc(ac,ec,qr);
+@time x = lyapc(ac,ec,qr);
 @test norm(ac*x*ec'+ec*x*ac'+qr)/norm(x)/norm(ac)/norm(ec)   < reltol
 
-@time x = glyapc(ac',ec',qr);
+@time x = lyapc(ac',ec',qr);
 @test norm(ac'*x*ec+ec'*x*ac+qr)/norm(x)/norm(ac)/norm(ec)   < reltol
 
-@time x = glyapc(ac,ec,qr,adj=true);
-@test norm(ac'*x*ec+ec'*x*ac+qr)/norm(x)/norm(ac)/norm(ec)   < reltol
-
-@time x = glyapc(ac',ec,qr);
+@time x = lyapc(ac',ec,qr);
 @test norm(ac'*x*ec'+ec*x*ac+qr)/norm(x)/norm(ac)/norm(ec)   < reltol
 
-@time x = glyapc(ac,ec',qr);
+@time x = lyapc(ac,ec',qr);
 @test norm(ac*x*ec+ec'*x*ac'+qr)/norm(x)/norm(ac)/norm(ec)   < reltol
 
-@time x = glyapc(ar,er,qc);
+@time x = lyapc(ar,er,qc);
 @test norm(ar*x*er'+er*x*ar'+qc)/norm(x)/norm(ar)/norm(er) < reltol
 
-@time x = glyapc(ar',er',qc);
+@time x = lyapc(ar',er',qc);
 @test norm(ar'*x*er+er'*x*ar+qc)/norm(x)/norm(ar)/norm(er) < reltol
 
-@time x = glyapc(ar,er,qc,adj=true);
-@test norm(ar'*x*er+er'*x*ar+qc)/norm(x)/norm(ar)/norm(er) < reltol
-
-@time x = glyapc(ar',er,qc);
+@time x = lyapc(ar',er,qc);
 @test norm(ar'*x*er'+er*x*ar+qc)/norm(x)/norm(ar)/norm(er) < reltol
 
-@time x = glyapc(ar,er',qc);
+@time x = lyapc(ar,er',qc);
 @test norm(ar*x*er+er'*x*ar'+qc)/norm(x)/norm(ar)/norm(er) < reltol
 end
 
 @testset "Continuous Lyapunov equations - Schur form" begin
 
 x = copy(qc)
-@time glyapcs!(acs,ecs,x);
+@time lyapcs!(acs,ecs,x);
 @test norm(acs*x*ecs'+ecs*x*acs'+qc)/norm(x)/norm(acs)/norm(ecs) < reltol
 
 x = copy(qc)
-@time glyapcs!(acs,ecs,x,adj=true);
+@time lyapcs!(acs,ecs,x,adj=true);
 @test norm(acs'*x*ecs+ecs'*x*acs+qc)/norm(x)/norm(acs)/norm(ecs) < reltol
 
 x = copy(qr)
-@time glyapcs!(as,es,x);
+@time lyapcs!(as,es,x);
 @test norm(as*x*es'+es*x*as'+qr)/norm(x)/norm(as)/norm(es) < reltol
 
 x = copy(qr)
-@time glyapcs!(as,es,x,adj=true);
+@time lyapcs!(as,es,x,adj=true);
 @test norm(as'*x*es+es'*x*as+qr)/norm(x)/norm(as)/norm(es) < reltol
 
 x = copy(qc)
@@ -146,11 +123,11 @@ x = copy(qc)
 @test norm(as*x+x*as'+qc)/norm(x)/norm(as) < reltol
 
 x = copy(qc)
-@time glyapcs!(as,es,x);
+@time lyapcs!(as,es,x);
 @test norm(as*x*es'+es*x*as'+qc)/norm(x)/norm(as)/norm(es) < reltol
 
 x = copy(qc)
-@time glyapcs!(as,es,x,adj=true);
+@time lyapcs!(as,es,x,adj=true);
 @test norm(as'*x*es+es'*x*as+qc)/norm(x)/norm(as)/norm(es) < reltol
 
 x = copy(qc)

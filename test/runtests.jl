@@ -8,6 +8,7 @@ using Test
     include("test_meutil.jl")
     include("test_riccati.jl")
     include("test_sylvester.jl")
+    include("test_sylvkr.jl")
 end
 
 end
