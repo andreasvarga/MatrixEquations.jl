@@ -2,8 +2,9 @@
 lyapc(A::T1, C::T2) where {T1<:Number,T2<:Number} = -C/(A+A')
 lyapc(A::T1, E::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = -C/(A*E'+A'*E)
 """
-`X = lyapc(A, C)` computes `X`, the symmetric or hermitian solution
-of the continuous Lyapunov equation
+    X = lyapc(A, C)
+
+Compute `X`, the symmetric or hermitian solution of the continuous Lyapunov equation
 
       AX + XA' + C = 0,
 
@@ -22,18 +23,18 @@ function lyapc(A, C)
    if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
-   realAC = isreal(A) & isreal(C)
+
+   adj = isa(A,Adjoint)
 
    # Reduce A to Schur form and transform C
-   adj = isa(A,Adjoint)
    if adj
-      if realAC
+      if (typeof(A.parent) == Array{Float64,2})
          AS, Q = schur(A.parent)
       else
          AS, Q = schur(complex(A.parent))
       end
    else
-      if realAC
+      if (typeof(A) == Array{Float64,2})
          AS, Q = schur(A)
       else
          AS, Q = schur(complex(A))
@@ -47,7 +48,9 @@ function lyapc(A, C)
    utqu!(X,Q')
 end
 """
-`X = lyapc(A, E, C)` computes `X`, the symmetric or hermitian solution of the
+    X = lyapc(A, E, C)
+
+Compute `X`, the symmetric or hermitian solution of the
 continuous generalized Lyapunov equation
 
      AXE' + EXA' + C = 0,
@@ -71,9 +74,12 @@ function lyapc(A, E, C)
    if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
       lyapc(A, C)
       return
+   else
+      if LinearAlgebra.checksquare(E) != n
+         throw(DimensionMismatch("E must be a square matrix of dimension $n"))
+      end
    end
 
-   realAEC = isreal(A) & isreal(E) & isreal(C)
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
    if adjA && ~adjE
@@ -89,13 +95,13 @@ function lyapc(A, E, C)
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
    if adj
-      if realAEC
+      if (typeof(A.parent) == Array{Float64,2}) && (typeof(E.parent) == Array{Float64,2})
          as, es, q, z = schur(A.parent,E.parent)
       else
          as, es, q, z = schur(complex(A.parent),complex(E.parent))
       end
    else
-      if realAEC
+      if (typeof(A) == Array{Float64,2}) && (typeof(E) == Array{Float64,2})
          as, es, q, z = schur(A,E)
       else
          as, es, q, z = schur(complex(A),complex(E))
@@ -119,7 +125,9 @@ end
 lyapd(A::T1, C::T2) where {T1<:Number,T2<:Number} = C/(one(C)-A'*A)
 lyapd(A::T1, E::T3, C::T2) where {T1<:Number,T2<:Number,T3<:Number} = C/(E'*E-A'*A)
 """
-`X = lyapd(A, C)` computes `X`, the symmetric or hermitian solution
+    X = lyapd(A, C)
+
+Compute `X`, the symmetric or hermitian solution
 of the discrete Lyapunov equation
 
        AXA' - X + C = 0,
@@ -145,13 +153,13 @@ function lyapd(A, C)
    # Reduce A to Schur form and transform C
    adj = isa(A,Adjoint)
    if adj
-      if realAC
+      if (typeof(A.parent) == Array{Float64,2})
          AS, Q = schur(A.parent)
       else
          AS, Q = schur(complex(A.parent))
       end
    else
-      if realAC
+      if (typeof(A) == Array{Float64,2})
          AS, Q = schur(A)
       else
          AS, Q = schur(complex(A))
@@ -165,7 +173,9 @@ function lyapd(A, C)
 end
 
 """
-`X = lyapd(A, E, C)` computes `X`, the symmetric or hermitian solution
+    X = lyapd(A, E, C)
+
+Compute `X`, the symmetric or hermitian solution
 of the discrete generalized Lyapunov equation
 
          AXA' - EXE' + C = 0,
@@ -190,9 +200,12 @@ function lyapd(A, E, C)
    if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
       lyapd(A, C)
       return
+   else
+      if LinearAlgebra.checksquare(E) != n
+         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+      end
    end
 
-   realAEC = isreal(A) & isreal(E) & isreal(C)
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
    if adjA && ~adjE
@@ -208,13 +221,13 @@ function lyapd(A, E, C)
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
    if adj
-      if realAEC
+      if  (typeof(A.parent) == Array{Float64,2}) &&  (typeof(E.parent) == Array{Float64,2})
          as, es, q, z = schur(A.parent,E.parent)
       else
          as, es, q, z = schur(complex(A.parent),complex(E.parent))
       end
    else
-      if realAEC
+      if  (typeof(A) == Array{Float64,2}) &&  (typeof(E) == Array{Float64,2})
          as, es, q, z = schur(A,E)
       else
          as, es, q, z = schur(complex(A),complex(E))
@@ -235,7 +248,9 @@ function lyapd(A, E, C)
    end
 end
 """
-`lyapcs!(A,C;adj = false)` solves the continuous Lyapunov matrix equation
+    lyapcs!(A,C;adj = false)
+
+Solve the continuous Lyapunov matrix equation
 
                 op(A)X + Xop(A)' + C = 0
 
@@ -438,8 +453,9 @@ function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
    end
 end
 """
-`lyapcs!(A, E, C; adj = false)` solves the generalized continuous Lyapunov
-matrix equation
+    lyapcs!(A, E, C; adj = false)
+
+Solve the generalized continuous Lyapunov matrix equation
 
                 op(A)Xop(E)' + op(E)Xop(A)' + C = 0
 
@@ -457,9 +473,10 @@ function lyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
    if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
       lyapcs!(A, C, adj = adj)
       return
-   end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   else
+      if LinearAlgebra.checksquare(E) != n
+         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+      end
    end
 
    # determine the structure of the generalized real Schur form
@@ -618,10 +635,12 @@ function lyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
    if (E == I) || isempty(E) ||  (isone(E) && size(E,1) == n)
       lyapcs!(A, C, adj = adj)
       return
+   else
+      if LinearAlgebra.checksquare(E) != n
+         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+      end
    end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-   end
+
 
    W = Array{Complex{Float64},1}(undef,n)
    # Compute the hermitian solution
@@ -687,7 +706,9 @@ function lyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
 end
 
 """
-`lyapds!(A, C; adj = false)` solves the discrete Lyapunov matrix equation
+    lyapds!(A, C; adj = false)
+
+Solve the discrete Lyapunov matrix equation
 
                 op(A)Xop(A)' -X + C = 0 ,
 
@@ -889,8 +910,9 @@ function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
    end
 end
 """
-`lyapds!(A, E, C; adj = false)` solves the generalized discrete Lyapunov
-matrix equation
+    lyapds!(A, E, C; adj = false)
+
+Solve the generalized discrete Lyapunov matrix equation
 
                 op(A)Xop(A)' - op(E)Xop(E)' + C = 0,
 
@@ -908,9 +930,10 @@ function lyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
    if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
       lyapds!(A, C, adj = adj)
       return
-   end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   else
+      if LinearAlgebra.checksquare(E) != n
+         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+      end
    end
 
    # determine the structure of the real Schur form
@@ -1069,9 +1092,10 @@ function lyapds!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
    if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
       lyapds!(A, C, adj = adj)
       return
-   end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   else
+      if LinearAlgebra.checksquare(E) != n
+         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+      end
    end
 
    W = Array{Complex{Float64},1}(undef,n)

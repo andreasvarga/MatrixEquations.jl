@@ -9,6 +9,8 @@ using Test
     include("test_riccati.jl")
     include("test_sylvester.jl")
     include("test_sylvkr.jl")
+    include("test_cplyap.jl")
+    include("test_dplyap.jl")
 end
 
 end

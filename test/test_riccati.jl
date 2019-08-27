@@ -8,12 +8,12 @@ using Test
 
 
 #n, p, m = 300, 50, 50
-n, p, m = 50, 10, 10
-ar = rand(n,n)
+n, p, m = 30, 10, 10
+ar = randn(n,n)
 er = rand(n,n)
 br = rand(n,m)
 cr = rand(p,n)
-ac = ar+im*rand(n,n)
+ac = randn(n,n) + im*randn(n,n)
 ec = er+im*rand(n,n)
 cc = rand(p,n)+im*rand(p,n)
 bc = rand(n,m)+im*rand(n,m)
@@ -27,8 +27,8 @@ gc = bc*bc'
 gr = br*br'
 rr = rr1*rr1'
 rc = rc1*rc1'
-sc = cc'/10
-sr = cr'/10
+sc = cc'/100
+sr = cr'/100
 
 @testset "Continuous Riccati equation" begin
 @time x, clseig = arec(ar,qr,gr)
@@ -63,6 +63,8 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ac-gr*x))))/norm(clseig)  < rtol
 end
 
 @testset "Continuous control Riccati equation" begin
+
+
 @time x, clseig, f = arec(ar,br,qr,rr)
 @test norm(ar'*x+x*ar-x*br*inv(rr)*br'*x+qr)/norm(x)  < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(clseig)  < rtol &&
@@ -85,6 +87,7 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f))))/norm(clseig)  < rtol
 end
 
 @testset "Generalized continuous control Riccati equation" begin
+
 @time x, clseig, f = garec(ar,er,br,qr,rr,sr)
 @test norm(ar'*x*er+er'*x*ar-(er'x*br+sr)*inv(rr)*(br'*x*er+sr')+qr)/norm(x) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f,er))))/norm(clseig)  < rtol &&

@@ -1,5 +1,7 @@
 """
-`utqu!(Q,U)` efficiently computes the symmetric/hermitian product `U'QU`,
+    utqu!(Q,U) -> Q
+
+Compute efficiently the symmetric/hermitian product `U'QU -> Q`,
 where `Q` is a symmetric/hermitian matrix and `U` is a square matrix.
 The resulting product overwrites `Q`.
 """
@@ -30,7 +32,9 @@ function utqu!(Q,U)
    return Q
 end
 """
-`X = utqu(Q,U)` efficiently computes the symmetric/hermitian product `U'QU`,
+    X = utqu(Q,U)
+
+Compute efficiently the symmetric/hermitian product `X = U'QU`,
 where Q is symmetric/hermitian matrix.
 """
 function utqu(Q,U)
@@ -69,4 +73,77 @@ function utqu(Q,U)
       end
    end
    return X
+end
+
+"""
+    qrupdate!(R, Y) -> R
+
+Update the upper triangular factor `R` by the
+upper triangular factor of the QR factorization  of `[ R; Y' ]`, where `Y` is a
+low-rank matrix `Y` (typically with one or two columns). The computation of `R`
+only uses `O(n^2)` operations (`n` is the size of `R`). The input matrix `R` is
+updated in place and the matrix `Y` is destroyed during the computation.
+"""
+function qrupdate!(R, Y)
+    n, m = size(Y)
+    if size(R, 1) != n
+      throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
+    end
+    #Y = conj(Y)
+    for k = 1:m
+        for i = 1:n
+
+            # Compute Givens rotation
+            #c, s, r = LinearAlgebra.givensAlgorithm(R[i,i], conj(Y[i,k]))
+            c, s, r = LinearAlgebra.givensAlgorithm(R[i,i], Y[i,k])
+
+            # Store new diagonal element
+            R[i,i] = r
+
+            # Update remaining elements in row/column
+            for j = i + 1:n
+                Rij = R[i,j]
+                yjk  = Y[j,k]
+                R[i,j]  =   c*Rij + s*yjk
+                Y[j,k]    = -s'*Rij + c*yjk
+            end
+        end
+    end
+    return R
+end
+"""
+
+    rqupdate!(R, Y) -> R
+
+Update the upper triangular factor `R` by the
+upper triangular factor of the RQ factorization  of `[ Y R]`, where `Y` is a
+low-rank matrix `Y` (typically with one or two columns). The computation of `R`
+only uses `O(n^2)` operations (`n` is the size of `R`). The input matrix `R` is
+updated in place and the matrix `Y` is destroyed during the computation.
+"""
+function rqupdate!(R, Y)
+    n, m = size(Y)
+    if size(R, 1) != n
+        throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
+    end
+
+    for k = 1:m
+        for j = n:-1:1
+
+            # Compute Givens rotation
+            c, s, r = LinearAlgebra.givensAlgorithm(R[j,j], Y[j,k])
+
+            # Store new diagonal element
+            R[j,j] = r
+
+            # Update remaining elements in row/column
+            for i = 1: j - 1
+                Rij = R[i,j]
+                yik  = Y[i,k]
+                R[i,j]  =   c*Rij + s*yik
+                Y[i,k]    = -s'*Rij + c*yik
+            end
+        end
+    end
+    return R
 end

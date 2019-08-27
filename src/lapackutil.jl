@@ -79,7 +79,9 @@ for (fn, elty, relty) in ((:dtgsyl_, :Float64, :Float64),
 end
 
 """
-`tgsyl!(A, B, C, D, E, F) -> (C, F, scale)` solves the Sylvester system of
+    tgsyl!(A, B, C, D, E, F) -> (C, F, scale)
+
+Solve the Sylvester system of
 matrix equations
 
       AX - YB = scale*C
@@ -91,8 +93,10 @@ generalized (real) Schur canonical form, i.e. `A`, `B` are upper quasi
 triangular and `D`, `E` are upper triangular.
 Returns `X` (overwriting `C`), `Y` (overwriting `F`) and `scale`.
 
-tgsyl!(trans, A, B, C, D, E, F) -> (C, F, scale)` solves for trans = 'T' and
-real matrices or for trans = 'C' and complex matrices,  the (transposed) Sylvester
+    tgsyl!(trans, A, B, C, D, E, F) -> (C, F, scale)
+
+Solve for `trans = 'T'` and
+real matrices or for `trans = 'C'` and complex matrices,  the (transposed) Sylvester
 system of matrix equations
 
       A'X + D'Y = scale*C
@@ -105,5 +109,83 @@ tgsyl!(trans::AbstractChar,A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatr
 tgsyl!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix, F::AbstractMatrix) =
 tgsyl!('N',A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix, F::AbstractMatrix)
 
+"""
+    lanv2(A, B, C, D) -> (RT1R, RT1I, RT2R, RT2I, CS, SN)
+
+Compute the Schur factorization of a real 2-by-2 nonsymmetric matrix in
+standard form. Interface to the LAPACK subroutine DLANV2.
+"""
+function lanv2(A::Float64, B::Float64, C::Float64, D::Float64)
+    """
+    SUBROUTINE DLANV2( A, B, C, D, RT1R, RT1I, RT2R, RT2I, CS, SN )
+
+    DOUBLE PRECISION A, B, C, CS, D, RT1I, RT1R, RT2I, RT2R, SN
+    """
+    RT1R = Ref{Float64}(1.0)
+    RT1I = Ref{Float64}(1.0)
+    RT2R = Ref{Float64}(1.0)
+    RT2I = Ref{Float64}(1.0)
+    CS = Ref{Float64}(1.0)
+    SN = Ref{Float64}(1.0)
+    ccall((@blasfunc("dlanv2_"), liblapack), Cvoid,
+          (Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},
+           Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64}),
+           A, B, C, D,
+           RT1R, RT1I, RT2R, RT2I, CS, SN)
+    return RT1R[], RT1I[], RT2R[], RT2I[], CS[], SN[]
+end
+
+"""
+    lag2(A, B, SAFMIN) -> (SCALE1, SCALE2, WR1, WR2, WI)
+
+
+Compute the eigenvalues of a 2-by-2 generalized eigenvalue problem, with scaling
+ as necessary to avoid over-/underflow. Interface to the LAPACK subroutine DLAG2.
+
+"""
+function lag2(A::StridedMatrix{Float64}, B::StridedMatrix{Float64}, SAFMIN::Float64)
+    """
+    SUBROUTINE DLAG2( A, LDA, B, LDB, SAFMIN, SCALE1, SCALE2, WR1, WR2, WI )
+
+    INTEGER            LDA, LDB
+    DOUBLE PRECISION   SAFMIN, SCALE1, SCALE2, WI, WR1, WR2
+    DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
+    """
+    LDA = stride(A,2)
+    LDB = stride(B,2)
+    SCALE1 = Ref{Float64}(1.0)
+    SCALE2 = Ref{Float64}(1.0)
+    WR1 = Ref{Float64}(1.0)
+    WR2 = Ref{Float64}(1.0)
+    WI = Ref{Float64}(1.0)
+    ccall((@blasfunc("dlag2_"), liblapack), Cvoid,
+          (Ptr{Float64}, Ref{BlasInt}, Ptr{Float64}, Ref{BlasInt}, Ref{Float64},
+           Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64}),
+           A, LDA, B, LDB, SAFMIN,
+           SCALE1, SCALE2, WR1, WR2, WI)
+    return SCALE1[], SCALE2[], WR1[], WR2[], WI[]
+end
+
+"""
+   ladiv(A, B, C, D) -> (P, Q)
+
+Performs complex division in real arithmetic, avoiding unnecessary overflow.
+Interface to the LAPACK subroutine DLADIV.
+"""
+function ladiv(A::Float64, B::Float64, C::Float64, D::Float64)
+    """
+    SUBROUTINE DLADIV( A, B, C, D, P, Q )
+
+    DOUBLE PRECISION   A, B, C, D, P, Q
+    """
+    P = Ref{Float64}(1.0)
+    Q = Ref{Float64}(1.0)
+    ccall((@blasfunc("dladiv_"), liblapack), Cvoid,
+          (Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},
+           Ref{Float64},Ref{Float64}),
+           A, B, C, D,
+           P, Q)
+    return P[], Q[]
+end
 
 end

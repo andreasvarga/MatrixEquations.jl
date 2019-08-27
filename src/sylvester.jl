@@ -1,6 +1,8 @@
 sylvc(A::T1, B::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = C/(A+B)
 """
-`X = sylvc(A,B,C)` solves the continuous Sylvester matrix equation
+    X = sylvc(A,B,C)
+
+Solve the continuous Sylvester matrix equation
 
                 AX + XB = C
 
@@ -17,8 +19,14 @@ function sylvc(A,B,C)
    if [m; n] != LinearAlgebra.checksquare(A,B)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
-   realcase = isreal(A) && isreal(B) && isreal(C)
-   if isa(A,Adjoint)
+   adjA = isa(A,Adjoint)
+   adjB = isa(B,Adjoint)
+   adjC = isa(C,Adjoint)
+   realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
+   realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
+   realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
+   realcase = realA && realB && realC
+   if adjA
       if realcase
          RA, QA = schur(A.parent)
          TA = 'T'
@@ -34,7 +42,7 @@ function sylvc(A,B,C)
       end
       TA = 'N'
    end
-   if isa(B,Adjoint)
+   if adjB
       if realcase
          RB, QB = schur(B.parent)
          TB = 'T'
@@ -51,12 +59,14 @@ function sylvc(A,B,C)
       TB = 'N'
    end
    D = adjoint(QA) * (C*QB)
-   Y, scale = LAPACK.trsyl!(TA,TB, RA, RB, D)
+   Y, scale = LAPACK.trsyl!(TA, TB, RA, RB, D)
    rmul!(QA*(Y * adjoint(QB)), inv(scale))
 end
 sylvd(A::T1, B::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = C/(A*B+one(C))
 """
-`X = sylvd(A,B,C)` solves the discrete Sylvester matrix equation
+    X = sylvd(A,B,C)
+
+Solves the discrete Sylvester matrix equation
 
                 AXB + X = C
 
@@ -74,9 +84,13 @@ function sylvd(A,B,C)
    if [m; n] != LinearAlgebra.checksquare(A,B)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
-   realcase = isreal(A) && isreal(B) && isreal(C)
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
+   adjC = isa(C,Adjoint)
+   realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
+   realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
+   realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
+   realcase = realA && realB && realC
    if adjA
       if realcase
          RA, QA = schur(A.parent)
@@ -108,7 +122,9 @@ function sylvd(A,B,C)
    QA*(Y * adjoint(QB))
 end
 """
-`X = gsylv(A,B,C,D,E)` solves the generalized Sylvester matrix equation
+    X = gsylv(A,B,C,D,E)
+
+Solve the generalized Sylvester matrix equation
 
                 AXB + CXD = E
 
@@ -122,9 +138,20 @@ function gsylv(A,B,C,D,E)
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
     end
-    realcase = isreal(A) && isreal(B) && isreal(C) && isreal(D) && isreal(E)
-    adjAC = isa(A,Adjoint) && isa(C,Adjoint)
-    adjBD = isa(B,Adjoint) && isa(D,Adjoint)
+    adjA = isa(A,Adjoint)
+    adjB = isa(B,Adjoint)
+    adjC = isa(C,Adjoint)
+    adjD = isa(D,Adjoint)
+    adjE = isa(E,Adjoint)
+    realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
+    realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
+    realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
+    realD =  ( adjD && (typeof(D.parent) == Array{Float64,2})) || (!adjD && (typeof(D) == Array{Float64,2}))
+    realE =  ( adjE && (typeof(E.parent) == Array{Float64,2})) || (!adjE && (typeof(E) == Array{Float64,2}))
+    realcase = realA && realB && realC && realD && realE
+    adjAC = adjA && adjC
+    adjBD = adjB && adjD
+
     if adjAC
        if realcase
           AS, CS, Z1, Q1 = schur(A.parent,C.parent)
@@ -132,10 +159,10 @@ function gsylv(A,B,C,D,E)
           AS, CS, Z1, Q1 = schur(complex(A.parent),complex(C.parent))
        end
     else
-       if isa(A,Adjoint)
+       if adjA
           A = copy(A)
        end
-       if isa(C,Adjoint)
+       if adjC
           C = copy(C)
        end
        if realcase
@@ -151,10 +178,10 @@ function gsylv(A,B,C,D,E)
           BS, DS, Z2, Q2 = schur(complex(B.parent),complex(D.parent))
        end
     else
-      if isa(B,Adjoint)
+      if adjB
           B = copy(BLAS)
       end
-      if isa(D,Adjoint)
+      if adjD
           D = copy(D)
       end
        if realcase
@@ -168,8 +195,9 @@ function gsylv(A,B,C,D,E)
     Z1*(Y * adjoint(Q2))
 end
 """
-`(X,Y) = sylvsys(A,B,C,D,E,F)` solves the Sylvester system of
-matrix equations
+    (X,Y) = sylvsys(A,B,C,D,E,F)
+
+Solve the Sylvester system of matrix equations
 
                 AX + YB = C
                 DX + YE = F,
@@ -198,7 +226,9 @@ function sylvsys(A,B,C,D,E,F)
     if isa(E,Adjoint)
       E = copy(E)
     end
-    if isreal(A) && isreal(B) && isreal(C) && isreal(D) && isreal(E) && isreal(F)
+    if (typeof(A) == Array{Float64,2}) && (typeof(B) == Array{Float64,2}) &&
+       (typeof(C) == Array{Float64,2}) && (typeof(D) == Array{Float64,2}) &&
+       (typeof(E) == Array{Float64,2}) && (typeof(F) == Array{Float64,2})
        AS, DS, Q1, Z1 = schur(A,D)
        BS, ES, Q2, Z2 = schur(B,E)
     else
@@ -213,8 +243,9 @@ function sylvsys(A,B,C,D,E,F)
     (rmul!(Z1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Q2)), inv(-scale)) )
 end
 """
-`(X,Y) = dsylvsys(A,B,C,D,E,F)` solves the dual Sylvester system of
-matrix equations
+    (X,Y) = dsylvsys(A,B,C,D,E,F)
+
+Solve the dual Sylvester system of matrix equations
 
        AX + DY = C
        XB + YE = F ,
@@ -231,8 +262,20 @@ function dsylvsys(A,B,C,D,E,F)
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,D,E)
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
     end
-    realcase = isreal(A) & isreal(B) & isreal(C) & isreal(D) & isreal(E) & isreal(F)
-    transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
+    adjA = isa(A,Adjoint)
+    adjB = isa(B,Adjoint)
+    adjC = isa(C,Adjoint)
+    adjD = isa(D,Adjoint)
+    adjE = isa(E,Adjoint)
+    adjF = isa(F,Adjoint)
+    realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
+    realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
+    realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
+    realD =  ( adjD && (typeof(D.parent) == Array{Float64,2})) || (!adjD && (typeof(D) == Array{Float64,2}))
+    realE =  ( adjE && (typeof(E.parent) == Array{Float64,2})) || (!adjE && (typeof(E) == Array{Float64,2}))
+    realF =  ( adjF && (typeof(F.parent) == Array{Float64,2})) || (!adjF && (typeof(F) == Array{Float64,2}))
+    realcase = realA && realB && realC && realD && realE && realF
+    transsylv = adjA && adjB && adjD && adjE
     if transsylv
        if realcase
           AS, DS, Q1, Z1 = schur(A.parent,D.parent)
@@ -268,8 +311,9 @@ function dsylvsys(A,B,C,D,E,F)
     end
 end
 """
-`sylvds!(A,B,C; adjA = false, adjB = false)` solves the discrete Sylvester
-matrix equation
+    sylvds!(A,B,C; adjA = false, adjB = false)
+
+Solve the discrete Sylvester matrix equation
 
                 op(A)Xop(B) + X =  C
 
@@ -278,7 +322,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::Array{Float64,2}, B::Array{Float64,2}, C::Array{Float64,2}; adjA = false, adjB = false)
+function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:AbstractMatrix{Float64}}
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -499,7 +543,7 @@ function sylvds!(A::Array{Float64,2}, B::Array{Float64,2}, C::Array{Float64,2}; 
    end
    return C
 end
-function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Array{Complex{Float64},2}}
+function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:AbstractMatrix{Complex{Float64}}}
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -662,20 +706,26 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Array{C
    return C
 end
 """
-`X = gsylvs!(A,B,C,D,E;adjAC=false,adjBD=false)` solves the generalized
-Sylvester matrix equation
+    X = gsylvs!(A,B,C,D,E;adjAC=false,adjBD=false)
 
-                op1(A)Xop2(B) + op1(C)Xop2(D) = E ,
+Solve the generalized Sylvester matrix equation
+
+                op1(A)Xop2(B) + op1(C)Xop2(D) = E,
 
 where `A`, `B`, `C` and `D` are square matrices, and
-op1(A) = A and op1(C) = C if adjAC = false;
-op1(A) = A' and op1(C) = C' if adjAC = true;
-op2(B) = B and op2(D) = D if adjBD = false;
-op2(B) = B' and op2(D) = D' if adjBD = true.
-The matrix pairs (A,C) and (B,D) are in generalized real or complex Schur forms.
+
+`op1(A) = A` and `op1(C) = C` if `adjAC = false`;
+
+`op1(A) = A'` and `op1(C) = C'` if `adjAC = true`;
+
+`op2(B) = B` and `op2(D) = D` if `adjBD = false`;
+
+`op2(B) = B'` and `op2(D) = D'` if `adjBD = true`.
+
+The matrix pairs `(A,C)` and `(B,D)` are in generalized real or complex Schur forms.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) where {T<:Array{Float64,2}}
+function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) where {T<:AbstractMatrix{Float64}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -943,7 +993,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
    end
    return E
 end
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) where {T<:Array{Complex{Float64},2}}
+function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) where {T<:AbstractMatrix{Complex{Float64}}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 

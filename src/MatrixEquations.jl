@@ -3,8 +3,10 @@ module MatrixEquations
 using LinearAlgebra
 using LapackUtil
 
-export utqu, utqu!
+export utqu, utqu!, qrupdate!, rqupdate!
+export lanv2, ladiv, lag2
 export lyapc, lyapd, lyapcs!, lyapds!
+export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2, pglyap2
 export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvds!, gsylvs!
 export sylvsys, dsylvsys, tgsyl!
@@ -16,4 +18,5 @@ include("lyapunov.jl")
 include("riccati.jl")
 include("lapackutil.jl")
 include("sylvkr.jl")
+include("plyapunov.jl")
 end

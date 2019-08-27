@@ -1,13 +1,15 @@
 """
-`arec(A, Q, R) -> (X, EVALS)` computes `X`, the hermitian/symmetric stabilizing
-solution of the continuous-time algebraic Riccati equation
+    arec(A, Q, R) -> (X, EVALS)
+
+Compute `X`, the hermitian/symmetric stabilizing solution of the continuous-time
+algebraic Riccati equation
 
      A' X + X A - XRX + Q = 0,
 
 where `Q` and `R` are hermitian/symmetric matrices.
 `EVALS` is a vector containing the (stable) eigenvalues of `A-RX`.
 
-Reference:
+`Reference:`
 Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
 IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 """
@@ -34,8 +36,10 @@ function arec(A, Q, R)
 end
 
 """
-`arec(A, B, R, Q, S) -> (X, EVALS, F)` computes `X`, the hermitian/symmetric
-stabilizing solution of the continuous-time algebraic Riccati equation
+    arec(A, B, R, Q, S) -> (X, EVALS, F)
+
+Computes `X`, the hermitian/symmetric stabilizing solution of the continuous-time
+ algebraic Riccati equation
 
      A' X + X A - (XB+S)R^(-1)(B'X+S') + Q = 0,
 
@@ -43,7 +47,7 @@ where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular.
 `EVALS` is a vector containing the (stable) eigenvalues of `A-BF`.
 `F` is the stabilizing gain matrix `F = R^(-1)(B'X+S')`.
 
-Reference:
+`Reference:`
 Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
 IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 """
@@ -99,17 +103,19 @@ function arec(A, B, Q, R, S = 0)
 end
 
 """
-`garec(A, E, B, Q, R, S) -> (X, EVALS, F)` computes `X`, the hermitian/symmetric
+    garec(A, E, B, Q, R, S) -> (X, EVALS, F)
+
+Compute `X`, the hermitian/symmetric
 stabilizing solution of the generalized continuous-time algebraic Riccati equation
 
-   A'XE + E'XA - (A'XB+S)R^(-1)(B'XA+S') + Q = 0 ,
+    A'XE + E'XA - (A'XB+S)R^(-1)(B'XA+S') + Q = 0 ,
 
 where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular, and
 `E` is a nonsingular matrix.
 `EVALS` is a vector containing the (stable) generalized eigenvalues of the pair `(A-BF,E)`.
 `F` is the stabilizing gain matrix `F = R^(-1)(B'XE+S')`.
 
-Reference:
+`Reference:`
 W.F. Arnold, III and A.J. Laub,
 Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
 Proc. IEEE, 72:1746-1754, 1984.
@@ -176,8 +182,7 @@ function garec(A, E, B, Q, R, S = 0)
     L11 = [ A zeros(n,n) B; -Q -A' -S]*z
     P11 = [ E zeros(n,n); zeros(n,n) E']*z[iric,:]
     LPS = schur(L11,P11)
-    select = (real.(LPS.α ./ LPS.β) .<= -sqrt(eps(1.)));
-
+    select = real.(LPS.α ./ LPS.β) .< 0.
     if n !== length(filter(y-> y == true,select))
        error("The extended simplectic pencil is not dichotomic")
     end
@@ -202,7 +207,9 @@ end
 
 
 """
-`gared(A, E, B, Q, R, S) -> (X, EVALS, F)` computes `X`, the hermitian/symmetric
+    gared(A, E, B, Q, R, S) -> (X, EVALS, F)
+
+Compute `X`, the hermitian/symmetric
 stabilizing solution of the generalized discrete-time algebraic Riccati equation
 
     A'XA - E'XE - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0,
@@ -211,7 +218,7 @@ where `Q` and `R` are hermitian/symmetric matrices.
 `EVALS` is a vector containing the (stable) generalized eigenvalues of the pair `(A-BF,E)`.
 `F` is the stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
 
-Reference:
+`Reference:`
 W.F. Arnold, III and A.J. Laub,
 Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
 Proc. IEEE, 72:1746-1754, 1984.
@@ -273,7 +280,7 @@ function gared(A, E, B, Q, R, S = 0)
 
     iric = 1:n2
     PLS = schur(P1[iric,iric],L1[iric,iric])
-    select = abs.(PLS.α) .> abs.((1-sqrt(eps(1.)))*PLS.β)
+    select = abs.(PLS.α) .> abs.(PLS.β)
 
     if n !== length(filter(y-> y == true,select))
        error("The extended simplectic pencil is not dichotomic")
@@ -298,7 +305,9 @@ end
 
 
 """
-`ared(A, B, Q, R,S) -> (X, EVALS, F)` computes `X`, the hermitian/symmetric
+    ared(A, B, Q, R, S) -> (X, EVALS, F)
+
+Computes `X`, the hermitian/symmetric
 stabilizing solution of the discrete-time algebraic Riccati equation
 
      A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0,
@@ -307,7 +316,7 @@ where `Q` and `R` are hermitian/symmetric matrices.
 `EVALS` is a vector containing the (stable) generalized eigenvalues of `A-BF`.
 `F` is the stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
 
-Reference:
+`Reference:`
 W.F. Arnold, III and A.J. Laub,
 Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
 Proc. IEEE, 72:1746-1754, 1984.
