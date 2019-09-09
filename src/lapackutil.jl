@@ -81,8 +81,7 @@ end
 """
     tgsyl!(A, B, C, D, E, F) -> (C, F, scale)
 
-Solve the Sylvester system of
-matrix equations
+Solve the Sylvester system of matrix equations
 
       AX - YB = scale*C
       DX - YE = scale*F ,
@@ -95,9 +94,8 @@ Returns `X` (overwriting `C`), `Y` (overwriting `F`) and `scale`.
 
     tgsyl!(trans, A, B, C, D, E, F) -> (C, F, scale)
 
-Solve for `trans = 'T'` and
-real matrices or for `trans = 'C'` and complex matrices,  the (transposed) Sylvester
-system of matrix equations
+Solve for `trans = 'T'` and real matrices or for `trans = 'C'` and complex
+matrices,  the (adjoint) Sylvester system of matrix equations
 
       A'X + D'Y = scale*C
       XB' + YE' = scale*(-F) .
@@ -112,8 +110,11 @@ tgsyl!('N',A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractM
 """
     lanv2(A, B, C, D) -> (RT1R, RT1I, RT2R, RT2I, CS, SN)
 
-Compute the Schur factorization of a real 2-by-2 nonsymmetric matrix in
-standard form. Interface to the LAPACK subroutine DLANV2.
+Compute the Schur factorization of a real 2-by-2 nonsymmetric matrix [A,B;C,D] in
+standard form. A, B, C, D are overwritten on output by the corresponding elements of the
+standardised Schur form. RT1R+im*RT1I and RT2R+im*RT2I are the resulting eigenvalues.
+CS and SN are the parameters of the rotation matrix.
+Interface to the LAPACK subroutine DLANV2.
 """
 function lanv2(A::Float64, B::Float64, C::Float64, D::Float64)
     """
@@ -138,9 +139,12 @@ end
 """
     lag2(A, B, SAFMIN) -> (SCALE1, SCALE2, WR1, WR2, WI)
 
-
-Compute the eigenvalues of a 2-by-2 generalized eigenvalue problem, with scaling
- as necessary to avoid over-/underflow. Interface to the LAPACK subroutine DLAG2.
+Compute the eigenvalues of a 2-by-2 generalized real eigenvalue problem for
+the matrix pair `(A,B)`, with scaling as necessary to avoid over-/underflow.
+SAFMIN is the smallest positive number s.t. 1/SAFMIN does not overflow.
+If WI = 0, WR1/SCALE1 and WR2/SCALE2 are the resulting real eigenvalues, while
+if WI <> 0, then (WR1+/-im*WI)/SCALE1 are the resuting complex eigenvalues.
+Interface to the LAPACK subroutine DLAG2.
 
 """
 function lag2(A::StridedMatrix{Float64}, B::StridedMatrix{Float64}, SAFMIN::Float64)
@@ -167,9 +171,13 @@ function lag2(A::StridedMatrix{Float64}, B::StridedMatrix{Float64}, SAFMIN::Floa
 end
 
 """
-   ladiv(A, B, C, D) -> (P, Q)
+    ladiv(A, B, C, D) -> (P, Q)
 
-Performs complex division in real arithmetic, avoiding unnecessary overflow.
+Perform the complex division in real arithmetic
+
+  ``P + iQ = \\displaystyle\\frac{A+iB}{C+iD}``
+
+by avoiding unnecessary overflow.
 Interface to the LAPACK subroutine DLADIV.
 """
 function ladiv(A::Float64, B::Float64, C::Float64, D::Float64)

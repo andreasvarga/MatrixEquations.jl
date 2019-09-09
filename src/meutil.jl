@@ -35,7 +35,7 @@ end
     X = utqu(Q,U)
 
 Compute efficiently the symmetric/hermitian product `X = U'QU`,
-where Q is symmetric/hermitian matrix.
+where Q is a symmetric/hermitian matrix.
 """
 function utqu(Q,U)
    n = LinearAlgebra.checksquare(Q)

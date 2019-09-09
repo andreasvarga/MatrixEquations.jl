@@ -1,5 +1,7 @@
 """
-`X = sylvckr(A,B,C)` solves the continuous Sylvester matrix equation
+    X = sylvckr(A,B,C)
+
+Solve the continuous Sylvester matrix equation
 
                 AX + XB = C
 
@@ -17,7 +19,9 @@ function sylvckr(A,B,C)
             kron(transpose(B),Array{eltype(B),2}(I,m,m)))\(C[:]),m,n)
 end
 """
-`X = sylvdkr(A,B,C)` solves the discrete Sylvester matrix equation
+    X = sylvdkr(A,B,C)
+
+Solve the discrete Sylvester matrix equation
 
                 AXB + X = C
 
@@ -34,7 +38,9 @@ function sylvdkr(A,B,C)
     reshape((kron(transpose(B),A)+I)\(C[:]),m,n)
 end
 """
-`X = gsylvkr(A,B,C,D,E)` solves the generalized Sylvester matrix equation
+    X = gsylvkr(A,B,C,D,E)
+
+Solve the generalized Sylvester matrix equation
 
                 AXB + CXD = E
 
@@ -52,8 +58,9 @@ function gsylvkr(A,B,C,D,E)
     reshape((kron(transpose(B),A)+kron(transpose(D),C))\(E[:]),m,n)
 end
 """
-`(X,Y) = sylvsyskr(A,B,C,D,E,F)` solves the Sylvester system of
-matrix equations
+    sylvsyskr(A,B,C,D,E,F) -> (X,Y)
+
+Solve the Sylvester system of matrix equations
 
                 AX + YB = C
                 DX + YE = F,
@@ -77,15 +84,16 @@ function sylvsyskr(A,B,C,D,E,F)
     (reshape(z[1:m*n],m,n),reshape(z[m*n+1:end],m,n))
 end
 """
-`(X,Y) = dsylvsyskr(A,B,C,D,E,F)` solves the dual Sylvester system of
-matrix equations
+    dsylvsyskr(A,B,C,D,E,F) -> (X,Y)
+
+Solve the dual Sylvester system of matrix equations
 
        AX + DY = C
        XB + YE = F ,
 
 using the Kronecker product expansion of equations, where `(A,D)`, `(B,E)` are
 pairs of square matrices of same size.
-The pencils `A-λD` and `-isgn*(B-λE)` must be regular and must not have common eigenvalues.
+The pencils `A-λD` and `(-B+λE)` must be regular and must not have common eigenvalues.
 This function is not recommended for large order matrices.
 """
 function dsylvsyskr(A,B,C,D,E,F)
