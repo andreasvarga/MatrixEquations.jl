@@ -5,8 +5,8 @@ version = "0.8.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LinearOperators = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 julia = "1.1"
-
