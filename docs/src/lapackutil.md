@@ -1,8 +1,8 @@
 # Lapack Utilities
 ```@docs
-tgsyl!
-lanv2
-lag2
-ladiv
-lacn2!
+MatrixEquations.LapackUtil.tgsyl!
+MatrixEquations.LapackUtil.lanv2
+MatrixEquations.LapackUtil.lag2
+MatrixEquations.LapackUtil.ladiv
+MatrixEquations.LapackUtil.lacn2!
 ```
