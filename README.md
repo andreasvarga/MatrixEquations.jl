@@ -12,8 +12,7 @@ practically same performance level for real data.
 
 The available functions in the `MatrixEquation.jl` package cover both standard
 and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data. The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure
-exploiting solvers for which the input data are in Schur or generalized Schur forms.
-The implementation of Riccati equation solvers employ orthogonal Schur vectors
+exploiting solvers for which the input data are in Schur or generalized Schur forms. A comprehensive set of Lyapunov and Sylvester operators has been implemented, which allow the estimation of condition numbers of these operators. The implementation of Riccati equation solvers employ orthogonal Schur vectors
 based methods and their extensions to linear matrix pencil based reduction approaches. The calls of all functions with adjoint (in complex case) or transposed (in real case) arguments are fully supported by appropriate computational algorithms, thus the matrix copying operations are mostly avoided.  This contrasts with the current practice used in Julia (up to v1.1), where operations on adjoint or transposed matrices often fails (see, for example, the Linear Algebra functions [lyap](https://docs.julialang.org/en/v1.1/stdlib/LinearAlgebra/#LinearAlgebra.lyap) and [sylvester](https://docs.julialang.org/en/v1.1/stdlib/LinearAlgebra/#LinearAlgebra.sylvester)).   
 
 The current version of the package includes the following functions:
@@ -42,7 +41,14 @@ The current version of the package includes the following functions:
    * **sylvsys**	 Solution of the Sylvester system of matrix equations `AX+YB = C, DX+YE = F`.
    * **dsylvsys**	 Solution of the dual Sylvester system of matrix equations `AX+DY = C, XB+YE = F`.
 
-The above general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
+   **Norm, condition and separation estimation**
+   * **opnormest** Estimation of 1-norm of a linear operator.
+   * **oprcondest** Estimation of the reciprocal 1-norm condition number of an operator.
+   * **lyapsepest** Estimation of the separations of Lyapunov operators.
+   * **sylvsepest** Estimation of the separations of Sylvester operators.
+   * **sylvsyssepest** Estimation of the separation of a Sylvester system operator.
+
+The solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
 
 ## Future plans
-The collection of tools will be extended by adding new functionality, such as the computation of condition number estimators for Lyapunov and Sylvester equations, etc.
+The collection of tools will be extended by adding new functionality, such as expert solvers which additionally compute error bounds and condition estimates. Further, performance improvements are planned to be implemented employing more efficient and accurate low dimensional linear system solvers available in LAPACK, using static arrays for manipulation of small order matrices, and exploring block variant solvers for Lyapunov and Sylvester equations.

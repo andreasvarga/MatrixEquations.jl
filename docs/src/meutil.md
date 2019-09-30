@@ -4,4 +4,5 @@ utqu
 utqu!
 qrupdate!
 rqupdate!
+isschur
 ```

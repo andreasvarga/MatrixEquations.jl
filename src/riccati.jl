@@ -15,14 +15,18 @@ IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 """
 function arec(A, Q, R)
     n = LinearAlgebra.checksquare(A)
-    if LinearAlgebra.checksquare(Q) != n || ~ishermitian(Q)
+    if LinearAlgebra.checksquare(Q) != n || !ishermitian(Q)
           throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
     end
-    if LinearAlgebra.checksquare(R) != n || ~ishermitian(R)
+    if LinearAlgebra.checksquare(R) != n || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $n"))
     end
 
-    S = schur([A  -R; -Q  -A'])
+    if eltype(A)<:Complex || eltype(R)<:Complex || eltype(Q)<:Complex
+       S = schur([complex(A)  -complex(R); -complex(Q)  -complex(A)'])
+    else
+       S = schur([A  -R; -Q  -A'])
+    end
     select = real(S.values) .< 0
     if n != length(filter(y-> y == true,select))
        error("The Hamiltonian matrix is not dichotomic")
@@ -57,10 +61,10 @@ function arec(A, B, Q, R, S = 0)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix with row dimension $n"))
     end
-    if LinearAlgebra.checksquare(Q) !== n || ~ishermitian(Q)
+    if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
           throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
     end
-    if LinearAlgebra.checksquare(R) !== m || ~ishermitian(R)
+    if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
     end
     if S == 0
@@ -122,38 +126,63 @@ Proc. IEEE, 72:1746-1754, 1984.
 """
 function garec(A, E, B, Q, R, S = 0)
     n = LinearAlgebra.checksquare(A)
+    T = promote_type(eltype(A), eltype(B), eltype(Q), eltype(R) )
     nb, m = size(B)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix of row dimension $n"))
     end
-    if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
+    if typeof(E) <: UniformScaling{Bool} || isempty(E)
        eident = true
        E = I
     else
        if LinearAlgebra.checksquare(E) != n
           throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        end
-       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
-       if LinearAlgebra.LAPACK.gecon!('1',Et[1],norm(E,1))  < eps(1.)
-          error("E must be non-singular")
+       eident = isequal(E,I)
+       if eident
+          E = I
+       else
+          Et = LinearAlgebra.LAPACK.getrf!(copy(E))
+          if LinearAlgebra.LAPACK.gecon!('1',Et[1],norm(E,1))  < eps(1.)
+             error("E must be non-singular")
+          end
+          T = promote_type(T,eltype(E))
        end
-       eident = false
     end
-    if LinearAlgebra.checksquare(Q) !== n || ~ishermitian(Q)
+    if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
        throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
     end
-    if LinearAlgebra.checksquare(R) !== m || ~ishermitian(R)
+    if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
     end
     if cond(R)*eps(1.) > 1.
        error("R must be non-singular")
     end
     if S == 0
-       S = zeros(n,m)
+       S = zeros(T,n,m)
     else
       if (n,m) !== size(S)
          throw(DimensionMismatch("S must be a $n x $m matrix"))
       end
+      T = promote_type(T,eltype(S))
+    end
+    if eltype(A) !== T
+      A = complex(A)
+    end
+    if !eident && eltype(E) !== T
+      E = complex(E)
+    end
+    if eltype(B) !== T
+      B = complex(B)
+    end
+    if eltype(Q) !== T
+      Q = complex(Q)
+    end
+    if eltype(R) !== T
+      R = complex(R)
+    end
+    if eltype(S) !== T
+      S = complex(S)
     end
 
     """
@@ -176,11 +205,11 @@ function garec(A, E, B, Q, R, S = 0)
     end
 
     #z = G.Q[:,m+1:m+n2]
-    z = G.Q*[fill(false,m,n2); Matrix(I,n2,n2) ]
+    z = G.Q*[fill(false,m,n2); I ]
 
     iric = 1:n2
-    L11 = [ A zeros(n,n) B; -Q -A' -S]*z
-    P11 = [ E zeros(n,n); zeros(n,n) E']*z[iric,:]
+    L11 = [ A zeros(T,n,n) B; -Q -A' -S]*z
+    P11 = [ E zeros(T,n,n); zeros(T,n,n) E']*z[iric,:]
     LPS = schur(L11,P11)
     select = real.(LPS.α ./ LPS.β) .< 0.
     if n !== length(filter(y-> y == true,select))
@@ -225,31 +254,56 @@ Proc. IEEE, 72:1746-1754, 1984.
 """
 function gared(A, E, B, Q, R, S = 0)
     n = LinearAlgebra.checksquare(A)
+    T = promote_type(eltype(A), eltype(B), eltype(Q), eltype(R) )
     nb, m = size(B)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix with row dimension $n"))
     end
-    if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
+    if typeof(E) <: UniformScaling{Bool} || isempty(E)
        eident = true
        E = I
     else
        if LinearAlgebra.checksquare(E) != n
           throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        end
-       eident = false
+       eident = isequal(E,I)
+       if eident
+          E = I
+       else
+          T = promote_type(T,eltype(E))
+       end
     end
-    if LinearAlgebra.checksquare(Q) !== n || ~ishermitian(Q)
+    if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
        throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
     end
-    if LinearAlgebra.checksquare(R) !== m || ~ishermitian(R)
+    if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
     end
     if S == 0
-       S = zeros(n,m)
+       S = zeros(T,n,m)
     else
       if (n,m) !== size(S)
          throw(DimensionMismatch("S must be a $n x $m matrix"))
       end
+      T = promote_type(T,eltype(S))
+    end
+    if eltype(A) != T
+      A = complex(A)
+    end
+    if !eident && eltype(E) != T
+      E = complex(E)
+    end
+    if eltype(B) != T
+      B = complex(B)
+    end
+    if eltype(Q) != T
+      Q = complex(Q)
+    end
+    if eltype(R) != T
+      R = complex(R)
+    end
+    if eltype(S) != T
+      S = complex(S)
     end
 
     """
@@ -265,18 +319,17 @@ function gared(A, E, B, Q, R, S = 0)
     """
     n2 = n+n;
     F = qr([A'; -B'])
-    L2 = F.Q'*[-Q  E' -S; S' zeros(m,n) R]
-    P2 = [zeros(n,n) F.R zeros(n,m)]
+    L2 = F.Q'*[-Q  E' -S; copy(S') zeros(T,m,n) R]
+    P2 = [zeros(T,n,n) F.R zeros(T,n,m)]
 
     G = qr(L2[n+1:n+m,:]')
     if cond(G.R) * eps(1.)  > 1.
        error("The extended symplectic pencil is not regular")
     end
-    z = G.Q*Matrix(I,n2+m,n2+m)
-    z = z[:,[m+1:m+n2; 1:m]]
+    z = (G.Q*I)[:,[m+1:m+n2; 1:m]]
 
-    L1 = [ A zeros(n,n) B; L2[1:n,:]]*z
-    P1 = [ E zeros(n,n+m); P2]*z
+    L1 = [ A zeros(T,n,n) B; L2[1:n,:]]*z
+    P1 = [ E zeros(T,n,n+m); P2]*z
 
     iric = 1:n2
     PLS = schur(P1[iric,iric],L1[iric,iric])

@@ -1,4 +1,59 @@
 """
+     isschur(A::AbstractMatrix) -> Bool
+
+Test whether `A` is a square matrix in a real or complex Schur form.
+In the real case, it is only tested whether A is a quasi upper triangular matrix,
+which may have 2x2 diagonal blocks, which however must not correspond to
+complex conjugate eigenvalues. In the complex case, it is tested if `A` 
+is upper triangular.
+"""
+function isschur(A)
+   @assert !Base.has_offset_axes(A)
+   m, n = size(A)
+   if m != n
+      return false
+   end
+   if m == 1
+      return true
+   end
+   if eltype(A)<:Complex
+      return istriu(A)
+   else
+      if m == 2
+         return true
+      end
+      if istriu(A,-1)
+         for i = 1:m-2
+             if !iszero(A[i+1,i]) & !iszero(A[i+2,i+1])
+                return false
+             end
+          end
+          return true
+      else
+          return false
+      end
+   end
+end
+"""
+     isschur(A::AbstractMatrix, B::AbstractMatrix) -> Bool
+
+Test whether `(A,B)` is a pair of square matrices in a real or complex
+generalized Schur form.
+In the real case, it is only tested whether `B` is upper triangular and `A` is
+a quasi upper triangular matrix, which may have 2x2 diagonal blocks, which
+however must not correspond to complex conjugate eigenvalues.
+In the complex case, it is tested if `A` and `B` are both upper triangular.
+
+"""
+function isschur(A,B)
+   ma, na = size(A)
+   mb, nb = size(B)
+   if eltype(A) != eltype(B) || ma != na || mb != nb || na != nb
+      return false
+   end
+   return isschur(A) && istriu(B)
+end
+"""
     utqu!(Q,U) -> Q
 
 Compute efficiently the symmetric/hermitian product `U'QU -> Q`,
@@ -7,7 +62,7 @@ The resulting product overwrites `Q`.
 """
 function utqu!(Q,U)
    n = LinearAlgebra.checksquare(Q)
-   if ~ishermitian(Q)
+   if !ishermitian(Q)
       error("Q must be a symmetric/hermitian matrix")
    end
    if LinearAlgebra.checksquare(U) != n
@@ -39,7 +94,7 @@ where Q is a symmetric/hermitian matrix.
 """
 function utqu(Q,U)
    n = LinearAlgebra.checksquare(Q)
-   if ~ishermitian(Q)
+   if !ishermitian(Q)
       error("Q must be a symmetric/hermitian matrix")
    end
    adj = isa(U,Adjoint)

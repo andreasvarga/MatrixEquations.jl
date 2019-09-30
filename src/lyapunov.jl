@@ -20,7 +20,7 @@ function lyapc(A, C)
    Comm. ACM, 15:820–826, 1972.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
 
@@ -68,12 +68,11 @@ function lyapc(A, E, C)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
-   if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      lyapc(A, C)
-      return
+   if isequal(E,I) || isempty(E)
+      return lyapc(A, C)
    else
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a square matrix of dimension $n"))
@@ -82,10 +81,10 @@ function lyapc(A, E, C)
 
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
-   if adjA && ~adjE
+   if adjA && !adjE
       A = copy(A)
       adjA = false
-   elseif ~adjA && adjE
+   elseif !adjA && adjE
       E = copy(E)
       adjE = false
    end
@@ -145,7 +144,7 @@ function lyapd(A, C)
    International Journal of Control, 25:745-753, 1977.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
    realAC = isreal(A) & isreal(C)
@@ -194,12 +193,11 @@ function lyapd(A, E, C)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
-   if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      lyapd(A, C)
-      return
+   if isequal(E,I) || isempty(E)
+      return lyapd(A, C)
    else
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -208,10 +206,10 @@ function lyapd(A, E, C)
 
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
-   if adjA && ~adjE
+   if adjA && !adjE
       A = copy(A)
       adjA = false
-   elseif ~adjA && adjE
+   elseif !adjA && adjE
       E = copy(E)
       adjE = false
    end
@@ -262,7 +260,7 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 """
 function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
    end
 
@@ -309,7 +307,8 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  ia = j:i-1
                  y += A[ia,k]'*C[ia,l]
               end
-              C[k,l] = (kron(W[1:dl,1:dl],transpose(A[k,k]))+kron(transpose(A[l,l]),W[1:dk,1:dk]))\(-y[:])
+              Z = (kron(W[1:dl,1:dl],transpose(A[k,k]))+kron(transpose(A[l,l]),W[1:dk,1:dk]))\(-y[:])
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
               if i == j && dk == 2
                  temp = C[k,l]
                  C[k,l] = (temp'+temp)/2
@@ -356,7 +355,8 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  ia = i+1:j
                  y += A[k,ia]*C[ia,l]
               end
-              C[k,l] = (kron(W[1:dl,1:dl],A[k,k])+kron(A[l,l],W[1:dk,1:dk]))\(-y[:])
+              Z = (kron(W[1:dl,1:dl],A[k,k])+kron(A[l,l],W[1:dk,1:dk]))\(-y[:])
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
               if i == j && dl == 2
                  temp = C[k,l]
                  C[k,l] = (temp'+temp)/2
@@ -382,7 +382,7 @@ end
 
 function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    end
 
@@ -404,7 +404,8 @@ function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
               for ia = l:k-1
                   y += A[ia,k]'*C[ia,l]
               end
-              C[k,l] = -y/(A[k,k]'+A[l,l])
+              Z = -y/(A[k,k]'+A[l,l])
+              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
               if k != l
                  C[l,k] = C[k,l]'
               end
@@ -436,7 +437,8 @@ function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
               for ia = k+1:l
                  y += A[k,ia]*C[ia,l]
               end
-              C[k,l] = -y/(A[k,k]+A[l,l]')
+              Z = -y/(A[k,k]+A[l,l]')
+              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
               if k != l
                  C[l,k] = C[k,l]'
                end
@@ -465,12 +467,12 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
+function lyapcs!(A::Array{Float64,2}, E::Union{UniformScaling{Bool}, Array{Float64,2}}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
    end
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if isequal(E,I) || isempty(E)
       lyapcs!(A, C, adj = adj)
       return
    else
@@ -538,7 +540,8 @@ function lyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
                  ic = 1:j1
                  y += C[ic,k]'*E[ic,l] + W[ic,dkk]'*A[ic,l]
              end
-             C[k,l] = ((kron(E[l,l],A[k,k])+kron(A[l,l],E[k,k]))')\(-y[:])
+             Z = ((kron(E[l,l],A[k,k])+kron(A[l,l],E[k,k]))')\(-y[:])
+             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
              if i == j
                 if dk == 2
                    temp = C[k,l]
@@ -602,7 +605,8 @@ function lyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
                ic = i1:n
                y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic,dll])'
             end
-            C[l,k] = (kron(E[k,k],A[l,l])+kron(A[k,k],E[l,l]))\(-y[:])
+            Z = (kron(E[k,k],A[l,l])+kron(A[k,k],E[l,l]))\(-y[:])
+            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
             if i == j
                if dk == 2
                   temp = C[l,k]
@@ -627,12 +631,12 @@ function lyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
       end
    end
 end
-function lyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
+function lyapcs!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Array{Complex{Float64},2}}, C::Array{Complex{Float64},2}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    end
-   if (E == I) || isempty(E) ||  (isone(E) && size(E,1) == n)
+   if isequal(E,I) || isempty(E)
       lyapcs!(A, C, adj = adj)
       return
    else
@@ -659,7 +663,8 @@ function lyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
                    y += C[ic,k]'*E[ic,l] + W[ic]'*A[ic,l]
                 end
             end
-            C[k,l] = -y/(A[k,k]'*E[l,l]+E[k,k]'*A[l,l])
+            Z = -y/(A[k,k]'*E[l,l]+E[k,k]'*A[l,l])
+            isfinite(Z) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -687,7 +692,8 @@ function lyapcs!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
                    y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic])'
                end
             end
-            C[l,k] = -y/(E[k,k]'*A[l,l]+A[k,k]'*E[l,l])
+            Z = -y/(E[k,k]'*A[l,l]+A[k,k]'*E[l,l])
+            isfinite(Z) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -719,7 +725,7 @@ The computed symmetric or hermitian solution `X` is contained in `C`.
 """
 function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
    end
 
@@ -771,7 +777,8 @@ function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  ic = 1:j1
                  y += C[ic,k]'*A[ic,l]
               end
-              C[k,l] = (I-kron(A[l,l]',A[k,k]'))\y[:]
+              Z = (I-kron(A[l,l]',A[k,k]'))\y[:]
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
               if i == j
                  if dk == 2
                     temp = C[k,l]
@@ -823,7 +830,8 @@ function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  ic = i1:n
                  y += (A[k,ic]*C[ic,l])'
               end
-              C[l,k] = (I-kron(A[k,k],A[l,l]))\y[:]
+              Z = (I-kron(A[k,k],A[l,l]))\y[:]
+              isfinite(maximum(abs.(Z))) ? C[l,k] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
               if i == j
                  if dl == 2
                     temp = C[l,k]
@@ -850,7 +858,7 @@ end
 
 function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n  || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n  || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    end
 
@@ -868,7 +876,8 @@ function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
                    y += C[ic,k]'*A[ic,l]
                 end
             end
-            C[k,l] = y/(I-A[k,k]'*A[l,l])
+            Z = y/(I-A[k,k]'*A[l,l])
+            isfinite(Z) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -893,7 +902,8 @@ function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
                    y += (A[k,ic]*C[ic,l])'
                end
             end
-            C[l,k] = y/(I-A[k,k]'*A[l,l])
+            Z = y/(I-A[k,k]'*A[l,l])
+            isfinite(Z) ? C[l,k] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -922,12 +932,12 @@ complex Schur form and `C` a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
+function lyapds!(A::Array{Float64,2}, E::Union{UniformScaling{Bool},Array{Float64,2}}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
    end
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if isequal(E,I) || isempty(E)
       lyapds!(A, C, adj = adj)
       return
    else
@@ -995,7 +1005,8 @@ function lyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
                  ic = 1:j1
                  y += C[ic,k]'*A[ic,l] -W[ic,dkk]'*E[ic,l]
              end
-             C[k,l] = (kron(E[l,l]',E[k,k]')-kron(A[l,l]',A[k,k]'))\y[:]
+             Z = (kron(E[l,l]',E[k,k]')-kron(A[l,l]',A[k,k]'))\y[:]
+             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
              if i == j
                 if dk == 2
                    temp = C[k,l]
@@ -1058,7 +1069,8 @@ function lyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
                ic = i1:n
                y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic,dll])'
             end
-            C[l,k] = (kron(E[k,k],E[l,l])-kron(A[k,k],A[l,l]))\y[:]
+            Z = (kron(E[k,k],E[l,l])-kron(A[k,k],A[l,l]))\y[:]
+            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
             if i == j
                if dl == 2
                   temp = C[l,k]
@@ -1084,12 +1096,12 @@ function lyapds!(A::Array{Float64,2}, E::Array{Float64,2}, C::Union{Array{Comple
    end
 end
 
-function lyapds!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
+function lyapds!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Array{Complex{Float64},2}}, C::Array{Complex{Float64},2}; adj = false)
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n  || ~ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n  || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    end
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if isequal(E,I) || isempty(E)
       lyapds!(A, C, adj = adj)
       return
    else
@@ -1115,7 +1127,8 @@ function lyapds!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
                    y += C[ic,k]'*A[ic,l] - W[ic]'*E[ic,l]
                 end
             end
-            C[k,l] = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
+            Z = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
+            isfinite(Z) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -1143,7 +1156,8 @@ function lyapds!(A::Array{Complex{Float64},2}, E::Array{Complex{Float64},2}, C::
                    y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic])'
                end
             end
-            C[l,k] = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
+            Z = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
+            isfinite(Z) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
