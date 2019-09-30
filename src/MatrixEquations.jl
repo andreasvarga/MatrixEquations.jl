@@ -1,5 +1,5 @@
 module MatrixEquations
-
+# Release V1.0
 using LinearAlgebra
 using LinearOperators
 
