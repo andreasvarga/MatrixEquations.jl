@@ -15,47 +15,58 @@ function sylvc(A,B,C)
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+   # address directly simple cases
+   if typeof(A) <: UniformScaling
+      return C/(A+B)
+   elseif typeof(B) <: UniformScaling
+      return (A+B)\C
+   end
+
    m, n = size(C);
    if [m; n] != LinearAlgebra.checksquare(A,B)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
+
+   T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C))
+   if eltype(A) !== T2
+     A = convert(Matrix{T2},A)
+   end
+   if eltype(B) !== T2
+     B = convert(Matrix{T2},B)
+   end
+   if eltype(C) !== T2
+     C = convert(Matrix{T2},C)
+   end
+
+   realcase = eltype(A) <: AbstractFloat && eltype(B) <: AbstractFloat &&
+              eltype(C) <: AbstractFloat
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
-   adjC = isa(C,Adjoint)
-   realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
-   realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
-   realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
-   realcase = realA && realB && realC
    if adjA
-      if realcase
-         RA, QA = schur(A.parent)
-         TA = 'T'
-      else
-         RA, QA = schur(complex(A.parent))
-         TA = 'C'
-      end
+      RA, QA = schur(A.parent)
    else
-      if realcase
-         RA, QA = schur(A)
-      else
-         RA, QA = schur(complex(A))
-      end
+      RA, QA = schur(A)
+   end
+   if adjB
+      RB, QB = schur(B.parent)
+   else
+      RB, QB = schur(B)
+   end
+
+   adjA = isa(A,Adjoint)
+   adjB = isa(B,Adjoint)
+   if adjA
+      realcase ? TA = 'T' : TA = 'C'
+      RA, QA = schur(A.parent)
+   else
+      RA, QA = schur(A)
       TA = 'N'
    end
    if adjB
-      if realcase
-         RB, QB = schur(B.parent)
-         TB = 'T'
-      else
-         RB, QB = schur(complex(B.parent))
-         TB = 'C'
-      end
+      realcase ? TB = 'T' : TB = 'C'
+      RB, QB = schur(B.parent)
    else
-      if realcase
-         RB, QB = schur(B)
-      else
-         RB, QB = schur(complex(B))
-      end
+      RB, QB = schur(B)
       TB = 'N'
    end
    D = adjoint(QA) * (C*QB)
@@ -80,42 +91,39 @@ function sylvd(A,B,C)
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+
+   # address directly simple cases
+   if typeof(A) <: UniformScaling
+      return C/(A*B+I)
+   elseif typeof(B) <: UniformScaling
+      return (A*B+I)\C
+   end
+
    m, n = size(C);
    if [m; n] != LinearAlgebra.checksquare(A,B)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
+   T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C))
+   if eltype(A) !== T2
+     A = convert(Matrix{T2},A)
+   end
+   if eltype(B) !== T2
+     B = convert(Matrix{T2},B)
+   end
+   if eltype(C) !== T2
+     C = convert(Matrix{T2},C)
+   end
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
-   adjC = isa(C,Adjoint)
-   realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
-   realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
-   realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
-   realcase = realA && realB && realC
    if adjA
-      if realcase
-         RA, QA = schur(A.parent)
-      else
-         RA, QA = schur(complex(A.parent))
-      end
+      RA, QA = schur(A.parent)
    else
-      if realcase
-         RA, QA = schur(A)
-      else
-         RA, QA = schur(complex(A))
-      end
+      RA, QA = schur(A)
    end
    if adjB
-      if realcase
-         RB, QB = schur(B.parent)
-      else
-         RB, QB = schur(complex(B.parent))
-      end
+      RB, QB = schur(B.parent)
    else
-      if realcase
-         RB, QB = schur(B)
-      else
-         RB, QB = schur(complex(B))
-      end
+      RB, QB = schur(B)
    end
    D = adjoint(QA) * (C*QB)
    Y = sylvds!(RA, RB, D, adjA = adjA, adjB = adjB)
@@ -138,26 +146,32 @@ function gsylv(A,B,C,D,E)
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
     end
+    T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
+    if eltype(A) !== T2
+      A = convert(Matrix{T2},A)
+    end
+    if eltype(B) !== T2
+      B = convert(Matrix{T2},B)
+    end
+    if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+    end
+    if eltype(D) !== T2
+      D = convert(Matrix{T2},D)
+    end
+    if eltype(E) !== T2
+      E = convert(Matrix{T2},E)
+    end
+
     adjA = isa(A,Adjoint)
     adjB = isa(B,Adjoint)
     adjC = isa(C,Adjoint)
     adjD = isa(D,Adjoint)
-    adjE = isa(E,Adjoint)
-    realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
-    realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
-    realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
-    realD =  ( adjD && (typeof(D.parent) == Array{Float64,2})) || (!adjD && (typeof(D) == Array{Float64,2}))
-    realE =  ( adjE && (typeof(E.parent) == Array{Float64,2})) || (!adjE && (typeof(E) == Array{Float64,2}))
-    realcase = realA && realB && realC && realD && realE
     adjAC = adjA && adjC
     adjBD = adjB && adjD
 
     if adjAC
-       if realcase
-          AS, CS, Z1, Q1 = schur(A.parent,C.parent)
-       else
-          AS, CS, Z1, Q1 = schur(complex(A.parent),complex(C.parent))
-       end
+       AS, CS, Z1, Q1 = schur(A.parent,C.parent)
     else
        if adjA
           A = copy(A)
@@ -165,30 +179,18 @@ function gsylv(A,B,C,D,E)
        if adjC
           C = copy(C)
        end
-       if realcase
-          AS, CS, Q1, Z1 = schur(A,C)
-       else
-          AS, CS, Q1, Z1 = schur(complex(A),complex(C))
-       end
+       AS, CS, Q1, Z1 = schur(A,C)
     end
     if adjBD
-       if realcase
-          BS, DS, Z2, Q2 = schur(B.parent,D.parent)
-       else
-          BS, DS, Z2, Q2 = schur(complex(B.parent),complex(D.parent))
-       end
+       BS, DS, Z2, Q2 = schur(B.parent,D.parent)
     else
       if adjB
-          B = copy(BLAS)
+          B = copy(B)
       end
       if adjD
           D = copy(D)
       end
-       if realcase
-          BS, DS, Q2, Z2 = schur(B,D)
-       else
-          BS, DS, Q2, Z2 =  schur(complex(B),complex(D))
-       end
+       BS, DS, Q2, Z2 = schur(B,D)
     end
     Y = adjoint(Q1) * (E*Z2)
     gsylvs!(AS, BS, CS, DS, Y, adjAC = adjAC, adjBD = adjBD)
@@ -214,6 +216,26 @@ function sylvsys(A,B,C,D,E,F)
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,D,E)
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
     end
+    T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+    if eltype(A) !== T2
+      A = convert(Matrix{T2},A)
+    end
+    if eltype(B) !== T2
+      B = convert(Matrix{T2},B)
+    end
+    if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+    end
+    if eltype(D) !== T2
+      D = convert(Matrix{T2},D)
+    end
+    if eltype(E) !== T2
+      E = convert(Matrix{T2},E)
+    end
+    if eltype(F) !== T2
+      F = convert(Matrix{T2},F)
+    end
+
     if isa(A,Adjoint)
       A = copy(A)
     end
@@ -226,15 +248,9 @@ function sylvsys(A,B,C,D,E,F)
     if isa(E,Adjoint)
       E = copy(E)
     end
-    if (typeof(A) == Array{Float64,2}) && (typeof(B) == Array{Float64,2}) &&
-       (typeof(C) == Array{Float64,2}) && (typeof(D) == Array{Float64,2}) &&
-       (typeof(E) == Array{Float64,2}) && (typeof(F) == Array{Float64,2})
-       AS, DS, Q1, Z1 = schur(A,D)
-       BS, ES, Q2, Z2 = schur(B,E)
-    else
-       AS, DS, Q1, Z1 = schur(complex(A),complex(D))
-       BS, ES, Q2, Z2 = schur(complex(B),complex(E))
-    end
+    AS, DS, Q1, Z1 = schur(A,D)
+    BS, ES, Q2, Z2 = schur(B,E)
+
     CS = adjoint(Q1) * (C*Z2)
     FS = adjoint(Q1) * (F*Z2)
 
@@ -262,46 +278,41 @@ function dsylvsys(A,B,C,D,E,F)
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,D,E)
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
     end
-    adjA = isa(A,Adjoint)
-    adjB = isa(B,Adjoint)
-    adjC = isa(C,Adjoint)
-    adjD = isa(D,Adjoint)
-    adjE = isa(E,Adjoint)
-    adjF = isa(F,Adjoint)
-    realA =  ( adjA && (typeof(A.parent) == Array{Float64,2})) || (!adjA && (typeof(A) == Array{Float64,2}))
-    realB =  ( adjB && (typeof(B.parent) == Array{Float64,2})) || (!adjB && (typeof(B) == Array{Float64,2}))
-    realC =  ( adjC && (typeof(C.parent) == Array{Float64,2})) || (!adjC && (typeof(C) == Array{Float64,2}))
-    realD =  ( adjD && (typeof(D.parent) == Array{Float64,2})) || (!adjD && (typeof(D) == Array{Float64,2}))
-    realE =  ( adjE && (typeof(E.parent) == Array{Float64,2})) || (!adjE && (typeof(E) == Array{Float64,2}))
-    realF =  ( adjF && (typeof(F.parent) == Array{Float64,2})) || (!adjF && (typeof(F) == Array{Float64,2}))
-    realcase = realA && realB && realC && realD && realE && realF
-    transsylv = adjA && adjB && adjD && adjE
+
+    T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+    if eltype(A) !== T2
+      A = convert(Matrix{T2},A)
+    end
+    if eltype(B) !== T2
+      B = convert(Matrix{T2},B)
+    end
+    if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+    end
+    if eltype(D) !== T2
+      D = convert(Matrix{T2},D)
+    end
+    if eltype(E) !== T2
+      E = convert(Matrix{T2},E)
+    end
+    if eltype(F) !== T2
+      F = convert(Matrix{T2},F)
+    end
+
+    realcase = eltype(A) == Float64 && eltype(B) == Float64 && eltype(C) == Float64 &&
+               eltype(D) == Float64 && eltype(E) == Float64 && eltype(F) == Float64
+    transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
+    realcase ? trans = 'T' : trans = 'C'
     if transsylv
-       if realcase
-          AS, DS, Q1, Z1 = schur(A.parent,D.parent)
-          BS, ES, Q2, Z2 = schur(B.parent,E.parent)
-          trans = 'T'
-       else
-          AS, DS, Q1, Z1 = schur(complex(A.parent),complex(D.parent))
-          BS, ES, Q2, Z2 = schur(complex(B.parent),complex(E.parent))
-          trans = 'C'
-       end
+       AS, DS, Q1, Z1 = schur(A.parent,D.parent)
+       BS, ES, Q2, Z2 = schur(B.parent,E.parent)
        CS = adjoint(Z1) * (C*Z2)
        FS = adjoint(Q1) * (F*Q2)
-
        X, Y, scale =  tgsyl!(trans,AS,BS,CS,DS,ES,-FS)
-
        (rmul!(Q1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Z2)), inv(scale)) )
     else
-       if realcase
-          AS, DS, Q1, Z1 = schur(copy(A'),copy(D'))
-          BS, ES, Q2, Z2 = schur(copy(B'),copy(E'))
-          trans = 'T'
-       else
-          AS, DS, Q1, Z1 = schur(complex(copy(A')),complex(copy(D')))
-          BS, ES, Q2, Z2 = schur(complex(copy(B')),complex(copy(E')))
-          trans = 'C'
-       end
+       AS, DS, Q1, Z1 = schur(copy(A'),copy(D'))
+       BS, ES, Q2, Z2 = schur(copy(B'),copy(E'))
        CS = adjoint(Z1) * (C*Z2)
        FS = adjoint(Q1) * (F*Q2)
 
@@ -369,14 +380,14 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
    end
 
    W = fill(zero(eltype(C)),m,2)
-   if ~adjA && ~adjB
+   if !adjA && !adjB
       """
-              The (K,L)th block of X is determined starting from
-              bottom-left corner column by column by
+      The (K,L)th block of X is determined starting from
+      bottom-left corner column by column by
 
                  A(K,K)*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L)
 
-              where
+      where
                              M
                  R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
                            J=K+1
@@ -408,19 +419,20 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  W[k,dll] = C[k,il1]*B[il1,l]
                  y -= A[k,ic]*W[ic,dll]
               end
-              C[k,l] = (kron(transpose(B[l,l]),A[k,k])+I)\(y[:])
+              Z = (kron(transpose(B[l,l]),A[k,k])+I)\(y[:])
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
               i -= dk
           end
           j += dl
       end
-   elseif ~adjA && adjB
+   elseif !adjA && adjB
          """
-                 The (K,L)th block of X is determined starting from
-                 bottom-right corner column by column by
+         The (K,L)th block of X is determined starting from
+         bottom-right corner column by column by
 
                      A(K,K)*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
 
-                 where
+         where
                                 M
                     R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
                               J=K+1
@@ -451,12 +463,13 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                     W[k,dll] = C[k,il1]*B[l,il1]'
                     y -= A[k,ic]*W[ic,dll]
                  end
-                 C[k,l] = (kron(B[l,l],A[k,k])+I)\(y[:])
+                 Z = (kron(B[l,l],A[k,k])+I)\(y[:])
+                 isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
                  i -= dk
              end
              j -= dl
          end
-   elseif adjA && ~adjB
+   elseif adjA && !adjB
       """
       The (K,L)th block of X is determined starting from the
       upper-left corner column by column by
@@ -495,16 +508,20 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  W[k,dll] = C[k,il1]*B[il1,l]
                  y -= A[ic,k]'*W[ic,dll]
               end
-              C[k,l] = (kron(transpose(B[l,l]),transpose(A[k,k]))+I)\(y[:])
+              Z = (kron(transpose(B[l,l]),transpose(A[k,k]))+I)\(y[:])
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
               i += dk
           end
           j += dl
       end
    elseif adjA && adjB
       """
+      The (K,L)th block of X is determined starting from the
+      lower-left corner column by column by
+
                  A(K,K)'*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
 
-              where
+      where
                             K-1
                  R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
                             J=1
@@ -535,7 +552,8 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  W[k,dll] = C[k,il1]*B[l,il1]'
                  y -= A[ic,k]'*W[ic,dll]
               end
-              C[k,l] = (kron(B[l,l],transpose(A[k,k]))+I)\(y[:])
+              Z = (kron(B[l,l],transpose(A[k,k]))+I)\(y[:])
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
               i += dk
           end
           j -= dl
@@ -558,7 +576,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
 
 
    W = fill(zero(eltype(C)),m,1)
-   if ~adjA && ~adjB
+   if !adjA && !adjB
       """
       The (K,L)th element of X is determined starting from
       bottom-left corner column by column by
@@ -591,10 +609,11 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  T = A[kk,ic]*W[ic,1]
                  y -= T[1]
               end
-              C[k,l] = y/(B[l,l]*A[k,k]+I)
+              Z = y/(B[l,l]*A[k,k]+I)
+              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
              end
       end
-   elseif ~adjA && adjB
+   elseif !adjA && adjB
          """
          The (K,L)th element of X is determined starting from
          bottom-right corner column by column by
@@ -627,10 +646,11 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                     T = A[kk,ic]*W[ic,1]
                     y -= T[1]
                  end
-                 C[k,l] = y/(B[l,l]'*A[k,k]+I)
+                 Z = y/(B[l,l]'*A[k,k]+I)
+                 isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
              end
          end
-   elseif adjA && ~adjB
+   elseif adjA && !adjB
       """
       The (K,L)th element of X is determined starting from the
       upper-left corner column by column by
@@ -663,7 +683,8 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  T = A[ic,kk]'*W[ic,1]
                  y -= T[1]
               end
-              C[k,l] = y/(B[l,l]*A[k,k]'+I)
+              Z = y/(B[l,l]*A[k,k]'+I)
+              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
           end
       end
    elseif adjA && adjB
@@ -699,7 +720,8 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  T = A[ic,kk]'*W[ic,1]
                  y -= T[1]
               end
-              C[k,l] = y/(B[l,l]'*A[k,k]'+I)
+              Z = y/(B[l,l]'*A[k,k]'+I)
+              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
           end
       end
    end
@@ -725,7 +747,7 @@ where `A`, `B`, `C` and `D` are square matrices, and
 The matrix pairs `(A,C)` and `(B,D)` are in generalized real or complex Schur forms.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) where {T<:AbstractMatrix{Float64}}
+function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:AbstractMatrix{Float64}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -744,7 +766,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
    ba = fill(1,m,1)
    pa = 1
    if m > 1
-      d = [diag(A,-1);zeros(1)]
+      CASchur ? d = [diag(C,-1);zeros(1)] : d = [diag(A,-1);zeros(1)]
       i = 1
       pa = 0
       while i <= m
@@ -760,7 +782,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
    bb = fill(1,n,1)
    pb = 1
    if n > 1
-      d = [diag(B,-1);zeros(1)]
+      DBSchur ? d = [diag(D,-1);zeros(1)] : d = [diag(B,-1);zeros(1)]
       i = 1
       pb = 0
       while i <= n
@@ -775,7 +797,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
 
    WB = fill(zero(eltype(E)),m,2)
    WD = fill(zero(eltype(E)),m,2)
-   if ~adjAC && ~adjBD
+   if !adjAC && !adjBD
       """
       The (K,L)th block of X is determined starting from
       bottom-left corner column by column by
@@ -824,12 +846,13 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                  WD[k,dll] = E[k,il1]*D[il1,l]
                  y -= (A[k,ic]*WB[ic,dll] + C[k,ic]*WD[ic,dll])
               end
-              E[k,l] = (kron(transpose(B[l,l]),A[k,k])+kron(transpose(D[l,l]),C[k,k]))\(y[:])
+              Z = (kron(transpose(B[l,l]),A[k,k])+kron(transpose(D[l,l]),C[k,k]))\(y[:])
+              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
               i -= dk
           end
           j += dl
       end
-   elseif ~adjAC && adjBD
+   elseif !adjAC && adjBD
          """
           The (K,L)th block of X is determined starting from
           bottom-right corner column by column by
@@ -877,12 +900,13 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                     WD[k,dll] = E[k,il1]*D[l,il1]'
                     y -= (A[k,ic]*WB[ic,dll]+C[k,ic]*WD[ic,dll])
                  end
-                 E[k,l] = (kron(B[l,l],A[k,k])+kron(D[l,l],C[k,k]))\(y[:])
+                 Z = (kron(B[l,l],A[k,k])+kron(D[l,l],C[k,k]))\(y[:])
+                 isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
                  i -= dk
              end
              j -= dl
          end
-   elseif adjAC && ~adjBD
+   elseif adjAC && !adjBD
       """
       The (K,L)th block of X is determined starting from the
       upper-left corner column by column by
@@ -932,7 +956,8 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                  WD[k,dll] = E[k,il1]*D[il1,l]
                  y -= C[ic,k]'*WD[ic,dll]
               end
-              E[k,l] = (kron(transpose(B[l,l]),transpose(A[k,k]))+kron(transpose(D[l,l]),transpose(C[k,k])))\(y[:])
+              Z = (kron(transpose(B[l,l]),transpose(A[k,k]))+kron(transpose(D[l,l]),transpose(C[k,k])))\(y[:])
+              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
               i += dk
           end
           j += dl
@@ -985,7 +1010,8 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                  WD[k,dll] = E[k,il1]*D[l,il1]'
                  y -= (A[ic,k]'*WB[ic,dll] + C[ic,k]'*WD[ic,dll])
               end
-              E[k,l] = (kron(B[l,l],transpose(A[k,k]))+kron(D[l,l],transpose(C[k,k])))\(y[:])
+              Z = (kron(B[l,l],transpose(A[k,k]))+kron(D[l,l],transpose(C[k,k])))\(y[:])
+              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
               i += dk
           end
           j -= dl
@@ -993,7 +1019,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
    end
    return E
 end
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) where {T<:AbstractMatrix{Complex{Float64}}}
+function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:AbstractMatrix{Complex{Float64}}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1011,7 +1037,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
 
    WB = fill(zero(eltype(E)),m,1)
    WD = fill(zero(eltype(E)),m,1)
-   if ~adjAC && ~adjBD
+   if !adjAC && !adjBD
       """
       The (K,L)th element of X is determined starting from
       bottom-left corner column by column by
@@ -1055,10 +1081,11 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                  TD = C[kk,ic]*WD[ic,1]
                  y -= (TB[1]+TD[1])
               end
-              E[k,l] = y/(B[l,l]*A[k,k]+D[l,l]*C[k,k])
-             end
+              Z = y/(B[l,l]*A[k,k]+D[l,l]*C[k,k])
+              isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+          end
       end
-   elseif ~adjAC && adjBD
+   elseif !adjAC && adjBD
          """
           The (K,L)th element of X is determined starting from
           bottom-right corner column by column by
@@ -1102,10 +1129,11 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                     TD = C[kk,ic]*WD[ic,1]
                     y -= (TB[1]+TD[1])
                  end
-                 E[k,l] = y/(B[l,l]'*A[k,k]+D[l,l]'*C[k,k])
+                 Z = y/(B[l,l]'*A[k,k]+D[l,l]'*C[k,k])
+                 isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
              end
          end
-   elseif adjAC && ~adjBD
+   elseif adjAC && !adjBD
       """
       The (K,L)th element of X is determined starting from the
       upper-left corner column by column by
@@ -1149,7 +1177,8 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                  TD = C[ic,kk]'*WD[ic,1]
                  y -= (TB[1]+TD[1])
               end
-              E[k,l] = y/(B[l,l]*A[k,k]'+D[l,l]*C[k,k]')
+              Z = y/(B[l,l]*A[k,k]'+D[l,l]*C[k,k]')
+              isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
           end
       end
    elseif adjAC && adjBD
@@ -1196,7 +1225,8 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false) whe
                  TD = C[ic,kk]'*WD[ic,1]
                  y -= (TB[1]+TD[1])
               end
-              E[k,l] = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
+              Z = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
+              isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
           end
       end
    end

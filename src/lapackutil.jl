@@ -196,4 +196,107 @@ function ladiv(A::Float64, B::Float64, C::Float64, D::Float64)
     return P[], Q[]
 end
 
+for (fn, elty) in ((:dlacn2_, :Float64),
+                   (:slacn2_, :Float32))
+    @eval begin
+        function lacn2!(V::AbstractVector{$elty}, X::AbstractVector{$elty}, ISGN::AbstractVector{BlasInt},
+                        EST::$elty, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
+            @assert !has_offset_axes(V, X)
+            chkstride1(V,X)
+            n = length(V)
+            if n != length(X) || n != length(ISGN)
+                throw(DimensionMismatch("dimensions of V,  X, and ISIGN must be equal"))
+            end
+            """
+            *       SUBROUTINE DLACN2( N, V, X, ISGN, EST, KASE, ISAVE )
+            *
+            *       .. Scalar Arguments ..
+            *       INTEGER            KASE, N
+            *       DOUBLE PRECISION   EST
+            *       ..
+            *       .. Array Arguments ..
+            *       INTEGER            ISGN( * ), ISAVE( 3 )
+            *       DOUBLE PRECISION   V( * ), X( * )
+            """
+            KASE1 = Array{BlasInt,1}(undef,1)
+            KASE1[1] = KASE
+            EST1 = Vector{$elty}(undef, 1)
+            EST1[1] = EST
+            ccall((@blasfunc($fn), liblapack), Cvoid,
+                (Ref{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt},
+                Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
+                n, V, X, ISGN, EST1, KASE1, ISAVE)
+            return EST1[1], KASE1[1]
+        end
+    end
+end
+"""
+    lacn2!(V, X, ISGN, EST, KASE, ISAVE ) -> (EST, KASE )
+
+Estimate the 1-norm of a real linear operator A, using reverse communication
+by applying the operator or its trasnpose/adjoint to a vector.
+
+KASE is a parameter to control the norm evaluation process as follows.
+On the initial call, KASE should be 0. On an intermediate return,
+KASE will be 1 or 2, indicating whether the real vector X should be overwritten
+by A * X  or A' * X at the next call.
+On the final return, KASE will again be 0 and EST is an estimate (a lower bound)
+for the 1-norm of A. V is a real work vector, ISGN is an integer work
+vector and ISAVE is a 3-dimensional integer vector used to save information
+between the calls.
+"""
+lacn2!(V::AbstractVector, X::AbstractVector, ISGN::AbstractVector{Int}, EST::Float64, KASE::Int64, ISAVE::AbstractVector{Int})
+
+for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
+                          (:clacn2_, :ComplexF32, :Float32))
+    @eval begin
+        function lacn2!(V::AbstractVector{$elty}, X::AbstractVector{$elty},
+                        EST::$relty, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
+            @assert !has_offset_axes(V, X)
+            chkstride1(V,X)
+            n = length(V)
+            if n != length(X)
+                throw(DimensionMismatch("dimensions of V and X must be equal"))
+            end
+            """
+            *       SUBROUTINE ZLACN2( N, V, X, EST, KASE, ISAVE )
+            *
+            *       .. Scalar Arguments ..
+            *       INTEGER            KASE, N
+            *       DOUBLE PRECISION   EST
+            *       ..
+            *       .. Array Arguments ..
+            *       INTEGER            ISGN( * ), ISAVE( 3 )
+            *       COMPLEX*16         V( * ), X( * )
+            """
+            KASE1 = Array{BlasInt,1}(undef,1)
+            KASE1[1] = KASE
+            EST1 = Vector{$relty}(undef, 1)
+            EST1[1] = EST
+            ccall((@blasfunc($fn), liblapack), Cvoid,
+                (Ref{BlasInt}, Ptr{$elty}, Ptr{$elty},
+                Ptr{$relty}, Ptr{BlasInt}, Ptr{BlasInt}),
+                n, V, X, EST1, KASE1, ISAVE)
+            return EST1[1], KASE1[1]
+        end
+    end
+end
+
+"""
+    lacn2!(V, X, EST, KASE, ISAVE ) -> (EST, KASE )
+
+Estimate the 1-norm of a complex linear operator A, using reverse communication
+by applying the operator or its trasnpose/adjoint to a vector.
+
+KASE is a parameter to control the norm evaluation process as follows.
+On the initial call, KASE should be 0. On an intermediate return,
+KASE will be 1 or 2, indicating whether the complex vector X should be overwritten
+by A * X  or A' * X at the next call.
+On the final return, KASE will again be 0 and EST is an estimate (a lower bound)
+for the 1-norm of A. V is a complex work vector, ISGN is an integer work
+vector and ISAVE is a 3-dimensional integer vector used to save information
+between the calls.
+"""
+lacn2!(V::AbstractVector, X::AbstractVector, EST::Float64, KASE::Int64, ISAVE::AbstractVector{Int})
+
 end

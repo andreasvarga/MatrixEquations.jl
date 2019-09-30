@@ -11,6 +11,7 @@ using Test
     include("test_sylvkr.jl")
     include("test_cplyap.jl")
     include("test_dplyap.jl")
+    include("test_mecondest.jl")
 end
 
 end

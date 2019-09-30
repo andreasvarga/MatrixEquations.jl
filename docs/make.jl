@@ -12,7 +12,9 @@ makedocs(
         "plyapunov.md",
         "riccati.md",
         "sylvester.md",
-        "sylvkr.md"
+        "sylvkr.md",
+        "condest.md",
+        "meoperators.md"
      ],
      "Internal" => [
         "lapackutil.md",

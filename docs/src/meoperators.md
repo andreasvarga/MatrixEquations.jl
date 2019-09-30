@@ -1,0 +1,22 @@
+# Linear Operators Related to Matrix Equation Solvers
+```@docs
+lyapcop
+invlyapcop
+invlyapcsop
+lyapdop
+invlyapdop
+invlyapdsop
+sylvcop
+invsylvcop
+invsylvcsop
+sylvdop
+invsylvdop
+invsylvdsop
+gsylvop
+invgsylvop
+invgsylvsop
+sylvsysop
+invsylvsysop
+invsylvsyssop
+trmat
+```
