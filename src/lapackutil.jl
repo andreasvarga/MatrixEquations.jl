@@ -9,7 +9,7 @@ import LinearAlgebra: BlasFloat, BlasInt, LAPACKException,
 
 using Base: iszero, has_offset_axes
 
-export tgsyl!
+export tgsyl!, lanv2, ladiv, lag2, lacn2!
 
 function chklapackerror(ret::BlasInt)
     if ret == 0
@@ -101,75 +101,108 @@ matrices,  the (adjoint) Sylvester system of matrix equations
       XB' + YE' = scale*(-F) .
 
 `tgsyl!('N', A, B, C, D, E, F)` corresponds to the call `tgsyl!(A, B, C, D, E, F)`.
+
+Interface to the LAPACK subroutines DTGSYL/STGSYL/ZTGSYL/CTGSYL.
 """
 tgsyl!(trans::AbstractChar,A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix, F::AbstractMatrix)
 
 tgsyl!(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix, F::AbstractMatrix) =
 tgsyl!('N',A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix, F::AbstractMatrix)
 
+for (fn, elty) in ((:dlanv2_, :Float64),
+                   (:slanv2_, :Float32))
+    @eval begin
+        function lanv2(A::$elty, B::$elty, C::$elty, D::$elty)
+           """
+           SUBROUTINE DLANV2( A, B, C, D, RT1R, RT1I, RT2R, RT2I, CS, SN )
+
+           DOUBLE PRECISION A, B, C, CS, D, RT1I, RT1R, RT2I, RT2R, SN
+           """
+           RT1R = Ref{$elty}(1.0)
+           RT1I = Ref{$elty}(1.0)
+           RT2R = Ref{$elty}(1.0)
+           RT2I = Ref{$elty}(1.0)
+           CS = Ref{$elty}(1.0)
+           SN = Ref{$elty}(1.0)
+           ccall((@blasfunc($fn), liblapack), Cvoid,
+                 (Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty},
+                 Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty}),
+                 A, B, C, D,
+                 RT1R, RT1I, RT2R, RT2I, CS, SN)
+           return RT1R[], RT1I[], RT2R[], RT2I[], CS[], SN[]
+        end
+    end
+end
 """
     lanv2(A, B, C, D) -> (RT1R, RT1I, RT2R, RT2I, CS, SN)
 
-Compute the Schur factorization of a real 2-by-2 nonsymmetric matrix [A,B;C,D] in
-standard form. A, B, C, D are overwritten on output by the corresponding elements of the
-standardised Schur form. RT1R+im*RT1I and RT2R+im*RT2I are the resulting eigenvalues.
-CS and SN are the parameters of the rotation matrix.
-Interface to the LAPACK subroutine DLANV2.
+Compute the Schur factorization of a real 2-by-2 nonsymmetric matrix `[A,B;C,D]` in
+standard form. `A`, `B`, `C`, `D` are overwritten on output by the corresponding elements of the
+standardised Schur form. `RT1R+im*RT1I` and `RT2R+im*RT2I` are the resulting eigenvalues.
+`CS` and `SN` are the parameters of the rotation matrix.
+Interface to the LAPACK subroutines DLANV2/SLANV2.
 """
-function lanv2(A::Float64, B::Float64, C::Float64, D::Float64)
-    """
-    SUBROUTINE DLANV2( A, B, C, D, RT1R, RT1I, RT2R, RT2I, CS, SN )
+lanv2(A::Union{Float32,Float64}, B::Union{Float32,Float64}, C::Union{Float32,Float64}, D::Union{Float32,Float64})
 
-    DOUBLE PRECISION A, B, C, CS, D, RT1I, RT1R, RT2I, RT2R, SN
-    """
-    RT1R = Ref{Float64}(1.0)
-    RT1I = Ref{Float64}(1.0)
-    RT2R = Ref{Float64}(1.0)
-    RT2I = Ref{Float64}(1.0)
-    CS = Ref{Float64}(1.0)
-    SN = Ref{Float64}(1.0)
-    ccall((@blasfunc("dlanv2_"), liblapack), Cvoid,
-          (Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},
-           Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64}),
-           A, B, C, D,
-           RT1R, RT1I, RT2R, RT2I, CS, SN)
-    return RT1R[], RT1I[], RT2R[], RT2I[], CS[], SN[]
+
+for (fn, elty) in ((:dlag2_, :Float64),
+                   (:slag2_, :Float32))
+    @eval begin
+        function lag2(A::StridedMatrix{$elty}, B::StridedMatrix{$elty}, SAFMIN::$elty)
+           """
+           SUBROUTINE DLAG2( A, LDA, B, LDB, SAFMIN, SCALE1, SCALE2, WR1, WR2, WI )
+
+           INTEGER            LDA, LDB
+           DOUBLE PRECISION   SAFMIN, SCALE1, SCALE2, WI, WR1, WR2
+           DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
+           """
+           LDA = stride(A,2)
+           LDB = stride(B,2)
+           SCALE1 = Ref{$elty}(1.0)
+           SCALE2 = Ref{$elty}(1.0)
+           WR1 = Ref{$elty}(1.0)
+           WR2 = Ref{$elty}(1.0)
+           WI = Ref{$elty}(1.0)
+           ccall((@blasfunc($fn), liblapack), Cvoid,
+                (Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ref{$elty},
+                Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty}),
+                A, LDA, B, LDB, SAFMIN,
+                SCALE1, SCALE2, WR1, WR2, WI)
+           return SCALE1[], SCALE2[], WR1[], WR2[], WI[]
+        end
+    end
 end
-
 """
     lag2(A, B, SAFMIN) -> (SCALE1, SCALE2, WR1, WR2, WI)
 
 Compute the eigenvalues of a 2-by-2 generalized real eigenvalue problem for
 the matrix pair `(A,B)`, with scaling as necessary to avoid over-/underflow.
-SAFMIN is the smallest positive number s.t. 1/SAFMIN does not overflow.
-If WI = 0, WR1/SCALE1 and WR2/SCALE2 are the resulting real eigenvalues, while
-if WI <> 0, then (WR1+/-im*WI)/SCALE1 are the resuting complex eigenvalues.
-Interface to the LAPACK subroutine DLAG2.
-
+`SAFMIN` is the smallest positive number s.t. `1/SAFMIN` does not overflow.
+If `WI = 0`, `WR1/SCALE1` and `WR2/SCALE2` are the resulting real eigenvalues, while
+if `WI <> 0`, then `(WR1+/-im*WI)/SCALE1` are the resulting complex eigenvalues.
+Interface to the LAPACK subroutines DLAG2/SLAG2.
 """
-function lag2(A::StridedMatrix{Float64}, B::StridedMatrix{Float64}, SAFMIN::Float64)
-    """
-    SUBROUTINE DLAG2( A, LDA, B, LDB, SAFMIN, SCALE1, SCALE2, WR1, WR2, WI )
+lag2(A::StridedMatrix{Union{Float32,Float64}}, B::StridedMatrix{Union{Float32,Float64}}, SAFMIN::Union{Float32,Float64})
 
-    INTEGER            LDA, LDB
-    DOUBLE PRECISION   SAFMIN, SCALE1, SCALE2, WI, WR1, WR2
-    DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
-    """
-    LDA = stride(A,2)
-    LDB = stride(B,2)
-    SCALE1 = Ref{Float64}(1.0)
-    SCALE2 = Ref{Float64}(1.0)
-    WR1 = Ref{Float64}(1.0)
-    WR2 = Ref{Float64}(1.0)
-    WI = Ref{Float64}(1.0)
-    ccall((@blasfunc("dlag2_"), liblapack), Cvoid,
-          (Ptr{Float64}, Ref{BlasInt}, Ptr{Float64}, Ref{BlasInt}, Ref{Float64},
-           Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64}),
-           A, LDA, B, LDB, SAFMIN,
-           SCALE1, SCALE2, WR1, WR2, WI)
-    return SCALE1[], SCALE2[], WR1[], WR2[], WI[]
+for (fn, elty) in ((:dladiv_, :Float64),
+                   (:sladiv_, :Float32))
+    @eval begin
+        function ladiv(A::$elty, B::$elty, C::$elty, D::$elty)
+           """
+           SUBROUTINE DLADIV( A, B, C, D, P, Q )
+
+           DOUBLE PRECISION   A, B, C, D, P, Q
+           """
+           P = Ref{$elty}(1.0)
+           Q = Ref{$elty}(1.0)
+           ccall((@blasfunc($fn), liblapack), Cvoid,
+                (Ref{$elty},Ref{$elty},Ref{$elty},Ref{$elty},
+                 Ref{$elty},Ref{$elty}),
+                 A, B, C, D, P, Q)
+           return P[], Q[]
+        end
+    end
 end
-
 """
     ladiv(A, B, C, D) -> (P, Q)
 
@@ -178,23 +211,9 @@ Perform the complex division in real arithmetic
   ``P + iQ = \\displaystyle\\frac{A+iB}{C+iD}``
 
 by avoiding unnecessary overflow.
-Interface to the LAPACK subroutine DLADIV.
+Interface to the LAPACK subroutines DLADIV/SLADIV.
 """
-function ladiv(A::Float64, B::Float64, C::Float64, D::Float64)
-    """
-    SUBROUTINE DLADIV( A, B, C, D, P, Q )
-
-    DOUBLE PRECISION   A, B, C, D, P, Q
-    """
-    P = Ref{Float64}(1.0)
-    Q = Ref{Float64}(1.0)
-    ccall((@blasfunc("dladiv_"), liblapack), Cvoid,
-          (Ref{Float64},Ref{Float64},Ref{Float64},Ref{Float64},
-           Ref{Float64},Ref{Float64}),
-           A, B, C, D,
-           P, Q)
-    return P[], Q[]
-end
+ladiv(A::Union{Float32,Float64}, B::Union{Float32,Float64}, C::Union{Float32,Float64}, D::Union{Float32,Float64})
 
 for (fn, elty) in ((:dlacn2_, :Float64),
                    (:slacn2_, :Float32))
@@ -232,20 +251,20 @@ for (fn, elty) in ((:dlacn2_, :Float64),
 end
 """
     lacn2!(V, X, ISGN, EST, KASE, ISAVE ) -> (EST, KASE )
-
-Estimate the 1-norm of a real linear operator A, using reverse communication
-by applying the operator or its trasnpose/adjoint to a vector.
-
-KASE is a parameter to control the norm evaluation process as follows.
-On the initial call, KASE should be 0. On an intermediate return,
-KASE will be 1 or 2, indicating whether the real vector X should be overwritten
-by A * X  or A' * X at the next call.
-On the final return, KASE will again be 0 and EST is an estimate (a lower bound)
-for the 1-norm of A. V is a real work vector, ISGN is an integer work
-vector and ISAVE is a 3-dimensional integer vector used to save information
+Estimate the 1-norm of a `real` linear operator `A`, using reverse communication
+by applying the operator or its transpose/adjoint to a vector.
+`KASE` is a parameter to control the norm evaluation process as follows.
+On the initial call, `KASE` should be `0`. On an intermediate return,
+`KASE` will be `1` or `2`, indicating whether the `real` vector `X` should be overwritten
+by `A * X`  or `A' * X` at the next call.
+On the final return, `KASE` will again be `0` and `EST` is an estimate (a lower bound)
+for the 1-norm of `A`. `V` is a real work vector, `ISGN` is an integer work
+vector and `ISAVE` is a 3-dimensional integer vector used to save information
 between the calls.
+Interface to the LAPACK subroutines DLACN2/SLACN2.
 """
-lacn2!(V::AbstractVector, X::AbstractVector, ISGN::AbstractVector{Int}, EST::Float64, KASE::Int64, ISAVE::AbstractVector{Int})
+lacn2!(V::AbstractVector{Union{Float32,Float64}}, X::AbstractVector{Union{Float32,Float64}}, ISGN::AbstractVector{Int64}, EST::Union{Float32,Float64}, KASE::Int64, ISAVE::AbstractVector{Int64})
+
 
 for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
                           (:clacn2_, :ComplexF32, :Float32))
@@ -281,22 +300,19 @@ for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
         end
     end
 end
-
 """
     lacn2!(V, X, EST, KASE, ISAVE ) -> (EST, KASE )
-
-Estimate the 1-norm of a complex linear operator A, using reverse communication
-by applying the operator or its trasnpose/adjoint to a vector.
-
-KASE is a parameter to control the norm evaluation process as follows.
-On the initial call, KASE should be 0. On an intermediate return,
-KASE will be 1 or 2, indicating whether the complex vector X should be overwritten
-by A * X  or A' * X at the next call.
-On the final return, KASE will again be 0 and EST is an estimate (a lower bound)
-for the 1-norm of A. V is a complex work vector, ISGN is an integer work
-vector and ISAVE is a 3-dimensional integer vector used to save information
-between the calls.
+Estimate the 1-norm of a `complex` linear operator `A`, using reverse communication
+by applying the operator or its adjoint to a vector.
+`KASE` is a parameter to control the norm evaluation process as follows.
+On the initial call, `KASE` should be `0`. On an intermediate return,
+`KASE` will be `1` or `2`, indicating whether the `complex` vector `X` should be overwritten
+by `A * X`  or `A' * X` at the next call.
+On the final return, `KASE` will again be `0` and `EST` is an estimate (a lower bound)
+for the 1-norm of `A`. `V` is a complex work vector and `ISAVE` is a 3-dimensional
+integer vector used to save information between the calls.
+Interface to the LAPACK subroutines ZLACN2/CLACN2.
 """
-lacn2!(V::AbstractVector, X::AbstractVector, EST::Float64, KASE::Int64, ISAVE::AbstractVector{Int})
+lacn2!(V::AbstractVector{Union{ComplexF32,ComplexF64}}, X::AbstractVector{Union{ComplexF32,ComplexF64}}, EST::Union{Float32,Float64}, KASE::Int64, ISAVE::AbstractVector{Int64})
 
 end

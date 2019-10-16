@@ -1,4 +1,5 @@
 using Documenter, MatrixEquations
+DocMeta.setdocmeta!(MatrixEquations, :DocTestSetup, :(using MatrixEquations); recursive=true)
 
 makedocs(
   modules  = [MatrixEquations],

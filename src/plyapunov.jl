@@ -1,11 +1,4 @@
 # Positive-definite continuous Lyapunov equations
-plyapc(A::T1, B::T2) where {T1<:Number,T2<:Number} =
-      real(A) < zero(0.) ? abs(B)/sqrt( -2. * real(A) ) :
-      error("A must be a negative number or must have negative real part")
-
-plyapc(A::T1, E::T2, B::T3) where {T1<:Number,T2<:Number,T3<:Number} =
-      real(A*E') < zero(0.) ? abs(B)/sqrt( -2. * real(A*E') ) :
-      error("A*E' must be a negative number or must have negative real part")
 """
     U = plyapc(A, B)
 
@@ -27,7 +20,7 @@ the continuous Lyapunov equation
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of columns as `A`. `A` must have only eigenvalues with negative real parts.
 """
-function plyapc(A, B)
+function plyapc(A::AbstractMatrix, B::AbstractMatrix)
    """
    Method
 
@@ -52,30 +45,36 @@ function plyapc(A, B)
       if nb != n
          throw(DimensionMismatch("B must be a matrix of column dimension $n"))
       end
-      realAB = (typeof(A.parent) == Array{Float64,2}) & (typeof(B.parent) == Array{Float64,2})
    else
       mb, nb = size(B)
       if mb != n
          throw(DimensionMismatch("B must be a matrix of row dimension $n"))
       end
-      realAB = (typeof(A) == Array{Float64,2}) & (typeof(B) == Array{Float64,2})
    end
+
+   T2 = promote_type(eltype(A), eltype(B))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(B) !== T2
+      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
+   end
+
+   realAB = eltype(A) <: AbstractFloat
+   ZERO = zero(real(T2))
+   ONE = one(real(T2))
 
    # Reduce A to Schur form and transform B
    if adj
-      if realAB
-         AS, Q, EV = schur(A.parent)
-      else
-         AS, Q, EV = schur(complex(A.parent))
-      end
+      AS, Q, EV = schur(A.parent)
    else
-      if realAB
-         AS, Q, EV = schur(A)
-      else
-         AS, Q, EV = schur(complex(A))
-      end
+      AS, Q, EV = schur(A)
    end
-   if maximum(real(EV)) >= 0.
+
+   if maximum(real(EV)) >= ZERO
       error("A must have only eigenvalues with negative real part")
    end
 
@@ -85,7 +84,7 @@ function plyapc(A, B)
       tau = similar(u,min(n,mb))
       u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
       if mb < n
-         U = UpperTriangular([u; zeros(n-mb,n)])
+         U = UpperTriangular([u; zeros(T2,n-mb,n)])
       else
          U = UpperTriangular(u[1:n,:])
       end
@@ -95,7 +94,7 @@ function plyapc(A, B)
       tau = similar(u,min(n,nb))
       u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
       if nb < n
-         U = UpperTriangular([zeros(n,n-nb) u])
+         U = UpperTriangular([zeros(T2,n,n-nb) u])
       else
          U = UpperTriangular(u[:,nb-n+1:end])
       end
@@ -109,7 +108,7 @@ function plyapc(A, B)
       # Make the diagonal elements of U non-negative.
       if realAB
          for i = 1:n
-             if U[i,i] < 0.
+             if U[i,i] < ZERO
                for j = i:n
                    U[i,j] = -U[i,j]
                end
@@ -118,7 +117,7 @@ function plyapc(A, B)
        else
           for i = 1:n
               d = abs(U[i,i])
-              if d != 0.
+              if d != ZERO
                 tmp = conj(U[i,i])/d
                 for j = i:n
                     U[i,j] *= tmp
@@ -133,7 +132,7 @@ function plyapc(A, B)
       # Make the diagonal elements of U non-negative.
       if realAB
          for j = 1:n
-             if U[j,j] < 0.
+             if U[j,j] < ZERO
                 for i = 1:j
                     U[i,j] = -U[i,j]
                 end
@@ -142,7 +141,7 @@ function plyapc(A, B)
        else
           for j = 1:n
               d = abs(U[j,j])
-              if d != 0.
+              if d != ZERO
                  tmp = conj(U[j,j])/d
                  for i = 1:j
                      U[i,j] *= tmp
@@ -153,6 +152,9 @@ function plyapc(A, B)
    end
    return U
 end
+plyapc(A::Union{Real,Complex}, B::Union{Real,Complex}) =
+      real(A) < 0 ? abs(B)/sqrt( -2 * real(A) ) :
+      error("A must be a negative number or must have negative real part")
 """
     U = plyapc(A, E, B)
 
@@ -176,7 +178,7 @@ where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λ E` must have only
 eigenvalues with negative real parts.
 """
-function plyapc(A, E, B)
+function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
    """
    Method
 
@@ -199,9 +201,8 @@ function plyapc(A, E, B)
    end
 
    n = LinearAlgebra.checksquare(A)
-   if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      plyapc(A, B)
-      return
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)
+      return plyapc(A, B)
    else
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -213,35 +214,40 @@ function plyapc(A, E, B)
       if nb != n
          throw(DimensionMismatch("B must be a matrix of column dimension $n"))
       end
-      realAEB = (typeof(A.parent) == Array{Float64,2}) & (typeof(E.parent) == Array{Float64,2}) &
-                (typeof(B.parent) == Array{Float64,2})
    else
       mb, nb = size(B)
       if mb != n
          throw(DimensionMismatch("B must be a matrix of row dimension $n"))
       end
-      realAEB = (typeof(A) == Array{Float64,2}) & (typeof(E) == Array{Float64,2}) &
-                (typeof(B) == Array{Float64,2})
    end
 
+   T2 = promote_type(eltype(A), eltype(E), eltype(B))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(E) !== T2
+     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
+   end
+   if eltype(B) !== T2
+      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
+   end
+
+   realAEB = eltype(A) <: AbstractFloat
+   ZERO = zero(real(T2))
+   ONE = one(real(T2))
 
    # Reduce (A,E) to generalized Schur form and transform C
    # (AS,ES) = (Q'*A*Z, Q'*E*Z)
    if adj
-      if realAEB
-         AS, ES, Q, Z, α, β = schur(A.parent,E.parent)
-      else
-         AS, ES, Q, Z, α, β = schur(complex(A.parent),complex(E.parent))
-      end
+      AS, ES, Q, Z, α, β = schur(A.parent,E.parent)
    else
-      if realAEB
-         AS, ES, Q, Z, α, β = schur(A,E)
-      else
-         AS, ES, Q, Z, α, β = schur(complex(A),complex(E))
-      end
+      AS, ES, Q, Z, α, β = schur(A,E)
    end
 
-   if maximum(real(α./β)) >= 0.
+   if maximum(real(α./β)) >= ZERO
       error("A-λE must have only eigenvalues with negative real parts")
    end
 
@@ -251,7 +257,7 @@ function plyapc(A, E, B)
       tau = similar(u,min(n,mb))
       u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
       if mb < n
-         U = UpperTriangular([u; zeros(n-mb,n)])
+         U = UpperTriangular([u; zeros(T2,n-mb,n)])
       else
          U = UpperTriangular(u[1:n,:])
       end
@@ -261,7 +267,7 @@ function plyapc(A, E, B)
       tau = similar(u,min(n,nb))
       u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
       if nb < n
-         U = UpperTriangular([zeros(n,n-nb) u])
+         U = UpperTriangular([zeros(T2,n,n-nb) u])
       else
          U = UpperTriangular(u[:,nb-n+1:end])
       end
@@ -275,7 +281,7 @@ function plyapc(A, E, B)
       # Make the diagonal elements of U non-negative.
       if realAEB
          for i = 1:n
-             if U[i,i] < 0.
+             if U[i,i] < ZERO
                for j = i:n
                    U[i,j] = -U[i,j]
                end
@@ -284,7 +290,7 @@ function plyapc(A, E, B)
        else
           for i = 1:n
               d = abs(U[i,i])
-              if d != 0.
+              if d != ZERO
                 tmp = conj(U[i,i])/d
                 for j = i:n
                     U[i,j] *= tmp
@@ -299,7 +305,7 @@ function plyapc(A, E, B)
       # Make the diagonal elements of U non-negative.
       if realAEB
          for j = 1:n
-             if U[j,j] < 0.
+             if U[j,j] < ZERO
                 for i = 1:j
                     U[i,j] = -U[i,j]
                 end
@@ -308,7 +314,7 @@ function plyapc(A, E, B)
        else
           for j = 1:n
               d = abs(U[j,j])
-              if d != 0.
+              if d != ZERO
                  tmp = conj(U[j,j])/d
                  for i = 1:j
                      U[i,j] *= tmp
@@ -319,13 +325,9 @@ function plyapc(A, E, B)
    end
    return U
 end
-plyapd(A::T1, B::T2) where {T1<:Number,T2<:Number} =
-      abs(A) < one(A) ? abs(B)/sqrt( (one(A)-abs(A))*(one(A)+abs(A)) ) :
-      error("A must be a subunitary number")
-plyapd(A::T1, E::T2, B::T3) where {T1<:Number,T2<:Number,T3<:Number} =
-     abs(A) < abs(E) ? abs(B)/sqrt( (abs(E)-abs(A))*(abs(E)+abs(A)) ) :
-      error("A/E must be a subunitary number")
-
+plyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
+      real(A*E') < 0 ? abs(B)/sqrt( -2 * real(A*E') ) :
+      error("A*E' must be a negative number or must have negative real part")
 """
     U = plyapd(A, B)
 
@@ -347,7 +349,7 @@ the discrete Lyapunov equation
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of columns as `A`. `A` must have only eigenvalues with moduli less than one.
 """
-function plyapd(A, B)
+function plyapd(A::AbstractMatrix, B::AbstractMatrix)
    """
    Method
 
@@ -375,30 +377,35 @@ function plyapd(A, B)
       if nb != n
          throw(DimensionMismatch("B must be a matrix of column dimension $n"))
       end
-      realAB = (typeof(A.parent) == Array{Float64,2}) && (typeof(B.parent) == Array{Float64,2})
    else
       mb, nb = size(B)
       if mb != n
          throw(DimensionMismatch("B must be a matrix of row dimension $n"))
       end
-      realAB = (typeof(A) == Array{Float64,2}) && (typeof(B) == Array{Float64,2})
    end
+
+   T2 = promote_type(eltype(A), eltype(B))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(B) !== T2
+      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
+   end
+
+   realAB = eltype(A) <: AbstractFloat
+   ZERO = zero(real(T2))
+   ONE = one(real(T2))
 
    # Reduce A to Schur form and transform B
    if adj
-      if realAB
-         AS, Q, EV = schur(A.parent)
-      else
-         AS, Q, EV = schur(complex(A.parent))
-      end
+      AS, Q, EV = schur(A.parent)
    else
-      if realAB
-         AS, Q, EV = schur(A)
-      else
-         AS, Q, EV = schur(complex(A))
-      end
+      AS, Q, EV = schur(A)
    end
-   if maximum(abs.(EV)) >= 1.
+   if maximum(abs.(EV)) >= ONE
       error("A must have only eigenvalues with moduli less than one")
    end
 
@@ -408,7 +415,7 @@ function plyapd(A, B)
       tau = similar(u,min(n,mb))
       u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
       if mb < n
-         U = UpperTriangular([u; zeros(n-mb,n)])
+         U = UpperTriangular([u; zeros(T2,n-mb,n)])
       else
          U = UpperTriangular(u[1:n,:])
       end
@@ -418,7 +425,7 @@ function plyapd(A, B)
       tau = similar(u,min(n,nb))
       u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
       if nb < n
-         U = UpperTriangular([zeros(n,n-nb) u])
+         U = UpperTriangular([zeros(T2,n,n-nb) u])
       else
          U = UpperTriangular(u[:,nb-n+1:end])
       end
@@ -432,7 +439,7 @@ function plyapd(A, B)
       # Make the diagonal elements of U non-negative.
       if realAB
          for i = 1:n
-             if U[i,i] < 0.
+             if U[i,i] < ZERO
                for j = i:n
                    U[i,j] = -U[i,j]
                end
@@ -441,7 +448,7 @@ function plyapd(A, B)
        else
           for i = 1:n
               d = abs(U[i,i])
-              if d != 0.
+              if d != ZERO
                 tmp = conj(U[i,i])/d
                 for j = i:n
                     U[i,j] *= tmp
@@ -456,7 +463,7 @@ function plyapd(A, B)
       # Make the diagonal elements of U non-negative.
       if realAB
          for j = 1:n
-             if U[j,j] < 0.
+             if U[j,j] < ZERO
                 for i = 1:j
                     U[i,j] = -U[i,j]
                 end
@@ -465,7 +472,7 @@ function plyapd(A, B)
        else
           for j = 1:n
               d = abs(U[j,j])
-              if d != 0.
+              if d != ZERO
                  tmp = conj(U[j,j])/d
                  for i = 1:j
                      U[i,j] *= tmp
@@ -476,6 +483,9 @@ function plyapd(A, B)
    end
    return U
 end
+plyapd(A::Union{Real,Complex}, B::Union{Real,Complex}) =
+      abs(A) < real(one(A)) ? real(abs(B)/sqrt( (one(A)-abs(A))*(one(A)+abs(A)) )) :
+      error("A must be a subunitary number")
 """
     U = plyapd(A, E, B)
 
@@ -499,7 +509,7 @@ where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λ E` must have only
 eigenvalues with moduli less than one.
 """
-function plyapd(A, E, B)
+function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
    """
    Method
 
@@ -522,9 +532,8 @@ function plyapd(A, E, B)
    end
 
    n = LinearAlgebra.checksquare(A)
-   if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      plyapd(A, B)
-      return
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)
+      return plyapd(A, B)
    else
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -536,35 +545,40 @@ function plyapd(A, E, B)
       if nb != n
          throw(DimensionMismatch("B must be a matrix of column dimension $n"))
       end
-      realAEB = (typeof(A.parent) == Array{Float64,2}) && (typeof(E.parent) == Array{Float64,2}) &&
-                (typeof(B.parent) == Array{Float64,2})
    else
       mb, nb = size(B)
       if mb != n
          throw(DimensionMismatch("B must be a matrix of row dimension $n"))
       end
-      realAEB = (typeof(A) == Array{Float64,2}) && (typeof(E) == Array{Float64,2}) &&
-                (typeof(B) == Array{Float64,2})
    end
 
+   T2 = promote_type(eltype(A), eltype(E), eltype(B))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(E) !== T2
+     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
+   end
+   if eltype(B) !== T2
+      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
+   end
+
+   realAEB = eltype(A) <: AbstractFloat
+   ZERO = zero(real(T2))
+   ONE = one(real(T2))
 
    # Reduce (A,E) to generalized Schur form and transform C
    # (AS,ES) = (Q'*A*Z, Q'*E*Z)
    if adj
-      if realAEB
-         AS, ES, Q, Z, α, β = schur(A.parent,E.parent)
-      else
-         AS, ES, Q, Z, α, β = schur(complex(A.parent),complex(E.parent))
-      end
+      AS, ES, Q, Z, α, β = schur(A.parent,E.parent)
    else
-      if realAEB
-         AS, ES, Q, Z, α, β = schur(A,E)
-      else
-         AS, ES, Q, Z, α, β = schur(complex(A),complex(E))
-      end
+      AS, ES, Q, Z, α, β = schur(A,E)
    end
 
-   if maximum(abs.(α./β)) >= 1.
+   if maximum(abs.(α./β)) >= ONE
       error("A-λE must have only eigenvalues with moduli less than one")
    end
 
@@ -574,7 +588,7 @@ function plyapd(A, E, B)
       tau = similar(u,min(n,mb))
       u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
       if mb < n
-         U = UpperTriangular([u; zeros(n-mb,n)])
+         U = UpperTriangular([u; zeros(T2,n-mb,n)])
       else
          U = UpperTriangular(u[1:n,:])
       end
@@ -584,7 +598,7 @@ function plyapd(A, E, B)
       tau = similar(u,min(n,nb))
       u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
       if nb < n
-         U = UpperTriangular([zeros(n,n-nb) u])
+         U = UpperTriangular([zeros(T2,n,n-nb) u])
       else
          U = UpperTriangular(u[:,nb-n+1:end])
       end
@@ -598,7 +612,7 @@ function plyapd(A, E, B)
       # Make the diagonal elements of U non-negative.
       if realAEB
          for i = 1:n
-             if U[i,i] < 0.
+             if U[i,i] < ZERO
                for j = i:n
                    U[i,j] = -U[i,j]
                end
@@ -607,7 +621,7 @@ function plyapd(A, E, B)
        else
           for i = 1:n
               d = abs(U[i,i])
-              if d != 0.
+              if d != ZERO
                 tmp = conj(U[i,i])/d
                 for j = i:n
                     U[i,j] *= tmp
@@ -622,7 +636,7 @@ function plyapd(A, E, B)
       # Make the diagonal elements of U non-negative.
       if realAEB
          for j = 1:n
-             if U[j,j] < 0.
+             if U[j,j] < ZERO
                 for i = 1:j
                     U[i,j] = -U[i,j]
                 end
@@ -631,7 +645,7 @@ function plyapd(A, E, B)
        else
           for j = 1:n
               d = abs(U[j,j])
-              if d != 0.
+              if d != ZERO
                  tmp = conj(U[j,j])/d
                  for i = 1:j
                      U[i,j] *= tmp
@@ -642,6 +656,10 @@ function plyapd(A, E, B)
    end
    return U
 end
+plyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
+     abs(A) < abs(E) ? real(abs(B)/sqrt( (abs(E)-abs(A))*(abs(E)+abs(A)) )) :
+      error("A/E must be a subunitary number")
+
 """
     U = plyaps(A, B; disc = false)
 
@@ -691,7 +709,7 @@ respectively, and `B` is a matrix with the same number of columns as `A`.
 `A` must have only eigenvalues with moduli less than one. Only the upper
 Hessenberg part of `A` is referenced.
 """
-function plyaps(A, B; disc = false)
+function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
    """
    Method
 
@@ -719,14 +737,26 @@ function plyaps(A, B; disc = false)
       if nb != n
          throw(DimensionMismatch("B must be a matrix of column dimension $n"))
       end
-      realAB = (typeof(A.parent) == Array{Float64,2}) & (typeof(B.parent) == Array{Float64,2})
    else
       mb, nb = size(B)
       if mb != n
          throw(DimensionMismatch("B must be a matrix of row dimension $n"))
       end
-      realAB = (typeof(A) == Array{Float64,2}) & (typeof(B) == Array{Float64,2})
    end
+
+   T2 = promote_type(eltype(A), eltype(B))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(B) !== T2
+      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
+   end
+
+   realAB = eltype(A) <: AbstractFloat
+   ZERO = zero(real(T2))
 
    if adj
       #U'U = B'*B
@@ -734,7 +764,7 @@ function plyaps(A, B; disc = false)
       tau = similar(u,min(n,mb))
       u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
       if mb < n
-         U = UpperTriangular([u; zeros(n-mb,n)])
+         U = UpperTriangular([u; zeros(T2,n-mb,n)])
       else
          U = UpperTriangular(u[1:n,:])
       end
@@ -749,7 +779,7 @@ function plyaps(A, B; disc = false)
       tau = similar(u,min(n,nb))
       u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
       if nb < n
-         U = UpperTriangular([zeros(n,n-nb) u])
+         U = UpperTriangular([zeros(T2,n,n-nb) u])
       else
          U = UpperTriangular(u[:,nb-n+1:end])
       end
@@ -764,7 +794,7 @@ function plyaps(A, B; disc = false)
       # Make the diagonal elements of U non-negative.
       if realAB
          for i = 1:n
-             if U[i,i] < 0.
+             if U[i,i] < ZERO
                for j = i:n
                    U[i,j] = -U[i,j]
                end
@@ -773,7 +803,7 @@ function plyaps(A, B; disc = false)
        else
           for i = 1:n
               d = abs(U[i,i])
-              if d != 0.
+              if d != ZERO
                 tmp = conj(U[i,i])/d
                 for j = i:n
                     U[i,j] *= tmp
@@ -786,7 +816,7 @@ function plyaps(A, B; disc = false)
       # Make the diagonal elements of U non-negative.
       if realAB
          for j = 1:n
-             if U[j,j] < 0.
+             if U[j,j] < ZERO
                 for i = 1:j
                     U[i,j] = -U[i,j]
                 end
@@ -795,7 +825,7 @@ function plyaps(A, B; disc = false)
        else
           for j = 1:n
               d = abs(U[j,j])
-              if d != 0.
+              if d != ZERO
                  tmp = conj(U[j,j])/d
                  for i = 1:j
                      U[i,j] *= tmp
@@ -855,7 +885,7 @@ a generalied real or complex Schur form, respectively,  and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λ E` must have only
 eigenvalues with moduli less than one.
 """
-function plyaps(A, E, B; disc = false)
+function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; disc = false)
    """
    Method
 
@@ -878,9 +908,8 @@ function plyaps(A, E, B; disc = false)
    end
 
    n = LinearAlgebra.checksquare(A)
-   if (E == I) || isempty(E) || E == Array{eltype(A),2}(I,n,n)
-      plyaps(A, B)
-      return
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)
+      return plyaps(A, B)
    else
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -892,16 +921,30 @@ function plyaps(A, E, B; disc = false)
       if nb != n
          throw(DimensionMismatch("B must be a matrix of column dimension $n"))
       end
-      realAEB = (typeof(A.parent) == Array{Float64,2}) & (typeof(E.parent) == Array{Float64,2}) &
-                (typeof(B.parent) == Array{Float64,2})
    else
       mb, nb = size(B)
       if mb != n
          throw(DimensionMismatch("B must be a matrix of row dimension $n"))
       end
-      realAEB = (typeof(A) == Array{Float64,2}) & (typeof(E) == Array{Float64,2}) &
-                (typeof(B) == Array{Float64,2})
    end
+
+
+   T2 = promote_type(eltype(A), eltype(E), eltype(B))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(E) !== T2
+     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
+   end
+   if eltype(B) !== T2
+      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
+   end
+
+   realAEB = eltype(A) <: AbstractFloat
+   ZERO = zero(real(T2))
 
    if adj
       #U'*U = B'*B
@@ -909,7 +952,7 @@ function plyaps(A, E, B; disc = false)
       tau = similar(u,min(n,mb))
       u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
       if mb < n
-         U = UpperTriangular([u; zeros(n-mb,n)])
+         U = UpperTriangular([u; zeros(T2,n-mb,n)])
       else
          U = UpperTriangular(u[1:n,:])
       end
@@ -924,7 +967,7 @@ function plyaps(A, E, B; disc = false)
       tau = similar(u,min(n,nb))
       u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
       if nb < n
-         U = UpperTriangular([zeros(n,n-nb) u])
+         U = UpperTriangular([zeros(T2,n,n-nb) u])
       else
          U = UpperTriangular(u[:,nb-n+1:end])
       end
@@ -939,7 +982,7 @@ function plyaps(A, E, B; disc = false)
       # Make the diagonal elements of U non-negative.
       if realAEB
          for i = 1:n
-             if U[i,i] < 0.
+             if U[i,i] < ZERO
                for j = i:n
                    U[i,j] = -U[i,j]
                end
@@ -948,7 +991,7 @@ function plyaps(A, E, B; disc = false)
        else
           for i = 1:n
               d = abs(U[i,i])
-              if d != 0.
+              if d != ZERO
                 tmp = conj(U[i,i])/d
                 for j = i:n
                     U[i,j] *= tmp
@@ -961,7 +1004,7 @@ function plyaps(A, E, B; disc = false)
       # Make the diagonal elements of U non-negative.
       if realAEB
          for j = 1:n
-             if U[j,j] < 0.
+             if U[j,j] < ZERO
                 for i = 1:j
                     U[i,j] = -U[i,j]
                 end
@@ -970,7 +1013,7 @@ function plyaps(A, E, B; disc = false)
        else
           for j = 1:n
               d = abs(U[j,j])
-              if d != 0.
+              if d != ZERO
                  tmp = conj(U[j,j])/d
                  for i = 1:j
                      U[i,j] *= tmp
@@ -994,23 +1037,24 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have all eigenvalues with negative real parts.
 `R` contains on output the solution `U`.
 """
-function plyapcs!(A::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,2}}; adj = false)
+function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = eltype(A)
+   ZERO = zero(T)
+   ONE = one(T)
+   TWO = 2*ONE
+   EPS = eps(ONE)*TWO
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -1148,17 +1192,18 @@ function plyapcs!(A::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,
        end
    end
 end
-function plyapcs!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float64},Array{Complex{Float64},2}}; adj = false)
+function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = real(eltype(A))
+   ONE = one(T)
+   ZERO = zero(T)
+   TWO = 2*ONE
+   EPS = eps(ONE)*2
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
@@ -1177,7 +1222,7 @@ function plyapcs!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float
       """
       for j = 1:n
           λ = real(A[j,j])
-          if λ >= 0.
+          if λ >= ZERO
              error("A is not stable")
           end
           TEMP = sqrt( -TWO*λ )
@@ -1227,7 +1272,7 @@ function plyapcs!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float
       """
       for j = n:-1:1
           λ = real(A[j,j])
-          if λ >= 0.
+          if λ >= ZERO
              error("A is not stable")
           end
           TEMP = sqrt( -TWO*λ  )
@@ -1281,9 +1326,9 @@ The pair `(A,E)` is in a generalized real/complex Schur form and `R` is an upper
 triangular matrix. The pencil `A-λE` must have all eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
 """
-function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,2}}; adj = false)
+function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
       plyapcs!(A, R, adj = adj)
       return
    else
@@ -1295,17 +1340,18 @@ function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = eltype(A)
+   ZERO = zero(T)
+   ONE = one(T)
+   TWO = 2*ONE
+   EPS = eps(ONE)*TWO
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the generalized real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -1339,7 +1385,7 @@ function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
           l = j:j+dl-1
           if dl == 1
              λ = A[j,j]*E[j,j]
-             if λ >= 0.
+             if λ >= ZERO
                 error("A-λE has eigenvalues with non-negative real parts")
              end
              TEMP = sqrt( -TWO*λ )
@@ -1376,7 +1422,7 @@ function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
              z = rbar*α + (R[l,l]*A[l,j1])'+v*β
              # Solve A[j1,j1]'*ubar+E[j1,j1]'*ubar*β + z = 0
              η = one(β)
-             if dl == 2; η[2,1] = eps(1.)^2; end
+             if dl == 2; η[2,1] = eps(ONE)^2; end
              ubar = gsylvs!(A[j1,j1],η,E[j1,j1],β,-z;adjAC=true,adjBD=false)
              R[l,j1] = ubar'
              # update the Cholesky factor R2'*R2 <- R2'*R2 + y'*y
@@ -1400,7 +1446,7 @@ function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
           l = j-dl+1:j
           if dl == 1
              λ = A[j,j]*E[j,j]
-             if λ >= 0.
+             if λ >= ZERO
                 error("A-λE has eigenvalues with non-negative real parts")
              end
              TEMP = sqrt( -TWO*λ )
@@ -1438,7 +1484,7 @@ function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
              z = rbar*α' + A[j1,l]*R[l,l]+v*β'
              # Solve S1*ubar+ubar*β' + z = 0
              η = one(β)
-             if dl == 2; η[2,1] = eps(1.)^2; end
+             if dl == 2; η[2,1] = eps(ONE)^2; end
              ubar = gsylvs!(A[j1,j1],η,E[j1,j1],β,-z;adjAC=false,adjBD=true)
              R[j1,l] = ubar
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
@@ -1450,12 +1496,12 @@ function plyapcs!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
        end
    end
 end
-function plyapcs!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Complex{Float64}},T1<:UpperTriangular{Complex{Float64},Array{Complex{Float64},2}}}
+function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if (typeof(E) == UniformScaling{Bool}) || isempty(E) || (isequal(E,I) && size(E,1) == n)
       plyapcs!(A, R, adj = adj)
       return
    end
@@ -1463,11 +1509,12 @@ function plyapcs!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Compl
       throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = real(eltype(A))
+   ZERO = zero(T)
+   ONE = one(T)
+   TWO = 2*ONE
+   EPS = eps(ONE)*2
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
    SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
@@ -1476,7 +1523,7 @@ function plyapcs!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Compl
    Wu = Array{eltype(A),2}(undef,n,1)
    Wy = Array{eltype(A),2}(undef,n,1)
    Wz = Array{eltype(A),2}(undef,n,1)
-   η  = complex(fill(1.0,(1,1)))
+   η  = complex(fill(ONE,(1,1)))
    if adj
       """
       The (L,L)th block of X is determined starting from
@@ -1487,7 +1534,7 @@ function plyapcs!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Compl
       """
       for j = 1:n
           δ = -TWO*real(A[j,j]'*E[j,j])
-          if δ <= 0.
+          if δ <= ZERO
              error("A-λE has unstable eigenvalues")
           end
           TEMP = sqrt( δ )
@@ -1541,7 +1588,7 @@ function plyapcs!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Compl
       """
       for j = n:-1:1
           δ = -TWO*real(A[j,j]'*E[j,j])
-          if δ <= 0.
+          if δ <= ZERO
             error("A-λE has unstable eigenvalues")
           end
           TEMP = sqrt( δ )
@@ -1597,23 +1644,24 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have all eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,2}}; adj = false)
+function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = eltype(A)
+   ZERO = zero(T)
+   ONE = one(T)
+   TWO = 2*ONE
+   EPS = eps(ONE)*TWO
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -1684,6 +1732,7 @@ function plyapds!(A::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
              ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
+             #ubar = sylvds!(S1, -β, z, adjA = true, adjB = false)
              R[l,j1] = ubar'
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
              v += (ubar'*S1)'
@@ -1751,6 +1800,7 @@ function plyapds!(A::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,
              z = rbar*α' + v*β'
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
+             #ubar = sylvds!(S1, -β, z, adjA = false, adjB = true)
              ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
              R[j1,l] = ubar
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
@@ -1769,17 +1819,16 @@ function plyapds!(A::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,
    end
    return UpperTriangular(R)
 end
-function plyapds!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float64},Array{Complex{Float64},2}}; adj = false)
+function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = real(eltype(A))
+   ONE = one(T)
+   EPS = eps(ONE)*2
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
@@ -1798,7 +1847,7 @@ function plyapds!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float
       """
       for j = 1:n
           λ = abs(A[j,j])
-          if λ >= 1.
+          if λ >= ONE
              error("A is not convergent")
           end
           TEMP = sqrt( (ONE - λ)*(ONE + λ) )
@@ -1846,7 +1895,7 @@ function plyapds!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float
       """
       for j = n:-1:1
           λ = abs(A[j,j])
-          if λ >= 1.
+          if λ >= ONE
             error("A is not convergent")
           end
           TEMP = sqrt( (ONE - λ)*(ONE + λ) )
@@ -1874,7 +1923,7 @@ function plyapds!(A::Array{Complex{Float64},2}, R::UpperTriangular{Complex{Float
              rbar = R[j1,l]
              ust = A[j1,l]*R[l,l]
              #z = rbar*α + A[j1,l]*R[l,l]*β'
-             z = rbar*α + ust*β'
+             z = rbar*α' + ust*β'
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
              ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
@@ -1900,7 +1949,7 @@ The pair `(A,E)` of square real or complex matrices is in a generalized Schur fo
 and `R` is an upper triangular matrix. `A-λE` must have all eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{Float64,Array{Float64,2}}; adj = false)
+function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    """
    The method of [1] for the discrete case is implemented.
 
@@ -1912,7 +1961,7 @@ function plyapds!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
       plyapds!(A, R, adj = adj)
       return
    end
@@ -1920,17 +1969,16 @@ function plyapds!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
       throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = eltype(A)
+   ONE = one(T)
+   EPS = eps(ONE)*2
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
 
    # determine the structure of the real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -2092,12 +2140,12 @@ function plyapds!(A::Array{Float64,2}, E::Array{Float64,2}, R::UpperTriangular{F
    end
    return UpperTriangular(R)
 end
-function plyapds!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Complex{Float64}},T1<:UpperTriangular{Complex{Float64},Array{Complex{Float64},2}}}
+function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    end
-   if (E == I) || isempty(E) || (isone(E) && size(E,1) == n)
+   if (typeof(E) == UniformScaling{Bool}) || isempty(E) || (isone(E) && size(E,1) == n)
       plyapds!(A, R, adj = adj)
       return
    end
@@ -2105,14 +2153,13 @@ function plyapds!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Compl
       throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    end
 
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   EPS = eps(1.)*TWO
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T = real(eltype(A))
+   ONE = one(T)
+   EPS = eps(ONE)*2
+   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*n*n / EPS
    BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
 
    Wr = Array{eltype(A),2}(undef,n,1)
    Wu = Array{eltype(A),2}(undef,n,1)
@@ -2208,7 +2255,7 @@ function plyapds!(A::T, E::T, R::T1; adj = false) where {T<:AbstractMatrix{Compl
              ust = A[j1,l]*R[l,l]
              vst = E[j1,l]*R[l,l]
              #z = rbar*α + A[j1,l]*R[l,l]*β'
-             z = rbar*α + ust*β'-vst
+             z = rbar*α' + ust*β'-vst
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
              ubar = gsylvs!(A[j1,j1], β, E[j1,j1], -one(β),-z, adjAC = false, adjBD = true)
@@ -2266,7 +2313,7 @@ inside the unit circle, it is nevertheless only just convergent, in
 the sense that small perturbations in `A` can make one or more of the
 eigenvalues lie outside the unit circle.
 """
-function plyap2(A::Array{Float64,2}, R::Array{Float64,2}; adj = false, disc = false)
+function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Float64},Matrix{Float32}}
    """
    This function is based on the SLICOT routine SB03OY, which implements the
    the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
@@ -2277,16 +2324,16 @@ function plyap2(A::Array{Float64,2}, R::Array{Float64,2}; adj = false, disc = fa
        Numerical solution of the stable, non-negative definite Lyapunov equation.
        IMA J. Num. Anal., 2, pp. 303-325, 1982.
    """
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   FOUR = 4.0
-   EPS = eps(1.)*TWO
-   #SMLNUM = reinterpret(Float64, 0x2000000000000000)
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T1 = eltype(A)
+   ZERO = zero(T1)
+   ONE = one(T1)
+   TWO = 2*ONE
+   FOUR = 4*ONE
+   EPS = eps(ONE)*TWO
+   T1 == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*FOUR / EPS
    BIGNUM = ONE / small
-   SMIN = eps(maximum(A[:]))
+   SMIN = eps(maximum(abs.(A)))
    scale = ONE
    noadj = !adj
    U = similar(R)
@@ -2757,7 +2804,7 @@ eigenvalues inside the unit circle, it is nevertheless only just convergent, in
 the sense that small perturbations in `A` or `E`  can make one or more of the
 eigenvalues lie outside the unit circle.
 """
-function pglyap2(A::Array{Float64,2}, E::Array{Float64,2}, R::Array{Float64,2}; adj = false, disc = false)
+function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union{Matrix{Float64},Matrix{Float32}}
    """
    This function is based on the SLICOT routine SG03BX, which implements the
    generalization of the method due to Hammarling ([1], section 6) for Lyapunov
@@ -2770,16 +2817,16 @@ function pglyap2(A::Array{Float64,2}, E::Array{Float64,2}, R::Array{Float64,2}; 
        Numerical solution of generalized Lyapunov equations.
        Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
    """
-   ZERO = 0.0
-   ONE = 1.0
-   TWO = 2.0
-   FOUR = 4.0
-   EPS = eps(1.)*TWO
-   #SMLNUM = reinterpret(Float64, 0x2000000000000000)
-   SMLNUM = reinterpret(Float64, 0x2000000000000000)
+   T1 = eltype(A)
+   ZERO = zero(T1)
+   ONE = one(T1)
+   TWO = 2*ONE
+   FOUR = 4*ONE
+   EPS = eps(ONE)*TWO
+   T1 == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    small = SMLNUM*FOUR / EPS
    BIGNUM = ONE / small
-   SMIN = eps(maximum(A[:]))
+   SMIN = eps(maximum(abs.(A)))
    scale = ONE
    noadj = !adj
    ISCONT = !disc

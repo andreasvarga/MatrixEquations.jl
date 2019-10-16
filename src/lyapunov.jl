@@ -1,6 +1,4 @@
 # Continuous Lyapunov equations
-lyapc(A::T1, C::T2) where {T1<:Number,T2<:Number} = -C/(A+A')
-lyapc(A::T1, E::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = -C/(A*E'+A'*E)
 """
     X = lyapc(A, C)
 
@@ -10,8 +8,38 @@ Compute `X`, the symmetric or hermitian solution of the continuous Lyapunov equa
 
 where `A` is a square real or complex matrix and `C` is a symmetric or hermitian
 matrix. `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+
+The following particular cases are also adressed:
+
+    X = lyapc(α*I,C)  or  X = lyapc(α,C)
+
+Solve the matrix equation `(α+α')X + C = 0`.
+
+    x = lyapc(α,γ)
+
+Solve the equation `(α+α')x + γ = 0`.
+
+# Examples
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> C = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> X = lyapc(A, C)
+2×2 Array{Float64,2}:
+  0.5  -0.5
+ -0.5   0.25
+julia> A*X + X*A' + C
+2×2 Array{Float64,2}:
+ -8.88178e-16   2.22045e-16
+  2.22045e-16  -4.44089e-16
+```
 """
-function lyapc(A, C)
+function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    """
    The Bartels-Steward Schur form based method is employed.
 
@@ -26,19 +54,22 @@ function lyapc(A, C)
 
    adj = isa(A,Adjoint)
 
+   T2 = promote_type(eltype(A), eltype(C))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+   end
+
    # Reduce A to Schur form and transform C
    if adj
-      if (typeof(A.parent) == Array{Float64,2})
-         AS, Q = schur(A.parent)
-      else
-         AS, Q = schur(complex(A.parent))
-      end
+      AS, Q = schur(A.parent)
    else
-      if (typeof(A) == Array{Float64,2})
-         AS, Q = schur(A)
-      else
-         AS, Q = schur(complex(A))
-      end
+      AS, Q = schur(A)
    end
 
    #X = Q'*C*Q
@@ -47,6 +78,11 @@ function lyapc(A, C)
    #X <- Q*X*Q'
    utqu!(X,Q')
 end
+# (α+α')X  + C = 0
+lyapc(A::UniformScaling, C::AbstractMatrix) = -C/(A+A')
+lyapc(A::Union{Real,Complex}, C::AbstractMatrix) = real(A) == 0 ? throw(SingularException(1)) : -C/(A+A')
+# (α+α')x + γ = 0
+lyapc(A::Union{Real,Complex}, C::Union{Real,Complex})  = real(A) == 0 ? throw(SingularException(1)) : -C/(A+A')
 """
     X = lyapc(A, E, C)
 
@@ -57,8 +93,50 @@ continuous generalized Lyapunov equation
 
 where `A` and `E` are square real or complex matrices and `C` is a symmetric or
 hermitian matrix. The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+
+The following particular cases are also adressed:
+
+    X = lyapc(A,β*I,C)  or  X = lyapc(A,β,C)
+
+Solve the matrix equation `AXβ' + βXA' + C = 0`.
+
+    X = lyapc(α*I,E,C)  or  X = lyapc(α,E,C)
+
+Solve the matrix equation `αXE' + EXα' + C = 0`.
+
+    X = lyapc(α*I,β*I,C)  or  X = lyapc(α,β,C)
+
+Solve the matrix equation `(αβ'+α'β)X + C = 0`.
+
+    x = lyapc(α,β,γ)
+
+Solve the equation `(αβ'+α'β)x + γ = 0`.
+
+# Examples
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> E = [ 1. 2.; 0. 1.]
+2×2 Array{Float64,2}:
+ 1.0  2.0
+ 0.0  1.0
+julia> C = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> X = lyapc(A, E, C)
+2×2 Array{Float64,2}:
+ -2.5   2.5
+  2.5  -2.25
+julia> A*X*E' + E*X*A' + C
+2×2 Array{Float64,2}:
+ -5.32907e-15  -2.66454e-15
+ -4.44089e-15   0.0
+```
 """
-function lyapc(A, E, C)
+function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    """
    The extension of the Bartels-Steward method based on the generalized Schur form
    is employed.
@@ -71,7 +149,7 @@ function lyapc(A, E, C)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
-   if isequal(E,I) || isempty(E)
+   if isequal(E,I) && size(E,1) == n
       return lyapc(A, C)
    else
       if LinearAlgebra.checksquare(E) != n
@@ -91,20 +169,26 @@ function lyapc(A, E, C)
 
    adj = adjA & adjE
 
+   T2 = promote_type(eltype(A), eltype(E), eltype(C))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(E) !== T2
+     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
+   end
+   if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+   end
+
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
    if adj
-      if (typeof(A.parent) == Array{Float64,2}) && (typeof(E.parent) == Array{Float64,2})
-         as, es, q, z = schur(A.parent,E.parent)
-      else
-         as, es, q, z = schur(complex(A.parent),complex(E.parent))
-      end
+      as, es, q, z = schur(A.parent,E.parent)
    else
-      if (typeof(A) == Array{Float64,2}) && (typeof(E) == Array{Float64,2})
-         as, es, q, z = schur(A,E)
-      else
-         as, es, q, z = schur(complex(A),complex(E))
-      end
+      as, es, q, z = schur(A,E)
    end
    if adj
       #x = z'*C*z
@@ -120,9 +204,18 @@ function lyapc(A, E, C)
       utqu!(x,z')
    end
 end
+# Aβ'X + XA'β + C = 0
+lyapc(A::AbstractMatrix, E::Union{Real,Complex,UniformScaling}, C::AbstractMatrix) =
+      isa(A,Adjoint) ? lyapc((A.parent*E')',C) : lyapc(A*E',C)
+# αXE' + EXα' + C = 0
+lyapc(A::Union{Real,Complex,UniformScaling}, E::AbstractMatrix, C::AbstractMatrix) =
+      isa(E,Adjoint) ? lyapc((E.parent*A')',C) : lyapc(A'*E,C)
+# (αβ'+α'β)X + C = 0
+lyapc(A::UniformScaling, E::UniformScaling, C::AbstractMatrix) = -(A*E'+A'*E)\C
+lyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, C::AbstractMatrix) = real(A*E') == 0 ? throw(SingularException(1)) : -C/(A*E'+A'*E)
+# (αβ'+α'β)X  + γ = 0
+lyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, C::Union{Real,Complex}) = real(A*E') == 0 ? throw(SingularException(1)) : -C/(A*E'+A'*E)
 # Discrete Lyapunov equations
-lyapd(A::T1, C::T2) where {T1<:Number,T2<:Number} = C/(one(C)-A'*A)
-lyapd(A::T1, E::T3, C::T2) where {T1<:Number,T2<:Number,T3<:Number} = C/(E'*E-A'*A)
 """
     X = lyapd(A, C)
 
@@ -133,8 +226,37 @@ of the discrete Lyapunov equation
 
 where `A` is a square real or complex matrix and `C` is a symmetric or hermitian
 matrix. `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The following particular cases are also adressed:
+
+    X = lyapd(α*I,C)  or  X = lyapd(α,C)
+
+Solve the matrix equation `(αα'-1)X + C = 0`.
+
+    x = lyapd(α,γ)
+
+Solve the equation `(αα'-1)x + γ = 0`.
+
+# Examples
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> C = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> X = lyapd(A, C)
+2×2 Array{Float64,2}:
+  0.2375  -0.2125
+ -0.2125   0.1375
+julia> A*X*A' - X + C
+2×2 Array{Float64,2}:
+ 5.55112e-16  6.66134e-16
+ 2.22045e-16  4.44089e-16
+```
 """
-function lyapd(A, C)
+function lyapd(A::AbstractMatrix, C::AbstractMatrix)
    """
    The discrete analog of the Bartels-Steward method based on the Schur form
    is employed.
@@ -147,22 +269,25 @@ function lyapd(A, C)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
-   realAC = isreal(A) & isreal(C)
+
+   adj = isa(A,Adjoint)
+
+   T2 = promote_type(eltype(A), eltype(C))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+   end
 
    # Reduce A to Schur form and transform C
-   adj = isa(A,Adjoint)
    if adj
-      if (typeof(A.parent) == Array{Float64,2})
-         AS, Q = schur(A.parent)
-      else
-         AS, Q = schur(complex(A.parent))
-      end
+      AS, Q = schur(A.parent)
    else
-      if (typeof(A) == Array{Float64,2})
-         AS, Q = schur(A)
-      else
-         AS, Q = schur(complex(A))
-      end
+      AS, Q = schur(A)
    end
    #X = Q'*C*Q
    X = utqu(C,Q)
@@ -170,7 +295,11 @@ function lyapd(A, C)
    #X <- Q*X*Q'
    utqu!(X,Q')
 end
-
+# (αα'-1)X + C = 0
+lyapd(A::UniformScaling, C::AbstractMatrix) = (I-A'*A)\C
+lyapd(A::Union{Real,Complex}, C::AbstractMatrix) = A*A' == 1 ? throw(SingularException(1)) : C/(1-A'*A)
+# (αα'-1)x + γ = 0
+lyapd(A::Union{Real,Complex}, C::Union{Real,Complex}) = A*A' == 1 ? throw(SingularException(1)) : C/(one(C)-A'*A)
 """
     X = lyapd(A, E, C)
 
@@ -182,8 +311,49 @@ of the discrete generalized Lyapunov equation
 where `A` and `E` are square real or complex matrices and `C` is a symmetric
 or hermitian matrix. The pencil `A-λE` must not have two eigenvalues `α` and `β`
 such that `αβ = 1`.
+The following particular cases are also adressed:
+
+    X = lyapd(A,β*I,C)  or  X = lyapd(A,β,C)
+
+Solve the matrix equation `AXA' - βXβ' + C = 0`.
+
+    X = lyapd(α*I,E,C)  or  X = lyapd(α,E,C)
+
+Solve the matrix equation `αXα' - EXE' + C = 0`.
+
+    X = lyapd(α*I,β*I,C)  or  X = lyapd(α,β,C)
+
+Solve the matrix equation `(αα'-ββ')X + C = 0`.
+
+    x = lyapd(α,β,γ)
+
+Solve the equation `(αα'-ββ')x + γ = 0`.
+
+# Examples
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> E = [ 1. 2.; 0. -1.]
+2×2 Array{Float64,2}:
+ 1.0   2.0
+ 0.0  -1.0
+julia> C = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> X = lyapd(A, E, C)
+2×2 Array{Float64,2}:
+  1.775  -1.225
+ -1.225   0.775
+julia> A*X*A' - E*X*E' + C
+2×2 Array{Float64,2}:
+ -2.22045e-16  -4.44089e-16
+ -1.33227e-15   1.11022e-15
+```
 """
-function lyapd(A, E, C)
+function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    """
    The extension of the Bartels-Steward method based on the generalized Schur form
    is employed.
@@ -196,7 +366,7 @@ function lyapd(A, E, C)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
    end
-   if isequal(E,I) || isempty(E)
+   if isequal(E,I) && size(E,1) == n
       return lyapd(A, C)
    else
       if LinearAlgebra.checksquare(E) != n
@@ -216,20 +386,26 @@ function lyapd(A, E, C)
 
    adj = adjA & adjE
 
+   T2 = promote_type(eltype(A), eltype(E), eltype(C))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
+   if eltype(A) !== T2
+     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+   end
+   if eltype(E) !== T2
+     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
+   end
+   if eltype(C) !== T2
+      C = convert(Matrix{T2},C)
+   end
+
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
    if adj
-      if  (typeof(A.parent) == Array{Float64,2}) &&  (typeof(E.parent) == Array{Float64,2})
-         as, es, q, z = schur(A.parent,E.parent)
-      else
-         as, es, q, z = schur(complex(A.parent),complex(E.parent))
-      end
+      as, es, q, z = schur(A.parent,E.parent)
    else
-      if  (typeof(A) == Array{Float64,2}) &&  (typeof(E) == Array{Float64,2})
-         as, es, q, z = schur(A,E)
-      else
-         as, es, q, z = schur(complex(A),complex(E))
-      end
+      as, es, q, z = schur(A,E)
    end
    if adj
       #x = z'*C*z
@@ -245,6 +421,17 @@ function lyapd(A, E, C)
       utqu!(x,z')
    end
 end
+# AXA' - Xββ' + C = 0
+lyapd(A::AbstractMatrix, E::Union{Real,Complex,UniformScaling}, C::AbstractMatrix) =
+      isa(A,Adjoint) ? lyapd((A.parent/E)',C/(E*E')) : lyapd(A/E,C/(E*E'))
+# αXα' - EXE' + C = 0
+lyapd(A::Union{Real,Complex,UniformScaling}, E::AbstractMatrix, C::AbstractMatrix) =
+      isa(E,Adjoint) ? lyapd((E.parent/A)',C/(-A*A')) : lyapd(E/A,C/(-A*A'))
+# (α'α-β'β)X + C = 0
+lyapd(A::UniformScaling, E::UniformScaling, C::AbstractMatrix) = C/(E'*E-A'*A)
+lyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, C::AbstractMatrix) = A*A'== E*E' ? throw(SingularException(1)) : C/(E'*E-A'*A)
+# (α'α-β'β)X + γ  = 0
+lyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, C::Union{Real,Complex}) = A*A'== E*E' ? throw(SingularException(1)) : C/(E'*E-A'*A)
 """
     lyapcs!(A,C;adj = false)
 
@@ -258,14 +445,16 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 `C` contains on output the solution `X`.
 """
-function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
+function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
    end
 
+   T = eltype(A)
+   ZERO = zero(T)
    # determine the structure of the real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -273,7 +462,7 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
       p = 0
       while i <= n
          p += 1
-         if d[i] != 0
+         if d[i] != ZERO
             ba[p] = 2
             i += 1
          end
@@ -308,7 +497,7 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  y += A[ia,k]'*C[ia,l]
               end
               Z = (kron(W[1:dl,1:dl],transpose(A[k,k]))+kron(transpose(A[l,l]),W[1:dk,1:dk]))\(-y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
               if i == j && dk == 2
                  temp = C[k,l]
                  C[k,l] = (temp'+temp)/2
@@ -356,7 +545,7 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  y += A[k,ia]*C[ia,l]
               end
               Z = (kron(W[1:dl,1:dl],A[k,k])+kron(A[l,l],W[1:dk,1:dk]))\(-y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
               if i == j && dl == 2
                  temp = C[k,l]
                  C[k,l] = (temp'+temp)/2
@@ -379,8 +568,7 @@ function lyapcs!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
        end
    end
 end
-
-function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
+function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -405,7 +593,7 @@ function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
                   y += A[ia,k]'*C[ia,l]
               end
               Z = -y/(A[k,k]'+A[l,l])
-              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
+              isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
               if k != l
                  C[l,k] = C[k,l]'
               end
@@ -438,7 +626,7 @@ function lyapcs!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
                  y += A[k,ia]*C[ia,l]
               end
               Z = -y/(A[k,k]+A[l,l]')
-              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that α+β ≈ 0")
+              isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
               if k != l
                  C[l,k] = C[k,l]'
                end
@@ -467,12 +655,12 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapcs!(A::Array{Float64,2}, E::Union{UniformScaling{Bool}, Array{Float64,2}}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
+function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
    end
-   if isequal(E,I) || isempty(E)
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
       lyapcs!(A, C, adj = adj)
       return
    else
@@ -482,7 +670,7 @@ function lyapcs!(A::Array{Float64,2}, E::Union{UniformScaling{Bool}, Array{Float
    end
 
    # determine the structure of the generalized real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -541,7 +729,7 @@ function lyapcs!(A::Array{Float64,2}, E::Union{UniformScaling{Bool}, Array{Float
                  y += C[ic,k]'*E[ic,l] + W[ic,dkk]'*A[ic,l]
              end
              Z = ((kron(E[l,l],A[k,k])+kron(A[l,l],E[k,k]))')\(-y[:])
-             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
+             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
              if i == j
                 if dk == 2
                    temp = C[k,l]
@@ -606,7 +794,7 @@ function lyapcs!(A::Array{Float64,2}, E::Union{UniformScaling{Bool}, Array{Float
                y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic,dll])'
             end
             Z = (kron(E[k,k],A[l,l])+kron(A[k,k],E[l,l]))\(-y[:])
-            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
+            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
             if i == j
                if dk == 2
                   temp = C[l,k]
@@ -631,12 +819,12 @@ function lyapcs!(A::Array{Float64,2}, E::Union{UniformScaling{Bool}, Array{Float
       end
    end
 end
-function lyapcs!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Array{Complex{Float64},2}}, C::Array{Complex{Float64},2}; adj = false)
+function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    end
-   if isequal(E,I) || isempty(E)
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
       lyapcs!(A, C, adj = adj)
       return
    else
@@ -664,7 +852,7 @@ function lyapcs!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Arr
                 end
             end
             Z = -y/(A[k,k]'*E[l,l]+E[k,k]'*A[l,l])
-            isfinite(Z) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
+            isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -693,7 +881,7 @@ function lyapcs!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Arr
                end
             end
             Z = -y/(E[k,k]'*A[l,l]+A[k,k]'*E[l,l])
-            isfinite(Z) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that α+β ≈ 0")
+            isfinite(Z) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -723,14 +911,14 @@ where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
+function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
    end
 
    # determine the structure of the real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -778,7 +966,7 @@ function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  y += C[ic,k]'*A[ic,l]
               end
               Z = (I-kron(A[l,l]',A[k,k]'))\y[:]
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
               if i == j
                  if dk == 2
                     temp = C[k,l]
@@ -831,7 +1019,7 @@ function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
                  y += (A[k,ic]*C[ic,l])'
               end
               Z = (I-kron(A[k,k],A[l,l]))\y[:]
-              isfinite(maximum(abs.(Z))) ? C[l,k] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
+              isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
               if i == j
                  if dl == 2
                     temp = C[l,k]
@@ -856,7 +1044,7 @@ function lyapds!(A::Array{Float64,2}, C::Union{Array{Complex{Float64},2}, Array{
    end
 end
 
-function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj = false)
+function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n  || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -877,7 +1065,7 @@ function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
                 end
             end
             Z = y/(I-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[k,l] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
+            isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -903,7 +1091,7 @@ function lyapds!(A::Array{Complex{Float64},2}, C::Array{Complex{Float64},2}; adj
                end
             end
             Z = y/(I-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[l,k] = Z : error("MESingErr: A has eigenvalues α and β such that αβ ≈ 1")
+            isfinite(Z) ? C[l,k] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -932,12 +1120,12 @@ complex Schur form and `C` a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::Array{Float64,2}, E::Union{UniformScaling{Bool},Array{Float64,2}}, C::Union{Array{Complex{Float64},2}, Array{Float64,2}}; adj = false)
+function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
    end
-   if isequal(E,I) || isempty(E)
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
       lyapds!(A, C, adj = adj)
       return
    else
@@ -947,7 +1135,7 @@ function lyapds!(A::Array{Float64,2}, E::Union{UniformScaling{Bool},Array{Float6
    end
 
    # determine the structure of the real Schur form
-   ba = fill(1,n,1)
+   ba = fill(1,n)
    p = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
@@ -1006,7 +1194,7 @@ function lyapds!(A::Array{Float64,2}, E::Union{UniformScaling{Bool},Array{Float6
                  y += C[ic,k]'*A[ic,l] -W[ic,dkk]'*E[ic,l]
              end
              Z = (kron(E[l,l]',E[k,k]')-kron(A[l,l]',A[k,k]'))\y[:]
-             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
+             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
              if i == j
                 if dk == 2
                    temp = C[k,l]
@@ -1070,7 +1258,7 @@ function lyapds!(A::Array{Float64,2}, E::Union{UniformScaling{Bool},Array{Float6
                y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic,dll])'
             end
             Z = (kron(E[k,k],E[l,l])-kron(A[k,k],A[l,l]))\y[:]
-            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
+            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
             if i == j
                if dl == 2
                   temp = C[l,k]
@@ -1096,12 +1284,12 @@ function lyapds!(A::Array{Float64,2}, E::Union{UniformScaling{Bool},Array{Float6
    end
 end
 
-function lyapds!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Array{Complex{Float64},2}}, C::Array{Complex{Float64},2}; adj = false)
+function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n  || !ishermitian(C)
+   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    end
-   if isequal(E,I) || isempty(E)
+   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
       lyapds!(A, C, adj = adj)
       return
    else
@@ -1128,7 +1316,7 @@ function lyapds!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Arr
                 end
             end
             Z = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[k,l] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
+            isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end
@@ -1157,7 +1345,7 @@ function lyapds!(A::Array{Complex{Float64},2}, E::Union{UniformScaling{Bool},Arr
                end
             end
             Z = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[l,k] = Z : error("MESingErr: A-λE has eigenvalues α and β such that αβ ≈ 1")
+            isfinite(Z) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
             if k == l
                C[k,l] = real(C[k,l])
             end

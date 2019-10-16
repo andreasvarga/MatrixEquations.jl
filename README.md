@@ -37,7 +37,7 @@ The current version of the package includes the following functions:
  **Solution of Sylvester equations and systems**
    * **sylvc**	 Solution of the (continuous) Sylvester equation `AX+XB = C`.
    * **sylvd**	 Solution of the (discrete) Sylvester equation `AXB+X = C`.
-   * **gsylv**	 Solution of the generalized Sylvester equation `AXB+CXD = C`.
+   * **gsylv**	 Solution of the generalized Sylvester equation `AXB+CXD = E`.
    * **sylvsys**	 Solution of the Sylvester system of matrix equations `AX+YB = C, DX+YE = F`.
    * **dsylvsys**	 Solution of the dual Sylvester system of matrix equations `AX+DY = C, XB+YE = F`.
 

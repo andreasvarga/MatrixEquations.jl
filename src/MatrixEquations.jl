@@ -1,11 +1,16 @@
 module MatrixEquations
 # Release V1.0
+
+const BlasFloat = Union{Float64,Float32,ComplexF64,ComplexF32}
+const BlasReal = Union{Float64,Float32}
+const BlasComplex = Union{ComplexF64,ComplexF32}
+
 using LinearAlgebra
 using LinearOperators
 
-include("lapackutil.jl")
-using .LapackUtil
 
+include("lapackutil.jl")
+using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!
 
 export utqu, utqu!, qrupdate!, rqupdate!, isschur
 export lanv2, ladiv, lag2, lacn2!
@@ -16,7 +21,7 @@ export sylvc, sylvd, gsylv, sylvds!, gsylvs!
 export sylvsys, dsylvsys, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export lyapsepest, sylvsepest, sylvsyssepest
-export opnormest, oprcondest, trmat
+export opnorm1, opnorm1est, oprcondest, opsepest, trmat
 export lyapcop, invlyapcop, invlyapcsop
 export lyapdop, invlyapdop, invlyapdsop
 export sylvcop, invsylvcop, invsylvcsop

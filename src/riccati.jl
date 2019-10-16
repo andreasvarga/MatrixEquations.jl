@@ -131,9 +131,8 @@ function garec(A, E, B, Q, R, S = 0)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix of row dimension $n"))
     end
-    if typeof(E) <: UniformScaling{Bool} || isempty(E)
+    if E == I
        eident = true
-       E = I
     else
        if LinearAlgebra.checksquare(E) != n
           throw(DimensionMismatch("E must be a $n x $n matrix or I"))

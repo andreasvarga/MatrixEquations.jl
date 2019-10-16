@@ -3,15 +3,18 @@
 
 Compute `sep`, an estimation of the separation of the continuous Lyapunov operator
 `M: X -> AX+XA'` if `disc = false` or of the discrete Lyapunov operator
-`M: X -> AXA'-X` if `disc = true`, by estimating the least singular value
-`σ-min` of the corresponding inverse operator `inv(M)` as the reciprocal of an
-estimate of the 1-norm of `inv(M)`. It is expected that in most cases `||inv(M)||₁`,
-the true reciprocal 1-norm of `inv(M)` does not differ from `σ-min` by more than a
+`M: X -> AXA'-X` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
+the least singular value of the corresponding inverse operator ``M^{-1}``,
+as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
+It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
+the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+``\\sigma_{min}(M^{-1})`` by more than a
 factor of `n`, where `n` is the order of the square matrix `A`.
-The separation operation is defined as
+The separation of the operator `M` is defined as
 
-     ``sep = \\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
+``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
 
+An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
 """
 function lyapsepest(A :: AbstractMatrix; disc = false)
   n = LinearAlgebra.checksquare(A)
@@ -25,7 +28,7 @@ function lyapsepest(A :: AbstractMatrix; disc = false)
   # fast computation if A is in Schur form
   if (adj && isschur(A.parent)) || (!adj && isschur(A))
       disc ? M = invsylvdsop(-A, A') : M = invsylvcsop(A, A')
-      return 1. / opnormest(M)
+      return 1. / opnorm1est(M)
    end
 
   # Reduce A to Schur form
@@ -44,22 +47,29 @@ function lyapsepest(A :: AbstractMatrix; disc = false)
      end
      disc ? M = invsylvdsop(-AS, AS') : M = invsylvcsop(AS, AS')
   end
-  return 1. / opnormest(M)
+  return 1. / opnorm1est(M)
+end
+function lyapsepest(A :: Schur; disc = false)
+   disc ? M = invsylvdsop(-A.T, A.T') : M = invsylvcsop(A.T, A.T')
+   return 1. / opnorm1est(M)
 end
 """
     sep = lyapsepest(A :: AbstractMatrix, E :: AbstractMatrix; disc = false)
 
 Compute `sep`, an estimation of the separation of the continuous Lyapunov operator
 `M: X -> AXE'+EXA'` if `disc = false` or of the discrete Lyapunov operator
-`M: X -> AXA'-EXE'` if `disc = true`, by estimating the least singular value
-`σ-min` of the corresponding inverse operator `inv(M)` as the reciprocal of an
-estimate of the 1-norm of `inv(M)`. It is expected that in most cases `||inv(M)||₁`,
-the true reciprocal 1-norm of `inv(M)` does not differ from `σ-min` by more than a
+`M: X -> AXA'-EXE'` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
+the least singular value of the corresponding inverse operator ``M^{-1}``,
+as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
+It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
+the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+``\\sigma_{min}(M^{-1})`` by more than a
 factor of `n`, where `n` is the order of the square matrix `A`.
-The separation operation is defined as
+The separation of the operator `M` is defined as
 
-     ``sep = \\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
+``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
 
+An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
 """
 function lyapsepest(A :: AbstractMatrix, E :: Union{AbstractMatrix,UniformScaling{Bool},Array{Any,1}}; disc = false)
   n = LinearAlgebra.checksquare(A)
@@ -84,7 +94,7 @@ function lyapsepest(A :: AbstractMatrix, E :: Union{AbstractMatrix,UniformScalin
   if (adjA && adjE && isschur(A.parent) && isschur(E.parent)) ||
      (!adjA && !adjE && isschur(A) && isschur(E))
      disc ? M = invgsylvsop(-A, A', E, E') : M = invgsylvsop(A, E', E, A',DBSchur = true)
-     return 1. / opnormest(M)
+     return 1. / opnorm1est(M)
   end
 
   if adjA && !adjE
@@ -104,23 +114,30 @@ function lyapsepest(A :: AbstractMatrix, E :: Union{AbstractMatrix,UniformScalin
      AS, ES = schur(A,E)
      disc ? M = invgsylvsop(-AS, AS', ES, ES') : M = invgsylvsop(AS, ES', ES, AS',DBSchur = true)
   end
-  return 1. / opnormest(M)
+  return 1. / opnorm1est(M)
+end
+function lyapsepest(AE :: GeneralizedSchur; disc = false)
+   disc ? M = invgsylvsop(-AE.S, AE.S', AE.T, AE.T') : M = invgsylvsop(AE.S, AE.T', AE.T, AE.S',DBSchur = true)
+   return 1. / opnorm1est(M)
 end
 """
     sep = sylvsepest(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
 
 Compute `sep`, an estimation of the separation of the continuous Sylvester operator
 `M: X -> AX+XB` if `disc = false` or of the discrete Sylvester operator
-`M: X -> AXB+X` if `disc = true`, by estimating the least singular value
-`σ-min` of the corresponding inverse operator `inv(M)` as the reciprocal of an
-estimate of the 1-norm of `inv(M)`. It is expected that in most cases `||inv(M)||₁`,
-the true reciprocal 1-norm of `inv(M)` does not differ from `σ-min` by more than a
+`M: X -> AXB+X` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
+the least singular value of the corresponding inverse operator ``M^{-1}``,
+as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
+It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
+the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+``\\sigma_{min}(M^{-1})`` by more than a
 factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
 `A` and `B`, respectively.
-The separation operation is defined as
+The separation of the operator `M` is defined as
 
-     ``sep = \\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
+``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
 
+An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
 """
 function sylvsepest(A::AbstractMatrix, B::AbstractMatrix; disc = false)
    m = LinearAlgebra.checksquare(A)
@@ -142,7 +159,7 @@ function sylvsepest(A::AbstractMatrix, B::AbstractMatrix; disc = false)
       (!adjA && adjB && isschur(A) && isschur(B.parent)) ||
       (adjA && !adjB && isschur(A.parent) && isschur(B))
       disc ? M = invsylvdsop(A, B) : M = invsylvcsop(A, B)
-      return 1. / opnormest(M)
+      return 1. / opnorm1est(M)
    end
 
    if adjA
@@ -156,22 +173,25 @@ function sylvsepest(A::AbstractMatrix, B::AbstractMatrix; disc = false)
       RB = schur(B).T
    end
   disc ? M = invsylvdsop(RA, RB) : M = invsylvcsop(RA, RB)
-  return 1. / opnormest(M)
+  return 1. / opnorm1est(M)
 end
 """
     sep = sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
 
 Compute `sep`, an estimation of the separation of the generalized Sylvester operator
-`M: X -> AXB+CXD`, by estimating the least singular value
-`σ-min` of the corresponding inverse operator `inv(M)` as the reciprocal of an
-estimate of the 1-norm of `inv(M)`. It is expected that in most cases `||inv(M)||₁`,
-the true reciprocal 1-norm of `inv(M)` does not differ from `σ-min` by more than a
+`M: X -> AXB+CXD`, by estimating ``\\sigma_{min}(M^{-1})``,
+the least singular value of the corresponding inverse operator ``M^{-1}``,
+as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
+It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
+the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+``\\sigma_{min}(M^{-1})`` by more than a
 factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
 `A` and `B`, respectively.
 The separation operation is defined as
 
-     ``sep = \\min_{X\\neq 0} \\frac{\\|AXB+CXD\\|}{\\|X\\|}``
+``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|AXB+CXD\\|}{\\|X\\|}``
 
+An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
 """
 function sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
    m = LinearAlgebra.checksquare(A)
@@ -205,7 +225,7 @@ function sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::
       (adjAC && adjBD && isschur(A.parent,C.parent) && isschur(B.parent,D.parent)) ||
       (!adjAC && adjBD && isschur(A,C) && isschur(B.parent,D.parent)) ||
       (adjAC && !adjBD && isschur(A.parent,C.parent) && isschur(B,D))
-      return 1. / opnormest(invgsylvsop(A, B, C, D) )
+      return 1. / opnorm1est(invgsylvsop(A, B, C, D) )
    end
 
    # reduce (A,C) and (B,D) to generalized Schur forms
@@ -232,29 +252,32 @@ function sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::
       BS, DS = schur(B,D)
    end
    if !adjAC && !adjBD
-      return 1. / opnormest(invgsylvsop(AS, BS, CS, DS))
+      return 1. / opnorm1est(invgsylvsop(AS, BS, CS, DS))
    elseif adjAC && adjBD
-      return 1. / opnormest(invgsylvsop(AS', BS', CS', DS'))
+      return 1. / opnorm1est(invgsylvsop(AS', BS', CS', DS'))
    elseif !adjAC && adjBD
-      return 1. / opnormest(invgsylvsop(AS, BS', CS, DS'))
+      return 1. / opnorm1est(invgsylvsop(AS, BS', CS, DS'))
    else
-      return 1. / opnormest(invgsylvsop(AS', BS, CS', DS))
+      return 1. / opnorm1est(invgsylvsop(AS', BS, CS', DS))
     end
 end
 """
     sep = sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
 
 Compute `sep`, an estimation of the separation of the generalized Sylvester operator
-`M: (X,Y) -> [ AX+YB; CX+YD ] `, by estimating the least singular value
-`σ-min` of the corresponding inverse operator `inv(M)` as the reciprocal of an
-estimate of the 1-norm of `inv(M)`. It is expected that in most cases `||inv(M)||₁`,
-the true reciprocal 1-norm of `inv(M)` does not differ from `σ-min` by more than a
+`M: (X,Y) -> [ AX+YB; CX+YD ] `, by estimating ``\\sigma_{min}(M^{-1})``,
+the least singular value of the corresponding inverse operator ``M^{-1}``,
+as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
+It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
+the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+``\\sigma_{min}(M^{-1})`` by more than a
 factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
 `A` and `B`, respectively.
 The separation operation is defined as
 
-     ``sep = \\min_{[X Y]\\neq 0} \\frac{\\|M(X,Y)\\|}{\\|[X Y]\\|}``
+``\\text{sep} = \\displaystyle\\min_{[X\\; Y]\\neq 0} \\frac{\\|M(X,Y)\\|}{\\|[X \\; Y]\\|}``
 
+An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
 """
 function sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
    m = LinearAlgebra.checksquare(A)
@@ -291,32 +314,64 @@ function sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, 
 
    # fast computation if (A,C) and (B,D) are in generalized Schur forms
    if isschur(A,C) && isschur(B,D)
-      return 1. / opnormest(invsylvsysop(A, B, C, D) )
+      return 1. / opnorm1est(invsylvsysop(A, B, C, D) )
    end
 
    # reduce (A,C) and (B,D) to generalized Schur forms
    AS, CS = schur(A,C)
    BS, DS = schur(B,D)
-   return 1. / opnormest(invsylvsysop(AS, BS, CS, DS) )
+   return 1. / opnorm1est(invsylvsysop(AS, BS, CS, DS) )
 end
-
 """
-    γ = opnormest(A :: LinearOperator)
+    opnorm1(op::AbstractLinearOperator)
 
-Compute `γ`, a lower bound of the 1-norm of the linear operator `A`, using
-reverse communication based computations to evaluate `A*x` and `A'*x`.
-It is expected that in most cases `γ > ||A||₁/10`, which is usually
-acceptable for estimating condition numbers of linear operators.
+Compute the induced operator `1`-norm as the maximum of `1`-norm of the
+columns of the `m x n` matrix associated to the linear operator `op`:
+```math
+\\|op\\|_1 = \\max_{1 ≤ j ≤ n} \\|op * e_j\\|_1
+```
+with ``e_j`` the `j`-th column of the `n`-th order identity matrix.
 """
-function opnormest(A :: LinearOperator)
-  m, n = size(A)
+function opnorm1(op :: AbstractLinearOperator)
+  (m, n) = size(op)
+  T = eltype(op)
+  Tnorm = typeof(float(real(zero(T))))
+  Tsum = promote_type(Float64, Tnorm)
+  nrm::Tsum = 0
+  ej = zeros(T, n)
+  for j = 1 : n
+      ej[j] = 1
+      try
+         nrm = max(nrm,norm(op*ej,1))
+      catch err
+         if isnothing(findfirst("SingularException",string(err))) &&
+            isnothing(findfirst("LAPACKException",string(err)))
+            rethrow()
+         else
+            return Inf
+         end
+      end
+      ej[j] = 0
+  end
+  return convert(Tnorm, nrm)
+end
+"""
+    γ = opnorm1est(op :: AbstractLinearOperator)
+
+Compute `γ`, a lower bound of the `1`-norm of the square linear operator `op`, using
+reverse communication based computations to evaluate `op * x` and `op' * x`.
+It is expected that in most cases ``γ > \\|A\\|_1/10``, which is usually
+acceptable for estimating the condition numbers of linear operators.
+"""
+function opnorm1est(op :: AbstractLinearOperator)
+  m, n = size(op)
   if m != n
-    throw(DimensionMismatch("The operator A must be square"))
+    throw(DimensionMismatch("The operator op must be square"))
   end
   BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
-  cmplx = eltype(A)<:Complex
-  V = Array{eltype(A),1}(undef,n)
-  X = Array{eltype(A),1}(undef,n)
+  cmplx = eltype(op)<:Complex
+  V = Array{eltype(op),1}(undef,n)
+  X = Array{eltype(op),1}(undef,n)
   cmplx ? ISGN = Array{Int,1}(undef,1) : ISGN = Array{Int,1}(undef,n)
   ISAVE = Array{Int,1}(undef,3)
   ANORM = 0.
@@ -333,12 +388,13 @@ function opnormest(A :: LinearOperator)
       end
      if KASE != 0
         try
-           KASE == 1 ? X = A*X : X = A'*X
+           KASE == 1 ? X = op*X : X = op'*X
         catch err
-           if !isnothing(findfirst("MESingOpErr",string(err)))
-              return Inf
-           else
+           if isnothing(findfirst("SingularException",string(err))) &&
+              isnothing(findfirst("LAPACKException",string(err)))
               rethrow()
+           else
+              return Inf
            end
         end
       else
@@ -349,25 +405,58 @@ function opnormest(A :: LinearOperator)
 end
 
 """
-    RCOND = oprcondest(ANORM1::Real, AINV :: LinearOperator)
+    rcond = oprcondest(opnrm1::Real, opinv :: AbstractLinearOperator; exact = false)
 
-Compute RCOND, an estimation of the 1-norm reciprocal condition number
-of a linear operator `A`, where ANORM1 is an estimation of the 1-norm of `A` and
-`AINV` is the inverse operator `A^(-1)`. The estimate is computed as
-    RCOND = 1 / (ANORM1*opnormest(AINV))
-"""
-function oprcondest(ANORM1::Real, AINV :: LinearOperator)
+Compute `rcond`, an estimate of the `1`-norm reciprocal condition number
+of a linear operator `op`, where `opnrm1` is an estimate of the `1`-norm of `op` and
+`opinv` is the inverse operator `inv(op)`. The estimate is computed as
+``\\text{rcond} = 1 / (\\text{opnrm1}\\|opinv\\|_1)``, using an estimate of the `1`-norm, if `exact = false`, or
+the computed exact value of the `1`-norm, if `exact = true`.
+The `exact = true` option is not recommended for large order operators."""
+function oprcondest(opnrm1::Real, opinv :: AbstractLinearOperator; exact = false)
   ZERO = zero(0.)
-  if ANORM1 == ZERO || size(AINV,1) == 0
+  if opnrm1 == ZERO || size(opinv,1) == 0
      return ZERO
   else
-     BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
-     AINVNORM1 = opnormest(AINV)
-     if AINVNORM1 >= BIGNUM
-       return ZERO
-     end
-     return one(1.)/ANORM1/AINVNORM1
+     return opsepest(opinv)/opnrm1
   end
+end
+"""
+    sep = opsepest(opinv :: AbstractLinearOperator; exact = false)
+
+Compute `sep`, an estimation of the `1`-norm separation of a linear operator
+`op`, where `opinv` is the inverse operator `inv(op)`. The estimate is computed as
+``\\text{sep}  = 1 / \\|opinv\\|_1`` , using an estimate of the `1`-norm, if `exact = false`, or
+the computed exact value of the `1`-norm, if `exact = true`.
+The `exact = true` option is not recommended for large order operators.
+
+The separation of the operator `op` is defined as
+
+``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|op(X)\\|}{\\|X\\|}``
+
+An estimate of the reciprocal condition number of `op` can be computed as ``\\text{sep}/\\|op\\|_1``.
+"""
+function opsepest(opinv :: AbstractLinearOperator; exact = false)
+   BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
+   exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
+   if opinvnrm1 >= BIGNUM
+      return ZERO
+   end
+   return one(1.)/opinvnrm1
+end
+"""
+    rcond = oprcondest(op::AbstractLinearOperator, opinv :: AbstractLinearOperator; exact = false)
+
+Compute `rcond`, an estimation of the `1`-norm reciprocal condition number
+of a linear operator `op`, where `opinv` is the inverse operator `inv(op)`. The estimate is computed as
+``\\text{rcond} = 1 / (\\|op\\|_1\\|opinv\\|_1)``, using estimates of the `1`-norm, if `exact = false`, or
+computed exact values of the `1`-norm, if `exact = true`.
+The `exact = true` option is not recommended for large order operators.
+
+Note: No check is performed to verify that `opinv = inv(op)`.
+"""
+function oprcondest(op:: LinearOperator, opinv :: LinearOperator; exact = false)
+   return opsepest(op, exact = exact)*opsepest(opinv, exact = exact)
 end
 """
     trmat(n::Int, m::Int) -> M::LinearOperator
@@ -606,7 +695,7 @@ function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -619,7 +708,7 @@ function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-         error("MESingOpErr: Singular operator")
+         throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -632,7 +721,7 @@ function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-         error("MESingOpErr: Singular operator")
+         throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -697,7 +786,7 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -719,7 +808,7 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
         if isnothing(findfirst("LAPACKException",string(err)))
            rethrow()
         else
-           error("MESingOpErr: Singular operator")
+           throw("ME:SingularException: Singular operator")
         end
      end
   end
@@ -741,7 +830,7 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
         if isnothing(findfirst("LAPACKException",string(err)))
            rethrow()
         else
-           error("MESingOpErr: Singular operator")
+           throw("ME:SingularException: Singular operator")
         end
      end
   end
@@ -791,10 +880,10 @@ function invsylvdop(A :: AbstractMatrix, B :: AbstractMatrix)
     try
        return sylvd(A,B,C)[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -803,10 +892,10 @@ function invsylvdop(A :: AbstractMatrix, B :: AbstractMatrix)
     try
        return sylvd(A',B',C)[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -815,10 +904,10 @@ function invsylvdop(A :: AbstractMatrix, B :: AbstractMatrix)
     try
        return sylvd(A',B',C)[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -875,10 +964,10 @@ function invsylvdsop(A :: AbstractMatrix, B :: AbstractMatrix)
        end
        return Y[:]
      catch err
-        if isnothing(findfirst("MESingErr",string(err)))
+        if isnothing(findfirst("SingularException",string(err)))
            rethrow()
         else
-           error("MESingOpErr: Singular operator")
+           throw("ME:SingularException: Singular operator")
         end
      end
   end
@@ -896,10 +985,10 @@ function invsylvdsop(A :: AbstractMatrix, B :: AbstractMatrix)
        end
        return Y[:]
      catch err
-        if isnothing(findfirst("MESingErr",string(err)))
+        if isnothing(findfirst("SingularException",string(err)))
            rethrow()
         else
-           error("MESingOpErr: Singular operator")
+           throw("ME:SingularException: Singular operator")
         end
      end
   end
@@ -917,10 +1006,10 @@ function invsylvdsop(A :: AbstractMatrix, B :: AbstractMatrix)
        end
        return Y[:]
     catch err
-        if isnothing(findfirst("MESingErr",string(err)))
+        if isnothing(findfirst("SingularException",string(err)))
            rethrow()
         else
-           error("MESingOpErr: Singular operator")
+           throw("ME:SingularException: Singular operator")
         end
     end
   end
@@ -975,10 +1064,10 @@ function invgsylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatri
     try
        return gsylv(A,B,C,D,E)[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
 end
@@ -987,10 +1076,10 @@ end
     try
        return gsylv(A',B',C',D',E)[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -999,10 +1088,10 @@ end
     try
        return gsylv(A',B',C',D',E)[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1075,10 +1164,10 @@ function invgsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatr
        end
        return Y[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1096,10 +1185,10 @@ function invgsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatr
        end
        return Y[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1117,10 +1206,10 @@ function invgsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatr
        end
        return Y[:]
     catch err
-       if isnothing(findfirst("MESingErr",string(err)))
+       if isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1186,7 +1275,7 @@ function invsylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMat
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1200,7 +1289,7 @@ function invsylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMat
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1214,7 +1303,7 @@ function invsylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMat
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1261,7 +1350,7 @@ function invsylvsyssop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMa
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1275,7 +1364,7 @@ function invsylvsyssop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMa
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end
@@ -1289,7 +1378,7 @@ function invsylvsyssop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMa
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
        else
-          error("MESingOpErr: Singular operator")
+          throw("ME:SingularException: Singular operator")
        end
     end
   end

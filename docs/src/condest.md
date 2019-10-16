@@ -1,7 +1,9 @@
 # Norm, Condition Number and Separation Estimations
 ```@docs
-opnormest
+opnorm1
+opnorm1est
 oprcondest
+opsepest
 lyapsepest
 sylvsepest
 sylvsyssepest

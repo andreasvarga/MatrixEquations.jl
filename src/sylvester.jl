@@ -1,4 +1,3 @@
-sylvc(A::T1, B::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = C/(A+B)
 """
     X = sylvc(A,B,C)
 
@@ -8,26 +7,65 @@ Solve the continuous Sylvester matrix equation
 
 using the Bartels-Stewart Schur form based approach. `A` and `B` are
 square matrices, and `A` and `-B` must not have common eigenvalues.
+
+The following particular cases are also adressed:
+
+    X = sylvc(α*I,B,C)  or  X = sylvc(α,B,C)
+
+Solve the matrix equation `X(αI+B)  = C`.
+
+    X = sylvc(A,β*I,C)  or  X = sylvc(A,β,C)
+
+Solve the matrix equation `(A+βI)X = C`.
+
+    X = sylvc(α*I,β*I,C)  or  sylvc(α,β,C)
+
+Solve the matrix equation `(α+β)X = C`.
+
+    x = sylvc(α,β,γ)
+
+Solve the equation `(α+β)x = γ`.
+
+# Example
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> C = [-1. -2.; 2. -1]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+julia> X = sylvc(A, B, C)
+2×2 Array{Float64,2}:
+ -4.46667   1.93333
+  3.73333  -1.8
+julia> A*X + X*B - C
+2×2 Array{Float64,2}:
+  2.66454e-15  1.77636e-15
+ -3.77476e-15  4.44089e-16
+```
 """
-function sylvc(A,B,C)
+function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    """
    Reference:
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
-   # address directly simple cases
-   if typeof(A) <: UniformScaling
-      return C/(A+B)
-   elseif typeof(B) <: UniformScaling
-      return (A+B)\C
-   end
 
    m, n = size(C);
    if [m; n] != LinearAlgebra.checksquare(A,B)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
 
-   T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C))
+   T2 = promote_type(eltype(A), eltype(B), eltype(C))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
    if eltype(A) !== T2
      A = convert(Matrix{T2},A)
    end
@@ -38,8 +76,7 @@ function sylvc(A,B,C)
      C = convert(Matrix{T2},C)
    end
 
-   realcase = eltype(A) <: AbstractFloat && eltype(B) <: AbstractFloat &&
-              eltype(C) <: AbstractFloat
+   realcase = eltype(A) <: AbstractFloat
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if adjA
@@ -73,7 +110,14 @@ function sylvc(A,B,C)
    Y, scale = LAPACK.trsyl!(TA, TB, RA, RB, D)
    rmul!(QA*(Y * adjoint(QB)), inv(scale))
 end
-sylvd(A::T1, B::T2, C::T3) where {T1<:Number,T2<:Number,T3<:Number} = C/(A*B+one(C))
+# solve X(B+α) = C or (α+β)X = C
+sylvc(A::Union{Real,Complex,UniformScaling},B::Union{AbstractMatrix,UniformScaling},C::AbstractMatrix) = C/(A*I+B)
+# solve (A+β)X = C
+sylvc(A::AbstractMatrix,B::Union{Real,Complex,UniformScaling},C::AbstractMatrix) = (A+B*I)\C
+# solve (α+β)X = C
+sylvc(A::Union{Real,Complex},B::Union{Real,Complex},C::AbstractMatrix) = A+B == 0 ? throw(SingularException(1)) : C/(A+B)
+# solve (α+β)x = γ
+sylvc(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = A+B == 0 ? throw(SingularException(1)) : C/(A+B)
 """
     X = sylvd(A,B,C)
 
@@ -84,26 +128,64 @@ Solves the discrete Sylvester matrix equation
 using an extension of the Bartels-Stewart Schur form based approach.
 `A` and `B` are square matrices, and `A` and `-B` must not have
 common reciprocal eigenvalues.
+
+The following particular cases are also adressed:
+
+    X = sylvd(α*I,B,C)  or  X = sylvd(α,B,C)
+
+Solve the matrix equation `X(αB+I)  = C`.
+
+    X = sylvd(A,β*I,C)   or  X = sylvd(A,β,C)
+
+Solve the matrix equation `(βA+I)X = C`.
+
+    X = sylvd(α*I,β*I,C)  or  X = sylvd(α,β,C)
+
+Solve the matrix equation `(αβ+1)X = C`.
+
+    x = sylvd(α,β,γ)
+
+Solve the equation `(αβ+1)x = γ`.
+
+# Example
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> C = [-1. -2.; 2. -1]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+julia> X = sylvd(A, B, C)
+2×2 Array{Float64,2}:
+ -2.46667  -2.73333
+  2.4       1.86667
+julia> A*X*B + X - C
+2×2 Array{Float64,2}:
+  8.88178e-16   8.88178e-16
+ -3.9968e-15   -5.55112e-15
+```
 """
-function sylvd(A,B,C)
+function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    """
    Reference:
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
 
-   # address directly simple cases
-   if typeof(A) <: UniformScaling
-      return C/(A*B+I)
-   elseif typeof(B) <: UniformScaling
-      return (A*B+I)\C
-   end
-
    m, n = size(C);
    if [m; n] != LinearAlgebra.checksquare(A,B)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
-   T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C))
+   T2 = promote_type(eltype(A), eltype(B), eltype(C))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
    if eltype(A) !== T2
      A = convert(Matrix{T2},A)
    end
@@ -129,24 +211,85 @@ function sylvd(A,B,C)
    Y = sylvds!(RA, RB, D, adjA = adjA, adjB = adjB)
    QA*(Y * adjoint(QB))
 end
+# solve X(αB+I) = C or X(αβ+1) = C
+sylvd(A::Union{Real,Complex,UniformScaling},B::Union{AbstractMatrix,UniformScaling},C::AbstractMatrix) = C/(A*B+I)
+# solve (Aβ+I)X = C
+sylvd(A::AbstractMatrix,B::Union{Real,Complex,UniformScaling},C::AbstractMatrix) = (A*B+I)\C
+# solve (αβ+1)X = C
+sylvd(A::Union{Real,Complex},B::Union{Real,Complex},C::AbstractMatrix) = A*B+1 == 0 ? throw(SingularException(1)) : C/(A*B+1)
+# solve (αβ+1)x = γ
+sylvd(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = A*B+1 == 0 ? throw(SingularException(1)) : C/(A*B+one(C))
 """
     X = gsylv(A,B,C,D,E)
 
 Solve the generalized Sylvester matrix equation
 
-                AXB + CXD = E
+    AXB + CXD = E
 
 using generalized Schur form based approach. `A`, `B`, `C` and `D` are
 square matrices. The pencils `A-λC` and `D+λB` must be regular and
 must not have common eigenvalues.
+
+The following particular cases are also adressed:
+
+    X = gsylv(A,B,E)
+
+Solve the generalized Sylvester matrix equation `AXB  = E`.
+
+    X = gsylv(A,B,γ*I,E)  or  X = gsylv(A,B,γ,E)
+
+Solve the generalized Sylvester matrix equation `AXB +γX = E`.
+
+    X = gsylv(A,B,γ*I,D,E)  or  X = gsylv(A,B,γ,D,E)
+
+Solve the generalized Sylvester matrix equation `AXB +γXD = E`.
+
+    X = gsylv(A,B,C,δ*I,E)  or  X = gsylv(A,B,C,δ,E)
+
+Solve the generalized Sylvester matrix equation `AXB +CXδ = E`.
+
+# Example
+```jldoctest
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> C = [-1. -2.; 2. -1]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+julia> D = [1. -2.; -2. -1]
+2×2 Array{Float64,2}:
+  1.0  -2.0
+ -2.0  -1.0
+julia> E = [1. -1.; -2. 2]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+julia> X = gsylv(A, B, C, D, E)
+2×2 Array{Float64,2}:
+ -0.52094   -0.0275792
+ -0.168539   0.314607
+julia> A*X*B + C*X*D - E
+2×2 Array{Float64,2}:
+ 4.44089e-16  8.88178e-16
+ 6.66134e-16  0.0
+```
 """
-function gsylv(A,B,C,D,E)
+function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix)
 
     m, n = size(E);
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
     end
-    T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
+    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
+   if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+   end
     if eltype(A) !== T2
       A = convert(Matrix{T2},A)
     end
@@ -196,6 +339,23 @@ function gsylv(A,B,C,D,E)
     gsylvs!(AS, BS, CS, DS, Y, adjAC = adjAC, adjBD = adjBD)
     Z1*(Y * adjoint(Q2))
 end
+# solve AXB = C
+gsylv(A::Union{AbstractMatrix,UniformScaling,Real,Complex},B::Union{AbstractMatrix,UniformScaling,Real,Complex},E::AbstractMatrix) = (A\E)/B
+# solve AXB+γX = E
+gsylv(A::AbstractMatrix,B::AbstractMatrix,C::Union{UniformScaling,Real,Complex},E::AbstractMatrix) =
+size(A,1) == size(A,2) && size(B,1) == size(B,2) ? gsylv(A,B,Matrix{eltype(C)}(C*I,size(A)),Matrix{eltype(C)}(I,size(B)),E) :
+throw(DimensionMismatch("A and B must be square matrices"))
+# solve AXB+γXδ = E
+gsylv(A::AbstractMatrix,B::AbstractMatrix,C::Union{UniformScaling,Real,Complex},D::Union{UniformScaling,Real,Complex},E::AbstractMatrix) = gsylv(A,B,C*D,E)
+# solve AXB+γXD = E
+gsylv(A::AbstractMatrix,B::AbstractMatrix,C::Union{UniformScaling,Real,Complex},D::AbstractMatrix,E::AbstractMatrix) =
+size(A,1) == size(A,2) ? gsylv(A,B,Matrix{eltype(C)}(C*I,size(A)),D,E) :
+throw(DimensionMismatch("A must be a square matrix"))
+# solve AXB+CXδ = E
+gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Union{UniformScaling,Real,Complex},E::AbstractMatrix) =
+size(B,1) == size(B,2) ? gsylv(A,B,C,Matrix{eltype(D)}(D*I,size(B)),E) :
+throw(DimensionMismatch("B must be a square matrix"))
+
 """
     (X,Y) = sylvsys(A,B,C,D,E,F)
 
@@ -206,8 +366,52 @@ Solve the Sylvester system of matrix equations
 
 where `(A,D)`, `(B,E)` are pairs of square matrices of same size.
 The pencils `A-λD` and `-isgn*(B-λE)` must be regular and must not have common eigenvalues.
+# Example
+```
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> C = [-1. -2.; 2. -1]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+julia> D = [1. -2.; -2. -1]
+2×2 Array{Float64,2}:
+  1.0  -2.0
+ -2.0  -1.0
+julia> E = [1. -1.; -2. 2]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+julia> F = [1. -1.; -2. 2]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+julia> X, Y = sylvsys(A, B, C, D, E, F);
+julia> X
+2×2 Array{Float64,2}:
+  1.388  -1.388
+ -0.892   0.892
+julia> Y
+2×2 Array{Float64,2}:
+ -1.788  0.192
+  0.236  0.176
+julia> A*X + Y*B - C
+2×2 Array{Float64,2}:
+  6.66134e-16  2.22045e-15
+ -3.10862e-15  2.66454e-15
+julia> D*X + Y*E - F
+2×2 Array{Float64,2}:
+  1.33227e-15  -2.22045e-15
+ -4.44089e-16   4.44089e-16
+```
 """
-function sylvsys(A,B,C,D,E,F)
+function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix,F::AbstractMatrix)
 
     m, n = size(C);
     if m != size(F,1) || n != size(F,2)
@@ -216,7 +420,10 @@ function sylvsys(A,B,C,D,E,F)
     if [m; n; m; n] != LinearAlgebra.checksquare(A,B,D,E)
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
     end
-    T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+    if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+    end
     if eltype(A) !== T2
       A = convert(Matrix{T2},A)
     end
@@ -268,8 +475,53 @@ Solve the dual Sylvester system of matrix equations
 
 where `(A,D)`, `(B,E)` are pairs of square matrices of same size.
 The pencils `A-λD` and `-isgn*(B-λE)` must be regular and must not have common eigenvalues.
+
+# Example
+```
+julia> A = [3. 4.; 5. 6]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+julia> B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+julia> C = [-1. -2.; 2. -1]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+julia> D = [1. -2.; -2. -1]
+2×2 Array{Float64,2}:
+  1.0  -2.0
+ -2.0  -1.0
+julia> E = [1. -1.; -2. 2]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+julia> F = [1. -1.; -2. 2]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+julia> X, Y = dsylvsys(A, B, C, D, E, F);
+julia> X
+2×2 Array{Float64,2}:
+  2.472  -1.648
+ -1.848   1.232
+julia> Y
+2×2 Array{Float64,2}:
+ -0.496  -0.336
+  0.264   0.824
+julia> A*X + D*Y - C
+2×2 Array{Float64,2}:
+  4.44089e-16  0.0
+ -3.55271e-15  1.55431e-15
+julia> X*B + Y*E - F
+2×2 Array{Float64,2}:
+ -8.88178e-16   0.0
+  8.88178e-16  -4.44089e-16
+```
 """
-function dsylvsys(A,B,C,D,E,F)
+function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix,F::AbstractMatrix)
 
     m, n = size(C);
     if m != size(F,1) || n != size(F,2)
@@ -279,7 +531,10 @@ function dsylvsys(A,B,C,D,E,F)
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
     end
 
-    T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+    if T2 == Int64 || T2 == Complex{Int64}
+      T2 = promote_type(Float64,T2)
+    end
     if eltype(A) !== T2
       A = convert(Matrix{T2},A)
     end
@@ -298,9 +553,9 @@ function dsylvsys(A,B,C,D,E,F)
     if eltype(F) !== T2
       F = convert(Matrix{T2},F)
     end
-
-    realcase = eltype(A) == Float64 && eltype(B) == Float64 && eltype(C) == Float64 &&
-               eltype(D) == Float64 && eltype(E) == Float64 && eltype(F) == Float64
+    realcase = T2 <: AbstractFloat
+    #realcase = eltype(A) == Float64 && eltype(B) == Float64 && eltype(C) == Float64 &&
+   #            eltype(D) == Float64 && eltype(E) == Float64 && eltype(F) == Float64
     transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
     realcase ? trans = 'T' : trans = 'C'
     if transsylv
@@ -333,7 +588,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:AbstractMatrix{Float64}}
+function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{Array{Float64,2},Array{Float32,2}}}
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -420,7 +675,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  y -= A[k,ic]*W[ic,dll]
               end
               Z = (kron(transpose(B[l,l]),A[k,k])+I)\(y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
               i -= dk
           end
           j += dl
@@ -464,7 +719,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                     y -= A[k,ic]*W[ic,dll]
                  end
                  Z = (kron(B[l,l],A[k,k])+I)\(y[:])
-                 isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+                 isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
                  i -= dk
              end
              j -= dl
@@ -509,7 +764,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  y -= A[ic,k]'*W[ic,dll]
               end
               Z = (kron(transpose(B[l,l]),transpose(A[k,k]))+I)\(y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
               i += dk
           end
           j += dl
@@ -553,7 +808,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  y -= A[ic,k]'*W[ic,dll]
               end
               Z = (kron(B[l,l],transpose(A[k,k]))+I)\(y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
               i += dk
           end
           j -= dl
@@ -561,7 +816,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
    end
    return C
 end
-function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:AbstractMatrix{Complex{Float64}}}
+function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}}
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -606,11 +861,11 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  ic = k:m
                  Z = C[kk,il1]*B[il1,ll]
                  W[k,1] = Z[1]
-                 T = A[kk,ic]*W[ic,1]
-                 y -= T[1]
+                 TA = A[kk,ic]*W[ic,1]
+                 y -= TA[1]
               end
               Z = y/(B[l,l]*A[k,k]+I)
-              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+              isfinite(Z) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
              end
       end
    elseif !adjA && adjB
@@ -643,11 +898,11 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                     ic = k:m
                     Z = C[kk,il1]*B[ll,il1]'
                     W[k,1] = Z[1]
-                    T = A[kk,ic]*W[ic,1]
-                    y -= T[1]
+                    TA = A[kk,ic]*W[ic,1]
+                    y -= TA[1]
                  end
                  Z = y/(B[l,l]'*A[k,k]+I)
-                 isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+                 isfinite(Z) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
              end
          end
    elseif adjA && !adjB
@@ -680,11 +935,11 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  ic = 1:m
                  Z = C[kk,il1]*B[il1,ll]
                  W[k,1] = Z[1]
-                 T = A[ic,kk]'*W[ic,1]
-                 y -= T[1]
+                 TA = A[ic,kk]'*W[ic,1]
+                 y -= TA[1]
               end
               Z = y/(B[l,l]*A[k,k]'+I)
-              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+              isfinite(Z) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
           end
       end
    elseif adjA && adjB
@@ -717,11 +972,11 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Abstrac
                  ic = 1:m
                  Z = C[kk,il1]*B[ll,il1]'
                  W[k,1] = Z[1]
-                 T = A[ic,kk]'*W[ic,1]
-                 y -= T[1]
+                 TA = A[ic,kk]'*W[ic,1]
+                 y -= TA[1]
               end
               Z = y/(B[l,l]'*A[k,k]'+I)
-              isfinite(Z) ? C[k,l] = Z : error("MESingErr: A and -B have common or close reciprocal eigenvalues")
+              isfinite(Z) ? C[k,l] = Z : throw("SingularException: A and -B have common or close reciprocal eigenvalues")
           end
       end
    end
@@ -747,7 +1002,7 @@ where `A`, `B`, `C` and `D` are square matrices, and
 The matrix pairs `(A,C)` and `(B,D)` are in generalized real or complex Schur forms.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:AbstractMatrix{Float64}}
+function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Float64,2},Array{Float32,2}}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -847,7 +1102,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                  y -= (A[k,ic]*WB[ic,dll] + C[k,ic]*WD[ic,dll])
               end
               Z = (kron(transpose(B[l,l]),A[k,k])+kron(transpose(D[l,l]),C[k,k]))\(y[:])
-              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
               i -= dk
           end
           j += dl
@@ -901,7 +1156,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                     y -= (A[k,ic]*WB[ic,dll]+C[k,ic]*WD[ic,dll])
                  end
                  Z = (kron(B[l,l],A[k,k])+kron(D[l,l],C[k,k]))\(y[:])
-                 isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+                 isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
                  i -= dk
              end
              j -= dl
@@ -957,7 +1212,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                  y -= C[ic,k]'*WD[ic,dll]
               end
               Z = (kron(transpose(B[l,l]),transpose(A[k,k]))+kron(transpose(D[l,l]),transpose(C[k,k])))\(y[:])
-              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
               i += dk
           end
           j += dl
@@ -1011,7 +1266,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                  y -= (A[ic,k]'*WB[ic,dll] + C[ic,k]'*WD[ic,dll])
               end
               Z = (kron(B[l,l],transpose(A[k,k]))+kron(D[l,l],transpose(C[k,k])))\(y[:])
-              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
               i += dk
           end
           j -= dl
@@ -1019,7 +1274,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
    end
    return E
 end
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:AbstractMatrix{Complex{Float64}}}
+function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Complex{Float64},2},Array{Complex{Float32},2}}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1082,7 +1337,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                  y -= (TB[1]+TD[1])
               end
               Z = y/(B[l,l]*A[k,k]+D[l,l]*C[k,k])
-              isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+              isfinite(Z) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    elseif !adjAC && adjBD
@@ -1130,7 +1385,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                     y -= (TB[1]+TD[1])
                  end
                  Z = y/(B[l,l]'*A[k,k]+D[l,l]'*C[k,k])
-                 isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+                 isfinite(Z) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
              end
          end
    elseif adjAC && !adjBD
@@ -1178,7 +1433,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                  y -= (TB[1]+TD[1])
               end
               Z = y/(B[l,l]*A[k,k]'+D[l,l]*C[k,k]')
-              isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+              isfinite(Z) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    elseif adjAC && adjBD
@@ -1226,7 +1481,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
                  y -= (TB[1]+TD[1])
               end
               Z = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
-              isfinite(Z) ? E[k,l] = Z : error("MESingErr: A-λC and D+λB have common or close eigenvalues")
+              isfinite(Z) ? E[k,l] = Z : throw("SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    end

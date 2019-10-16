@@ -1,3 +1,11 @@
+```@meta
+CurrentModule = MatrixEquations
+DocTestSetup = quote
+    using MatrixEquations
+end
+```
+
+
 # MatrixEquations.jl
 
 This collection of Julia functions is an attemp to implement high performance
@@ -35,13 +43,15 @@ The current version of the package includes the following functions:
  **Solution of Sylvester equations and systems**
    * **sylvc**	 Solution of the (continuous) Sylvester equation `AX+XB = C`.
    * **sylvd**	 Solution of the (discrete) Sylvester equation `AXB+X = C`.
-   * **gsylv**	 Solution of the generalized Sylvester equation `AXB+CXD = C`.
+   * **gsylv**	 Solution of the generalized Sylvester equation `AXB+CXD = E`.
    * **sylvsys**	 Solution of the Sylvester system of matrix equations `AX+YB = C, DX+YE = F`.
    * **dsylvsys**	 Solution of the dual Sylvester system of matrix equations `AX+DY = C, XB+YE = F`.
 
    **Norm, condition and separation estimation of linear operators**
-   * **opnormest** Estimation of 1-norm of a linear operator.
+   * **opnorm1** Computation of the 1-norm of a linear operator.
+   * **opnorm1est** Estimation of the 1-norm of a linear operator.
    * **oprcondest** Estimation of the reciprocal 1-norm condition number of an operator.
+   * **opsepest** Estimation of the separation an operator.
    * **lyapsepest** Estimation of the separations of Lyapunov operators.
    * **sylvsepest** Estimation of the separations of Sylvester operators.
    * **sylvsyssepest** Estimation of the separation of a Sylvester system operator.
@@ -60,6 +70,8 @@ This release is intended to be the first registered version for the public. The 
 - New functions for estimation of norms, reciprocal condition numbers and separations of linear operators.
 - New funtions defining a comprehensive set of Lyapunov and Sylvester operators.
 - Updated documentation
+- Enhancements of all solvers to cover all numerical data types
+- Full coverage of all basic floating point types by the solvers 
 
 ### Version 0.8
 

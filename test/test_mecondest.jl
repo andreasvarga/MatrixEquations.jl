@@ -56,37 +56,38 @@ Tccsinv = invlyapcsop(acs)
 
 @test norm(Matrix(Tcr)'-Matrix(Tcr')) == 0. &&
       norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. &&
-      norm(Matrix(Tcrinv)-inv(Matrix(Tcr))) < reltol*cond(Matrix(Tcr),1) &&
-      norm(Matrix(Tcrsinv)-inv(Matrix(Tcrs))) < reltol*cond(Matrix(Tcrs),1) &&
-      norm(Matrix(Tccinv)-inv(Matrix(Tcc))) < reltol*cond(Matrix(Tcc),1) &&
-      norm(Matrix(Tccsinv)-inv(Matrix(Tccs))) < reltol*cond(Matrix(Tccs),1)  &&
-      opnormest(Π*Tcr-Tcr*Π) < reltol &&
-      opnormest(Π*Tcrinv-Tcrinv*Π) < reltol &&
-      opnormest(Π*Tcrsinv-Tcrsinv*Π) < reltol
+      norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol &&
+      norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol &&
+      norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol &&
+      norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol  &&
+      opnorm1est(Π*Tcr-Tcr*Π) < reltol &&
+      opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol &&
+      opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol &&
+      opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr)
 
-@test sc*opnorm(Matrix(Tcr),1) < opnormest(Tcr)  &&
-      sc*opnorm(Matrix(Tcrinv),1) < opnormest(Tcrinv)  &&
-      sc*opnorm(Matrix(Tcrs),1) < opnormest(Tcrs)  &&
-      sc*opnorm(Matrix(Tcrsinv),1) < opnormest(Tcrsinv)  &&
-      sc*opnorm(Matrix(Tcc),1) < opnormest(Tcc)  &&
-      sc*opnorm(Matrix(Tccinv),1) < opnormest(Tccinv)  &&
-      sc*opnorm(Matrix(Tccs),1) < opnormest(Tccs)  &&
-      sc*opnorm(Matrix(Tccsinv),1) < opnormest(Tccsinv)
+@test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
+      sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
+      sc*opnorm1(Tcrs) < opnorm1est(Tcrs)  &&
+      sc*opnorm1(Tcrsinv) < opnorm1est(Tcrsinv)  &&
+      sc*opnorm1(Tcc) < opnorm1est(Tcc)  &&
+      sc*opnorm1(Tccinv) < opnorm1est(Tccinv)  &&
+      sc*opnorm1(Tccs) < opnorm1est(Tccs)  &&
+      sc*opnorm1(Tccsinv) < opnorm1est(Tccsinv)
 
 
-@test sc*oprcondest(opnormest(Tcr),Tcrinv) < 1/opnorm(Matrix(Tcr),1)/opnorm(Matrix(Tcrinv),1)  &&
-      sc*oprcondest(opnormest(Tcrs),Tcrsinv) < 1/opnorm(Matrix(Tcrs),1)/opnorm(Matrix(Tcrsinv),1)  &&
-      sc*oprcondest(opnormest(Tcc),Tccinv) < 1/opnorm(Matrix(Tcc),1)/opnorm(Matrix(Tccinv),1)  &&
-      sc*oprcondest(opnormest(Tccs),Tccsinv) < 1/opnorm(Matrix(Tccs),1)/opnorm(Matrix(Tccsinv),1)
+@test sc*oprcondest(opnorm1est(Tcr),Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
+      sc*oprcondest(opnorm1est(Tcrs),Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
+      sc*oprcondest(opnorm1est(Tcc),Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
+      sc*oprcondest(opnorm1est(Tccs),Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
 
-@test lyapsepest(ar) == oprcondest(1,Tcrsinv) &&
-      lyapsepest(ar') == oprcondest(1,Tcrsinv') &&
-      lyapsepest(as) == oprcondest(1,Tcrsinv) &&
-      lyapsepest(as') == oprcondest(1,Tcrsinv')  &&
-      lyapsepest(ac) == oprcondest(1,Tccsinv) &&
-      lyapsepest(ac') == oprcondest(1,Tccsinv') &&
-      lyapsepest(acs) == oprcondest(1,Tccsinv) &&
-      lyapsepest(acs') == oprcondest(1,Tccsinv') &&
+@test lyapsepest(ar) == opsepest(Tcrsinv) &&
+      lyapsepest(ar') == opsepest(Tcrsinv') &&
+      lyapsepest(as) == opsepest(Tcrsinv) &&
+      lyapsepest(as') == opsepest(Tcrsinv')  &&
+      lyapsepest(ac) == opsepest(Tccsinv) &&
+      lyapsepest(ac') == opsepest(Tccsinv') &&
+      lyapsepest(acs) == opsepest(Tccsinv) &&
+      lyapsepest(acs') == opsepest(Tccsinv') &&
       lyapsepest(as)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*lyapsepest(as)  &&
       lyapsepest([0. 1.; 0. 1.]) == 0.
@@ -140,37 +141,37 @@ Tccsinv = invlyapcsop(acs,ecs)
 
 @test norm(Matrix(Tcr)'-Matrix(Tcr')) == 0. &&
       norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. &&
-      norm(Matrix(Tcrinv)-inv(Matrix(Tcr))) < reltol*cond(Matrix(Tcr),1) &&
-      norm(Matrix(Tcrsinv)-inv(Matrix(Tcrs))) < reltol*cond(Matrix(Tcrs),1) &&
-      norm(Matrix(Tccinv)-inv(Matrix(Tcc))) < reltol*cond(Matrix(Tcc),1) &&
-      norm(Matrix(Tccsinv)-inv(Matrix(Tccs))) < reltol*cond(Matrix(Tccs),1) &&
-      opnormest(Π*Tcr-Tcr*Π) < reltol &&
-      opnormest(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) &&
-      opnormest(Π*Tcrsinv-Tcrsinv*Π) < reltol*norm(ar)*norm(er)
+      norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol &&
+      norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol &&
+      norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol &&
+      norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol &&
+      opnorm1est(Π*Tcr-Tcr*Π) < reltol &&
+      opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) &&
+      opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol*norm(ar)*norm(er)
 
-@test sc*opnorm(Matrix(Tcr),1) < opnormest(Tcr)  &&
-      sc*opnorm(Matrix(Tcrinv),1) < opnormest(Tcrinv)  &&
-      sc*opnorm(Matrix(Tcrs),1) < opnormest(Tcrs)  &&
-      sc*opnorm(Matrix(Tcrsinv),1) < opnormest(Tcrsinv)  &&
-      sc*opnorm(Matrix(Tcc),1) < opnormest(Tcc)  &&
-      sc*opnorm(Matrix(Tccinv),1) < opnormest(Tccinv)  &&
-      sc*opnorm(Matrix(Tccs),1) < opnormest(Tccs)  &&
-      sc*opnorm(Matrix(Tccsinv),1) < opnormest(Tccsinv)
+@test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
+      sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
+      sc*opnorm1(Tcrs) < opnorm1est(Tcrs)  &&
+      sc*opnorm1(Tcrsinv) < opnorm1est(Tcrsinv)  &&
+      sc*opnorm1(Tcc) < opnorm1est(Tcc)  &&
+      sc*opnorm1(Tccinv) < opnorm1est(Tccinv)  &&
+      sc*opnorm1(Tccs) < opnorm1est(Tccs)  &&
+      sc*opnorm1(Tccsinv) < opnorm1est(Tccsinv)
 
 
-@test sc*oprcondest(opnormest(Tcr),Tcrinv) < 1/opnorm(Matrix(Tcr),1)/opnorm(Matrix(Tcrinv),1)  &&
-      sc*oprcondest(opnormest(Tcrs),Tcrsinv) < 1/opnorm(Matrix(Tcrs),1)/opnorm(Matrix(Tcrsinv),1)  &&
-      sc*oprcondest(opnormest(Tcc),Tccinv) < 1/opnorm(Matrix(Tcc),1)/opnorm(Matrix(Tccinv),1)  &&
-      sc*oprcondest(opnormest(Tccs),Tccsinv) < 1/opnorm(Matrix(Tccs),1)/opnorm(Matrix(Tccsinv),1)
+@test sc*oprcondest(opnorm1est(Tcr),Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
+      sc*oprcondest(opnorm1est(Tcrs),Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
+      sc*oprcondest(opnorm1est(Tcc),Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
+      sc*oprcondest(opnorm1est(Tccs),Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
 
-@test lyapsepest(ar,er) == oprcondest(1,Tcrsinv) &&
-      lyapsepest(ar',er') == oprcondest(1,Tcrsinv') &&
-      lyapsepest(as,es) == oprcondest(1,Tcrsinv) &&
-      lyapsepest(as',es') == oprcondest(1,Tcrsinv')  &&
-      lyapsepest(ac,ec) == oprcondest(1,Tccsinv) &&
-      lyapsepest(ac',ec') == oprcondest(1,Tccsinv') &&
-      lyapsepest(acs,ecs) == oprcondest(1,Tccsinv) &&
-      lyapsepest(acs',ecs') == oprcondest(1,Tccsinv') &&
+@test lyapsepest(ar,er) == opsepest(Tcrsinv) &&
+      lyapsepest(ar',er') == opsepest(Tcrsinv') &&
+      lyapsepest(as,es) == opsepest(Tcrsinv) &&
+      lyapsepest(as',es') == opsepest(Tcrsinv')  &&
+      lyapsepest(ac,ec) == opsepest(Tccsinv) &&
+      lyapsepest(ac',ec') == opsepest(Tccsinv') &&
+      lyapsepest(acs,ecs) == opsepest(Tccsinv) &&
+      lyapsepest(acs',ecs') == opsepest(Tccsinv') &&
       lyapsepest(as,es)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*lyapsepest(as,es)  &&
       lyapsepest([0. 1.; 0. 1.],[1. 1.;0. 1.]) == 0.
@@ -222,39 +223,39 @@ Tdcsinv = invlyapdsop(acs)
 
 @test norm(Matrix(Tdr)'-Matrix(Tdr')) == 0. &&
       norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. &&
-      norm(Matrix(Tdrinv)-inv(Matrix(Tdr))) < reltol &&
-      norm(Matrix(Tdrsinv)-inv(Matrix(Tdrs))) < reltol &&
-      norm(Matrix(Tdcinv)-inv(Matrix(Tdc))) < reltol &&
-      norm(Matrix(Tdcsinv)-inv(Matrix(Tdcs))) < reltol &&
-      opnormest(Π*Tdr-Tdr*Π) < reltol &&
-      opnormest(Π*Tdrinv-Tdrinv*Π) < reltol &&
-      opnormest(Π*Tdrsinv-Tdrsinv*Π) < reltol
+      norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol &&
+      norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol &&
+      norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol &&
+      norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol &&
+      opnorm1est(Π*Tdr-Tdr*Π) < reltol &&
+      opnorm1est(Π*Tdrinv-Tdrinv*Π) < reltol &&
+      opnorm1est(Π*Tdrsinv-Tdrsinv*Π) < reltol
 
 
-@test sc*opnorm(Matrix(Tdr),1) < opnormest(Tdr)  &&
-      sc*opnorm(Matrix(Tdrinv),1) < opnormest(Tdrinv)  &&
-      sc*opnorm(Matrix(Tdrs),1) < opnormest(Tdrs)  &&
-      sc*opnorm(Matrix(Tdrsinv),1) < opnormest(Tdrsinv)  &&
-      sc*opnorm(Matrix(Tdc),1) < opnormest(Tdc)  &&
-      sc*opnorm(Matrix(Tdcinv),1) < opnormest(Tdcinv)  &&
-      sc*opnorm(Matrix(Tdcs),1) < opnormest(Tdcs)  &&
-      sc*opnorm(Matrix(Tdcsinv),1) < opnormest(Tdcsinv)
+@test sc*opnorm1(Tdr) < opnorm1est(Tdr)  &&
+      sc*opnorm1(Tdrinv) < opnorm1est(Tdrinv)  &&
+      sc*opnorm1(Tdrs) < opnorm1est(Tdrs)  &&
+      sc*opnorm1(Tdrsinv) < opnorm1est(Tdrsinv)  &&
+      sc*opnorm1(Tdc) < opnorm1est(Tdc)  &&
+      sc*opnorm1(Tdcinv) < opnorm1est(Tdcinv)  &&
+      sc*opnorm1(Tdcs) < opnorm1est(Tdcs)  &&
+      sc*opnorm1(Tdcsinv) < opnorm1est(Tdcsinv)
 
 
-@test sc*oprcondest(opnormest(Tdr),Tdrinv) < 1/opnorm(Matrix(Tdr),1)/opnorm(Matrix(Tdrinv),1)  &&
-      sc*oprcondest(opnormest(Tdrs),Tdrsinv) < 1/opnorm(Matrix(Tdrs),1)/opnorm(Matrix(Tdrsinv),1)  &&
-      sc*oprcondest(opnormest(Tdc),Tdcinv) < 1/opnorm(Matrix(Tdc),1)/opnorm(Matrix(Tdcinv),1)  &&
-      sc*oprcondest(opnormest(Tdcs),Tdcsinv) < 1/opnorm(Matrix(Tdcs),1)/opnorm(Matrix(Tdcsinv),1)
+@test sc*oprcondest(opnorm1est(Tdr),Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
+      sc*oprcondest(opnorm1est(Tdrs),Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
+      sc*oprcondest(opnorm1est(Tdc),Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
+      sc*oprcondest(opnorm1est(Tdcs),Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
 
 
-@test lyapsepest(ar,disc=true) == oprcondest(1,Tdrsinv) &&
-      lyapsepest(ar',disc=true) == oprcondest(1,Tdrsinv') &&
-      lyapsepest(as,disc=true) == oprcondest(1,Tdrsinv) &&
-      lyapsepest(as',disc=true) == oprcondest(1,Tdrsinv')  &&
-      lyapsepest(ac,disc=true) == oprcondest(1,Tdcsinv) &&
-      lyapsepest(ac',disc=true) == oprcondest(1,Tdcsinv') &&
-      lyapsepest(acs,disc=true) == oprcondest(1,Tdcsinv) &&
-      lyapsepest(acs',disc=true) == oprcondest(1,Tdcsinv') &&
+@test lyapsepest(ar,disc=true) == opsepest(Tdrsinv) &&
+      lyapsepest(ar',disc=true) == opsepest(Tdrsinv') &&
+      lyapsepest(as,disc=true) == opsepest(Tdrsinv) &&
+      lyapsepest(as',disc=true) == opsepest(Tdrsinv')  &&
+      lyapsepest(ac,disc=true) == opsepest(Tdcsinv) &&
+      lyapsepest(ac',disc=true) == opsepest(Tdcsinv') &&
+      lyapsepest(acs,disc=true) == opsepest(Tdcsinv) &&
+      lyapsepest(acs',disc=true) == opsepest(Tdcsinv') &&
       lyapsepest(as,disc=true)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*lyapsepest(as,disc=true)  &&
       lyapsepest([0. 1.; 0. 1.],disc=true) == 0.
@@ -310,38 +311,38 @@ Tdcsinv = invlyapdsop(acs,ecs)
 
 @test norm(Matrix(Tdr)'-Matrix(Tdr')) == 0. &&
       norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. &&
-      norm(Matrix(Tdrinv)-inv(Matrix(Tdr))) < reltol &&
-      norm(Matrix(Tdrsinv)-inv(Matrix(Tdrs))) < reltol &&
-      norm(Matrix(Tdcinv)-inv(Matrix(Tdc))) < reltol &&
-      norm(Matrix(Tdcsinv)-inv(Matrix(Tdcs))) < reltol &&
-      opnormest(Π*Tdr-Tdr*Π) < reltol &&
-      opnormest(Π*Tdrinv-Tdrinv*Π) < reltol &&
-      opnormest(Π*Tdrsinv-Tdrsinv*Π) < reltol
+      norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol &&
+      norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol &&
+      norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol &&
+      norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol &&
+      opnorm1est(Π*Tdr-Tdr*Π) < reltol &&
+      opnorm1est(Π*Tdrinv-Tdrinv*Π) < reltol &&
+      opnorm1est(Π*Tdrsinv-Tdrsinv*Π) < reltol
 
 
-@test sc*opnorm(Matrix(Tdr),1) < opnormest(Tdr)  &&
-      sc*opnorm(Matrix(Tdrinv),1) < opnormest(Tdrinv)  &&
-      sc*opnorm(Matrix(Tdrs),1) < opnormest(Tdrs)  &&
-      sc*opnorm(Matrix(Tdrsinv),1) < opnormest(Tdrsinv)  &&
-      sc*opnorm(Matrix(Tdc),1) < opnormest(Tdc)  &&
-      sc*opnorm(Matrix(Tdcinv),1) < opnormest(Tdcinv)  &&
-      sc*opnorm(Matrix(Tdcs),1) < opnormest(Tdcs)  &&
-      sc*opnorm(Matrix(Tdcsinv),1) < opnormest(Tdcsinv)
+@test sc*opnorm1(Tdr) < opnorm1est(Tdr)  &&
+      sc*opnorm1(Tdrinv) < opnorm1est(Tdrinv)  &&
+      sc*opnorm1(Tdrs) < opnorm1est(Tdrs)  &&
+      sc*opnorm1(Tdrsinv) < opnorm1est(Tdrsinv)  &&
+      sc*opnorm1(Tdc) < opnorm1est(Tdc)  &&
+      sc*opnorm1(Tdcinv) < opnorm1est(Tdcinv)  &&
+      sc*opnorm1(Tdcs) < opnorm1est(Tdcs)  &&
+      sc*opnorm1(Tdcsinv) < opnorm1est(Tdcsinv)
 
 
-@test sc*oprcondest(opnormest(Tdr),Tdrinv) < 1/opnorm(Matrix(Tdr),1)/opnorm(Matrix(Tdrinv),1)  &&
-      sc*oprcondest(opnormest(Tdrs),Tdrsinv) < 1/opnorm(Matrix(Tdrs),1)/opnorm(Matrix(Tdrsinv),1)  &&
-      sc*oprcondest(opnormest(Tdc),Tdcinv) < 1/opnorm(Matrix(Tdc),1)/opnorm(Matrix(Tdcinv),1)  &&
-      sc*oprcondest(opnormest(Tdcs),Tdcsinv) < 1/opnorm(Matrix(Tdcs),1)/opnorm(Matrix(Tdcsinv),1)
+@test sc*oprcondest(opnorm1est(Tdr),Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
+      sc*oprcondest(opnorm1est(Tdrs),Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
+      sc*oprcondest(opnorm1est(Tdc),Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
+      sc*oprcondest(opnorm1est(Tdcs),Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
 
-@test lyapsepest(ar,er,disc=true) == oprcondest(1,Tdrsinv) &&
-      lyapsepest(ar',er',disc=true) == oprcondest(1,Tdrsinv') &&
-      lyapsepest(as,es,disc=true) == oprcondest(1,Tdrsinv) &&
-      lyapsepest(as',es',disc=true) == oprcondest(1,Tdrsinv')  &&
-      lyapsepest(ac,ec,disc=true) == oprcondest(1,Tdcsinv) &&
-      lyapsepest(ac',ec',disc=true) == oprcondest(1,Tdcsinv') &&
-      lyapsepest(acs,ecs,disc=true) == oprcondest(1,Tdcsinv) &&
-      lyapsepest(acs',ecs',disc=true) == oprcondest(1,Tdcsinv') &&
+@test lyapsepest(ar,er,disc=true) == opsepest(Tdrsinv) &&
+      lyapsepest(ar',er',disc=true) == opsepest(Tdrsinv') &&
+      lyapsepest(as,es,disc=true) == opsepest(Tdrsinv) &&
+      lyapsepest(as',es',disc=true) == opsepest(Tdrsinv')  &&
+      lyapsepest(ac,ec,disc=true) == opsepest(Tdcsinv) &&
+      lyapsepest(ac',ec',disc=true) == opsepest(Tdcsinv') &&
+      lyapsepest(acs,ecs,disc=true) == opsepest(Tdcsinv) &&
+      lyapsepest(acs',ecs',disc=true) == opsepest(Tdcsinv') &&
       lyapsepest(as,es,disc=true)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*lyapsepest(as,es,disc=true)  &&
       lyapsepest([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true) == 0.
@@ -396,34 +397,34 @@ Tccsinv = invsylvcsop(acs,bcs)
 
 @test norm(Matrix(Tcr)'-Matrix(Tcr')) == 0. &&
       norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. &&
-      norm(Matrix(Tcrinv)-inv(Matrix(Tcr))) < reltol &&
-      norm(Matrix(Tcrsinv)-inv(Matrix(Tcrs))) < reltol &&
-      norm(Matrix(Tccinv)-inv(Matrix(Tcc))) < reltol &&
-      norm(Matrix(Tccsinv)-inv(Matrix(Tccs))) < reltol
+      norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol &&
+      norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol &&
+      norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol &&
+      norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol
 
 
-@test sc*opnorm(Matrix(Tcr),1) < opnormest(Tcr)  &&
-      sc*opnorm(Matrix(Tcrinv),1) < opnormest(Tcrinv)  &&
-      sc*opnorm(Matrix(Tcrs),1) < opnormest(Tcrs)  &&
-      sc*opnorm(Matrix(Tcrsinv),1) < opnormest(Tcrsinv)  &&
-      sc*opnorm(Matrix(Tcc),1) < opnormest(Tcc)  &&
-      sc*opnorm(Matrix(Tccinv),1) < opnormest(Tccinv)  &&
-      sc*opnorm(Matrix(Tccs),1) < opnormest(Tccs)  &&
-      sc*opnorm(Matrix(Tccsinv),1) < opnormest(Tccsinv)
+@test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
+      sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
+      sc*opnorm1(Tcrs) < opnorm1est(Tcrs)  &&
+      sc*opnorm1(Tcrsinv) < opnorm1est(Tcrsinv)  &&
+      sc*opnorm1(Tcc) < opnorm1est(Tcc)  &&
+      sc*opnorm1(Tccinv) < opnorm1est(Tccinv)  &&
+      sc*opnorm1(Tccs) < opnorm1est(Tccs)  &&
+      sc*opnorm1(Tccsinv) < opnorm1est(Tccsinv)
 
-@test sc*oprcondest(opnormest(Tcr),Tcrinv) < 1/opnorm(Matrix(Tcr),1)/opnorm(Matrix(Tcrinv),1)  &&
-      sc*oprcondest(opnormest(Tcrs),Tcrsinv) < 1/opnorm(Matrix(Tcrs),1)/opnorm(Matrix(Tcrsinv),1)  &&
-      sc*oprcondest(opnormest(Tcc),Tccinv) < 1/opnorm(Matrix(Tcc),1)/opnorm(Matrix(Tccinv),1)  &&
-      sc*oprcondest(opnormest(Tccs),Tccsinv) < 1/opnorm(Matrix(Tccs),1)/opnorm(Matrix(Tccsinv),1)
+@test sc*oprcondest(opnorm1est(Tcr),Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
+      sc*oprcondest(opnorm1est(Tcrs),Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
+      sc*oprcondest(opnorm1est(Tcc),Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
+      sc*oprcondest(opnorm1est(Tccs),Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
 
-@test sylvsepest(ar,br) == oprcondest(1,Tcrsinv) &&
-      sylvsepest(ar',br') == oprcondest(1,Tcrsinv') &&
-      sylvsepest(as,bs) == oprcondest(1,Tcrsinv) &&
-      sylvsepest(as',bs') == oprcondest(1,Tcrsinv')  &&
-      sylvsepest(ac,bc) == oprcondest(1,Tccsinv) &&
-      sylvsepest(ac',bc') == oprcondest(1,Tccsinv') &&
-      sylvsepest(acs,bcs) == oprcondest(1,Tccsinv) &&
-      sylvsepest(acs',bcs') == oprcondest(1,Tccsinv') &&
+@test sylvsepest(ar,br) == opsepest(Tcrsinv) &&
+      sylvsepest(ar',br') == opsepest(Tcrsinv') &&
+      sylvsepest(as,bs) == opsepest(Tcrsinv) &&
+      sylvsepest(as',bs') == opsepest(Tcrsinv')  &&
+      sylvsepest(ac,bc) == opsepest(Tccsinv) &&
+      sylvsepest(ac',bc') == opsepest(Tccsinv') &&
+      sylvsepest(acs,bcs) == opsepest(Tccsinv) &&
+      sylvsepest(acs',bcs') == opsepest(Tccsinv') &&
       sylvsepest(as,bs)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*sylvsepest(as,bs)  &&
       sylvsepest([0. 1.; 0. 1.],-[0. 1.; 0. 1.]) == 0.
@@ -487,31 +488,31 @@ Tdcsinv = invsylvdsop(acs,bcs)
 
 @test norm(Matrix(Tdr)'-Matrix(Tdr')) == 0. &&
       norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. &&
-      norm(Matrix(Tdrinv)-inv(Matrix(Tdr))) < reltol &&
-      norm(Matrix(Tdrsinv)-inv(Matrix(Tdrs))) < reltol &&
-      norm(Matrix(Tdcinv)-inv(Matrix(Tdc))) < reltol &&
-      norm(Matrix(Tdcsinv)-inv(Matrix(Tdcs))) < reltol
+      norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol &&
+      norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol &&
+      norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol &&
+      norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol
 
 
 
-@test sc*opnorm(Matrix(Tdr),1) < opnormest(Tdr)  &&
-      sc*opnorm(Matrix(Tdrinv),1) < opnormest(Tdrinv)  &&
-      sc*opnorm(Matrix(Tdrs),1) < opnormest(Tdrs)  &&
-      sc*opnorm(Matrix(Tdrsinv),1) < opnormest(Tdrsinv)  &&
-      sc*opnorm(Matrix(Tdc),1) < opnormest(Tdc)  &&
-      sc*opnorm(Matrix(Tdcinv),1) < opnormest(Tdcinv)  &&
-      sc*opnorm(Matrix(Tdcs),1) < opnormest(Tdcs)  &&
-      sc*opnorm(Matrix(Tdcsinv),1) < opnormest(Tdcsinv)
+@test sc*opnorm1(Tdr) < opnorm1est(Tdr)  &&
+      sc*opnorm1(Tdrinv) < opnorm1est(Tdrinv)  &&
+      sc*opnorm1(Tdrs) < opnorm1est(Tdrs)  &&
+      sc*opnorm1(Tdrsinv) < opnorm1est(Tdrsinv)  &&
+      sc*opnorm1(Tdc) < opnorm1est(Tdc)  &&
+      sc*opnorm1(Tdcinv) < opnorm1est(Tdcinv)  &&
+      sc*opnorm1(Tdcs) < opnorm1est(Tdcs)  &&
+      sc*opnorm1(Tdcsinv) < opnorm1est(Tdcsinv)
 
 
-@test sylvsepest(ar,br,disc=true) == oprcondest(1,Tdrsinv) &&
-      sylvsepest(ar',br',disc=true) == oprcondest(1,Tdrsinv') &&
-      sylvsepest(as,bs,disc=true) == oprcondest(1,Tdrsinv) &&
-      sylvsepest(as',bs',disc=true) == oprcondest(1,Tdrsinv')  &&
-      sylvsepest(ac,bc,disc=true) == oprcondest(1,Tdcsinv) &&
-      sylvsepest(ac',bc',disc=true) == oprcondest(1,Tdcsinv') &&
-      sylvsepest(acs,bcs,disc=true) == oprcondest(1,Tdcsinv) &&
-      sylvsepest(acs',bcs',disc=true) == oprcondest(1,Tdcsinv') &&
+@test sylvsepest(ar,br,disc=true) == opsepest(Tdrsinv) &&
+      sylvsepest(ar',br',disc=true) == opsepest(Tdrsinv') &&
+      sylvsepest(as,bs,disc=true) == opsepest(Tdrsinv) &&
+      sylvsepest(as',bs',disc=true) == opsepest(Tdrsinv')  &&
+      sylvsepest(ac,bc,disc=true) == opsepest(Tdcsinv) &&
+      sylvsepest(ac',bc',disc=true) == opsepest(Tdcsinv') &&
+      sylvsepest(acs,bcs,disc=true) == opsepest(Tdcsinv) &&
+      sylvsepest(acs',bcs',disc=true) == opsepest(Tdcsinv') &&
       sylvsepest(as,bs,disc=true)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*sylvsepest(as,bs,disc=true)  &&
       sylvsepest([0. 1.; 0. 1.],-[0. 1.; 0. 1.],disc=true) == 0.
@@ -589,34 +590,34 @@ Tcsinv = invgsylvsop(acs, bcs, ccs, dcs)
 
 @test norm(Matrix(Tr)'-Matrix(Tr')) == 0. &&
       norm(Matrix(Tc)'-Matrix(Tc')) == 0. &&
-      norm(Matrix(Trinv)-inv(Matrix(Tr))) < reltol &&
-      norm(Matrix(Trsinv)-inv(Matrix(Trs))) < reltol &&
-      norm(Matrix(Tcinv)-inv(Matrix(Tc))) < reltol &&
-      norm(Matrix(Tcsinv)-inv(Matrix(Tcs))) < reltol
+      norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol &&
+      norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol &&
+      norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol &&
+      norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol
 
 
-@test sc*opnorm(Matrix(Tr),1) < opnormest(Tr)  &&
-      sc*opnorm(Matrix(Trinv),1) < opnormest(Trinv)  &&
-      sc*opnorm(Matrix(Trs),1) < opnormest(Trs)  &&
-      sc*opnorm(Matrix(Trsinv),1) < opnormest(Trsinv)  &&
-      sc*opnorm(Matrix(Tc),1) < opnormest(Tc)  &&
-      sc*opnorm(Matrix(Tcinv),1) < opnormest(Tcinv)  &&
-      sc*opnorm(Matrix(Tcs),1) < opnormest(Tcs)  &&
-      sc*opnorm(Matrix(Tcsinv),1) < opnormest(Tcsinv)
+@test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
+      sc*opnorm1(Trinv) < opnorm1est(Trinv)  &&
+      sc*opnorm1(Trs) < opnorm1est(Trs)  &&
+      sc*opnorm1(Trsinv) < opnorm1est(Trsinv)  &&
+      sc*opnorm1(Tc) < opnorm1est(Tc)  &&
+      sc*opnorm1(Tcinv) < opnorm1est(Tcinv)  &&
+      sc*opnorm1(Tcs) < opnorm1est(Tcs)  &&
+      sc*opnorm1(Tcsinv) < opnorm1est(Tcsinv)
 
-@test sc*oprcondest(opnormest(Tr),Trinv) < 1/opnorm(Matrix(Tr),1)/opnorm(Matrix(Trinv),1)  &&
-      sc*oprcondest(opnormest(Trs),Trsinv) < 1/opnorm(Matrix(Trs),1)/opnorm(Matrix(Trsinv),1)  &&
-      sc*oprcondest(opnormest(Tc),Tcinv) < 1/opnorm(Matrix(Tc),1)/opnorm(Matrix(Tcinv),1)  &&
-      sc*oprcondest(opnormest(Tcs),Tcsinv) < 1/opnorm(Matrix(Tcs),1)/opnorm(Matrix(Tcsinv),1)
+@test sc*oprcondest(opnorm1est(Tr),Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
+      sc*oprcondest(opnorm1est(Trs),Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
+      sc*oprcondest(opnorm1est(Tc),Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
+      sc*oprcondest(opnorm1est(Tcs),Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
 
-@test sylvsepest(ar,br,cr,dr) == oprcondest(1,Trsinv) &&
-      sylvsepest(ar',br',cr',dr') == oprcondest(1,Trsinv') &&
-      sylvsepest(as,bs,cs,ds) == oprcondest(1,Trsinv) &&
-      sylvsepest(as',bs',cs',ds') == oprcondest(1,Trsinv')  &&
-      sylvsepest(ac,bc,cc,dc) == oprcondest(1,Tcsinv) &&
-      sylvsepest(ac',bc',cc',dc') == oprcondest(1,Tcsinv') &&
-      sylvsepest(acs,bcs,ccs,dcs) == oprcondest(1,Tcsinv) &&
-      sylvsepest(acs',bcs',ccs',dcs') == oprcondest(1,Tcsinv') &&
+@test sylvsepest(ar,br,cr,dr) == opsepest(Trsinv) &&
+      sylvsepest(ar',br',cr',dr') == opsepest(Trsinv') &&
+      sylvsepest(as,bs,cs,ds) == opsepest(Trsinv) &&
+      sylvsepest(as',bs',cs',ds') == opsepest(Trsinv')  &&
+      sylvsepest(ac,bc,cc,dc) == opsepest(Tcsinv) &&
+      sylvsepest(ac',bc',cc',dc') == opsepest(Tcsinv') &&
+      sylvsepest(acs,bcs,ccs,dcs) == opsepest(Tcsinv) &&
+      sylvsepest(acs',bcs',ccs',dcs') == opsepest(Tcsinv') &&
       sylvsepest(as,bs,cs,ds)/sqrt(2*n*m) <= minimum(svdvals(Matrix(Trs)))  &&
       minimum(svdvals(Matrix(Trs))) <= sqrt(2*n*m)*sylvsepest(as,bs,cs,ds)  &&
       sylvsepest([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]) == 0.
@@ -684,31 +685,31 @@ Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
 
 @test norm(Matrix(Tr)'-Matrix(Tr')) == 0. &&
       norm(Matrix(Tc)'-Matrix(Tc')) == 0. &&
-      norm(Matrix(Trinv)-inv(Matrix(Tr))) < reltol &&
-      norm(Matrix(Trsinv)-inv(Matrix(Trs))) < reltol &&
-      norm(Matrix(Tcinv)-inv(Matrix(Tc))) < reltol &&
-      norm(Matrix(Tcsinv)-inv(Matrix(Tcs))) < reltol
+      norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol &&
+      norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol &&
+      norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol &&
+      norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol
 
 
-@test sc*opnorm(Matrix(Tr),1) < opnormest(Tr)  &&
-      sc*opnorm(Matrix(Trinv),1) < opnormest(Trinv)  &&
-      sc*opnorm(Matrix(Trs),1) < opnormest(Trs)  &&
-      sc*opnorm(Matrix(Trsinv),1) < opnormest(Trsinv)  &&
-      sc*opnorm(Matrix(Tc),1) < opnormest(Tc)  &&
-      sc*opnorm(Matrix(Tcinv),1) < opnormest(Tcinv)  &&
-      sc*opnorm(Matrix(Tcs),1) < opnormest(Tcs)  &&
-      sc*opnorm(Matrix(Tcsinv),1) < opnormest(Tcsinv)
+@test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
+      sc*opnorm1(Trinv) < opnorm1est(Trinv)  &&
+      sc*opnorm1(Trs) < opnorm1est(Trs)  &&
+      sc*opnorm1(Trsinv) < opnorm1est(Trsinv)  &&
+      sc*opnorm1(Tc) < opnorm1est(Tc)  &&
+      sc*opnorm1(Tcinv) < opnorm1est(Tcinv)  &&
+      sc*opnorm1(Tcs) < opnorm1est(Tcs)  &&
+      sc*opnorm1(Tcsinv) < opnorm1est(Tcsinv)
 
-@test sc*oprcondest(opnormest(Tr),Trinv) < 1/opnorm(Matrix(Tr),1)/opnorm(Matrix(Trinv),1)  &&
-      sc*oprcondest(opnormest(Trs),Trsinv) < 1/opnorm(Matrix(Trs),1)/opnorm(Matrix(Trsinv),1)  &&
-      sc*oprcondest(opnormest(Tc),Tcinv) < 1/opnorm(Matrix(Tc),1)/opnorm(Matrix(Tcinv),1)  &&
-      sc*oprcondest(opnormest(Tcs),Tcsinv) < 1/opnorm(Matrix(Tcs),1)/opnorm(Matrix(Tcsinv),1)
+@test sc*oprcondest(opnorm1est(Tr),Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
+      sc*oprcondest(opnorm1est(Trs),Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
+      sc*oprcondest(opnorm1est(Tc),Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
+      sc*oprcondest(opnorm1est(Tcs),Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
 
 
-@test sylvsyssepest(ar,br,cr,dr) == oprcondest(1,Trsinv) &&
-      sylvsyssepest(as,bs,cs,ds) == oprcondest(1,Trsinv) &&
-      sylvsyssepest(ac,bc,cc,dc) == oprcondest(1,Tcsinv) &&
-      sylvsyssepest(acs,bcs,ccs,dcs) == oprcondest(1,Tcsinv) &&
+@test sylvsyssepest(ar,br,cr,dr) == opsepest(Trsinv) &&
+      sylvsyssepest(as,bs,cs,ds) == opsepest(Trsinv) &&
+      sylvsyssepest(ac,bc,cc,dc) == opsepest(Tcsinv) &&
+      sylvsyssepest(acs,bcs,ccs,dcs) == opsepest(Tcsinv) &&
       sylvsyssepest(as,bs,cs,ds)/sqrt(2*n*m) <= minimum(svdvals(Matrix(Trs)))  &&
       minimum(svdvals(Matrix(Trs))) <= sqrt(2*n*m)*sylvsyssepest(as,bs,cs,ds)  &&
       sylvsyssepest([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]) == 0.
