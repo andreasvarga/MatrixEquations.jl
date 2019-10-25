@@ -1,7 +1,7 @@
 # MatrixEquations.jl
 **Solution of some control system related matrix equations using Julia**
 
-[![Travis](https://travis-ci.org/andreasvarga/MatrixEquations.jl.svg?branch=master)](https://travis-ci.org/andreasvarga/MatrixEquations.jl)
+[![Travis](https://travis-ci.com/andreasvarga/MatrixEquations.jl.svg?branch=master)](https://travis-ci.com/andreasvarga/MatrixEquations.jl)
 
 ## About
 This collection of Julia functions is an attemp to implement high performance
