@@ -5,12 +5,11 @@ os:
   - windows
 
 julia:
-   - 1.1
+  - 1.1
   - 1.2
 
 #matrix:
 #  allow_failures:
-#    - julia: nightly
 
 notifications:
   email:
