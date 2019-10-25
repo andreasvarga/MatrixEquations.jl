@@ -12,7 +12,7 @@ using LinearOperators
 include("lapackutil.jl")
 using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!
 
-export utqu, utqu!, qrupdate!, rqupdate!, isschur
+export utqu, utqu!, qrupdate!, rqupdate!, isschur, her2vec, vec2her
 export lanv2, ladiv, lag2, lacn2!
 export lyapc, lyapd, lyapcs!, lyapds!
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2, pglyap2
@@ -22,11 +22,8 @@ export sylvsys, dsylvsys, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export lyapsepest, sylvsepest, sylvsyssepest
 export opnorm1, opnorm1est, oprcondest, opsepest, trmat
-export lyapcop, invlyapcop, invlyapcsop
-export lyapdop, invlyapdop, invlyapdsop
-export sylvcop, invsylvcop, invsylvcsop
-export sylvdop, invsylvdop, invsylvdsop
-export gsylvop, invgsylvop, invgsylvsop
+export lyapop, invlyapop, invlyapsop
+export sylvop, invsylvop, invsylvsop
 export sylvsysop, invsylvsysop, invsylvsyssop
 
 include("meutil.jl")
@@ -36,4 +33,5 @@ include("riccati.jl")
 include("sylvkr.jl")
 include("plyapunov.jl")
 include("meoperators.jl")
+include("condest.jl")
 end

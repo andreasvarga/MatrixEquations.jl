@@ -1,468 +1,7 @@
 """
-    sep = lyapsepest(A :: AbstractMatrix; disc = false)
-
-Compute `sep`, an estimation of the separation of the continuous Lyapunov operator
-`M: X -> AX+XA'` if `disc = false` or of the discrete Lyapunov operator
-`M: X -> AXA'-X` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
-the least singular value of the corresponding inverse operator ``M^{-1}``,
-as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
-It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
-``\\sigma_{min}(M^{-1})`` by more than a
-factor of `n`, where `n` is the order of the square matrix `A`.
-The separation of the operator `M` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
-"""
-function lyapsepest(A :: AbstractMatrix; disc = false)
-  n = LinearAlgebra.checksquare(A)
-  T2 = promote_type(typeof(1.), eltype(A))
-  if eltype(A) !== T2
-     A = convert(Matrix{T2},A)
-  end
-
-  adj = isa(A,Adjoint)
-
-  # fast computation if A is in Schur form
-  if (adj && isschur(A.parent)) || (!adj && isschur(A))
-      disc ? M = invsylvdsop(-A, A') : M = invsylvcsop(A, A')
-      return 1. / opnorm1est(M)
-   end
-
-  # Reduce A to Schur form
-  if adj
-     if eltype(A) == T2
-        AS = schur(A.parent).T
-     else
-        AS = schur(convert(Matrix{T2},A.parent)).T
-     end
-     disc ? M = invsylvdsop(-AS', AS) : M = invsylvcsop(AS', AS)
- else
-     if eltype(A) == T2
-        AS = schur(A).T
-     else
-        AS = schur(convert(Matrix{T2},A)).T
-     end
-     disc ? M = invsylvdsop(-AS, AS') : M = invsylvcsop(AS, AS')
-  end
-  return 1. / opnorm1est(M)
-end
-function lyapsepest(A :: Schur; disc = false)
-   disc ? M = invsylvdsop(-A.T, A.T') : M = invsylvcsop(A.T, A.T')
-   return 1. / opnorm1est(M)
-end
-"""
-    sep = lyapsepest(A :: AbstractMatrix, E :: AbstractMatrix; disc = false)
-
-Compute `sep`, an estimation of the separation of the continuous Lyapunov operator
-`M: X -> AXE'+EXA'` if `disc = false` or of the discrete Lyapunov operator
-`M: X -> AXA'-EXE'` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
-the least singular value of the corresponding inverse operator ``M^{-1}``,
-as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
-It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
-``\\sigma_{min}(M^{-1})`` by more than a
-factor of `n`, where `n` is the order of the square matrix `A`.
-The separation of the operator `M` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
-"""
-function lyapsepest(A :: AbstractMatrix, E :: Union{AbstractMatrix,UniformScaling{Bool},Array{Any,1}}; disc = false)
-  n = LinearAlgebra.checksquare(A)
-  if isequal(E,I) || isempty(E)
-     return lyapsepest(A :: AbstractMatrix; disc = disc)
-  end
-  if LinearAlgebra.checksquare(E) != n
-     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-  end
-  T2 = promote_type(typeof(1.), eltype(A), eltype(E))
-  if eltype(A) !== T2
-     A = convert(Matrix{T2},A)
-  end
-  if eltype(E) !== T2
-     E = convert(Matrix{T2},E)
-  end
-
-  adjA = isa(A,Adjoint)
-  adjE = isa(E,Adjoint)
-
-  # fast computation if (A,E) is in generalized Schur form
-  if (adjA && adjE && isschur(A.parent) && isschur(E.parent)) ||
-     (!adjA && !adjE && isschur(A) && isschur(E))
-     disc ? M = invgsylvsop(-A, A', E, E') : M = invgsylvsop(A, E', E, A',DBSchur = true)
-     return 1. / opnorm1est(M)
-  end
-
-  if adjA && !adjE
-      A = copy(A)
-      adjA = false
-  elseif !adjA && adjE
-      E = copy(E)
-      adjE = false
-  end
-
-  adj = adjA & adjE
-  # Reduce (A,E) to generalized Schur form
-  if adj
-     AS, ES = schur(A.parent,E.parent)
-     disc ? M = invgsylvsop(-AS', AS, ES', ES) : M = invgsylvsop(AS', ES, ES', AS,DBSchur = true)
-  else
-     AS, ES = schur(A,E)
-     disc ? M = invgsylvsop(-AS, AS', ES, ES') : M = invgsylvsop(AS, ES', ES, AS',DBSchur = true)
-  end
-  return 1. / opnorm1est(M)
-end
-function lyapsepest(AE :: GeneralizedSchur; disc = false)
-   disc ? M = invgsylvsop(-AE.S, AE.S', AE.T, AE.T') : M = invgsylvsop(AE.S, AE.T', AE.T, AE.S',DBSchur = true)
-   return 1. / opnorm1est(M)
-end
-"""
-    sep = sylvsepest(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
-
-Compute `sep`, an estimation of the separation of the continuous Sylvester operator
-`M: X -> AX+XB` if `disc = false` or of the discrete Sylvester operator
-`M: X -> AXB+X` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
-the least singular value of the corresponding inverse operator ``M^{-1}``,
-as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
-It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
-``\\sigma_{min}(M^{-1})`` by more than a
-factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
-`A` and `B`, respectively.
-The separation of the operator `M` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
-"""
-function sylvsepest(A::AbstractMatrix, B::AbstractMatrix; disc = false)
-   m = LinearAlgebra.checksquare(A)
-   n = LinearAlgebra.checksquare(B)
-   T2 = promote_type(typeof(1.), eltype(A), eltype(B))
-   if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-      B = convert(Matrix{T2},B)
-   end
-
-   adjA = isa(A,Adjoint)
-   adjB = isa(B,Adjoint)
-
-   # fast computation if A and B are in Schur forms
-   if (!adjA && !adjB && isschur(A) && isschur(B)) ||
-      (adjA && adjB && isschur(A.parent) && isschur(B.parent)) ||
-      (!adjA && adjB && isschur(A) && isschur(B.parent)) ||
-      (adjA && !adjB && isschur(A.parent) && isschur(B))
-      disc ? M = invsylvdsop(A, B) : M = invsylvcsop(A, B)
-      return 1. / opnorm1est(M)
-   end
-
-   if adjA
-      RA = schur(A.parent).T'
-   else
-      RA = schur(A).T
-   end
-   if adjB
-      RB = schur(B.parent).T'
-   else
-      RB = schur(B).T
-   end
-  disc ? M = invsylvdsop(RA, RB) : M = invsylvcsop(RA, RB)
-  return 1. / opnorm1est(M)
-end
-"""
-    sep = sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
-
-Compute `sep`, an estimation of the separation of the generalized Sylvester operator
-`M: X -> AXB+CXD`, by estimating ``\\sigma_{min}(M^{-1})``,
-the least singular value of the corresponding inverse operator ``M^{-1}``,
-as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
-It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
-``\\sigma_{min}(M^{-1})`` by more than a
-factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
-`A` and `B`, respectively.
-The separation operation is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|AXB+CXD\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
-"""
-function sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
-   m = LinearAlgebra.checksquare(A)
-   n = LinearAlgebra.checksquare(B)
-   if [m; n] != LinearAlgebra.checksquare(C,D)
-      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-   end
-   T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D))
-   if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-      B = convert(Matrix{T2},B)
-   end
-   if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-   end
-   if eltype(D) !== T2
-      D = convert(Matrix{T2},D)
-   end
-   adjA = isa(A,Adjoint)
-   adjB = isa(B,Adjoint)
-   adjC = isa(C,Adjoint)
-   adjD = isa(D,Adjoint)
-
-   adjAC = adjA && adjC
-   adjBD = adjB && adjD
-
-   # fast computation if (A,C) and (B,D) are in generalized Schur forms
-   if (!adjAC && !adjBD && isschur(A,C) && isschur(B,D)) ||
-      (adjAC && adjBD && isschur(A.parent,C.parent) && isschur(B.parent,D.parent)) ||
-      (!adjAC && adjBD && isschur(A,C) && isschur(B.parent,D.parent)) ||
-      (adjAC && !adjBD && isschur(A.parent,C.parent) && isschur(B,D))
-      return 1. / opnorm1est(invgsylvsop(A, B, C, D) )
-   end
-
-   # reduce (A,C) and (B,D) to generalized Schur forms
-   if adjAC
-      AS, CS = schur(A.parent,C.parent)
-   else
-      if adjA
-         A = copy(A)
-      end
-      if adjC
-         C = copy(C)
-      end
-      AS, CS = schur(A,C)
-   end
-   if adjBD
-      BS, DS = schur(B.parent,D.parent)
-   else
-      if adjB
-          B = copy(B)
-      end
-      if adjD
-          D = copy(D)
-      end
-      BS, DS = schur(B,D)
-   end
-   if !adjAC && !adjBD
-      return 1. / opnorm1est(invgsylvsop(AS, BS, CS, DS))
-   elseif adjAC && adjBD
-      return 1. / opnorm1est(invgsylvsop(AS', BS', CS', DS'))
-   elseif !adjAC && adjBD
-      return 1. / opnorm1est(invgsylvsop(AS, BS', CS, DS'))
-   else
-      return 1. / opnorm1est(invgsylvsop(AS', BS, CS', DS))
-    end
-end
-"""
-    sep = sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
-
-Compute `sep`, an estimation of the separation of the generalized Sylvester operator
-`M: (X,Y) -> [ AX+YB; CX+YD ] `, by estimating ``\\sigma_{min}(M^{-1})``,
-the least singular value of the corresponding inverse operator ``M^{-1}``,
-as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
-It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
-``\\sigma_{min}(M^{-1})`` by more than a
-factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
-`A` and `B`, respectively.
-The separation operation is defined as
-
-``\\text{sep} = \\displaystyle\\min_{[X\\; Y]\\neq 0} \\frac{\\|M(X,Y)\\|}{\\|[X \\; Y]\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
-"""
-function sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
-   m = LinearAlgebra.checksquare(A)
-   n = LinearAlgebra.checksquare(B)
-   if [m; n] != LinearAlgebra.checksquare(C,D)
-      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-   end
-   T2 = promote_type(typeof(1.), eltype(A), eltype(B), eltype(C), eltype(D))
-   if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-      B = convert(Matrix{T2},B)
-   end
-   if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-   end
-   if eltype(D) !== T2
-      D = convert(Matrix{T2},D)
-   end
-
-   if isa(A,Adjoint)
-     A = copy(A)
-   end
-   if isa(B,Adjoint)
-     B = copy(B)
-   end
-   if isa(C,Adjoint)
-     C = copy(C)
-   end
-   if isa(D,Adjoint)
-     D = copy(D)
-   end
-
-   # fast computation if (A,C) and (B,D) are in generalized Schur forms
-   if isschur(A,C) && isschur(B,D)
-      return 1. / opnorm1est(invsylvsysop(A, B, C, D) )
-   end
-
-   # reduce (A,C) and (B,D) to generalized Schur forms
-   AS, CS = schur(A,C)
-   BS, DS = schur(B,D)
-   return 1. / opnorm1est(invsylvsysop(AS, BS, CS, DS) )
-end
-"""
-    opnorm1(op::AbstractLinearOperator)
-
-Compute the induced operator `1`-norm as the maximum of `1`-norm of the
-columns of the `m x n` matrix associated to the linear operator `op`:
-```math
-\\|op\\|_1 = \\max_{1 ≤ j ≤ n} \\|op * e_j\\|_1
-```
-with ``e_j`` the `j`-th column of the `n`-th order identity matrix.
-"""
-function opnorm1(op :: AbstractLinearOperator)
-  (m, n) = size(op)
-  T = eltype(op)
-  Tnorm = typeof(float(real(zero(T))))
-  Tsum = promote_type(Float64, Tnorm)
-  nrm::Tsum = 0
-  ej = zeros(T, n)
-  for j = 1 : n
-      ej[j] = 1
-      try
-         nrm = max(nrm,norm(op*ej,1))
-      catch err
-         if isnothing(findfirst("SingularException",string(err))) &&
-            isnothing(findfirst("LAPACKException",string(err)))
-            rethrow()
-         else
-            return Inf
-         end
-      end
-      ej[j] = 0
-  end
-  return convert(Tnorm, nrm)
-end
-"""
-    γ = opnorm1est(op :: AbstractLinearOperator)
-
-Compute `γ`, a lower bound of the `1`-norm of the square linear operator `op`, using
-reverse communication based computations to evaluate `op * x` and `op' * x`.
-It is expected that in most cases ``γ > \\|A\\|_1/10``, which is usually
-acceptable for estimating the condition numbers of linear operators.
-"""
-function opnorm1est(op :: AbstractLinearOperator)
-  m, n = size(op)
-  if m != n
-    throw(DimensionMismatch("The operator op must be square"))
-  end
-  BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
-  cmplx = eltype(op)<:Complex
-  V = Array{eltype(op),1}(undef,n)
-  X = Array{eltype(op),1}(undef,n)
-  cmplx ? ISGN = Array{Int,1}(undef,1) : ISGN = Array{Int,1}(undef,n)
-  ISAVE = Array{Int,1}(undef,3)
-  ANORM = 0.
-  KASE = 0
-  finish = false
-  while !finish
-     if cmplx
-        ANORM, KASE = LapackUtil.lacn2!(V, X, ANORM, KASE, ISAVE )
-     else
-        ANORM, KASE = LapackUtil.lacn2!(V, X, ISGN, ANORM, KASE, ISAVE )
-     end
-     if !isfinite(ANORM) || ANORM >= BIGNUM
-        return Inf
-      end
-     if KASE != 0
-        try
-           KASE == 1 ? X = op*X : X = op'*X
-        catch err
-           if isnothing(findfirst("SingularException",string(err))) &&
-              isnothing(findfirst("LAPACKException",string(err)))
-              rethrow()
-           else
-              return Inf
-           end
-        end
-      else
-        finish = true
-     end
-  end
-  return ANORM
-end
-
-"""
-    rcond = oprcondest(opnrm1::Real, opinv :: AbstractLinearOperator; exact = false)
-
-Compute `rcond`, an estimate of the `1`-norm reciprocal condition number
-of a linear operator `op`, where `opnrm1` is an estimate of the `1`-norm of `op` and
-`opinv` is the inverse operator `inv(op)`. The estimate is computed as
-``\\text{rcond} = 1 / (\\text{opnrm1}\\|opinv\\|_1)``, using an estimate of the `1`-norm, if `exact = false`, or
-the computed exact value of the `1`-norm, if `exact = true`.
-The `exact = true` option is not recommended for large order operators."""
-function oprcondest(opnrm1::Real, opinv :: AbstractLinearOperator; exact = false)
-  ZERO = zero(0.)
-  if opnrm1 == ZERO || size(opinv,1) == 0
-     return ZERO
-  else
-     return opsepest(opinv)/opnrm1
-  end
-end
-"""
-    sep = opsepest(opinv :: AbstractLinearOperator; exact = false)
-
-Compute `sep`, an estimation of the `1`-norm separation of a linear operator
-`op`, where `opinv` is the inverse operator `inv(op)`. The estimate is computed as
-``\\text{sep}  = 1 / \\|opinv\\|_1`` , using an estimate of the `1`-norm, if `exact = false`, or
-the computed exact value of the `1`-norm, if `exact = true`.
-The `exact = true` option is not recommended for large order operators.
-
-The separation of the operator `op` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|op(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `op` can be computed as ``\\text{sep}/\\|op\\|_1``.
-"""
-function opsepest(opinv :: AbstractLinearOperator; exact = false)
-   BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
-   exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
-   if opinvnrm1 >= BIGNUM
-      return ZERO
-   end
-   return one(1.)/opinvnrm1
-end
-"""
-    rcond = oprcondest(op::AbstractLinearOperator, opinv :: AbstractLinearOperator; exact = false)
-
-Compute `rcond`, an estimation of the `1`-norm reciprocal condition number
-of a linear operator `op`, where `opinv` is the inverse operator `inv(op)`. The estimate is computed as
-``\\text{rcond} = 1 / (\\|op\\|_1\\|opinv\\|_1)``, using estimates of the `1`-norm, if `exact = false`, or
-computed exact values of the `1`-norm, if `exact = true`.
-The `exact = true` option is not recommended for large order operators.
-
-Note: No check is performed to verify that `opinv = inv(op)`.
-"""
-function oprcondest(op:: LinearOperator, opinv :: LinearOperator; exact = false)
-   return opsepest(op, exact = exact)*opsepest(opinv, exact = exact)
-end
-"""
     trmat(n::Int, m::Int) -> M::LinearOperator
 
-Define the linear permutation operator `M: X -> X'` for the transposition of all
-`n x m` matrices.
+Define the transposition operator `M: X -> X'` for all `n x m` matrices.
 """
 function trmat(n::Int,m::Int)
   function prod(x)
@@ -470,11 +9,11 @@ function trmat(n::Int,m::Int)
     return transpose(X)[:]
   end
   function tprod(x)
-    X = reshape(x, n, m)
+    X = reshape(x, m, n)
     return transpose(X)[:]
   end
   function ctprod(x)
-    X = reshape(x, n, m)
+    X = reshape(x, m, n)
     return transpose(X)[:]
   end
   F1 = typeof(prod)
@@ -488,189 +27,627 @@ trmat(dims::Tuple{Int,Int}) = trmat(dims[1],dims[2])
 """
     trmat(X::AbstractMatrix) -> M::LinearOperator
 
-Define the linear permutation operator `M: X -> X'` for the transposition of
-all matrices of the size of `X`.
+Define the transposition operator `M: X -> X'` of all matrices of the size of `X`.
 """
 trmat(A::AbstractMatrix) = trmat(size(A))
 """
-    lyapcop(A :: AbstractMatrix) -> M::LinearOperator
+    lyapop(A :: AbstractMatrix; disc = false, her = false) -> L::LinearOperator
 
-Define the continuous Lyapunov operator `M: X -> AX+XA'`.
+Define, for an `n x n` matrix `A`, the continuous Lyapunov operator `L:X -> AX+XA'`
+if `disc = false` or the discrete Lyapunov operator `L:X -> AXA'-X` if `disc = true`.
+If `her = false` the Lyapunov operator `L:X -> Y` maps general square matrices `X`
+into general square matrices `Y`, and the associated `M = Matrix(L)` is a
+``n^2 \\times n^2`` matrix such that `vec(Y) = M*vec(X)`.
+If `her = true` the Lyapunov operator `L:X -> Y` maps symmetric/Hermitian matrices `X`
+into symmetric/Hermitian matrices `Y`, and the associated `M = Matrix(L)` is a
+``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(Y)) = M*vec(triu(X))`.
+For the definitions of the Lyapunov operators see:
+
+M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
+operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapcop(A :: AbstractMatrix)
+function lyapop(A :: AbstractMatrix; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   T = eltype(A)
   function prod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A * X + X * A')[:]
+    if her
+      X = vec2her(convert(Vector{T}, x))
+      if disc
+        return her2vec(utqu(X,A') - X)
+      else
+        Y = A * X
+        return her2vec(Y + Y')
+      end
+    else
+      X = reshape(convert(Vector{T}, x), n, n)
+      if disc
+        Y = A*X*A' - X
+      else
+        Y = A*X + X*A'
+      end
+      return Y[:]
+    end
   end
   function tprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (transpose(A) * X + X * A)[:]
+    if her
+      X = vec2her(convert(Vector{T}, x))
+      if disc
+        return her2vec(utqu(X,A) - X)
+      else
+        Y = X * A
+        return her2vec(Y + transpose(Y))
+      end
+    else
+      X = reshape(convert(Vector{T}, x), n, n)
+      if disc
+         Y = transpose(A)*X*A - X
+       else
+         Y = transpose(A)*X + X*A
+       end
+       return Y[:]
+    end
   end
   function ctprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A' * X + X * A)[:]
+    if her
+      X = vec2her(convert(Vector{T}, x))
+      if disc
+        return her2vec(utqu(X,A) - X)
+      else
+        Y = X * A
+        return her2vec(Y + Y')
+      end
+    else
+      X = reshape(convert(Vector{T}, x), n, n)
+      if disc
+        return (A'*X*A - X )[:]
+      else
+        return (A'*X + X*A)[:]
+      end
+    end
   end
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(n * n, n * n, false, false, prod, tprod, ctprod)
+  her ? N = Int(n*(n+1)/2) : N = n*n
+  return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapcop(A :: AbstractMatrix) -> MINV::LinearOperator
+    lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> L::LinearOperator
 
-Define MINV, the inverse of the continuous Lyapunov operator `M: X -> AX+XA'`.
-"""
-invlyapcop(A) = invsylvcop(A, A')
-"""
-    invlyapcsop(A :: AbstractMatrix) -> MINV::LinearOperator
+Define, for a pair `(A,E)` of `n x n` matrices, the continuous Lyapunov operator `L:X -> AXE'+EXA'`
+if `disc = false` or the discrete Lyapunov operator `L:X -> AXA'-EXE'` if `disc = true`.
+If `her = false` the Lyapunov operator `L:X -> Y` maps general square matrices `X`
+into general square matrices `Y`, and the associated `M = Matrix(L)` is a
+``n^2 \\times n^2`` matrix such that `vec(Y) = M*vec(X)`.
+If `her = true` the Lyapunov operator `L:X -> Y` maps symmetric/Hermitian matrices `X`
+into symmetric/Hermitian matrices `Y`, and the associated `M = Matrix(L)` is a
+``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(Y)) = M*vec(triu(X))`.
+For the definitions of the Lyapunov operators see:
 
-Define MINV, the inverse of the continuous Lyapunov operator `M: X -> AX+XA'`,
-with `A` in Schur form.
+M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
+operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-invlyapcsop(A) = invsylvcsop(A, A')
-"""
-    lyapcop(A :: AbstractMatrix, E :: AbstractMatrix) -> M::LinearOperator
-
-Define the continuous generalized Lyapunov operator `M: X -> AXE'+EXA'`.
-"""
-function lyapcop(A :: AbstractMatrix, E :: AbstractMatrix)
+function lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   if n != LinearAlgebra.checksquare(E)
     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
   end
   T = promote_type(eltype(A), eltype(E))
   function prod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A * X * E'+ E * X * A')[:]
+    if her
+      X = vec2her(convert(Vector{T}, x))
+      if disc
+        return her2vec(utqu(X,A') - utqu(X,E'))
+      else
+        Y = A * X * E'
+        return her2vec(Y + Y')
+      end
+    else
+      X = reshape(convert(Vector{T}, x), n, n)
+      if disc
+        Y = A*X*A' - E*X*E'
+      else
+        Y = A*X*E' + E*X*A'
+      end
+      return Y[:]
+    end
   end
   function tprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (transpose(A) * X * E + transpose(E) * X * A)[:]
+    if her
+      X = vec2her(convert(Vector{T}, x))
+      if disc
+        return her2vec(utqu(X,A) - utqu(X,E))
+      else
+        Y = E' * X * A
+        return her2vec(Y + transpose(Y))
+      end
+    else
+      X = reshape(convert(Vector{T}, x), n, n)
+      if disc
+         Y = transpose(A)*X*A - transpose(E)*X*E
+       else
+         Y = transpose(A)*X*E + transpose(E)*X*A
+       end
+       return Y[:]
+    end
   end
   function ctprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A' * X * E + E' * X * A)[:]
+    if her
+      X = vec2her(convert(Vector{T}, x))
+      if disc
+        return her2vec(utqu(X,A) - utqu(X,E))
+      else
+        Y = E' * X * A
+        return her2vec(Y + Y')
+      end
+    else
+      X = reshape(convert(Vector{T}, x), n, n)
+      if disc
+        return (A'*X*A - E'*X*E )[:]
+      else
+        return (A'*X*E + E'*X*A)[:]
+      end
+    end
   end
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(n * n, n * n, false, false, prod, tprod, ctprod)
+  her ? N = Int(n*(n+1)/2) : N = n*n
+  return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapcop(A :: AbstractMatrix, E :: AbstractMatrix) -> MINV::LinearOperator
+    invlyapop(A :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
 
-Define MINV, the inverse of the generalized continuous Lyapunov `M: X -> AXE'+EXA'`.
-"""
-invlyapcop(A,E) = invgsylvop(A, E', E, A')
-"""
-    invlyapcsop(A :: AbstractMatrix, E :: AbstractMatrix) -> MINV::LinearOperator
+Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AX+XA'` for `disc = false`
+or the inverse of the discrete Lyapunov operator `L:X -> AXA'-X` for `disc = true`, where
+`A` is an `n x n` matrix.
+If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
+into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
+into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+For the definitions of the Lyapunov operators see:
 
-Define MINV, the inverse of the continuous generalized Lyapunov `M: X -> AXE'+EXA'`,
-with the pair `(A,E)` in generalized Schur form.
+M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
+operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-invlyapcsop(A,E) = invgsylvsop(A, E', E, A', DBSchur = true)
-"""
-    lyapdop(A :: AbstractMatrix) -> M::LinearOperator
-
-Define the discrete Lyapunov operator `M: X -> AXA'-X`.
-"""
-function lyapdop(A :: AbstractMatrix)
-  n = LinearAlgebra.checksquare(A)
-  T = eltype(A)
-  function prod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A * X * A' - X)[:]
-  end
-  function tprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (transpose(A) * X * A - X)[:]
-  end
-  function ctprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A' * X * A - X)[:]
-  end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(n * n, n * n, false, false, prod, tprod, ctprod)
+function invlyapop(A :: AbstractMatrix; disc = false, her = false)
+   n = LinearAlgebra.checksquare(A)
+   T = eltype(A)
+   function prod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, x))
+         if disc
+            return her2vec(lyapd(A,-Y))
+         else
+             return her2vec(lyapc(A,-Y))
+         end
+       else
+         Y = reshape(convert(Vector{T}, x), n, n)
+         if disc
+           return sylvd(-A,A',-Y)[:]
+         else
+           return sylvc(A,A',Y)[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function tprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, x))
+         if disc
+           return her2vec(lyapd(A',-Y))
+         else
+           return her2vec(lyapc(A',-Y))
+         end
+       else
+         Y = reshape(convert(Vector{T}, x), n, n)
+         if disc
+           return sylvd(-A',A,-Y)[:]
+         else
+            return sylvc(A',A,Y)[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function ctprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, x))
+         if disc
+           return her2vec(lyapd(A',-Y))
+         else
+           return her2vec(lyapc(A',-Y))
+         end
+       else
+         Y = reshape(convert(Vector{T}, x), n, n)
+         if disc
+           return sylvd(-A',A,-Y)[:]
+         else
+           return sylvc(A',A,Y)[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+      end
+     end
+   end
+   F1 = typeof(prod)
+   F2 = typeof(tprod)
+   F3 = typeof(ctprod)
+   her ? N = Int(n*(n+1)/2) : N = n*n
+   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapdop(A :: AbstractMatrix) -> MINV::LinearOperator
+    invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
 
-Define MINV, the inverse of the discrete Lyapunov operator `M: X -> AXA'-X`.
-"""
-invlyapdop(A) = -invsylvdop(-A, A')
-"""
-    invlyapdsop(A :: AbstractMatrix) -> MINV::LinearOperator
+Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AXE'+EXA'` for `disc = false`
+or the inverse of the discrete Lyapunov operator `L:X -> AXA'-EXE'` for `disc = true`, where
+`(A,E)` is a pair of `n x n` matrices.
+If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
+into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
+into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+For the definitions of the Lyapunov operators see:
 
-Define MINV, the inverse of the discrete Lyapunov operator `M: X -> AXA'-X`,
-with `A` in Schur form.
+M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
+operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-invlyapdsop(A) = -invsylvdsop(-A, A')
-"""
-    lyapdop(A :: AbstractMatrix, E :: AbstractMatrix) -> M::LinearOperator
-
-Define the discrete generalized Lyapunov operator `M: X -> AXA'-EXE'`.
-"""
-function lyapdop(A :: AbstractMatrix, E :: AbstractMatrix)
-  n = LinearAlgebra.checksquare(A)
-  if n != LinearAlgebra.checksquare(E)
-    throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-  end
-  T = promote_type(eltype(A), eltype(E))
-  function prod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A * X * A' - E * X * E')[:]
-  end
-  function tprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (transpose(A) * X * A - transpose(E) * X * E)[:]
-  end
-  function ctprod(x)
-    X = reshape(convert(Vector{T}, x), n, n)
-    return (A' * X * A - E' * X * E)[:]
-  end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(n * n, n * n, false, false, prod, tprod, ctprod)
+function invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+   n = LinearAlgebra.checksquare(A)
+   if n != LinearAlgebra.checksquare(E)
+     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
+   end
+   T = promote_type(eltype(A), eltype(E))
+   function prod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, x))
+         if disc
+            return her2vec(lyapd(A,E,-Y))
+         else
+             return her2vec(lyapc(A,E,-Y))
+         end
+       else
+         Y = reshape(convert(Vector{T}, x), n, n)
+         if disc
+           return gsylv(-A,A',E,E',-Y)[:]
+         else
+           return gsylv(A,E',E,A',Y)[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function tprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, x))
+         if disc
+            return her2vec(lyapd(A',E',-Y))
+         else
+            return her2vec(lyapc(A',E',-Y))
+         end
+       else
+         Y = reshape(convert(Vector{T}, x), n, n)
+         if disc
+            return gsylv(-A',A,E',E,-Y)[:]
+         else
+            return gsylv(A',E,E',A,Y)[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function ctprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, x))
+         if disc
+           return her2vec(lyapd(A',E',-Y))
+         else
+           return her2vec(lyapc(A',E',-Y))
+         end
+       else
+         Y = reshape(convert(Vector{T}, x), n, n)
+         if disc
+           return gsylv(-A',A,E',E,-Y)[:]
+         else
+           return gsylv(A',E,E',A,Y)[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+      end
+     end
+   end
+   F1 = typeof(prod)
+   F2 = typeof(tprod)
+   F3 = typeof(ctprod)
+   her ? N = Int(n*(n+1)/2) : N = n*n
+   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapdop(A :: AbstractMatrix, E :: AbstractMatrix) -> MINV::LinearOperator
+    invlyapsop(A :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
 
-Define MINV, the inverse of the discrete generalized Lyapunov operator `M: X -> AXA'-EXE'`.
-"""
-invlyapdop(A,E) = -invgsylvop(-A, A',E, E')
-"""
-    invlyapdsop(A :: AbstractMatrix, E :: AbstractMatrix) -> MINV::LinearOperator
+Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AX+XA'` for `disc = false`
+or the inverse of the discrete Lyapunov operator `L:X -> AXA'-X` for `disc = true`, where
+`A` is an `n x n` matrix in Schur form.
+If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
+into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
+into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+For the definitions of the Lyapunov operators see:
 
-Define MINV, the inverse of the discrete generalized Lyapunov operator `M: X -> AXA'-EXE'`,
-with the pair `(A,E)` in generalized Schur form.
+M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
+operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-invlyapdsop(A,E) = -invgsylvsop(-A, A', E, E')
+function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
+   n = LinearAlgebra.checksquare(A)
+   T = eltype(A)
+   if isa(A,Adjoint)
+     error("No calls with adjoint matrices are supported")
+   end
 
+   # check A is in Schur form
+   if !isschur(A)
+       error("The matrix A must be in Schur form")
+   end
+   function prod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, -x))
+         disc ? lyapds!(A,Y) : lyapcs!(A,Y)
+         return her2vec(Y)
+       else
+         Y = reshape(convert(Vector{T}, -x), n, n)
+         if disc
+           sylvds!(-A,A,Y,adjB = true)
+           return Y[:]
+         else
+           realcase = eltype(A) <: AbstractFloat
+           realcase ? (TA,TB) = ('N','T') : (TA,TB) = ('N','C')
+           Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
+           rmul!(Y, inv(-scale))
+           return Y[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function tprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, -x))
+         disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
+         return her2vec(Y)
+       else
+         Y = reshape(convert(Vector{T}, -x), n, n)
+         if disc
+           sylvds!(-A,A,Y,adjA = true)
+           return Y[:]
+         else
+           realcase = eltype(A) <: AbstractFloat
+           realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
+           Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
+           rmul!(Y, inv(-scale))
+           return Y[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function ctprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, -x))
+         disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
+         return her2vec(Y)
+       else
+         Y = reshape(convert(Vector{T}, -x), n, n)
+         if disc
+           sylvds!(-A,A,Y,adjA = true)
+           return Y[:]
+         else
+           realcase = eltype(A) <: AbstractFloat
+           realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
+           Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
+           rmul!(Y, inv(-scale))
+           return Y[:]
+         end
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+      end
+     end
+   end
+   F1 = typeof(prod)
+   F2 = typeof(tprod)
+   F3 = typeof(ctprod)
+   her ? N = Int(n*(n+1)/2) : N = n*n
+   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+end
 """
-    sylvcop(A :: AbstractMatrix, B :: AbstractMatrix) -> M::LinearOperator
+    invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
 
-Define the (continuous) Sylvester operator `M: X -> AX+XB`.
+Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AXE'+EXA'` for `disc = false`
+or the inverse of the discrete Lyapunov operator `L:X -> AXA'-EXE'` for `disc = true`, where
+`(A,E)` is a pair of `n x n` matrices in generalized Schur form.
+If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
+into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
+into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
+``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+For the definitions of the Lyapunov operators see:
+
+M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
+operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function sylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
+function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+   n = LinearAlgebra.checksquare(A)
+   if n != LinearAlgebra.checksquare(E)
+     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
+   end
+   T = promote_type(eltype(A), eltype(E))
+   if isa(A,Adjoint) || isa(E,Adjoint)
+     error("No calls with adjoint matrices are supported")
+   end
+
+   # check A is in Schur form
+   if !isschur(A,E)
+       error("The matrix pair (A,E) must be in generalized Schur form")
+   end
+   function prod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, -x))
+         disc ? lyapds!(A,E,Y) : lyapcs!(A,E,Y)
+         return her2vec(Y)
+       else
+         Y = copy(reshape(convert(Vector{T}, x), n, n))
+         disc ? gsylvs!(A,A,-E,E,Y,adjBD = true) :
+                gsylvs!(A,E,E,A,Y,adjBD = true,DBSchur = true)
+         return Y[:]
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function tprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, -x))
+         disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
+         return her2vec(Y)
+       else
+         Y = copy(reshape(convert(Vector{T}, x), n, n))
+         disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
+                gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
+         return Y[:]
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+       end
+     end
+   end
+   function ctprod(x)
+     try
+       if her
+         Y = vec2her(convert(Vector{T}, -x))
+         disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
+         return her2vec(Y)
+       else
+         Y = copy(reshape(convert(Vector{T}, x), n, n))
+         disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
+                gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
+         return Y[:]
+       end
+     catch err
+       if isnothing(findfirst("LAPACKException",string(err))) ||
+          isnothing(findfirst("SingularException",string(err)))
+          rethrow()
+       else
+          throw("ME:SingularException: Singular operator")
+      end
+     end
+   end
+   F1 = typeof(prod)
+   F2 = typeof(tprod)
+   F3 = typeof(ctprod)
+   her ? N = Int(n*(n+1)/2) : N = n*n
+   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+end
+"""
+    sylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> M::LinearOperator
+
+Define the continuous Sylvester operator `M: X -> AX+XB` if `disc = false`
+or the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`.
+"""
+function sylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
   function prod(x)
     X = reshape(convert(Vector{T}, x), m, n)
-    return (A * X + X * B)[:]
+    disc ? Y = A * X * B + X : Y = A * X + X * B
+    return Y[:]
   end
   function tprod(x)
     X = reshape(convert(Vector{T}, x), m, n)
-    return (transpose(A) * X + X * transpose(B))[:]
+    disc ? Y = transpose(A)*X*transpose(B) + X : Y = transpose(A)*X + X*transpose(B)
+    return Y[:]
   end
   function ctprod(x)
     X = reshape(convert(Vector{T}, x), m, n)
-    return (A' * X + X * B')[:]
+    disc ? Y = A'*X*B' + X : Y = A'*X + X*B'
+    return Y[:]
   end
   F1 = typeof(prod)
   F2 = typeof(tprod)
@@ -678,18 +655,23 @@ function sylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix) -> MINV::LinearOperator
+    invsylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> MINV::LinearOperator
 
-Define MINV, the inverse of the (continuous) Sylvester operator  `M: X -> AX+XB`.
+Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
+or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`.
 """
-function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
+function invsylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
   function prod(x)
     C = reshape(convert(Vector{T}, x), m, n)
     try
-       return sylvc(A,B,C)[:]
+      if disc
+        return sylvd(A,B,C)[:]
+      else
+        return sylvc(A,B,C)[:]
+     end
     catch err
        if isnothing(findfirst("LAPACKException",string(err))) ||
           isnothing(findfirst("SingularException",string(err)))
@@ -702,7 +684,11 @@ function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
   function tprod(x)
     C = reshape(convert(Vector{T}, x), m, n)
     try
-       return sylvc(A',B',C)[:]
+      if disc
+        return sylvd(A',B',C)[:]
+      else
+        return sylvc(A',B',C)[:]
+     end
     catch err
        if isnothing(findfirst("LAPACKException",string(err))) ||
           isnothing(findfirst("SingularException",string(err)))
@@ -715,7 +701,11 @@ function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
   function ctprod(x)
     C = reshape(convert(Vector{T}, x), m, n)
     try
-       return sylvc(A',B',C)[:]
+      if disc
+        return sylvd(A',B',C)[:]
+      else
+        return sylvc(A',B',C)[:]
+     end
     catch err
        if isnothing(findfirst("LAPACKException",string(err))) ||
           isnothing(findfirst("SingularException",string(err)))
@@ -731,12 +721,12 @@ function invsylvcop(A :: AbstractMatrix, B :: AbstractMatrix)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix) -> MINV::LinearOperator
+    invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> MINV::LinearOperator
 
-Define MINV, the inverse of the (continuous) Sylvester operator  `M: X -> AX+XB`,
-with `A` and `B` in Schur forms.
+Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
+or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are in Schur forms.
 """
-function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
+function invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = eltype(A)
@@ -745,43 +735,56 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
     error("A and B must have the same type")
   end
   adjA = isa(A,Adjoint)
+  adjB = isa(B,Adjoint)
   if adjA
      if !isschur(A.parent)
          error("A must be in Schur form")
      end
-     cmplx ? (NA, TA) = ('C','N') : (NA, TA) = ('T','N')
+     !disc && cmplx ? (NA, TA) = ('C','N') : (NA, TA) = ('T','N')
   else
      if !isschur(A)
         error("A must be in Schur form")
      end
-     cmplx ? (NA, TA) = ('N','C') : (NA, TA) = ('N','T')
+     !disc && cmplx ? (NA, TA) = ('N','C') : (NA, TA) = ('N','T')
   end
-  adjB = isa(B,Adjoint)
   if adjB
      if !isschur(B.parent)
          error("B must be in Schur form")
      end
-     cmplx ? (NB, TB) = ('C','N') : (NB, TB) = ('T','N')
+     !disc && cmplx ? (NB, TB) = ('C','N') : (NB, TB) = ('T','N')
   else
      if !isschur(B)
         error("B must be in Schur form")
      end
-     cmplx ? (NB, TB) = ('N','C') : (NB, TB) = ('N','T')
+     !disc && cmplx ? (NB, TB) = ('N','C') : (NB, TB) = ('N','T')
   end
   function prod(x)
     C = copy(reshape(convert(Vector{T}, x), m, n))
     try
-       if !adjA & !adjB
-          Y, scale = LAPACK.trsyl!(NA, NB, A, B, C)
-       elseif !adjA & adjB
-          Y, scale = LAPACK.trsyl!(NA, NB, A, B.parent, C)
-       elseif adjA & !adjB
-          Y, scale = LAPACK.trsyl!(NA, NB, A.parent, B, C)
+       if disc
+          if !adjA & !adjB
+             sylvds!(A, B, C, adjA = false, adjB = false)
+          elseif !adjA & adjB
+             sylvds!(A, B.parent, C, adjA = false, adjB = true)
+          elseif adjA & !adjB
+             sylvds!(A.parent, B, C, adjA = true, adjB = false)
+          else
+             sylvds!(A.parent, B.parent, C, adjA = true, adjB = true)
+          end
+          return C[:]
        else
-          Y, scale = LAPACK.trsyl!(NA, NB, A.parent, B.parent, C)
+          if !adjA & !adjB
+             Y, scale = LAPACK.trsyl!(NA, NB, A, B, C)
+          elseif !adjA & adjB
+             Y, scale = LAPACK.trsyl!(NA, NB, A, B.parent, C)
+          elseif adjA & !adjB
+             Y, scale = LAPACK.trsyl!(NA, NB, A.parent, B, C)
+          else
+             Y, scale = LAPACK.trsyl!(NA, NB, A.parent, B.parent, C)
+          end
+          rmul!(Y, inv(scale))
+          return Y[:]
        end
-       rmul!(Y, inv(scale))
-       return Y[:]
     catch err
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
@@ -793,18 +796,31 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
   function tprod(x)
     C = copy(reshape(convert(Vector{T}, x), m, n))
     try
-       if !adjA & !adjB
-          Y, scale = LAPACK.trsyl!(TA, TB, A, B, C)
-       elseif !adjA & adjB
-          Y, scale = LAPACK.trsyl!(TA, TB, A, B.parent, C)
-       elseif adjA & !adjB
-          Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B, C)
+       if disc
+          if !adjA & !adjB
+             sylvds!(A, B, C, adjA = true, adjB = true)
+          elseif !adjA & adjB
+             sylvds!(A, B.parent, C, adjA = true, adjB = false)
+          elseif adjA & !adjB
+             sylvds!(A.parent, B, C, adjA = false, adjB = true)
+          else
+             sylvds!(A.parent, B.parent, C, adjA = false, adjB = false)
+          end
+          return C[:]
        else
-          Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B.parent, C)
+          if !adjA & !adjB
+             Y, scale = LAPACK.trsyl!(TA, TB, A, B, C)
+          elseif !adjA & adjB
+             Y, scale = LAPACK.trsyl!(TA, TB, A, B.parent, C)
+          elseif adjA & !adjB
+             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B, C)
+          else
+             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B.parent, C)
+          end
+          rmul!(Y, inv(scale))
+          return Y[:]
        end
-       rmul!(Y, inv(scale))
-       return Y[:]
-     catch err
+    catch err
         if isnothing(findfirst("LAPACKException",string(err)))
            rethrow()
         else
@@ -815,18 +831,31 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
   function ctprod(x)
     C = copy(reshape(convert(Vector{T}, x), m, n))
     try
-       if !adjA & !adjB
-          Y, scale = LAPACK.trsyl!(TA, TB, A, B, C)
-       elseif !adjA & adjB
-          Y, scale = LAPACK.trsyl!(TA, TB, A, B.parent, C)
-       elseif adjA & !adjB
-          Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B, C)
+       if disc
+          if !adjA & !adjB
+             sylvds!(A, B, C, adjA = true, adjB = true)
+          elseif !adjA & adjB
+             sylvds!(A, B.parent, C, adjA = true, adjB = false)
+          elseif adjA & !adjB
+             sylvds!(A.parent, B, C, adjA = false, adjB = true)
+          else
+             sylvds!(A.parent, B.parent, C, adjA = false, adjB = false)
+          end
+          return C[:]
        else
-          Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B.parent, C)
+          if !adjA & !adjB
+             Y, scale = LAPACK.trsyl!(TA, TB, A, B, C)
+          elseif !adjA & adjB
+             Y, scale = LAPACK.trsyl!(TA, TB, A, B.parent, C)
+          elseif adjA & !adjB
+             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B, C)
+          else
+             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B.parent, C)
+          end
+          rmul!(Y, inv(scale))
+          return Y[:]
        end
-       rmul!(Y, inv(scale))
-       return Y[:]
-     catch err
+    catch err
         if isnothing(findfirst("LAPACKException",string(err)))
            rethrow()
         else
@@ -839,191 +868,12 @@ function invsylvcsop(A :: AbstractMatrix, B :: AbstractMatrix)
   F3 = typeof(ctprod)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
-
 """
-    sylvdop(A :: AbstractMatrix, B :: AbstractMatrix) -> M::LinearOperator
-
-Define the (discrete) Sylvester operator `M: X -> AXB+X`.
-"""
-function sylvdop(A :: AbstractMatrix, B :: AbstractMatrix)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = promote_type(eltype(A), eltype(B))
-  function prod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
-    return (A * X * B + X)[:]
-  end
-  function tprod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
-    return (transpose(A) * X * transpose(B) + X )[:]
-  end
-  function ctprod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
-    return (A' * X * B' + X )[:]
-  end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
-end
-"""
-    invsylvdop(A :: AbstractMatrix, B :: AbstractMatrix) -> MINV::LinearOperator
-
-Define MINV, the inverse of the (discrete) Sylvester operator `M: X -> AXB+X`.
-"""
-function invsylvdop(A :: AbstractMatrix, B :: AbstractMatrix)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = promote_type(eltype(A), eltype(B))
-  function prod(x)
-    C = reshape(convert(Vector{T}, x), m, n)
-    try
-       return sylvd(A,B,C)[:]
-    catch err
-       if isnothing(findfirst("SingularException",string(err)))
-          rethrow()
-       else
-          throw("ME:SingularException: Singular operator")
-       end
-    end
-  end
-  function tprod(x)
-    C = reshape(convert(Vector{T}, x), m, n)
-    try
-       return sylvd(A',B',C)[:]
-    catch err
-       if isnothing(findfirst("SingularException",string(err)))
-          rethrow()
-       else
-          throw("ME:SingularException: Singular operator")
-       end
-    end
-  end
-  function ctprod(x)
-    C = reshape(convert(Vector{T}, x), m, n)
-    try
-       return sylvd(A',B',C)[:]
-    catch err
-       if isnothing(findfirst("SingularException",string(err)))
-          rethrow()
-       else
-          throw("ME:SingularException: Singular operator")
-       end
-    end
-  end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
-end
-"""
-    invsylvdsop(A :: AbstractMatrix, B :: AbstractMatrix) -> MINV::LinearOperator
-
-Define MINV, the inverse of the (discrete) Sylvester operator `M: X -> AXB+X`,
-with `A` and `B` in Schur forms.
-"""
-function invsylvdsop(A :: AbstractMatrix, B :: AbstractMatrix)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = eltype(A)
-  cmplx = T<:Complex
-  if T != eltype(B)
-    error("A and B must have the same type")
-  end
-  adjA = isa(A,Adjoint)
-  if adjA
-     if !isschur(A.parent)
-         error("A must be in Schur form")
-     end
-  else
-     if !isschur(A)
-        error("A must be in Schur form")
-     end
-  end
-  adjB = isa(B,Adjoint)
-  if adjB
-     if !isschur(B.parent)
-         error("B must be in Schur form")
-     end
-  else
-     if !isschur(B)
-        error("B must be in Schur form")
-     end
-  end
-  function prod(x)
-    Y = copy(reshape(convert(Vector{T}, x), m, n))
-    try
-       if !adjA & !adjB
-          sylvds!(A, B, Y, adjA = false, adjB = false)
-       elseif !adjA & adjB
-          sylvds!(A, B.parent, Y, adjA = false, adjB = true)
-       elseif adjA & !adjB
-          sylvds!(A.parent, B, Y, adjA = true, adjB = false)
-       else
-          sylvds!(A.parent, B.parent, Y, adjA = true, adjB = true)
-       end
-       return Y[:]
-     catch err
-        if isnothing(findfirst("SingularException",string(err)))
-           rethrow()
-        else
-           throw("ME:SingularException: Singular operator")
-        end
-     end
-  end
-  function tprod(x)
-    Y = copy(reshape(convert(Vector{T}, x), m, n))
-    try
-       if !adjA & !adjB
-          sylvds!(A, B, Y; adjA = true, adjB = true)
-       elseif !adjA & adjB
-          sylvds!(A, B.parent, Y; adjA = true, adjB = false)
-       elseif adjA & !adjB
-          sylvds!(A.parent, B, Y; adjA = false, adjB = true)
-       else
-          sylvds!(A.parent, B.parent, Y; adjA = false, adjB = false)
-       end
-       return Y[:]
-     catch err
-        if isnothing(findfirst("SingularException",string(err)))
-           rethrow()
-        else
-           throw("ME:SingularException: Singular operator")
-        end
-     end
-  end
-  function ctprod(x)
-    Y = copy(reshape(convert(Vector{T}, x), m, n))
-    try
-       if !adjA & !adjB
-          sylvds!(A, B, Y; adjA = true, adjB = true)
-       elseif !adjA & adjB
-          sylvds!(A, B.parent, Y; adjA = true, adjB = false)
-       elseif adjA & !adjB
-          sylvds!(A.parent, B, Y; adjA = false, adjB = true)
-       else
-          sylvds!(A.parent, B.parent, Y; adjA = false, adjB = false)
-       end
-       return Y[:]
-    catch err
-        if isnothing(findfirst("SingularException",string(err)))
-           rethrow()
-        else
-           throw("ME:SingularException: Singular operator")
-        end
-    end
-  end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
-end
-"""
-    gsylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> M::LinearOperator
+    sylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> M::LinearOperator
 
 Define the generalized Sylvester operator `M: X -> AXB+CXD`.
 """
-function gsylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function sylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)
@@ -1048,11 +898,11 @@ function gsylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, 
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invgsylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> MINV::LinearOperator
+    invsylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> MINV::LinearOperator
 
 Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`.
 """
-function invgsylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function invsylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)
@@ -1101,13 +951,13 @@ end
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invgsylvsop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix; DBSchur = false) -> MINV::LinearOperator
+    invsylvsop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix; DBSchur = false) -> MINV::LinearOperator
 
 Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`,
 with the pairs `(A,C)` and `(B,D)` in generalized Schur forms. If DBSchur = true,
 the pair `(D,B)` is in generalized Schur form.
 """
-function invgsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix; DBSchur = false)
+function invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix; DBSchur = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)

@@ -76,7 +76,6 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
      C = convert(Matrix{T2},C)
    end
 
-   realcase = eltype(A) <: AbstractFloat
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if adjA
@@ -90,8 +89,7 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
       RB, QB = schur(B)
    end
 
-   adjA = isa(A,Adjoint)
-   adjB = isa(B,Adjoint)
+   realcase = eltype(A) <: AbstractFloat
    if adjA
       realcase ? TA = 'T' : TA = 'C'
       RA, QA = schur(A.parent)
@@ -983,7 +981,7 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Union{M
    return C
 end
 """
-    X = gsylvs!(A,B,C,D,E;adjAC=false,adjBD=false)
+    X = gsylvs!(A,B,C,D,E; adjAC=false, adjBD=false, DBSchur = false)
 
 Solve the generalized Sylvester matrix equation
 
@@ -999,7 +997,9 @@ where `A`, `B`, `C` and `D` are square matrices, and
 
 `op2(B) = B'` and `op2(D) = D'` if `adjBD = true`.
 
-The matrix pairs `(A,C)` and `(B,D)` are in generalized real or complex Schur forms.
+The matrix pair `(A,C)` is in generalized real or complex Schur forms.
+The matrix pair `(B,D)` is in generalized real or complex Schur forms if `DBSchur = false`
+or the matrix pair `(D,B)` is in generalized real or complex Schur forms if `DBSchur = true`.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
 function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Float64,2},Array{Float32,2}}}
