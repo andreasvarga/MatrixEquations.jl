@@ -1,6 +1,8 @@
 # MatrixEquations.jl
 **Solution of some control system related matrix equations using Julia**
 
+[![Travis](https://travis-ci.org/andreasvarga/MatrixEquations.jl.svg?branch=master)](https://travis-ci.org/andreasvarga/MatrixEquations.jl)
+
 ## About
 This collection of Julia functions is an attemp to implement high performance
 numerical software to solve classes of Lyapunov, Sylvester and Riccati matrix equations
