@@ -67,13 +67,13 @@ end
 @testset "Continuous control Riccati equation" begin
 
 
-@time x, clseig, f = arec(ar,br,Qr,rr)
-@test norm(ar'*x+x*ar-x*br*inv(rr)*br'*x+Qr)/norm(x)  < rtol &&
+@time x, clseig, f = arec(ar,br,Qr,rr,sr)
+@test norm(ar'*x+x*ar-(x*br+sr)*inv(rr)*(br'*x+sr')+Qr)/norm(x)  < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(clseig)  < rtol
 
-@time x, clseig, f = arec(ar,br,Qr,rr,sr)
-@test norm(ar'*x+x*ar-(x*br+sr)*inv(rr)*(br'*x+sr')+Qr)/norm(x)  < rtol &&
+@time x, clseig, f = arec(ar,br,Qr,rr)
+@test norm(ar'*x+x*ar-x*br*inv(rr)*br'*x+Qr)/norm(x)  < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(clseig)  < rtol
 

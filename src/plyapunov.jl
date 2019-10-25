@@ -19,6 +19,31 @@ the continuous Lyapunov equation
 
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of columns as `A`. `A` must have only eigenvalues with negative real parts.
+
+# Example
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = [-2. 1.;-1. -2.]
+2×2 Array{Float64,2}:
+ -2.0   1.0
+ -1.0  -2.0
+
+julia> B = [1. 1. ;1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia> U = plyapc(A,B)
+2×2 UpperTriangular{Float64,Array{Float64,2}}:
+ 0.481812  0.801784
+  ⋅        0.935414
+
+julia> A*U*U'+U*U'*A'+B*B'
+2×2 Array{Float64,2}:
+ 0.0          8.88178e-16
+ 8.88178e-16  3.55271e-15
+```
 """
 function plyapc(A::AbstractMatrix, B::AbstractMatrix)
    """
@@ -177,6 +202,36 @@ the continuous generalized Lyapunov equation
 where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λ E` must have only
 eigenvalues with negative real parts.
+
+# Example
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = [-2. 1.;-1. -2.]
+2×2 Array{Float64,2}:
+ -2.0   1.0
+ -1.0  -2.0
+
+julia> E = [1. 0.; 1. 1.]
+2×2 Array{Float64,2}:
+ 1.0  0.0
+ 1.0  1.0
+
+julia> B = [1. 1. ;1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia> U = plyapc(A,E,B)
+2×2 UpperTriangular{Float64,Array{Float64,2}}:
+ 0.408248  0.730297
+  ⋅        0.547723
+
+julia> A*U*U'*E'+E*U*U'*A'+B*B'
+2×2 Array{Float64,2}:
+  0.0          -8.88178e-16
+ -1.33227e-15  -2.66454e-15
+```
 """
 function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
    """
@@ -348,6 +403,31 @@ the discrete Lyapunov equation
 
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of columns as `A`. `A` must have only eigenvalues with moduli less than one.
+
+# Example
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = [-0.5 .1;-0.1 -0.5]
+2×2 Array{Float64,2}:
+ -0.5   0.1
+ -0.1  -0.5
+
+julia> B = [1. 1. ;1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia> U = plyapd(A,B)
+2×2 UpperTriangular{Float64,Array{Float64,2}}:
+ 0.670145  1.35277
+  ⋅        2.67962
+
+julia> A*U*U'*A'-U*U'+B*B'
+2×2 Array{Float64,2}:
+ -4.44089e-16  4.44089e-16
+  4.44089e-16  1.77636e-15
+```
 """
 function plyapd(A::AbstractMatrix, B::AbstractMatrix)
    """
@@ -508,6 +588,36 @@ the discrete generalized Lyapunov equation
 where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λ E` must have only
 eigenvalues with moduli less than one.
+
+# Example
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = [-0.5 .1;-0.1 -0.5]
+2×2 Array{Float64,2}:
+ -0.5   0.1
+ -0.1  -0.5
+
+julia> E = [1. 0.; 1. 1.]
+2×2 Array{Float64,2}:
+ 1.0  0.0
+ 1.0  1.0
+
+julia> B = [1. 1. ;1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia> U = plyapd(A,E,B)
+2×2 UpperTriangular{Float64,Array{Float64,2}}:
+ 1.56276  0.416976
+  ⋅       1.34062
+
+julia> A*U*U'*A'-E*U*U'*E'+B*B'
+2×2 Array{Float64,2}:
+ 1.77636e-15  2.22045e-15
+ 2.22045e-15  2.66454e-15
+```
 """
 function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
    """

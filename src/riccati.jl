@@ -13,7 +13,7 @@ where `Q` and `R` are hermitian/symmetric matrices.
 Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
 IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 """
-function arec(A, Q, R)
+function arec(A::AbstractMatrix, Q::AbstractMatrix, R::AbstractMatrix)
     n = LinearAlgebra.checksquare(A)
     if LinearAlgebra.checksquare(Q) != n || !ishermitian(Q)
           throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
@@ -55,7 +55,7 @@ where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular.
 Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
 IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 """
-function arec(A, B, Q, R, S = 0)
+function arec(A::AbstractMatrix, B::AbstractMatrix, Q::AbstractMatrix, R::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B))) 
     n = LinearAlgebra.checksquare(A)
     nb, m = size(B)
     if n !== nb
@@ -67,15 +67,10 @@ function arec(A, B, Q, R, S = 0)
     if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
     end
-    if S == 0
-       S = zeros(n,m)
-       S0flag = true
-    else
-      if (n,m) !== size(S)
-         throw(DimensionMismatch("S must be a $n x $m matrix"))
-      end
-      S0flag = false
+    if (n,m) !== size(S)
+       throw(DimensionMismatch("S must be a $n x $m matrix"))
     end
+    S0flag = iszero(S)
     SR = schur(R)
     D = real(diag(SR.T))
     Da = abs.(D)
@@ -124,7 +119,7 @@ W.F. Arnold, III and A.J. Laub,
 Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
 Proc. IEEE, 72:1746-1754, 1984.
 """
-function garec(A, E, B, Q, R, S = 0)
+function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, Q::AbstractMatrix, R::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
     n = LinearAlgebra.checksquare(A)
     T = promote_type(eltype(A), eltype(B), eltype(Q), eltype(R) )
     nb, m = size(B)
@@ -157,14 +152,10 @@ function garec(A, E, B, Q, R, S = 0)
     if cond(R)*eps(1.) > 1.
        error("R must be non-singular")
     end
-    if S == 0
-       S = zeros(T,n,m)
-    else
-      if (n,m) !== size(S)
-         throw(DimensionMismatch("S must be a $n x $m matrix"))
-      end
-      T = promote_type(T,eltype(S))
+    if (n,m) !== size(S)
+       throw(DimensionMismatch("S must be a $n x $m matrix"))
     end
+    T = promote_type(T,eltype(S))
     if eltype(A) !== T
       A = complex(A)
     end
@@ -251,7 +242,7 @@ W.F. Arnold, III and A.J. Laub,
 Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
 Proc. IEEE, 72:1746-1754, 1984.
 """
-function gared(A, E, B, Q, R, S = 0)
+function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, Q::AbstractMatrix, R::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
     n = LinearAlgebra.checksquare(A)
     T = promote_type(eltype(A), eltype(B), eltype(Q), eltype(R) )
     nb, m = size(B)
@@ -278,14 +269,10 @@ function gared(A, E, B, Q, R, S = 0)
     if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
     end
-    if S == 0
-       S = zeros(T,n,m)
-    else
-      if (n,m) !== size(S)
-         throw(DimensionMismatch("S must be a $n x $m matrix"))
-      end
-      T = promote_type(T,eltype(S))
+    if (n,m) !== size(S)
+      throw(DimensionMismatch("S must be a $n x $m matrix"))
     end
+    T = promote_type(T,eltype(S))
     if eltype(A) != T
       A = complex(A)
     end
@@ -373,6 +360,6 @@ W.F. Arnold, III and A.J. Laub,
 Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
 Proc. IEEE, 72:1746-1754, 1984.
 """
-function ared(A, B, Q, R, S = 0)
+function ared(A::AbstractMatrix, B::AbstractMatrix, Q::AbstractMatrix, R::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B))) 
     gared(A, I, B, Q, R, S)
 end

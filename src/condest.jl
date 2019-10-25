@@ -473,6 +473,7 @@ The separation of the operator `op` is defined as
 An estimate of the reciprocal condition number of `op` can be computed as ``\\text{sep}/\\|op\\|_1``.
 """
 function opsepest(opinv :: AbstractLinearOperator; exact = false)
+   ZERO = zero(0.)
    BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
    exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
    if opinvnrm1 >= BIGNUM

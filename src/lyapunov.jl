@@ -25,14 +25,17 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> C = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> X = lyapc(A, C)
 2×2 Array{Float64,2}:
   0.5  -0.5
  -0.5   0.25
+
 julia> A*X + X*A' + C
 2×2 Array{Float64,2}:
  -8.88178e-16   2.22045e-16
@@ -118,18 +121,22 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> E = [ 1. 2.; 0. 1.]
 2×2 Array{Float64,2}:
  1.0  2.0
  0.0  1.0
+
 julia> C = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> X = lyapc(A, E, C)
 2×2 Array{Float64,2}:
  -2.5   2.5
   2.5  -2.25
+
 julia> A*X*E' + E*X*A' + C
 2×2 Array{Float64,2}:
  -5.32907e-15  -2.66454e-15
@@ -242,14 +249,17 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> C = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> X = lyapd(A, C)
 2×2 Array{Float64,2}:
   0.2375  -0.2125
  -0.2125   0.1375
+
 julia> A*X*A' - X + C
 2×2 Array{Float64,2}:
  5.55112e-16  6.66134e-16
@@ -335,18 +345,22 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> E = [ 1. 2.; 0. -1.]
 2×2 Array{Float64,2}:
  1.0   2.0
  0.0  -1.0
+
 julia> C = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> X = lyapd(A, E, C)
 2×2 Array{Float64,2}:
   1.775  -1.225
  -1.225   0.775
+ 
 julia> A*X*A' - E*X*E' + C
 2×2 Array{Float64,2}:
  -2.22045e-16  -4.44089e-16
