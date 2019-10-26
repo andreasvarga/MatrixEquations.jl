@@ -2,6 +2,7 @@
 **Solution of some control system related matrix equations using Julia**
 
 [![Travis](https://travis-ci.com/andreasvarga/MatrixEquations.jl.svg?branch=master)](https://travis-ci.com/andreasvarga/MatrixEquations.jl)
+[![codecov.io](http://codecov.io/github/andreasvarga/MatrixEquations.jl/coverage.svg?branch=master)](http://codecov.io/github/andreasvarga/MatrixEquations.jl?branch=master)
 
 ## About
 This collection of Julia functions is an attemp to implement high performance
