@@ -32,18 +32,22 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> B = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> C = [-1. -2.; 2. -1]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
+
 julia> X = sylvc(A, B, C)
 2×2 Array{Float64,2}:
  -4.46667   1.93333
   3.73333  -1.8
+
 julia> A*X + X*B - C
 2×2 Array{Float64,2}:
   2.66454e-15  1.77636e-15
@@ -151,18 +155,22 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> B = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> C = [-1. -2.; 2. -1]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
+   
 julia> X = sylvd(A, B, C)
 2×2 Array{Float64,2}:
  -2.46667  -2.73333
   2.4       1.86667
+
 julia> A*X*B + X - C
 2×2 Array{Float64,2}:
   8.88178e-16   8.88178e-16
@@ -252,26 +260,32 @@ julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
+
 julia> B = [1. 1.; 1. 2.]
 2×2 Array{Float64,2}:
  1.0  1.0
  1.0  2.0
+
 julia> C = [-1. -2.; 2. -1]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
+
 julia> D = [1. -2.; -2. -1]
 2×2 Array{Float64,2}:
   1.0  -2.0
  -2.0  -1.0
+
 julia> E = [1. -1.; -2. 2]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
+
 julia> X = gsylv(A, B, C, D, E)
 2×2 Array{Float64,2}:
  -0.52094   -0.0275792
  -0.168539   0.314607
+ 
 julia> A*X*B + C*X*D - E
 2×2 Array{Float64,2}:
  4.44089e-16  8.88178e-16
@@ -285,9 +299,9 @@ function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstract
        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
     end
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
-   if T2 == Int64 || T2 == Complex{Int64}
+    if T2 == Int64 || T2 == Complex{Int64}
       T2 = promote_type(Float64,T2)
-   end
+    end
     if eltype(A) !== T2
       A = convert(Matrix{T2},A)
     end
