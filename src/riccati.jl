@@ -249,7 +249,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}},
     if n !== nb
        throw(DimensionMismatch("B must be a matrix with row dimension $n"))
     end
-    if typeof(E) <: UniformScaling{Bool} || isempty(E)
+    if typeof(E) <: UniformScaling{Bool} 
        eident = true
        E = I
     else
