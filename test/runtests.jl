@@ -1,6 +1,6 @@
 module Runtests
 
-using Test, Documenter, MatrixEquations
+using Test, MatrixEquations
 
 @testset "Test MatrixEquations.jl" begin
     include("test_clyap.jl")
@@ -12,8 +12,6 @@ using Test, Documenter, MatrixEquations
     include("test_cplyap.jl")
     include("test_dplyap.jl")
     include("test_mecondest.jl")
-    DocMeta.setdocmeta!(MatrixEquations, :DocTestSetup, :(using MatrixEquations); recursive=true)
-    doctest(MatrixEquations; manual = false)
 end
 
 end
