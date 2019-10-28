@@ -51,12 +51,12 @@ The current version of the package includes the following functions:
    * **opnorm1** Computation of the 1-norm of a linear operator.
    * **opnorm1est** Estimation of the 1-norm of a linear operator.
    * **oprcondest** Estimation of the reciprocal 1-norm condition number of an operator.
-   * **opsepest** Estimation of the separation an operator.
+   * **opsepest** Estimation of the separation of a linear operator.
    * **lyapsepest** Estimation of the separations of Lyapunov operators.
    * **sylvsepest** Estimation of the separations of Sylvester operators.
    * **sylvsyssepest** Estimation of the separation of a Sylvester system operator.
 
-The solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
+The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
 
 ## Future plans
 The collection of tools will be extended by adding new functionality, such as expert solvers which additionally compute error bounds and condition estimates. Furthermore, performance improvements are planned to be implemented employing more efficient and accurate low dimensional linear system solvers available in LAPACK, using static arrays for manipulation of small order matrices, and exploring block variant solvers for Lyapunov and Sylvester equations.
@@ -69,7 +69,7 @@ This release is intended to be the first registered version for the public. The 
 
 - New functions for estimation of norms, reciprocal condition numbers and separations of linear operators.
 - New funtions defining a comprehensive set of Lyapunov and Sylvester operators.
-- Updated documentation
+- Updated documentation, with examples for the main functions
 - Enhancements of all solvers to cover all numerical data types
 - Full coverage of all basic floating point types by the solvers 
 

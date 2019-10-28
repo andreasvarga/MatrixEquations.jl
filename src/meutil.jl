@@ -273,11 +273,54 @@ function vec2her(x::AbstractVector; rowwise = false)
    end
    return Q
 end
-function vec2triu(x::AbstractVector; rowwise = false)
+"""
+    x = triu2vec(Q; rowwise = false, her = false)
+
+Reshape the upper triangular part of the `nxn` array `Q` as a one-dimensional column 
+vector `x` with `n(n+1)/2` elements. `Q` is assumed symmetric/hermitian if `her = true`.
+The elements of `x` correspond to stacking the elements of successive columns
+of the upper triangular part of `Q`, if `rowwise = false`, or stacking the elements
+of successive rows of the upper triangular part of `Q`, if `rowwise = true`.
+"""
+function triu2vec(Q::AbstractArray; rowwise = false, her = false)
+   n = LinearAlgebra.checksquare(Q)
+   if her && !ishermitian(Q)
+      error("Q must be a symmetric/hermitian matrix")
+   end
+   x = Array{eltype(Q),1}(undef,Int(n*(n+1)/2))
+   k = 1
+   if rowwise
+      for i = 1:n
+         for j = i:n
+             x[k] = Q[i,j]
+             k += 1
+         end
+      end
+   else
+      for j = 1:n
+         for i = 1:j
+             x[k] = Q[i,j]
+             k += 1
+         end
+      end
+   end
+   return x
+end
+"""
+    Q = vec2triu(x; rowwise = false, her = false)
+
+Build from a one-dimensional column vector `x` with `n(n+1)/2` elements
+an `nxn` upper triangular matrix `Q` if `her = false` or an `nxn` symetric/hermitian 
+array `Q` if `her = true`.
+The elements of `x` correspond to stacking the elements of successive columns
+of the upper triangular part of `Q`, if `rowwise = false`, or stacking the elements
+of successive rows of the upper triangular part of `Q`, if `rowwise = true`.
+"""
+function vec2triu(x::AbstractVector; rowwise = false, her = false)
    k = length(x)
    n = (sqrt(1+8*k)-1)/2
    isinteger(n) ? n = Int(n) : error("The lenght of x must be of the form n(n+1)/2")
-   Q = zeros(eltype(x),n,n)
+   her ? Q = zeros(eltype(x),n,n) : Q = Array{eltype(x),2}(undef,n,n)
    k = 1
    if rowwise
       for i = 1:n
@@ -285,6 +328,9 @@ function vec2triu(x::AbstractVector; rowwise = false)
          k += 1
          for j = i+1:n
             Q[i,j] = x[k]
+            if her
+               Q[j,i] = x[k]'
+            end
             k += 1
          end
       end
@@ -292,6 +338,9 @@ function vec2triu(x::AbstractVector; rowwise = false)
       for j = 1:n
          for i = 1:j-1
             Q[i,j] = x[k]
+            if her
+               Q[j,i] = x[k]'
+            end
             k += 1
          end
          Q[j,j] = x[k]

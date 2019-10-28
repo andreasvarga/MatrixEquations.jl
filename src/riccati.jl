@@ -14,7 +14,7 @@ Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
 IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 
 # Example
-```
+```jldoctest
 julia> using LinearAlgebra
 
 julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
@@ -123,7 +123,7 @@ Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
 IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 
 # Example
-```
+```jldoctest
 julia> using LinearAlgebra
 
 julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
@@ -236,10 +236,10 @@ Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations
 Proc. IEEE, 72:1746-1754, 1984.
 
 # Example
-```
+```jldoctest
 julia> using LinearAlgebra
 
-A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
+julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
 3×3 Array{Float64,2}:
  -6.0  -2.0   1.0
   5.0   1.0  -1.0
@@ -416,7 +416,7 @@ Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations
 Proc. IEEE, 72:1746-1754, 1984.
 
 # Example
-```
+```jldoctest
 julia> using LinearAlgebra
 
 julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
@@ -591,7 +591,7 @@ Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations
 Proc. IEEE, 72:1746-1754, 1984.
 
 # Example
-```
+```jldoctest
 julia> using LinearAlgebra
 
 julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]

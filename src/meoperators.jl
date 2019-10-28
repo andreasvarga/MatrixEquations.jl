@@ -524,6 +524,7 @@ function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
    her ? N = Int(n*(n+1)/2) : N = n*n
    return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
+invlyapsop(A :: Schur; disc = false, her = false) = invlyapsop(A.T,disc = disc,her = her)
 """
     invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
 
@@ -624,6 +625,7 @@ function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her 
    her ? N = Int(n*(n+1)/2) : N = n*n
    return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
+invlyapsop(AE :: GeneralizedSchur; disc = false, her = false) = invlyapsop(AE.S, AE.T, disc = disc, her = her)
 """
     sylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> M::LinearOperator
 

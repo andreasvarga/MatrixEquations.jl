@@ -19,7 +19,7 @@ Solve the matrix equation `(α+α')X + C = 0`.
 
 Solve the equation `(α+α')x + γ = 0`.
 
-# Examples
+# Example
 ```jldoctest
 julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
@@ -115,7 +115,7 @@ Solve the matrix equation `(αβ'+α'β)X + C = 0`.
 
 Solve the equation `(αβ'+α'β)x + γ = 0`.
 
-# Examples
+# Example
 ```jldoctest
 julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
@@ -243,7 +243,7 @@ Solve the matrix equation `(αα'-1)X + C = 0`.
 
 Solve the equation `(αα'-1)x + γ = 0`.
 
-# Examples
+# Example
 ```jldoctest
 julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
@@ -339,7 +339,7 @@ Solve the matrix equation `(αα'-ββ')X + C = 0`.
 
 Solve the equation `(αα'-ββ')x + γ = 0`.
 
-# Examples
+# Example
 ```jldoctest
 julia> A = [3. 4.; 5. 6]
 2×2 Array{Float64,2}:
