@@ -26,12 +26,6 @@ x = copy(Qr); @time utqu!(x,ur');
 @time y = ur*Qr*ur';
 @test norm(x-y) < sqrt(eps(1.))
 
-@time x = vec2her(her2vec(Qr, rowwise = false, check = true),rowwise = false)
-@test x == Qr
-
-@time x = vec2her(her2vec(Qr, rowwise = true, check = true),rowwise = true)
-@test x == Qr
-
 @time x = vec2triu(triu2vec(Qr, rowwise = false, her = false),rowwise = false, her = false)
 @test x == triu(Qr)
 

@@ -22,15 +22,15 @@ notifications:
 #    - master
 #    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
 
-#jobs:
-#  include:
-#    - stage: Documentation
-#      julia: 1.1
-#      os: linux
-#      script:
-#         - julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.add(PackageSpec(path=pwd()))'
-#         - julia --project=docs docs/make.jl
-#      after_success: skip
+jobs:
+  include:
+    - stage: Documentation
+      julia: 1.2
+      os: windows
+      script:
+         - julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.add(PackageSpec(path=pwd()))'
+         - julia --project=docs docs/make.jl
+      after_success: skip
 
 after_success:
   - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

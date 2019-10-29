@@ -24,3 +24,9 @@ makedocs(
      "Index" => "makeindex.md"
   ]
 )
+
+deploydocs(deps = nothing, make = nothing,
+  repo = "github.com/andreasvarga/MatrixEquations.jl.git",
+  target = "build",
+  devbranch = "master"
+)

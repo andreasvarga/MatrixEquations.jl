@@ -51,12 +51,12 @@ function lyapop(A :: AbstractMatrix; disc = false, her = false)
   T = eltype(A)
   function prod(x)
     if her
-      X = vec2her(convert(Vector{T}, x))
+      X = vec2triu(convert(Vector{T}, x),her = true)
       if disc
-        return her2vec(utqu(X,A') - X)
+        return triu2vec(utqu(X,A') - X)
       else
         Y = A * X
-        return her2vec(Y + Y')
+        return triu2vec(Y + Y')
       end
     else
       X = reshape(convert(Vector{T}, x), n, n)
@@ -70,12 +70,12 @@ function lyapop(A :: AbstractMatrix; disc = false, her = false)
   end
   function tprod(x)
     if her
-      X = vec2her(convert(Vector{T}, x))
+      X = vec2triu(convert(Vector{T}, x),her = true)
       if disc
-        return her2vec(utqu(X,A) - X)
+        return triu2vec(utqu(X,A) - X)
       else
         Y = X * A
-        return her2vec(Y + transpose(Y))
+        return triu2vec(Y + transpose(Y))
       end
     else
       X = reshape(convert(Vector{T}, x), n, n)
@@ -89,12 +89,12 @@ function lyapop(A :: AbstractMatrix; disc = false, her = false)
   end
   function ctprod(x)
     if her
-      X = vec2her(convert(Vector{T}, x))
+      X = vec2triu(convert(Vector{T}, x),her = true)
       if disc
-        return her2vec(utqu(X,A) - X)
+        return triu2vec(utqu(X,A) - X)
       else
         Y = X * A
-        return her2vec(Y + Y')
+        return triu2vec(Y + Y')
       end
     else
       X = reshape(convert(Vector{T}, x), n, n)
@@ -135,12 +135,12 @@ function lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = fa
   T = promote_type(eltype(A), eltype(E))
   function prod(x)
     if her
-      X = vec2her(convert(Vector{T}, x))
+      X = vec2triu(convert(Vector{T}, x),her = true)
       if disc
-        return her2vec(utqu(X,A') - utqu(X,E'))
+        return triu2vec(utqu(X,A') - utqu(X,E'))
       else
         Y = A * X * E'
-        return her2vec(Y + Y')
+        return triu2vec(Y + Y')
       end
     else
       X = reshape(convert(Vector{T}, x), n, n)
@@ -154,12 +154,12 @@ function lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = fa
   end
   function tprod(x)
     if her
-      X = vec2her(convert(Vector{T}, x))
+      X = vec2triu(convert(Vector{T}, x),her = true)
       if disc
-        return her2vec(utqu(X,A) - utqu(X,E))
+        return triu2vec(utqu(X,A) - utqu(X,E))
       else
         Y = E' * X * A
-        return her2vec(Y + transpose(Y))
+        return triu2vec(Y + transpose(Y))
       end
     else
       X = reshape(convert(Vector{T}, x), n, n)
@@ -173,12 +173,12 @@ function lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = fa
   end
   function ctprod(x)
     if her
-      X = vec2her(convert(Vector{T}, x))
+      X = vec2triu(convert(Vector{T}, x),her = true)
       if disc
-        return her2vec(utqu(X,A) - utqu(X,E))
+        return triu2vec(utqu(X,A) - utqu(X,E))
       else
         Y = E' * X * A
-        return her2vec(Y + Y')
+        return triu2vec(Y + Y')
       end
     else
       X = reshape(convert(Vector{T}, x), n, n)
@@ -218,11 +218,11 @@ function invlyapop(A :: AbstractMatrix; disc = false, her = false)
    function prod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, x))
+         Y = vec2triu(convert(Vector{T}, x),her = true)
          if disc
-            return her2vec(lyapd(A,-Y))
+            return triu2vec(lyapd(A,-Y))
          else
-             return her2vec(lyapc(A,-Y))
+             return triu2vec(lyapc(A,-Y))
          end
        else
          Y = reshape(convert(Vector{T}, x), n, n)
@@ -244,11 +244,11 @@ function invlyapop(A :: AbstractMatrix; disc = false, her = false)
    function tprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, x))
+         Y = vec2triu(convert(Vector{T}, x),her = true)
          if disc
-           return her2vec(lyapd(A',-Y))
+           return triu2vec(lyapd(A',-Y))
          else
-           return her2vec(lyapc(A',-Y))
+           return triu2vec(lyapc(A',-Y))
          end
        else
          Y = reshape(convert(Vector{T}, x), n, n)
@@ -270,11 +270,11 @@ function invlyapop(A :: AbstractMatrix; disc = false, her = false)
    function ctprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, x))
+         Y = vec2triu(convert(Vector{T}, x),her = true)
          if disc
-           return her2vec(lyapd(A',-Y))
+           return triu2vec(lyapd(A',-Y))
          else
-           return her2vec(lyapc(A',-Y))
+           return triu2vec(lyapc(A',-Y))
          end
        else
          Y = reshape(convert(Vector{T}, x), n, n)
@@ -325,11 +325,11 @@ function invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her =
    function prod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, x))
+         Y = vec2triu(convert(Vector{T}, x),her = true)
          if disc
-            return her2vec(lyapd(A,E,-Y))
+            return triu2vec(lyapd(A,E,-Y))
          else
-             return her2vec(lyapc(A,E,-Y))
+             return triu2vec(lyapc(A,E,-Y))
          end
        else
          Y = reshape(convert(Vector{T}, x), n, n)
@@ -351,11 +351,11 @@ function invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her =
    function tprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, x))
+         Y = vec2triu(convert(Vector{T}, x),her = true)
          if disc
-            return her2vec(lyapd(A',E',-Y))
+            return triu2vec(lyapd(A',E',-Y))
          else
-            return her2vec(lyapc(A',E',-Y))
+            return triu2vec(lyapc(A',E',-Y))
          end
        else
          Y = reshape(convert(Vector{T}, x), n, n)
@@ -377,11 +377,11 @@ function invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her =
    function ctprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, x))
+         Y = vec2triu(convert(Vector{T}, x),her = true)
          if disc
-           return her2vec(lyapd(A',E',-Y))
+           return triu2vec(lyapd(A',E',-Y))
          else
-           return her2vec(lyapc(A',E',-Y))
+           return triu2vec(lyapc(A',E',-Y))
          end
        else
          Y = reshape(convert(Vector{T}, x), n, n)
@@ -437,9 +437,9 @@ function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
    function prod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, -x))
+         Y = vec2triu(convert(Vector{T}, -x),her = true)
          disc ? lyapds!(A,Y) : lyapcs!(A,Y)
-         return her2vec(Y)
+         return triu2vec(Y)
        else
          Y = reshape(convert(Vector{T}, -x), n, n)
          if disc
@@ -465,9 +465,9 @@ function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
    function tprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, -x))
+         Y = vec2triu(convert(Vector{T}, -x),her = true)
          disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
-         return her2vec(Y)
+         return triu2vec(Y)
        else
          Y = reshape(convert(Vector{T}, -x), n, n)
          if disc
@@ -493,9 +493,9 @@ function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
    function ctprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, -x))
+         Y = vec2triu(convert(Vector{T}, -x),her = true)
          disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
-         return her2vec(Y)
+         return triu2vec(Y)
        else
          Y = reshape(convert(Vector{T}, -x), n, n)
          if disc
@@ -559,9 +559,9 @@ function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her 
    function prod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, -x))
+         Y = vec2triu(convert(Vector{T}, -x),her = true)
          disc ? lyapds!(A,E,Y) : lyapcs!(A,E,Y)
-         return her2vec(Y)
+         return triu2vec(Y)
        else
          Y = copy(reshape(convert(Vector{T}, x), n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjBD = true) :
@@ -580,9 +580,9 @@ function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her 
    function tprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, -x))
+         Y = vec2triu(convert(Vector{T}, -x),her = true)
          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
-         return her2vec(Y)
+         return triu2vec(Y)
        else
          Y = copy(reshape(convert(Vector{T}, x), n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
@@ -601,9 +601,9 @@ function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her 
    function ctprod(x)
      try
        if her
-         Y = vec2her(convert(Vector{T}, -x))
+         Y = vec2triu(convert(Vector{T}, -x),her = true)
          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
-         return her2vec(Y)
+         return triu2vec(Y)
        else
          Y = copy(reshape(convert(Vector{T}, x), n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :

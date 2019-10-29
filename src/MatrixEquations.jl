@@ -12,7 +12,7 @@ using LinearOperators
 include("lapackutil.jl")
 using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!
 
-export utqu, utqu!, qrupdate!, rqupdate!, isschur, her2vec, vec2her, triu2vec, vec2triu
+export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu
 export lanv2, ladiv, lag2, lacn2!
 export lyapc, lyapd, lyapcs!, lyapds!
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2, pglyap2

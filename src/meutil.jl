@@ -203,77 +203,6 @@ function rqupdate!(R, Y)
     return R
 end
 """
-    x = her2vec(Q; rowwise = false, check = true)
-
-Reshape the upper triangular part of the `nxn` symmetric/hermitian
-array `Q` as a one-dimensional column vector `x` with `n(n+1)/2` elements.
-The elements of `x` correspond to stacking the elements of successive columns
-of the upper triangular part of `Q`, if `rowwise = false`, or stacking the elements
-of successive rows of the upper triangular part of `Q`, if `rowwise = true`.
-"""
-function her2vec(Q::AbstractArray; rowwise = false, check = true)
-   n = LinearAlgebra.checksquare(Q)
-   if check && !ishermitian(Q)
-      error("Q must be a symmetric/hermitian matrix")
-   end
-   x = Array{eltype(Q),1}(undef,Int(n*(n+1)/2))
-   k = 1
-   if rowwise
-      for i = 1:n
-         for j = i:n
-             x[k] = Q[i,j]
-             k += 1
-         end
-      end
-   else
-      for j = 1:n
-         for i = 1:j
-             x[k] = Q[i,j]
-             k += 1
-         end
-      end
-   end
-   return x
-end
-"""
-    Q = vec2her(x; rowwise = false)
-
-Build from a one-dimensional column vector `x` with `n(n+1)/2` elements
-a symetric/hermitian `nxn` array `Q`.
-The elements of `x` correspond to stacking the elements of successive columns
-of the upper triangular part of `Q`, if `rowwise = false`, or stacking the elements
-of successive rows of the upper triangular part of `Q`, if `rowwise = true`.
-"""
-function vec2her(x::AbstractVector; rowwise = false)
-   k = length(x)
-   n = (sqrt(1+8*k)-1)/2
-   isinteger(n) ? n = Int(n) : error("The lenght of x must be of the form n(n+1)/2")
-   Q = Array{eltype(x),2}(undef,n,n)
-   k = 1
-   if rowwise
-      for i = 1:n
-         Q[i,i] = x[k]
-         k += 1
-         for j = i+1:n
-            Q[i,j] = x[k]
-            Q[j,i] = x[k]'
-            k += 1
-         end
-      end
-   else
-      for j = 1:n
-         for i = 1:j-1
-            Q[i,j] = x[k]
-            Q[j,i] = x[k]'
-            k += 1
-         end
-         Q[j,j] = x[k]
-         k += 1
-      end
-   end
-   return Q
-end
-"""
     x = triu2vec(Q; rowwise = false, her = false)
 
 Reshape the upper triangular part of the `nxn` array `Q` as a one-dimensional column 
@@ -320,7 +249,7 @@ function vec2triu(x::AbstractVector; rowwise = false, her = false)
    k = length(x)
    n = (sqrt(1+8*k)-1)/2
    isinteger(n) ? n = Int(n) : error("The lenght of x must be of the form n(n+1)/2")
-   her ? Q = zeros(eltype(x),n,n) : Q = Array{eltype(x),2}(undef,n,n)
+   her ? Q = Array{eltype(x),2}(undef,n,n) : Q = zeros(eltype(x),n,n) 
    k = 1
    if rowwise
       for i = 1:n
@@ -328,9 +257,6 @@ function vec2triu(x::AbstractVector; rowwise = false, her = false)
          k += 1
          for j = i+1:n
             Q[i,j] = x[k]
-            if her
-               Q[j,i] = x[k]'
-            end
             k += 1
          end
       end
@@ -338,13 +264,17 @@ function vec2triu(x::AbstractVector; rowwise = false, her = false)
       for j = 1:n
          for i = 1:j-1
             Q[i,j] = x[k]
-            if her
-               Q[j,i] = x[k]'
-            end
             k += 1
          end
          Q[j,j] = x[k]
          k += 1
+      end
+   end
+   if her
+      for j = 1:n
+         for i = j+1:n
+            Q[i,j] = Q[j,i]'
+         end
       end
    end
    return Q
