@@ -21,7 +21,7 @@ Solve the equation `(α+α')x + γ = 0`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -90,7 +90,7 @@ lyapc(A::Union{Real,Complex}, C::Union{Real,Complex})  = real(A) == 0 ? throw(Si
     X = lyapc(A, E, C)
 
 Compute `X`, the symmetric or hermitian solution of the
-continuous generalized Lyapunov equation
+generalized continuous Lyapunov equation
 
      AXE' + EXA' + C = 0,
 
@@ -117,7 +117,7 @@ Solve the equation `(αβ'+α'β)x + γ = 0`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -245,7 +245,7 @@ Solve the equation `(αα'-1)x + γ = 0`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -314,7 +314,7 @@ lyapd(A::Union{Real,Complex}, C::Union{Real,Complex}) = A*A' == 1 ? throw(Singul
     X = lyapd(A, E, C)
 
 Compute `X`, the symmetric or hermitian solution
-of the discrete generalized Lyapunov equation
+of the generalized discrete Lyapunov equation
 
          AXA' - EXE' + C = 0,
 
@@ -341,7 +341,7 @@ Solve the equation `(αα'-ββ')x + γ = 0`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -451,10 +451,10 @@ lyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, C::Union{Real,Complex}) = 
 
 Solve the continuous Lyapunov matrix equation
 
-                op(A)X + Xop(A)' + C = 0
+                op(A)X + Xop(A)' + C = 0,
 
 where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
-A is a square real matrix in a real Schur form, or a square complex matrix in a
+`A` is a square real matrix in a real Schur form, or a square complex matrix in a
 complex Schur form and `C` is a symmetric or hermitian matrix.
 `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 `C` contains on output the solution `X`.
@@ -661,7 +661,7 @@ end
 
 Solve the generalized continuous Lyapunov matrix equation
 
-                op(A)Xop(E)' + op(E)Xop(A)' + C = 0
+                op(A)Xop(E)' + op(E)Xop(A)' + C = 0,
 
 where `op(A) = A` and `op(E) = E` if `adj = false` and `op(A) = A'` and
 `op(E) = E'` if `adj = true`. The pair `(A,E)` is in a generalized real or
@@ -918,10 +918,10 @@ end
 
 Solve the discrete Lyapunov matrix equation
 
-                op(A)Xop(A)' -X + C = 0 ,
+                op(A)Xop(A)' - X + C = 0,
 
 where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
-`A` is in a real or complex Schur form and `C` a symmetric or hermitian matrix.
+`A` is in a real or complex Schur form and `C` is a symmetric or hermitian matrix.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
@@ -1129,8 +1129,8 @@ Solve the generalized discrete Lyapunov matrix equation
                 op(A)Xop(A)' - op(E)Xop(E)' + C = 0,
 
 where `op(A) = A` and `op(E) = E` if `adj = false` and `op(A) = A'` and
-`op(E) = E'` if `adj = true`. The pair `(A,E)` in a generalized real or
-complex Schur form and `C` a symmetric or hermitian matrix.
+`op(E) = E'` if `adj = true`. The pair `(A,E)` is in a generalized real or
+complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """

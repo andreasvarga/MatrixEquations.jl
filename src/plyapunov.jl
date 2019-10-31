@@ -12,7 +12,7 @@ number of rows as `A`. `A` must have only eigenvalues with negative real parts.
 
     U = plyapc(A', B')
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the continuous Lyapunov equation
 
       A'X + XA + B'B = 0,
@@ -184,23 +184,23 @@ plyapc(A::Union{Real,Complex}, B::Union{Real,Complex}) =
     U = plyapc(A, E, B)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
-continuous generalized Lyapunov equation
+generalized continuous Lyapunov equation
 
       AXE' + EXA' + BB' = 0,
 
 where `A` and `E` are square real or complex matrices and `B` is a matrix
-with the same number of rows as `A`. The pencil `A - λ E` must have only
+with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
     U = plyapc(A', E', B')
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
-the continuous generalized Lyapunov equation
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
+the generalized continuous Lyapunov equation
 
       A'XE + E'XA + B'B = 0,
 
 where `A` and `E` are square real or complex matrices and `B` is a matrix
-with the same number of columns as `A`. The pencil `A - λ E` must have only
+with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
 # Example
@@ -386,7 +386,7 @@ plyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
 """
     U = plyapd(A, B)
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = UU'` of
+Compute `U`, the upper triangular factor of the solution `X = UU'` of
 the discrete Lyapunov equation
 
       AXA' - X + BB' = 0,
@@ -396,7 +396,7 @@ number of rows as `A`. `A` must have only eigenvalues with moduli less than one.
 
     U = plyapd(A', B')
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the discrete Lyapunov equation
 
       A'XA - X + B'B = 0,
@@ -570,23 +570,23 @@ plyapd(A::Union{Real,Complex}, B::Union{Real,Complex}) =
     U = plyapd(A, E, B)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
-discrete generalized Lyapunov equation
+generalized discrete Lyapunov equation
 
       AXA' - EXE' + BB' = 0,
 
 where `A` and `E` are square real or complex matrices and `B` is a matrix
-with the same number of rows as `A`. The pencil `A - λ E` must have only
+with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 
     U = plyapd(A', E', B')
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
-the discrete generalized Lyapunov equation
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
+the generalized discrete Lyapunov equation
 
       A'XA - E'XE + B'B = 0,
 
 where `A` and `E` are square real or complex matrices and `B` is a matrix
-with the same number of columns as `A`. The pencil `A - λ E` must have only
+with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 
 # Example
@@ -783,9 +783,9 @@ respectively, and `B` is a matrix with the same number of rows as `A`.
 `A` must have only eigenvalues with negative real parts. Only the upper
 Hessenberg part of `A` is referenced.
 
-    U = plyaps(A', B'; disc = false)
+    U = plyaps(A', B', disc = false)
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the continuous Lyapunov equation
 
       A'X + XA + B'B = 0,
@@ -809,7 +809,7 @@ Hessenberg part of `A` is referenced.
 
     U = plyaps(A', B', disc = true)
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the discrete Lyapunov equation
 
       A'XA - X + B'B = 0,
@@ -950,49 +950,49 @@ end
     U = plyaps(A, E, B; disc = false)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
-continuous generalized Lyapunov equation
+generalized continuous Lyapunov equation
 
       AXE' + EXA' + BB' = 0,
 
 where `A` and `E` are square real or complex matrices with the pair `(A,E)` in
 a generalied real or complex Schur form, respectively,  and `B` is a matrix
-with the same number of rows as `A`. The pencil `A - λ E` must have only
+with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
-    U = plyaps(A', E', B'; disc = false)
+    U = plyaps(A', E', B', disc = false)
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
-the continuous generalized Lyapunov equation
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
+the generalized continuous Lyapunov equation
 
       A'XE + E'XA + B'B = 0,
 
 where `A` and `E` are square real or complex matrices with the pair `(A,E)` in
 a generalied real or complex Schur form, respectively,  and `B` is a matrix
-with the same number of columns as `A`. The pencil `A - λ E` must have only
+with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
     U = plyaps(A, E, B, disc = true)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
-discrete generalized Lyapunov equation
+generalized discrete Lyapunov equation
 
       AXA' - EXE' + BB' = 0,
 
 where `A` and `E` are square real or complex matrices with the pair `(A,E)` in
 a generalied real or complex Schur form, respectively,  and `B` is a matrix
-with the same number of rows as `A`. The pencil `A - λ E` must have only
+with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 
     U = plyaps(A', E', B', disc = true)
 
-Compute `U`, the upper triangular Cholesky factor of the solution `X = U'U` of
-the discrete generalized Lyapunov equation
+Compute `U`, the upper triangular factor of the solution `X = U'U` of
+the generalized discrete Lyapunov equation
 
       A'XA - E'XE + B'B = 0,
 
 where `A` and `E` are square real or complex matrices with the pair `(A,E)` in
 a generalied real or complex Schur form, respectively,  and `B` is a matrix
-with the same number of columns as `A`. The pencil `A - λ E` must have only
+with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 """
 function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; disc = false)
@@ -1142,9 +1142,9 @@ Solve the positive continuous Lyapunov matrix equation
                 op(A)X + Xop(A)' + op(R)*op(R)' = 0
 
 for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `adj = true`.
-`A` is a square real matrix in a real Schur form , or a square complex matrix in a
+`A` is a square real matrix in a real Schur form  or a square complex matrix in a
 complex Schur form and `R` is an upper triangular matrix.
-`A` must have all eigenvalues with negative real parts.
+`A` must have only eigenvalues with negative real parts.
 `R` contains on output the solution `U`.
 """
 function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
@@ -1427,13 +1427,13 @@ end
 """
     plyapcs!(A,E,R;adj = false)
 
-Solve the positive continuous generalized Lyapunov matrix equation
+Solve the generalized positive continuous Lyapunov matrix equation
 
                 op(A)Xop(E)' + op(E)*Xop(A)' + op(R)*op(R)' = 0
 
 for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `adj = true`.
 The pair `(A,E)` is in a generalized real/complex Schur form and `R` is an upper
-triangular matrix. The pencil `A-λE` must have all eigenvalues with negative
+triangular matrix. The pencil `A-λE` must have only eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
 """
 function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
@@ -1749,9 +1749,9 @@ Solve the positive discrete Lyapunov matrix equation
                 op(A)Xop(A)' - X + op(R)*op(R)' = 0
 
 for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `adj = true`.
-`A` is a square real matrix in a real Schur form , or a square complex matrix in a
+`A` is a square real matrix in a real Schur form or a square complex matrix in a
 complex Schur form and `R` is an upper triangular matrix.
-`A` must have all eigenvalues with moduli less than one.
+`A` must have only eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
 """
 function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
@@ -2050,13 +2050,13 @@ end
 """
     plyapds!(A,E,R;adj = false)
 
-Solve the positive discrete generalized Lyapunov matrix equation
+Solve the generalized positive discrete Lyapunov matrix equation
 
-                op(A)Xop(A)' - op(E)Xop(E) + op(R)*op(R)' = 0
+                op(A)Xop(A)' - op(E)Xop(E)' + op(R)*op(R)' = 0
 
 for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `adj = true`.
 The pair `(A,E)` of square real or complex matrices is in a generalized Schur form
-and `R` is an upper triangular matrix. `A-λE` must have all eigenvalues with
+and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
 function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
@@ -3070,7 +3070,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
 
       V = -TWO*( AR[1,1]*ER[1,1] + AI[1,1]*EI[1,1] )
       if V <= ZERO
-         error("The eigenvalues of the pencil A - λ E  are not in the open right half plane")
+         error("The eigenvalues of the pencil A - λE  are not in the open right half plane")
       end
       V = sqrt( V )
       T = TWO*abs( BR[1,1] )*SMLNUM
@@ -3207,7 +3207,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       #V = ER[1,1]^2 + EI[1,1]^2 - AR[1,1]^2 - AI[1,1]^2
       V = (ER[1,1]/T)^2 + (EI[1,1]/T)^2 - (AR[1,1]/T)^2 - (AI[1,1]/T)^2
       if V <= ZERO
-         error("The eigenvalues of the pencil A - λ E  are not inside the unit circle")
+         error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
       end
       V = T*sqrt( V )
       T = TWO*abs( BR[1,1] )*SMLNUM
@@ -3264,7 +3264,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       YI = -AI[1,2]*UR[1,1] - AR[2,2]*UI[1,2] - AI[2,2]*UR[1,2]
       V  = ER[2,2]^2 + EI[2,2]^2 - AR[2,2]^2 - AI[2,2]^2
       if V <= ZERO
-         error("The eigenvalues of the pencil A - λ E  are not inside the unit circle")
+         error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
       end
       V = sqrt( V )
       T = max( abs( BR[2,2] ), abs( BR[1,2] ), abs( BI[1,2] ),

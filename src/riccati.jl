@@ -4,7 +4,7 @@
 Compute `X`, the hermitian/symmetric stabilizing solution of the continuous-time
 algebraic Riccati equation
 
-     A' X + X A - XRX + Q = 0,
+     A'X + XA - XRX + Q = 0,
 
 where `Q` and `R` are hermitian/symmetric matrices.
 `EVALS` is a vector containing the (stable) eigenvalues of `A-RX`.
@@ -112,7 +112,7 @@ end
 Computes `X`, the hermitian/symmetric stabilizing solution of the continuous-time
  algebraic Riccati equation
 
-     A' X + X A - (XB+S)R^(-1)(B'X+S') + Q = 0,
+     A'X + XA - (XB+S)R^(-1)(B'X+S') + Q = 0,
 
 where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular.
 `EVALS` is a vector containing the (stable) eigenvalues of `A-BF`.
@@ -223,7 +223,7 @@ arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::UniformScaling)
 Compute `X`, the hermitian/symmetric
 stabilizing solution of the generalized continuous-time algebraic Riccati equation
 
-    A'XE + E'XA - (E'XB+S)R^(-1)(B'XE+S') + Q = 0 ,
+    A'XE + E'XA - (E'XB+S)R^(-1)(B'XE+S') + Q = 0,
 
 where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular, and
 `E` is a nonsingular matrix.
@@ -582,7 +582,7 @@ stabilizing solution of the discrete-time algebraic Riccati equation
      A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0,
 
 where `Q` and `R` are hermitian/symmetric matrices.
-`EVALS` is a vector containing the (stable) generalized eigenvalues of `A-BF`.
+`EVALS` is a vector containing the (stable) eigenvalues of `A-BF`.
 `F` is the stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
 
 `Reference:`
