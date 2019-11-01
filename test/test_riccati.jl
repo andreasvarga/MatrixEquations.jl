@@ -1,12 +1,13 @@
 module Test_riccati
 
+using Random
 using LinearAlgebra
 using MatrixEquations
 using Test
 
 @testset "Testing algebraic Riccati equation solvers" begin
 
-
+Random.seed!(1234)
 #n, p, m = 300, 50, 50
 n, p, m = 30, 10, 10
 ar = randn(n,n)
@@ -192,7 +193,6 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol
 @test norm(ac'*x*ac-ec'*x*ec-(ac'*x*bc+sr)*inv(rr+bc'*x*bc)*(bc'*x*ac+sr')+Qr)/norm(x) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol
-
 end
 
 end

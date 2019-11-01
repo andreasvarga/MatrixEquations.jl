@@ -63,11 +63,11 @@ end
 Solve the Sylvester system of matrix equations
 
                 AX + YB = C
-                DX + YE = F,
+                DX + YE = F
 
-using the Kronecker product expansion of equations, where `(A,D)`, `(B,E)` are
-pairs of square matrices of same size.
-The pencils `A-λD` and `-isgn*(B-λE)` must be regular and must not have common eigenvalues.
+using the Kronecker product expansion of equations. `(A,D)`, `(B,E)` are
+pairs of square matrices of the same size.
+The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues.
 This function is not recommended for large order matrices.
 """
 function sylvsyskr(A,B,C,D,E,F)
@@ -89,11 +89,11 @@ end
 Solve the dual Sylvester system of matrix equations
 
        AX + DY = C
-       XB + YE = F ,
+       XB + YE = F 
 
-using the Kronecker product expansion of equations, where `(A,D)`, `(B,E)` are
-pairs of square matrices of same size.
-The pencils `A-λD` and `(-B+λE)` must be regular and must not have common eigenvalues.
+using the Kronecker product expansion of equations. `(A,D)`, `(B,E)` are
+pairs of square matrices of the same size.
+The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues.
 This function is not recommended for large order matrices.
 """
 function dsylvsyskr(A,B,C,D,E,F)

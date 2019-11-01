@@ -103,6 +103,52 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 end
 end
 
+@testset "Continuous Sylvester equations - Schur form" begin
+
+for Ty in (Float64, Float32)
+
+ar = rand(Ty,n,n)
+ac = ar+im*rand(Ty,n,n)
+br = rand(Ty,m,m)
+bc = br+im*rand(Ty,m,m)
+cr = rand(Ty,n,m)
+cc = cr+im*rand(Ty,n,m)
+Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
+as, = schur(ar)
+bs,  = schur(br)
+acs, = schur(ac)
+bcs, = schur(bc)
+Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
+
+
+y = copy(cr); @time sylvcs!(as,bs,y)
+@test norm(as*y+y*bs-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(as,bs,y,adjA=true)
+@test norm(as'*y+y*bs-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(as,bs,y,adjB=true)
+@test norm(as*y+y*bs'-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(as,bs,y,adjA=true,adjB=true)
+@test norm(as'*y+y*bs'-cr)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(acs,bcs,y)
+@test norm(acs*y+y*bcs-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(acs,bcs,y,adjA=true)
+@test norm(acs'*y+y*bcs-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(acs,bcs,y,adjB=true)
+@test norm(acs*y+y*bcs'-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(acs,bcs,y,adjA=true,adjB=true)
+@test norm(acs'*y+y*bcs'-cc)/norm(y) < reltol
+
+end
+end
+
+
 # discrete Sylvester equations
 @testset "Discrete Sylvester equations" begin
 

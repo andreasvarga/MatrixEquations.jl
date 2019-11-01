@@ -1,32 +1,28 @@
 """
-    sep = lyapsepest(A :: AbstractMatrix; disc = false, her = false)
+    sep = lyapsepest(A; disc = false, her = false)
 
 Compute `sep`, an estimation of the separation of the continuous Lyapunov operator
-`L: X -> AX+XA'` if `disc = false` or of the discrete Lyapunov operator
-`L: X -> AXA'-X` if `disc = true`, by estimating ``\\sigma_{min}(L^{-1})``,
-the least singular value of the corresponding inverse operator ``M^{-1}``,
+``L:X \\rightarrow AX+XA'`` if `disc = false` or of the discrete Lyapunov operator
+``L:X \\rightarrow AXA'-X`` if `disc = true`, by estimating ``\\sigma_{min}(L^{-1})``,
+the least singular value of the corresponding inverse operator ``L^{-1}``,
 as the reciprocal of an estimate of ``\\|L^{-1}\\|_1``, the 1-norm of ``L^{-1}``.
-If `her = false` the Lyapunov operator `L:X -> Y` maps general square matrices `X`
-into general square matrices `Y`, and the associated `M := Matrix(L)` is a
-``n^2 \\times n^2`` matrix such that `vec(Y) = M*vec(X)`.
-If `her = true`, the Lyapunov operator `L:X -> Y` maps symmetric/Hermitian matrices `X`
-into symmetric/Hermitian matrices `Y`, and the associated `M := Matrix(L)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(Y)) = M*vec(triu(X))`.
-
+If `her = false` the Lyapunov operator ``L:X \\rightarrow Y`` maps general square matrices ``X``
+into general square matrices ``Y``, while if `her = true`, the Lyapunov operator ``L:X \\rightarrow Y`` maps symmetric/hermitian matrices ``X``
+into symmetric/hermitian matrices ``Y``. 
 It is expected that in most cases ``1/\\|L^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``L^{-1}``, does not differ from
+the _true_ reciprocal of the 1-norm of ``L^{-1}``, does not differ from
 ``\\sigma_{min}(L^{-1})`` by more than a
 factor of `n`, where `n` is the order of the square matrix `A`.
-The separation of the operator `L` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|L(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `L` can be computed as `sep```\\|L\\|_1``.
+The separation of the operator ``L`` is defined as
+```math
+\\text{sep} := \\displaystyle\\min_{X\\neq 0} \\frac{\\|L(X)\\|}{\\|X\\|}.
+```
+An estimate of the reciprocal condition number of ``L`` can be computed as `sep`/``\\|L\\|_1``.
 
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
-operators. Linear Algebra and its Applications 312:35–71, 2000.
+operators. Linear Algebra and its Applications, 312:35–71, 2000.
 
 # Examples
 ```jldoctest
@@ -55,7 +51,7 @@ julia> lyapsepest(Ad,disc=true,her=true)
 0.14437131601027722
 ```
 """
-function lyapsepest(A :: AbstractMatrix; disc = false, her = false)
+function lyapsepest(A::AbstractMatrix; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   T2 = promote_type(typeof(1.), eltype(A))
   if eltype(A) !== T2
@@ -92,39 +88,36 @@ function lyapsepest(A :: AbstractMatrix; disc = false, her = false)
    end
   return 1. / opnorm1est(M)
 end
-function lyapsepest(A :: Schur; disc = false, her = false)
+function lyapsepest(A::Schur; disc = false, her = false)
    M = invlyapsop(A.T,disc = disc,her = her)
    return 1. / opnorm1est(M)
 end
 """
-    sep = lyapsepest(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+    sep = lyapsepest(A, E; disc = false, her = false)
 
 Compute `sep`, an estimation of the separation of the continuous Lyapunov operator
-`L: X -> AXE'+EXA'` if `disc = false` or of the discrete Lyapunov operator
-`L: X -> AXA'-EXE'` if `disc = true`, by estimating ``\\sigma_{min}(L^{-1})``,
+``L:X \\rightarrow AXE'+EXA'`` if `disc = false` or of the discrete Lyapunov operator
+``L:X \\rightarrow AXA'-EXE'`` if `disc = true`, by estimating ``\\sigma_{min}(L^{-1})``,
 the least singular value of the corresponding inverse operator ``L^{-1}``,
 as the reciprocal of an estimate of ``\\|L^{-1}\\|_1``, the 1-norm of ``L^{-1}``.
-If `her = false` the Lyapunov operator `L:X -> Y` maps general square matrices `X`
-into general square matrices `Y`, and the associated `M := Matrix(L)` is a
-``n^2 \\times n^2`` matrix such that `vec(Y) = M*vec(X)`.
-If `her = true`, the Lyapunov operator `L:X -> Y` maps symmetric/Hermitian matrices `X`
-into symmetric/Hermitian matrices `Y`, and the associated `M := Matrix(L)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(Y)) = M*vec(triu(X))`.
-
+If `her = false` the Lyapunov operator ``L:X \\rightarrow Y`` maps general square matrices ``X``
+into general square matrices ``Y``, while if `her = true`, the Lyapunov operator 
+``L:X \\rightarrow Y`` maps symmetric/hermitian matrices ``X``
+into symmetric/hermitian matrices ``Y``. 
 It is expected that in most cases ``1/\\|L^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``L^{-1}``, does not differ from
+the _true_ reciprocal of the 1-norm of ``L^{-1}``, does not differ from
 ``\\sigma_{min}(L^{-1})`` by more than a
-factor of `n`, where `n` is the order of the square matrix `A`.
-The separation of the operator `L` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|L(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `L` can be computed as `sep```\\|L\\|_1``.
+factor of ``n``, where ``n`` is the order of the square matrix `A`.
+The separation of the operator ``L`` is defined as
+```math
+\\text{sep} := \\displaystyle\\min_{X\\neq 0} \\frac{\\|L(X)\\|}{\\|X\\|}.
+```
+An estimate of the reciprocal condition number of ``L`` can be computed as `sep`/``\\|L\\|_1``.
 
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
-operators. Linear Algebra and its Applications 312:35–71, 2000.
+operators. Linear Algebra and its Applications, 312:35–71, 2000.
 
 # Examples
 ```jldoctest
@@ -168,7 +161,7 @@ julia> lyapsepest(Ad,-Ad,disc=true)   # null separation
 0.0
 ```
 """
-function lyapsepest(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+function lyapsepest(A::AbstractMatrix, E::AbstractMatrix; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   if isequal(E,I) && size(E,1) == n
      return lyapsepest(A, disc = disc, her = her)
@@ -216,30 +209,30 @@ function lyapsepest(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her 
   end
   return 1. / opnorm1est(M)
 end
-lyapsepest(A :: AbstractMatrix, E :: UniformScaling{Bool}; disc = false, her = false) =
-lyapsepest(A :: AbstractMatrix, disc = disc, her = her)
-function lyapsepest(AE :: GeneralizedSchur; disc = false, her = false)
+lyapsepest(A::AbstractMatrix, E::UniformScaling{Bool}; disc = false, her = false) =
+lyapsepest(A::AbstractMatrix, disc = disc, her = her)
+function lyapsepest(AE::GeneralizedSchur; disc = false, her = false)
    M = invlyapsop(AE.S, AE.T, disc = disc, her = her)
    return 1. / opnorm1est(M)
 end
 """
-    sep = sylvsepest(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
+    sep = sylvsepest(A, B; disc = false)
 
 Compute `sep`, an estimation of the separation of the continuous Sylvester operator
-`M: X -> AX+XB` if `disc = false` or of the discrete Sylvester operator
-`M: X -> AXB+X` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
+``M:X \\rightarrow AX+XB`` if `disc = false` or of the discrete Sylvester operator
+``M:X \\rightarrow AXB+X`` if `disc = true`, by estimating ``\\sigma_{min}(M^{-1})``,
 the least singular value of the corresponding inverse operator ``M^{-1}``,
 as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
 It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+the _true_ reciprocal of the 1-norm of ``M^{-1}``, does not differ from
 ``\\sigma_{min}(M^{-1})`` by more than a
-factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
+factor of ``\\sqrt{mn}``, where `m`  and `n` are the orders of the square matrices
 `A` and `B`, respectively.
-The separation of the operator `M` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
+The separation of the operator ``M`` is defined as
+```math
+\\text{sep} := \\displaystyle\\min_{X\\neq 0} \\frac{\\|M(X)\\|}{\\|X\\|}.
+```
+An estimate of the reciprocal condition number of ``M`` can be computed as `sep`/``\\|M\\|_1``.
 
 # Examples
 ```jldoctest
@@ -305,22 +298,22 @@ function sylvsepest(A::AbstractMatrix, B::AbstractMatrix; disc = false)
    return 1. / opnorm1est(M)
 end
 """
-    sep = sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
+    sep = sylvsepest(A, B, C, D)
 
 Compute `sep`, an estimation of the separation of the generalized Sylvester operator
-`M: X -> AXB+CXD`, by estimating ``\\sigma_{min}(M^{-1})``,
+``M:X \\rightarrow AXB+CXD``, by estimating ``\\sigma_{min}(M^{-1})``,
 the least singular value of the corresponding inverse operator ``M^{-1}``,
 as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
 It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+the _true_ reciprocal of the 1-norm of ``M^{-1}``, does not differ from
 ``\\sigma_{min}(M^{-1})`` by more than a
-factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
+factor of ``\\sqrt{2mn}``, where ``m``  and ``n`` are the orders of the square matrices
 `A` and `B`, respectively.
 The separation operation is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|AXB+CXD\\|}{\\|X\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
+```math
+\\text{sep} := \\displaystyle\\min_{X\\neq 0} \\frac{\\|AXB+CXD\\|}{\\|X\\|}.
+```
+An estimate of the reciprocal condition number of ``M`` can be computed as `sep`/``\\|M\\|_1``.
 
 # Examples
 ```jldoctest
@@ -424,22 +417,22 @@ function sylvsepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::
     end
 end
 """
-    sep = sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
+    sep = sylvsyssepest(A, B, C, D)
 
-Compute `sep`, an estimation of the separation of the generalized Sylvester operator
-`M: (X,Y) -> [ AX+YB; CX+YD ] `, by estimating ``\\sigma_{min}(M^{-1})``,
+Compute `sep`, an estimation of the separation of the Sylvester system operator
+``M:(X,Y) \\rightarrow (AX+YB, CX+YD)``, by estimating ``\\sigma_{min}(M^{-1})``,
 the least singular value of the corresponding inverse operator ``M^{-1}``,
 as the reciprocal of an estimate of ``\\|M^{-1}\\|_1``, the 1-norm of ``M^{-1}``.
 It is expected that in most cases ``1/\\|M^{-1}\\|_1``,
-the `true` reciprocal of the 1-norm of ``M^{-1}``, does not differ from
+the _true_ reciprocal of the 1-norm of ``M^{-1}``, does not differ from
 ``\\sigma_{min}(M^{-1})`` by more than a
-factor of `sqrt(m*n)`, where `m`  and `n` are the orders of the square matrices
+factor of ``\\sqrt{2mn}``, where ``m``  and ``n`` are the orders of the square matrices
 `A` and `B`, respectively.
 The separation operation is defined as
-
-``\\text{sep} = \\displaystyle\\min_{[X\\; Y]\\neq 0} \\frac{\\|M(X,Y)\\|}{\\|[X \\; Y]\\|}``
-
-An estimate of the reciprocal condition number of `M` can be computed as `sep```\\|M\\|_1``.
+```math
+\\text{sep} := \\displaystyle\\min_{[X\\; Y]\\neq 0} \\frac{\\|M(X,Y)\\|}{\\|[X \\; Y]\\|}
+```
+An estimate of the reciprocal condition number of ``M`` can be computed as `sep`/``\\|M\\|_1``.
 
 # Example
 ```jldoctest
@@ -453,12 +446,12 @@ julia> B = [1. 1.; 1. 2.]
  1.0  1.0
  1.0  2.0
 
-julia> C = [1. -2.; -2. -1]
+julia> C = [1. -2.; -2. -1.]
 2×2 Array{Float64,2}:
   1.0  -2.0
  -2.0  -1.0
 
-julia> D = [1. -1.; -2. 2]
+julia> D = [1. -1.; -2. 2.]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
@@ -511,14 +504,15 @@ function sylvsyssepest(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, 
    return 1. / opnorm1est(invsylvsysop(AS, BS, CS, DS) )
 end
 """
-    opnorm1(op::AbstractLinearOperator)
+    γ = opnorm1(op)
 
-Compute the induced operator `1`-norm as the maximum of `1`-norm of the
-columns of the `m x n` matrix associated to the linear operator `op`:
+Compute `γ`, the induced `1`-norm of the linear operator `op`, as the maximum of `1`-norm of the
+columns of the associated `m x n` matrix ``M`` `= Matrix(op)`:
 ```math
-\\|op\\|_1 = \\max_{1 ≤ j ≤ n} \\|op * e_j\\|_1
+\\gamma = \\|op\\|_1 := \\max_{1 ≤ j ≤ n} \\|M_j\\|_1
 ```
-with ``e_j`` the `j`-th column of the `n`-th order identity matrix.
+with ``M_j`` the `j`-th column of ``M``. This function is not recommended to be used for large order operators.
+
 
 # Examples
 ```jldoctest
@@ -535,7 +529,7 @@ julia> opnorm1(invlyapop(A))
 3.7666666666666706
 ```
 """
-function opnorm1(op :: AbstractLinearOperator)
+function opnorm1(op::AbstractLinearOperator)
   (m, n) = size(op)
   T = eltype(op)
   Tnorm = typeof(float(real(zero(T))))
@@ -558,11 +552,11 @@ function opnorm1(op :: AbstractLinearOperator)
   return convert(Tnorm, nrm)
 end
 """
-    γ = opnorm1est(op :: AbstractLinearOperator)
+    γ = opnorm1est(op)
 
 Compute `γ`, a lower bound of the `1`-norm of the square linear operator `op`, using
 reverse communication based computations to evaluate `op * x` and `op' * x`.
-It is expected that in most cases ``γ > \\|A\\|_1/10``, which is usually
+It is expected that in most cases ``\\gamma > \\|op\\|_1/10``, which is usually
 acceptable for estimating the condition numbers of linear operators.
 
 # Examples
@@ -580,7 +574,7 @@ julia> opnorm1est(invlyapop(A))
 3.76666666666667
 ```
 """
-function opnorm1est(op :: AbstractLinearOperator)
+function opnorm1est(op::AbstractLinearOperator)
   m, n = size(op)
   if m != n
     throw(DimensionMismatch("The operator op must be square"))
@@ -622,7 +616,7 @@ function opnorm1est(op :: AbstractLinearOperator)
 end
 
 """
-    sep = opsepest(opinv :: AbstractLinearOperator; exact = false)
+    sep = opsepest(opinv; exact = false)
 
 Compute `sep`, an estimation of the `1`-norm separation of a linear operator
 `op`, where `opinv` is the inverse operator `inv(op)`. The estimate is computed as
@@ -631,8 +625,9 @@ the computed exact value of the `1`-norm, if `exact = true`.
 The `exact = true` option is not recommended for large order operators.
 
 The separation of the operator `op` is defined as
-
-``\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|op(X)\\|}{\\|X\\|}``
+```math
+\\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|op*X\\|}{\\|X\\|}.
+```      
 
 An estimate of the reciprocal condition number of `op` can be computed as ``\\text{sep}/\\|op\\|_1``.
 
@@ -657,7 +652,7 @@ julia> 1/opnorm1(invlyapop(A))
 0.26548672566371656
 ```
 """
-function opsepest(opinv :: AbstractLinearOperator; exact = false)
+function opsepest(opinv::AbstractLinearOperator; exact = false)
    ZERO = zero(0.)
    BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
    exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
@@ -667,7 +662,7 @@ function opsepest(opinv :: AbstractLinearOperator; exact = false)
    return one(1.)/opinvnrm1
 end
 """
-    rcond = oprcondest(op::AbstractLinearOperator, opinv :: AbstractLinearOperator; exact = false)
+    rcond = oprcondest(op, opinv; exact = false)
 
 Compute `rcond`, an estimation of the `1`-norm reciprocal condition number
 of a linear operator `op`, where `opinv` is the inverse operator `inv(op)`. The estimate is computed as
@@ -675,7 +670,7 @@ of a linear operator `op`, where `opinv` is the inverse operator `inv(op)`. The 
 computed exact values of the `1`-norm, if `exact = true`.
 The `exact = true` option is not recommended for large order operators.
 
-Note: No check is performed to verify that `opinv = inv(op)`.
+_Note:_ No check is performed to verify that `opinv = inv(op)`.
 
 # Examples
 ```jldoctest
@@ -698,11 +693,11 @@ julia> 1/opnorm1(lyapop(A))/opnorm1(invlyapop(A))
 0.008849557522123885 
 ```
 """
-function oprcondest(op:: LinearOperator, opinv :: LinearOperator; exact = false)
+function oprcondest(op:: LinearOperator, opinv::LinearOperator; exact = false)
    return opsepest(op, exact = exact)*opsepest(opinv, exact = exact)
 end
 """
-    rcond = oprcondest(opnrm1::Real, opinv :: AbstractLinearOperator; exact = false)
+    rcond = oprcondest(opnrm1, opinv; exact = false)
 
 Compute `rcond`, an estimate of the `1`-norm reciprocal condition number
 of a linear operator `op`, where `opnrm1` is an estimate of the `1`-norm of `op` and
@@ -711,7 +706,7 @@ of a linear operator `op`, where `opnrm1` is an estimate of the `1`-norm of `op`
 the computed exact value of the `1`-norm, if `exact = true`.
 The `exact = true` option is not recommended for large order operators.
 """
-function oprcondest(opnrm1::Real, opinv :: AbstractLinearOperator; exact = false)
+function oprcondest(opnrm1::Real, opinv::AbstractLinearOperator; exact = false)
   ZERO = zero(0.)
   if opnrm1 == ZERO || size(opinv,1) == 0
      return ZERO

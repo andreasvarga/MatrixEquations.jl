@@ -28,7 +28,7 @@ Solve the equation `(α+β)x = γ`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -38,7 +38,7 @@ julia> B = [1. 1.; 1. 2.]
  1.0  1.0
  1.0  2.0
 
-julia> C = [-1. -2.; 2. -1]
+julia> C = [-1. -2.; 2. -1.]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
@@ -95,22 +95,18 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
 
    realcase = eltype(A) <: AbstractFloat
    if adjA
-      realcase ? TA = 'T' : TA = 'C'
       RA, QA = schur(A.parent)
    else
       RA, QA = schur(A)
-      TA = 'N'
    end
    if adjB
-      realcase ? TB = 'T' : TB = 'C'
       RB, QB = schur(B.parent)
    else
       RB, QB = schur(B)
-      TB = 'N'
    end
    D = adjoint(QA) * (C*QB)
-   Y, scale = LAPACK.trsyl!(TA, TB, RA, RB, D)
-   rmul!(QA*(Y * adjoint(QB)), inv(scale))
+   Y = sylvcs!(RA, RB, D, adjA = adjA, adjB = adjB)
+   QA*(Y * adjoint(QB))
 end
 # solve X(B+α) = C or (α+β)X = C
 sylvc(A::Union{Real,Complex,UniformScaling},B::Union{AbstractMatrix,UniformScaling},C::AbstractMatrix) = C/(A*I+B)
@@ -123,7 +119,7 @@ sylvc(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = 
 """
     X = sylvd(A,B,C)
 
-Solves the discrete Sylvester matrix equation
+Solve the discrete Sylvester matrix equation
 
                 AXB + X = C
 
@@ -151,7 +147,7 @@ Solve the equation `(αβ+1)x = γ`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -161,7 +157,7 @@ julia> B = [1. 1.; 1. 2.]
  1.0  1.0
  1.0  2.0
 
-julia> C = [-1. -2.; 2. -1]
+julia> C = [-1. -2.; 2. -1.]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
@@ -230,9 +226,9 @@ sylvd(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = 
 
 Solve the generalized Sylvester matrix equation
 
-    AXB + CXD = E
+              AXB + CXD = E
 
-using generalized Schur form based approach. `A`, `B`, `C` and `D` are
+using a generalized Schur form based approach. `A`, `B`, `C` and `D` are
 square matrices. The pencils `A-λC` and `D+λB` must be regular and
 must not have common eigenvalues.
 
@@ -256,7 +252,7 @@ Solve the generalized Sylvester matrix equation `AXB +CXδ = E`.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -266,17 +262,17 @@ julia> B = [1. 1.; 1. 2.]
  1.0  1.0
  1.0  2.0
 
-julia> C = [-1. -2.; 2. -1]
+julia> C = [-1. -2.; 2. -1.]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
 
-julia> D = [1. -2.; -2. -1]
+julia> D = [1. -2.; -2. -1.]
 2×2 Array{Float64,2}:
   1.0  -2.0
  -2.0  -1.0
 
-julia> E = [1. -1.; -2. 2]
+julia> E = [1. -1.; -2. 2.]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
@@ -376,11 +372,11 @@ Solve the Sylvester system of matrix equations
                 AX + YB = C
                 DX + YE = F,
 
-where `(A,D)`, `(B,E)` are pairs of square matrices of same size.
-The pencils `A-λD` and `-isgn*(B-λE)` must be regular and must not have common eigenvalues.
+where `(A,D)`, `(B,E)` are pairs of square matrices of the same size.
+The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues.
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -390,22 +386,22 @@ julia> B = [1. 1.; 1. 2.]
  1.0  1.0
  1.0  2.0
 
-julia> C = [-1. -2.; 2. -1]
+julia> C = [-1. -2.; 2. -1.]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
 
-julia> D = [1. -2.; -2. -1]
+julia> D = [1. -2.; -2. -1.]
 2×2 Array{Float64,2}:
   1.0  -2.0
  -2.0  -1.0
 
-julia> E = [1. -1.; -2. 2]
+julia> E = [1. -1.; -2. 2.]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
 
-julia> F = [1. -1.; -2. 2]
+julia> F = [1. -1.; -2. 2.]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
@@ -495,12 +491,12 @@ Solve the dual Sylvester system of matrix equations
        AX + DY = C
        XB + YE = F ,
 
-where `(A,D)`, `(B,E)` are pairs of square matrices of same size.
-The pencils `A-λD` and `-isgn*(B-λE)` must be regular and must not have common eigenvalues.
+where `(A,D)`, `(B,E)` are pairs of square matrices of the same size.
+The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues.
 
 # Example
 ```jldoctest
-julia> A = [3. 4.; 5. 6]
+julia> A = [3. 4.; 5. 6.]
 2×2 Array{Float64,2}:
  3.0  4.0
  5.0  6.0
@@ -510,22 +506,22 @@ julia> B = [1. 1.; 1. 2.]
  1.0  1.0
  1.0  2.0
 
-julia> C = [-1. -2.; 2. -1]
+julia> C = [-1. -2.; 2. -1.]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
 
-julia> D = [1. -2.; -2. -1]
+julia> D = [1. -2.; -2. -1.]
 2×2 Array{Float64,2}:
   1.0  -2.0
  -2.0  -1.0
 
-julia> E = [1. -1.; -2. 2]
+julia> E = [1. -1.; -2. 2.]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
 
-julia> F = [1. -1.; -2. 2]
+julia> F = [1. -1.; -2. 2.]
 2×2 Array{Float64,2}:
   1.0  -1.0
  -2.0   2.0
@@ -609,11 +605,44 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
     end
 end
 """
+    sylvcs!(A,B,C; adjA = false, adjB = false)
+
+Solve the continuous Sylvester matrix equation
+
+                op(A)X + Xop(B) =  C,
+
+where `op(A) = A` or `op(A) = A'` if `adjA = false` or `adjA = true`, respectively,
+and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively.
+`A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
+common eigenvalues. `C` contains on output the solution `X`.
+"""
+function sylvcs!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{Array{Float64,2},Array{Float32,2},Matrix{Complex{Float64}},Matrix{Complex{Float32}}}}
+   """
+   This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
+   Reference:
+   R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+   Comm. ACM, 15:820–826, 1972.
+   """
+   realcase = eltype(A) <: AbstractFloat
+   if adjA
+      realcase ? TA = 'T' : TA = 'C'
+    else
+      TA = 'N'
+   end
+   if adjB
+      realcase ? TB = 'T' : TB = 'C'
+   else
+      TB = 'N'
+   end
+   C, scale = LAPACK.trsyl!(TA, TB, A, B, C)
+   rmul!(C, inv(scale))
+end
+"""
     sylvds!(A,B,C; adjA = false, adjB = false)
 
 Solve the discrete Sylvester matrix equation
 
-                op(A)Xop(B) + X =  C
+                op(A)Xop(B) + X =  C,
 
 where `op(A) = A` or `op(A) = A'` if `adjA = false` or `adjA = true`, respectively,
 and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively.
@@ -1031,9 +1060,9 @@ where `A`, `B`, `C` and `D` are square matrices, and
 
 `op2(B) = B'` and `op2(D) = D'` if `adjBD = true`.
 
-The matrix pair `(A,C)` is in generalized real or complex Schur forms.
-The matrix pair `(B,D)` is in generalized real or complex Schur forms if `DBSchur = false`
-or the matrix pair `(D,B)` is in generalized real or complex Schur forms if `DBSchur = true`.
+The matrix pair `(A,C)` is in a generalized real or complex Schur form.
+The matrix pair `(B,D)` is in a generalized real or complex Schur form if `DBSchur = false`
+or the matrix pair `(D,B)` is in a generalized real or complex Schur form if `DBSchur = true`.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
 function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Float64,2},Array{Float32,2}}}
