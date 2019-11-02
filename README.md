@@ -50,10 +50,7 @@ The current version of the package includes the following functions:
    * **opnorm1est** Estimation of 1-norm of a linear operator.
    * **oprcondest** Estimation of the reciprocal 1-norm condition number of a linear operator.
    * **opsepest** Estimation of the 1-norm separation a linear operator.
-   * **lyapsepest** Estimation of the separations of Lyapunov operators.
-   * **sylvsepest** Estimation of the separations of Sylvester operators.
-   * **sylvsyssepest** Estimation of the separation of a Sylvester system operator.
-
+   
 The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
 
 ## Future plans

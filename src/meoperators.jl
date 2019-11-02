@@ -1,5 +1,5 @@
 """
-    trmat(n::Int, m::Int) -> M::LinearOperator
+    M = trmat(n, m) 
 
 Define the transposition operator `M: X -> X'` for all `n x m` matrices.
 """
@@ -25,28 +25,28 @@ end
 trmat(n::Int) = trmat(n,n)
 trmat(dims::Tuple{Int,Int}) = trmat(dims[1],dims[2])
 """
-    trmat(X::AbstractMatrix) -> M::LinearOperator
+    M = trmat(A) 
 
-Define the transposition operator `M: X -> X'` of all matrices of the size of `X`.
+Define the transposition operator `M: X -> X'` of all matrices of the size of `A`.
 """
-trmat(A::AbstractMatrix) = trmat(size(A))
+trmat(A) = trmat(size(A))
 """
-    lyapop(A :: AbstractMatrix; disc = false, her = false) -> L::LinearOperator
+    L = lyapop(A; disc = false, her = false) 
 
 Define, for an `n x n` matrix `A`, the continuous Lyapunov operator `L:X -> AX+XA'`
 if `disc = false` or the discrete Lyapunov operator `L:X -> AXA'-X` if `disc = true`.
 If `her = false` the Lyapunov operator `L:X -> Y` maps general square matrices `X`
-into general square matrices `Y`, and the associated `M = Matrix(L)` is a
-``n^2 \\times n^2`` matrix such that `vec(Y) = M*vec(X)`.
+into general square matrices `Y`, and the associated matrix `M = Matrix(L)` is 
+``n^2 \\times n^2``.
 If `her = true` the Lyapunov operator `L:X -> Y` maps symmetric/Hermitian matrices `X`
-into symmetric/Hermitian matrices `Y`, and the associated `M = Matrix(L)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(Y)) = M*vec(triu(X))`.
+into symmetric/Hermitian matrices `Y`, and the associated matrix `M = Matrix(L)` is 
+``n(n+1)/2 \\times n(n+1)/2``.
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapop(A :: AbstractMatrix; disc = false, her = false)
+function lyapop(A; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   T = eltype(A)
   function prod(x)
@@ -112,22 +112,22 @@ function lyapop(A :: AbstractMatrix; disc = false, her = false)
   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> L::LinearOperator
+    L = lyapop(A, E; disc = false, her = false) 
 
 Define, for a pair `(A,E)` of `n x n` matrices, the continuous Lyapunov operator `L:X -> AXE'+EXA'`
 if `disc = false` or the discrete Lyapunov operator `L:X -> AXA'-EXE'` if `disc = true`.
 If `her = false` the Lyapunov operator `L:X -> Y` maps general square matrices `X`
-into general square matrices `Y`, and the associated `M = Matrix(L)` is a
-``n^2 \\times n^2`` matrix such that `vec(Y) = M*vec(X)`.
+into general square matrices `Y`, and the associated matrix `M = Matrix(L)` is 
+``n^2 \\times n^2``.
 If `her = true` the Lyapunov operator `L:X -> Y` maps symmetric/Hermitian matrices `X`
 into symmetric/Hermitian matrices `Y`, and the associated `M = Matrix(L)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(Y)) = M*vec(triu(X))`.
+``n(n+1)/2 \\times n(n+1)/2``.
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+function lyapop(A, E; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   if n != LinearAlgebra.checksquare(E)
     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
@@ -196,23 +196,23 @@ function lyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = fa
   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapop(A :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
+    LINV = invlyapop(A; disc = false, her = false) 
 
 Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AX+XA'` for `disc = false`
 or the inverse of the discrete Lyapunov operator `L:X -> AXA'-X` for `disc = true`, where
 `A` is an `n x n` matrix.
 If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
-into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+into general square matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n^2 \\times n^2``.
 If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
-into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+into symmetric/Hermitian matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n(n+1)/2 \\times n(n+1)/2``.
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapop(A :: AbstractMatrix; disc = false, her = false)
+function invlyapop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
    function prod(x)
@@ -300,23 +300,23 @@ function invlyapop(A :: AbstractMatrix; disc = false, her = false)
    return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
+    LINV = invlyapop(A, E; disc = false, her = false) 
 
 Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AXE'+EXA'` for `disc = false`
 or the inverse of the discrete Lyapunov operator `L:X -> AXA'-EXE'` for `disc = true`, where
 `(A,E)` is a pair of `n x n` matrices.
 If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
-into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+into general square matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n^2 \\times n^2``.
 If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
-into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+into symmetric/Hermitian matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n(n+1)/2 \\times n(n+1)/2``.
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+function invlyapop(A, E; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    if n != LinearAlgebra.checksquare(E)
      throw(DimensionMismatch("E must be a square matrix of dimension $n"))
@@ -407,23 +407,23 @@ function invlyapop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her =
    return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 """
-    invlyapsop(A :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
+    LINV = invlyapsop(A; disc = false, her = false) 
 
 Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AX+XA'` for `disc = false`
 or the inverse of the discrete Lyapunov operator `L:X -> AXA'-X` for `disc = true`, where
 `A` is an `n x n` matrix in Schur form.
 If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
-into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+into general square matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n^2 \\times n^2``.
 If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
-into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+into symmetric/Hermitian matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n(n+1)/2 \\times n(n+1)/2``.
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
+function invlyapsop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
    if isa(A,Adjoint)
@@ -526,23 +526,23 @@ function invlyapsop(A :: AbstractMatrix; disc = false, her = false)
 end
 invlyapsop(A :: Schur; disc = false, her = false) = invlyapsop(A.T,disc = disc,her = her)
 """
-    invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false) -> LINV::LinearOperator
+    LINV = invlyapsop(A, E; disc = false, her = false) 
 
 Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AXE'+EXA'` for `disc = false`
 or the inverse of the discrete Lyapunov operator `L:X -> AXA'-EXE'` for `disc = true`, where
 `(A,E)` is a pair of `n x n` matrices in generalized Schur form.
 If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
-into general square matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n^2 \\times n^2`` matrix such that `vec(X) = M*vec(Y)`.
+into general square matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n^2 \\times n^2``.
 If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
-into symmetric/Hermitian matrices `X`, and the associated `M = Matrix(LINV)` is a
-``n(n+1)/2 \\times n(n+1)/2`` matrix such that `vec(triu(X)) = M*vec(triu(Y))`.
+into symmetric/Hermitian matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
+``n(n+1)/2 \\times n(n+1)/2``.
 For the definitions of the Lyapunov operators see:
 
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her = false)
+function invlyapsop(A, E; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    if n != LinearAlgebra.checksquare(E)
      throw(DimensionMismatch("E must be a square matrix of dimension $n"))
@@ -627,12 +627,12 @@ function invlyapsop(A :: AbstractMatrix, E :: AbstractMatrix; disc = false, her 
 end
 invlyapsop(AE :: GeneralizedSchur; disc = false, her = false) = invlyapsop(AE.S, AE.T, disc = disc, her = her)
 """
-    sylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> M::LinearOperator
+    M = sylvop(A, B; disc = false) 
 
 Define the continuous Sylvester operator `M: X -> AX+XB` if `disc = false`
-or the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`.
+or the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices.
 """
-function sylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
+function sylvop(A, B; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
@@ -657,12 +657,12 @@ function sylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> MINV::LinearOperator
+    MINV = invsylvop(A, B; disc = false) 
 
 Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
-or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`.
+or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices.
 """
-function invsylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
+function invsylvop(A, B; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
@@ -723,12 +723,12 @@ function invsylvop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false) -> MINV::LinearOperator
+    MINV = invsylvsop(A, B; disc = false) 
 
 Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
-or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are in Schur forms.
+or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices in Schur forms.
 """
-function invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
+function invsylvsop(A, B; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = eltype(A)
@@ -870,12 +870,13 @@ function invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix; disc = false)
   F3 = typeof(ctprod)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
+invsylvsop(A :: Schur, B :: Schur; disc = false, her = false) = invlyapsop(A.T,B.T,disc = disc,her = her)
 """
-    sylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> M::LinearOperator
+    M = sylvop(A, B, C, D) 
 
-Define the generalized Sylvester operator `M: X -> AXB+CXD`.
+Define the generalized Sylvester operator `M: X -> AXB+CXD`, where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function sylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function sylvop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)
@@ -900,11 +901,12 @@ function sylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> MINV::LinearOperator
+    MINV = invsylvop(A, B, C, D) 
 
-Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`.
+Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`, 
+where (A,C) and (B,D) a pairs of square matrices.
 """
-function invsylvop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function invsylvop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)
@@ -953,13 +955,13 @@ end
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvsop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix; DBSchur = false) -> MINV::LinearOperator
+    MINV = invsylvsop(A, B, C, D; DBSchur = false) 
 
 Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`,
-with the pairs `(A,C)` and `(B,D)` in generalized Schur forms. If DBSchur = true,
+with the pairs `(A,C)` and `(B,D)` in generalized Schur forms. If `DBSchur = true`,
 the pair `(D,B)` is in generalized Schur form.
 """
-function invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix; DBSchur = false)
+function invsylvsop(A, B, C, D; DBSchur = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)
@@ -1072,11 +1074,12 @@ function invsylvsop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatri
 end
 
 """
-    sylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix) -> M::LinearOperator
+    M = sylvsysop(A, B, C, D) 
 
-Define the operator `M: (X,Y) -> [ AX+YB; CX+YD ]`.
+Define the operator `M: (X,Y) -> (AX+YB, CX+YD )`, 
+where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function sylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function sylvsysop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
@@ -1105,11 +1108,12 @@ function sylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix
   return LinearOperator{T,F1,F2,F3}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvsysop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> MINV::LinearOperator
+    MINV = invsylvsysop(A, B, C, D) 
 
-Define MINV, the inverse of the linear operator `M: (X,Y) -> [ AX+YB; CX+YD ]`.
+Define MINV, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD )`, 
+where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function invsylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function invsylvsysop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)
@@ -1165,12 +1169,12 @@ function invsylvsysop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMat
   return LinearOperator{T,F1,F2,F3}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 """
-    invsylvsyssop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) -> MINV::LinearOperator
+    MINV = invsylvsyssop(A, B, C, D) 
 
-Define MINV, the inverse of the linear operator `M: (X,Y) -> [ AX+YB; CX+YD ]`,
+Define MINV, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD)`,
 with the pairs `(A,C)` and `(B,D)` in generalized Schur forms.
 """
-function invsylvsyssop(A :: AbstractMatrix, B :: AbstractMatrix, C :: AbstractMatrix, D :: AbstractMatrix)
+function invsylvsyssop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   if [m; n] != LinearAlgebra.checksquare(C,D)

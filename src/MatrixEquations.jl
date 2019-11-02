@@ -20,7 +20,6 @@ export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
 export sylvsys, dsylvsys, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
-export lyapsepest, sylvsepest, sylvsyssepest
 export opnorm1, opnorm1est, oprcondest, opsepest, trmat
 export lyapop, invlyapop, invlyapsop
 export sylvop, invsylvop, invsylvsop
