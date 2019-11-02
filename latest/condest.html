@@ -9,7 +9,7 @@ julia&gt; opnorm1(lyapop(A))
 30.0
 
 julia&gt; opnorm1(invlyapop(A))
-3.7666666666666706</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L506-L531">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.opnorm1est" href="#MatrixEquations.opnorm1est"><code>MatrixEquations.opnorm1est</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">γ = opnorm1est(op)</code></pre><p>Compute <code>γ</code>, a lower bound of the <code>1</code>-norm of the square linear operator <code>op</code>, using reverse communication based computations to evaluate <code>op * x</code> and <code>op&#39; * x</code>. It is expected that in most cases <span>$\gamma &gt; \|op\|_1/10$</span>, which is usually acceptable for estimating the condition numbers of linear operators.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
+3.7666666666666706</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/ce5fb7b78f21b0331d8b817265f740dd0add479a/src/condest.jl#L1-L26">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.opnorm1est" href="#MatrixEquations.opnorm1est"><code>MatrixEquations.opnorm1est</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">γ = opnorm1est(op)</code></pre><p>Compute <code>γ</code>, a lower bound of the <code>1</code>-norm of the square linear operator <code>op</code>, using reverse communication based computations to evaluate <code>op * x</code> and <code>op&#39; * x</code>. It is expected that in most cases <span>$\gamma &gt; \|op\|_1/10$</span>, which is usually acceptable for estimating the condition numbers of linear operators.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
 3×3 Array{Float64,2}:
  -6.0  -2.0   1.0
   5.0   1.0  -1.0
@@ -19,7 +19,7 @@ julia&gt; opnorm1est(lyapop(A))
 18.0
 
 julia&gt; opnorm1est(invlyapop(A))
-3.76666666666667</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L554-L576">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.oprcondest" href="#MatrixEquations.oprcondest"><code>MatrixEquations.oprcondest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">rcond = oprcondest(op, opinv; exact = false)</code></pre><p>Compute <code>rcond</code>, an estimation of the <code>1</code>-norm reciprocal condition number of a linear operator <code>op</code>, where <code>opinv</code> is the inverse operator <code>inv(op)</code>. The estimate is computed as <span>$\text{rcond} = 1 / (\|op\|_1\|opinv\|_1)$</span>, using estimates of the <code>1</code>-norm, if <code>exact = false</code>, or computed exact values of the <code>1</code>-norm, if <code>exact = true</code>. The <code>exact = true</code> option is not recommended for large order operators.</p><p><em>Note:</em> No check is performed to verify that <code>opinv = inv(op)</code>.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
+3.76666666666667</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/ce5fb7b78f21b0331d8b817265f740dd0add479a/src/condest.jl#L49-L71">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.oprcondest" href="#MatrixEquations.oprcondest"><code>MatrixEquations.oprcondest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">rcond = oprcondest(op, opinv; exact = false)</code></pre><p>Compute <code>rcond</code>, an estimation of the <code>1</code>-norm reciprocal condition number of a linear operator <code>op</code>, where <code>opinv</code> is the inverse operator <code>inv(op)</code>. The estimate is computed as <span>$\text{rcond} = 1 / (\|op\|_1\|opinv\|_1)$</span>, using estimates of the <code>1</code>-norm, if <code>exact = false</code>, or computed exact values of the <code>1</code>-norm, if <code>exact = true</code>. The <code>exact = true</code> option is not recommended for large order operators.</p><p><em>Note:</em> No check is performed to verify that <code>opinv = inv(op)</code>.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
 3×3 Array{Float64,2}:
  -6.0  -2.0   1.0
   5.0   1.0  -1.0
@@ -35,7 +35,7 @@ julia&gt; oprcondest(lyapop(A),invlyapop(A),exact = true)
 0.008849557522123885
  
 julia&gt; 1/opnorm1(lyapop(A))/opnorm1(invlyapop(A))
-0.008849557522123885 </code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L664-L695">source</a><div><div><pre><code class="language-none">rcond = oprcondest(opnrm1, opinv; exact = false)</code></pre><p>Compute <code>rcond</code>, an estimate of the <code>1</code>-norm reciprocal condition number of a linear operator <code>op</code>, where <code>opnrm1</code> is an estimate of the <code>1</code>-norm of <code>op</code> and <code>opinv</code> is the inverse operator <code>inv(op)</code>. The estimate is computed as <span>$\text{rcond} = 1 / (\text{opnrm1}\|opinv\|_1)$</span>, using an estimate of the <code>1</code>-norm, if <code>exact = false</code>, or the computed exact value of the <code>1</code>-norm, if <code>exact = true</code>. The <code>exact = true</code> option is not recommended for large order operators.</p></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L699-L708">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.opsepest" href="#MatrixEquations.opsepest"><code>MatrixEquations.opsepest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">sep = opsepest(opinv; exact = false)</code></pre><p>Compute <code>sep</code>, an estimation of the <code>1</code>-norm separation of a linear operator <code>op</code>, where <code>opinv</code> is the inverse operator <code>inv(op)</code>. The estimate is computed as <span>$\text{sep}  = 1 / \|opinv\|_1$</span> , using an estimate of the <code>1</code>-norm, if <code>exact = false</code>, or the computed exact value of the <code>1</code>-norm, if <code>exact = true</code>. The <code>exact = true</code> option is not recommended for large order operators.</p><p>The separation of the operator <code>op</code> is defined as</p><div>\[\text{sep} = \displaystyle\min_{X\neq 0} \frac{\|op*X\|}{\|X\|}.\]</div><p>An estimate of the reciprocal condition number of <code>op</code> can be computed as <span>$\text{sep}/\|op\|_1$</span>.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl">julia&gt; A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
+0.008849557522123885 </code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/ce5fb7b78f21b0331d8b817265f740dd0add479a/src/condest.jl#L159-L190">source</a><div><div><pre><code class="language-none">rcond = oprcondest(opnrm1, opinv; exact = false)</code></pre><p>Compute <code>rcond</code>, an estimate of the <code>1</code>-norm reciprocal condition number of a linear operator <code>op</code>, where <code>opnrm1</code> is an estimate of the <code>1</code>-norm of <code>op</code> and <code>opinv</code> is the inverse operator <code>inv(op)</code>. The estimate is computed as <span>$\text{rcond} = 1 / (\text{opnrm1}\|opinv\|_1)$</span>, using an estimate of the <code>1</code>-norm, if <code>exact = false</code>, or the computed exact value of the <code>1</code>-norm, if <code>exact = true</code>. The <code>exact = true</code> option is not recommended for large order operators.</p></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/ce5fb7b78f21b0331d8b817265f740dd0add479a/src/condest.jl#L194-L203">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.opsepest" href="#MatrixEquations.opsepest"><code>MatrixEquations.opsepest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">sep = opsepest(opinv; exact = false)</code></pre><p>Compute <code>sep</code>, an estimation of the <code>1</code>-norm separation of a linear operator <code>op</code>, where <code>opinv</code> is the inverse operator <code>inv(op)</code>. The estimate is computed as <span>$\text{sep}  = 1 / \|opinv\|_1$</span> , using an estimate of the <code>1</code>-norm, if <code>exact = false</code>, or the computed exact value of the <code>1</code>-norm, if <code>exact = true</code>. The <code>exact = true</code> option is not recommended for large order operators.</p><p>The separation of the operator <code>op</code> is defined as</p><div>\[\text{sep} = \displaystyle\min_{X\neq 0} \frac{\|op*X\|}{\|X\|}.\]</div><p>An estimate of the reciprocal condition number of <code>op</code> can be computed as <span>$\text{sep}/\|op\|_1$</span>.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl">julia&gt; A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
 3×3 Array{Float64,2}:
  -6.0  -2.0   1.0
   5.0   1.0  -1.0
@@ -51,134 +51,4 @@ julia&gt; opsepest(invlyapop(A),exact = true)
 0.26548672566371656
 
 julia&gt; 1/opnorm1(invlyapop(A))
-0.26548672566371656</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L618-L654">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.lyapsepest" href="#MatrixEquations.lyapsepest"><code>MatrixEquations.lyapsepest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">sep = lyapsepest(A; disc = false, her = false)</code></pre><p>Compute <code>sep</code>, an estimation of the separation of the continuous Lyapunov operator <span>$L:X \rightarrow AX+XA&#39;$</span> if <code>disc = false</code> or of the discrete Lyapunov operator <span>$L:X \rightarrow AXA&#39;-X$</span> if <code>disc = true</code>, by estimating <span>$\sigma_{min}(L^{-1})$</span>, the least singular value of the corresponding inverse operator <span>$L^{-1}$</span>, as the reciprocal of an estimate of <span>$\|L^{-1}\|_1$</span>, the 1-norm of <span>$L^{-1}$</span>. If <code>her = false</code> the Lyapunov operator <span>$L:X \rightarrow Y$</span> maps general square matrices <span>$X$</span> into general square matrices <span>$Y$</span>, while if <code>her = true</code>, the Lyapunov operator <span>$L:X \rightarrow Y$</span> maps symmetric/hermitian matrices <span>$X$</span> into symmetric/hermitian matrices <span>$Y$</span>.  It is expected that in most cases <span>$1/\|L^{-1}\|_1$</span>, the <em>true</em> reciprocal of the 1-norm of <span>$L^{-1}$</span>, does not differ from <span>$\sigma_{min}(L^{-1})$</span> by more than a factor of <code>n</code>, where <code>n</code> is the order of the square matrix <code>A</code>. The separation of the operator <span>$L$</span> is defined as</p><div>\[\text{sep} := \displaystyle\min_{X\neq 0} \frac{\|L(X)\|}{\|X\|}.\]</div><p>An estimate of the reciprocal condition number of <span>$L$</span> can be computed as <code>sep</code>/<span>$\|L\|_1$</span>.</p><p>For the definitions of the Lyapunov operators see:</p><p>M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov operators. Linear Algebra and its Applications, 312:35–71, 2000.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; Ac = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
-3×3 Array{Float64,2}:
- -6.0  -2.0   1.0
-  5.0   1.0  -1.0
- -4.0  -2.0  -1.0
-
-julia&gt; lyapsepest(Ac)
-0.30792472968507323
-
-julia&gt; lyapsepest(Ac,her=true)
-0.3936325813328574
-
-julia&gt; Ad = [0.76 0.14 -0.38; 0.42 0.12 0.46; 0.06 0.34 0.72]
-3×3 Array{Float64,2}:
- 0.76  0.14  -0.38
- 0.42  0.12   0.46
- 0.06  0.34   0.72
-
-julia&gt; lyapsepest(Ad,disc=true)
-0.1215493965942189
-
-julia&gt; lyapsepest(Ad,disc=true,her=true)
-0.14437131601027722</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L1-L53">source</a><div><div><pre><code class="language-none">sep = lyapsepest(A, E; disc = false, her = false)</code></pre><p>Compute <code>sep</code>, an estimation of the separation of the continuous Lyapunov operator <span>$L:X \rightarrow AXE&#39;+EXA&#39;$</span> if <code>disc = false</code> or of the discrete Lyapunov operator <span>$L:X \rightarrow AXA&#39;-EXE&#39;$</span> if <code>disc = true</code>, by estimating <span>$\sigma_{min}(L^{-1})$</span>, the least singular value of the corresponding inverse operator <span>$L^{-1}$</span>, as the reciprocal of an estimate of <span>$\|L^{-1}\|_1$</span>, the 1-norm of <span>$L^{-1}$</span>. If <code>her = false</code> the Lyapunov operator <span>$L:X \rightarrow Y$</span> maps general square matrices <span>$X$</span> into general square matrices <span>$Y$</span>, while if <code>her = true</code>, the Lyapunov operator  <span>$L:X \rightarrow Y$</span> maps symmetric/hermitian matrices <span>$X$</span> into symmetric/hermitian matrices <span>$Y$</span>.  It is expected that in most cases <span>$1/\|L^{-1}\|_1$</span>, the <em>true</em> reciprocal of the 1-norm of <span>$L^{-1}$</span>, does not differ from <span>$\sigma_{min}(L^{-1})$</span> by more than a factor of <span>$n$</span>, where <span>$n$</span> is the order of the square matrix <code>A</code>. The separation of the operator <span>$L$</span> is defined as</p><div>\[\text{sep} := \displaystyle\min_{X\neq 0} \frac{\|L(X)\|}{\|X\|}.\]</div><p>An estimate of the reciprocal condition number of <span>$L$</span> can be computed as <code>sep</code>/<span>$\|L\|_1$</span>.</p><p>For the definitions of the Lyapunov operators see:</p><p>M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov operators. Linear Algebra and its Applications, 312:35–71, 2000.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; Ac = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
-3×3 Array{Float64,2}:
- -6.0  -2.0   1.0
-  5.0   1.0  -1.0
- -4.0  -2.0  -1.0
-
-julia&gt; Ec = [10. 3. 0.; 0. 5. -1.; 0. 0. 10.]
-3×3 Array{Float64,2}:
- 10.0  3.0   0.0
-  0.0  5.0  -1.0
-  0.0  0.0  10.0
-
-julia&gt; lyapsepest(Ac,Ec)
-1.6911585896904682
-
-julia&gt; lyapsepest(Ac,Ec,her=true)
-2.225560319078633
-
-julia&gt; Ad = [0.76 0.14 -0.38; 0.42 0.12 0.46; 0.06 0.34 0.72]
-3×3 Array{Float64,2}:
- 0.76  0.14  -0.38
- 0.42  0.12   0.46
- 0.06  0.34   0.72
-
-julia&gt; Ed = [1. 3. 0.; 0. 5. -1.; 0. 0. 1.]
-3×3 Array{Float64,2}:
- 1.0  3.0   0.0
- 0.0  5.0  -1.0
- 0.0  0.0   1.0
-
-julia&gt; lyapsepest(Ad,Ed,disc=true)
-0.08858505235206243
-
-julia&gt; lyapsepest(Ad,Ed,disc=true,her=true)
-0.10442981903050726
-
-julia&gt; lyapsepest(Ad,-Ad,disc=true)   # null separation
-0.0</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L95-L163">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.sylvsepest" href="#MatrixEquations.sylvsepest"><code>MatrixEquations.sylvsepest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">sep = sylvsepest(A, B; disc = false)</code></pre><p>Compute <code>sep</code>, an estimation of the separation of the continuous Sylvester operator <span>$M:X \rightarrow AX+XB$</span> if <code>disc = false</code> or of the discrete Sylvester operator <span>$M:X \rightarrow AXB+X$</span> if <code>disc = true</code>, by estimating <span>$\sigma_{min}(M^{-1})$</span>, the least singular value of the corresponding inverse operator <span>$M^{-1}$</span>, as the reciprocal of an estimate of <span>$\|M^{-1}\|_1$</span>, the 1-norm of <span>$M^{-1}$</span>. It is expected that in most cases <span>$1/\|M^{-1}\|_1$</span>, the <em>true</em> reciprocal of the 1-norm of <span>$M^{-1}$</span>, does not differ from <span>$\sigma_{min}(M^{-1})$</span> by more than a factor of <span>$\sqrt{mn}$</span>, where <code>m</code>  and <code>n</code> are the orders of the square matrices <code>A</code> and <code>B</code>, respectively. The separation of the operator <span>$M$</span> is defined as</p><div>\[\text{sep} := \displaystyle\min_{X\neq 0} \frac{\|M(X)\|}{\|X\|}.\]</div><p>An estimate of the reciprocal condition number of <span>$M$</span> can be computed as <code>sep</code>/<span>$\|M\|_1$</span>.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; Ac = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
-3×3 Array{Float64,2}:
- -6.0  -2.0   1.0
-  5.0   1.0  -1.0
- -4.0  -2.0  -1.0
-
-julia&gt; sylvsepest(Ac,Ac&#39;)   # same as lyapsepest(Ac)
-0.30792472968507323
-
-julia&gt; sylvsepest(Ac,-Ac&#39;)  # null separation
-0.0
-
-julia&gt; Ad = [0.76 0.14 -0.38; 0.42 0.12 0.46; 0.06 0.34 0.72]
-3×3 Array{Float64,2}:
- 0.76  0.14  -0.38
- 0.42  0.12   0.46
- 0.06  0.34   0.72
-
-julia&gt; sylvsepest(Ad,-Ad&#39;,disc=true)   # same as lyapsepest(Ad,disc=true)
-0.1215493965942189
-
-julia&gt; sylvsepest(Ad,-inv(Ad)&#39;,disc=true)  # null separation
-6.78969633174597e-17</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L218-L263">source</a><div><div><pre><code class="language-none">sep = sylvsepest(A, B, C, D)</code></pre><p>Compute <code>sep</code>, an estimation of the separation of the generalized Sylvester operator <span>$M:X \rightarrow AXB+CXD$</span>, by estimating <span>$\sigma_{min}(M^{-1})$</span>, the least singular value of the corresponding inverse operator <span>$M^{-1}$</span>, as the reciprocal of an estimate of <span>$\|M^{-1}\|_1$</span>, the 1-norm of <span>$M^{-1}$</span>. It is expected that in most cases <span>$1/\|M^{-1}\|_1$</span>, the <em>true</em> reciprocal of the 1-norm of <span>$M^{-1}$</span>, does not differ from <span>$\sigma_{min}(M^{-1})$</span> by more than a factor of <span>$\sqrt{2mn}$</span>, where <span>$m$</span>  and <span>$n$</span> are the orders of the square matrices <code>A</code> and <code>B</code>, respectively. The separation operation is defined as</p><div>\[\text{sep} := \displaystyle\min_{X\neq 0} \frac{\|AXB+CXD\|}{\|X\|}.\]</div><p>An estimate of the reciprocal condition number of <span>$M$</span> can be computed as <code>sep</code>/<span>$\|M\|_1$</span>.</p><p><strong>Examples</strong></p><pre><code class="language-julia-repl">julia&gt; Ac = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
-3×3 Array{Float64,2}:
- -6.0  -2.0   1.0
-  5.0   1.0  -1.0
- -4.0  -2.0  -1.0
-
-julia&gt; Ec = [10. 3. 0.; 0. 5. -1.; 0. 0. 10.]
-3×3 Array{Float64,2}:
- 10.0  3.0   0.0
-  0.0  5.0  -1.0
-  0.0  0.0  10.0
-
-julia&gt; sylvsepest(Ac,Ec&#39;,Ec,Ac&#39;)   # same as lyapsepest(Ac,Ec)
-1.6911585896904668
-
-julia&gt; sylvsepest(-Ac,Ec&#39;,Ec,Ac&#39;)  # null separation
-4.504549651611036e-16
-
-julia&gt; Ad = [0.76 0.14 -0.38; 0.42 0.12 0.46; 0.06 0.34 0.72]
-3×3 Array{Float64,2}:
- 0.76  0.14  -0.38
- 0.42  0.12   0.46
- 0.06  0.34   0.72
-
-julia&gt; sylvsepest(Ad,-Ad&#39;,disc=true)   # same as lyapsepest(Ad,disc=true)
-0.1215493965942189
-
-julia&gt; sylvsepest(Ad,-inv(Ad)&#39;,disc=true)  # null separation
-6.78969633174597e-17</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L300-L350">source</a></section><section class="docstring"><div class="docstring-header"><a class="docstring-binding" id="MatrixEquations.sylvsyssepest" href="#MatrixEquations.sylvsyssepest"><code>MatrixEquations.sylvsyssepest</code></a> — <span class="docstring-category">Function</span>.</div><div><div><pre><code class="language-julia">sep = sylvsyssepest(A, B, C, D)</code></pre><p>Compute <code>sep</code>, an estimation of the separation of the Sylvester system operator <span>$M:(X,Y) \rightarrow (AX+YB, CX+YD)$</span>, by estimating <span>$\sigma_{min}(M^{-1})$</span>, the least singular value of the corresponding inverse operator <span>$M^{-1}$</span>, as the reciprocal of an estimate of <span>$\|M^{-1}\|_1$</span>, the 1-norm of <span>$M^{-1}$</span>. It is expected that in most cases <span>$1/\|M^{-1}\|_1$</span>, the <em>true</em> reciprocal of the 1-norm of <span>$M^{-1}$</span>, does not differ from <span>$\sigma_{min}(M^{-1})$</span> by more than a factor of <span>$\sqrt{2mn}$</span>, where <span>$m$</span>  and <span>$n$</span> are the orders of the square matrices <code>A</code> and <code>B</code>, respectively. The separation operation is defined as</p><div>\[\text{sep} := \displaystyle\min_{[X\; Y]\neq 0} \frac{\|M(X,Y)\|}{\|[X \; Y]\|}\]</div><p>An estimate of the reciprocal condition number of <span>$M$</span> can be computed as <code>sep</code>/<span>$\|M\|_1$</span>.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl">julia&gt; A = [3. 4.; 5. 6]
-2×2 Array{Float64,2}:
- 3.0  4.0
- 5.0  6.0
-
-julia&gt; B = [1. 1.; 1. 2.]
-2×2 Array{Float64,2}:
- 1.0  1.0
- 1.0  2.0
-
-julia&gt; C = [1. -2.; -2. -1.]
-2×2 Array{Float64,2}:
-  1.0  -2.0
- -2.0  -1.0
-
-julia&gt; D = [1. -1.; -2. 2.]
-2×2 Array{Float64,2}:
-  1.0  -1.0
- -2.0   2.0
-
-julia&gt; sylvsyssepest(A,B,C,D)
-0.23371383344564314</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/723be78158e6de393121fc7df57a2aec52528bff/src/condest.jl#L419-L462">source</a></section><footer><hr/><a class="previous" href="sylvkr.html"><span class="direction">Previous</span><span class="title">Sylvester Matrix Equation Solvers using Kronecker-product Expansions</span></a><a class="next" href="meoperators.html"><span class="direction">Next</span><span class="title">Linear Operators Related to Matrix Equation Solvers</span></a></footer></article></body></html>
+0.26548672566371656</code></pre></div></div><a class="source-link" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/ce5fb7b78f21b0331d8b817265f740dd0add479a/src/condest.jl#L113-L149">source</a></section><footer><hr/><a class="previous" href="sylvkr.html"><span class="direction">Previous</span><span class="title">Sylvester Matrix Equation Solvers using Kronecker-product Expansions</span></a><a class="next" href="meoperators.html"><span class="direction">Next</span><span class="title">Linear Operators Related to Matrix Equation Solvers</span></a></footer></article></body></html>
