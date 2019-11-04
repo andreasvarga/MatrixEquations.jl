@@ -77,7 +77,7 @@ This release is intended to be the first registered version for the public. The 
 - New functions for estimation of norms, reciprocal condition numbers and separations of linear operators.
 - New funtions defining a comprehensive set of Lyapunov and Sylvester operators.
 - Updated documentation, with examples for the main functions
-- Enhancements of all solvers to cover all numerical data types
+- Enhancements of all functions to cover all numerical data types
 - Full coverage of all basic floating point types by the solvers 
 
 ### Version 0.8

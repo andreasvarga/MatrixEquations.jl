@@ -78,7 +78,7 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
    end
 
    T2 = promote_type(eltype(A), eltype(B))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -277,7 +277,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    end
 
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -465,7 +465,7 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
    end
 
    T2 = promote_type(eltype(A), eltype(B))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -663,7 +663,7 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    end
 
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -855,7 +855,7 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
    end
 
    T2 = promote_type(eltype(A), eltype(B))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -1040,7 +1040,7 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
 
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2

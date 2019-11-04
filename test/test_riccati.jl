@@ -7,20 +7,23 @@ using Test
 
 @testset "Testing algebraic Riccati equation solvers" begin
 
+for (Ty,n,p,m) in ((Float64, 30, 10, 10), (Float32, 10, 5, 5))
+
 Random.seed!(1234)
-#n, p, m = 300, 50, 50
-n, p, m = 30, 10, 10
-ar = randn(n,n)
-er = rand(n,n)
-br = rand(n,m)
-cr = rand(p,n)
-ac = randn(n,n) + im*randn(n,n)
-ec = er+im*rand(n,n)
-cc = rand(p,n)+im*rand(p,n)
-bc = rand(n,m)+im*rand(n,m)
-rr1 = rand(m,m)
-rc1 = rand(m,m)+im*rand(m,m)
-rtol = n*sqrt(eps(1.))
+
+#(Ty,n,p,m) = (Float32, 10, 5, 5)
+
+ar = randn(Ty,n,n)
+er = rand(Ty,n,n)
+br = rand(Ty,n,m)
+cr = rand(Ty,p,n)
+ac = randn(Ty,n,n) + im*randn(Ty,n,n)
+ec = er+im*rand(Ty,n,n)
+cc = rand(Ty,p,n)+im*rand(Ty,p,n)
+bc = rand(Ty,n,m)+im*rand(Ty,n,m)
+rr1 = rand(Ty,m,m)
+rc1 = rand(Ty,m,m)+im*rand(Ty,m,m)
+Ty == Float64 ? rtol = n*sqrt(eps(1.)) : rtol = n*sqrt(eps(1.f0))
 
 qc = cc'*cc
 Qr = cr'*cr
@@ -33,7 +36,7 @@ sc = cc'/100
 sr = cr'/100
 
 
-@testset "Continuous Riccati equation" begin
+@testset "Continuous Riccati equation ($Ty)" begin
 @time x, clseig = arec(ar,gr,Qr)
 @test norm(ar'*x+x*ar-x*gr*x+Qr)/norm(x) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-gr*x))))/norm(clseig)  < rtol &&
@@ -85,7 +88,7 @@ norm(sort(real(clseig))-sort(real(eigvals(ac-gr*x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ac-gr*x))))/norm(clseig)  < rtol
 end
 
-@testset "Continuous control Riccati equation" begin
+@testset "Continuous control Riccati equation ($Ty)" begin
 
 
 @time x, clseig, f = arec(ar,br,rr,Qr,sr)
@@ -120,7 +123,7 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f))))/norm(clseig)  < rtol
 
 end
 
-@testset "Generalized continuous control Riccati equation" begin
+@testset "Generalized continuous control Riccati equation ($Ty)" begin
 
 @time x, clseig, f = garec(ar,er,br,rr,Qr,sr)
 @test norm(ar'*x*er+er'*x*ar-(er'x*br+sr)*inv(rr)*(br'*x*er+sr')+Qr)/norm(x) < rtol &&
@@ -145,7 +148,7 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol
 end
 
 
-@testset "Discrete control Riccati equation" begin
+@testset "Discrete control Riccati equation ($Ty)" begin
 @time x, clseig, f = ared(ar,br,rr,Qr)
 @test norm(ar'*x*ar-x-ar'*x*br*inv(rr+br'*x*br)*br'*x*ar+Qr)/norm(x) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
@@ -173,28 +176,30 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f))))/norm(ac)  < rtol
 end
 
 
-@testset "Generalized discrete control Riccati equation" begin
+@testset "Generalized discrete control Riccati equation ($Ty)" begin
 @time x, clseig, f = gared(ar,er,br,rr,Qr,sr)
 @test norm(ar'*x*ar-er'*x*er-(ar'*x*br+sr)*inv(rr+br'*x*br)*(br'*x*ar+sr')+Qr)/norm(x) < rtol &&
-norm(sort(real(clseig))-sort(real(eigvals(ar-br*f,er))))/norm(clseig)  < rtol &&
-norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f,er))))/norm(clseig)  < rtol
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f,er))))/max(opnorm(ar,1),opnorm(er,1))  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f,er))))/max(opnorm(ar,1),opnorm(er,1))  < rtol
 
 @time x, clseig, f = gared(ar,er,br,rr,2I,sr)
 @test norm(ar'*x*ar-er'*x*er-(ar'*x*br+sr)*inv(rr+br'*x*br)*(br'*x*ar+sr')+2I)/norm(x) < rtol &&
-norm(sort(real(clseig))-sort(real(eigvals(ar-br*f,er))))/norm(clseig)  < rtol &&
-norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f,er))))/norm(clseig)  < rtol
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f,er))))/max(opnorm(ar,1),opnorm(er,1))  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f,er))))/max(opnorm(ar,1),opnorm(er,1))  < rtol
 
 @time x, clseig, f = gared(ac,ec,bc,rc,qc,sc)
 @test norm(ac'*x*ac-ec'*x*ec-(ac'*x*bc+sc)*inv(rc+bc'*x*bc)*(bc'*x*ac+sc')+qc)/norm(x) < rtol &&
-norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol &&
-norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol
+norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol
 
 @time x, clseig, f = gared(ac,ec,bc,rr,Qr,sr)
 @test norm(ac'*x*ac-ec'*x*ec-(ac'*x*bc+sr)*inv(rr+bc'*x*bc)*(bc'*x*ac+sr')+Qr)/norm(x) < rtol &&
-norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol &&
-norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/norm(clseig)  < rtol
+norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol
 end
 
 end
+
+end 
 
 end

@@ -1,9 +1,9 @@
 """
-    M = trmat(n, m) 
+    M = trmatop(n, m) 
 
 Define the transposition operator `M: X -> X'` for all `n x m` matrices.
 """
-function trmat(n::Int,m::Int)
+function trmatop(n::Int,m::Int)
   function prod(x)
     X = reshape(x, n, m)
     return transpose(X)[:]
@@ -22,14 +22,14 @@ function trmat(n::Int,m::Int)
   m == n ? sym = true : sym = false
   return LinearOperator{Int,F1,F2,F3}(n * m, n * m, sym, sym, prod, tprod, ctprod)
 end
-trmat(n::Int) = trmat(n,n)
-trmat(dims::Tuple{Int,Int}) = trmat(dims[1],dims[2])
+trmatop(n::Int) = trmatop(n,n)
+trmatop(dims::Tuple{Int,Int}) = trmatop(dims[1],dims[2])
 """
-    M = trmat(A) 
+    M = trmatop(A) 
 
 Define the transposition operator `M: X -> X'` of all matrices of the size of `A`.
 """
-trmat(A) = trmat(size(A))
+trmatop(A) = trmatop(size(A))
 """
     L = lyapop(A; disc = false, her = false) 
 
@@ -50,8 +50,9 @@ function lyapop(A; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
   T = eltype(A)
   function prod(x)
+    T1 = promote_type(T, eltype(x))
     if her
-      X = vec2triu(convert(Vector{T}, x),her = true)
+      X = vec2triu(convert(Vector{T1}, x),her = true)
       if disc
         return triu2vec(utqu(X,A') - X)
       else
@@ -59,7 +60,7 @@ function lyapop(A; disc = false, her = false)
         return triu2vec(Y + Y')
       end
     else
-      X = reshape(convert(Vector{T}, x), n, n)
+      X = reshape(convert(Vector{T1}, x), n, n)
       if disc
         Y = A*X*A' - X
       else
@@ -69,8 +70,9 @@ function lyapop(A; disc = false, her = false)
     end
   end
   function tprod(x)
+    T1 = promote_type(T, eltype(x))
     if her
-      X = vec2triu(convert(Vector{T}, x),her = true)
+      X = vec2triu(convert(Vector{T1}, x),her = true)
       if disc
         return triu2vec(utqu(X,A) - X)
       else
@@ -78,7 +80,7 @@ function lyapop(A; disc = false, her = false)
         return triu2vec(Y + transpose(Y))
       end
     else
-      X = reshape(convert(Vector{T}, x), n, n)
+      X = reshape(convert(Vector{T1}, x), n, n)
       if disc
          Y = transpose(A)*X*A - X
        else
@@ -88,8 +90,9 @@ function lyapop(A; disc = false, her = false)
     end
   end
   function ctprod(x)
+    T1 = promote_type(T, eltype(x))
     if her
-      X = vec2triu(convert(Vector{T}, x),her = true)
+      X = vec2triu(convert(Vector{T1}, x),her = true)
       if disc
         return triu2vec(utqu(X,A) - X)
       else
@@ -97,7 +100,7 @@ function lyapop(A; disc = false, her = false)
         return triu2vec(Y + Y')
       end
     else
-      X = reshape(convert(Vector{T}, x), n, n)
+      X = reshape(convert(Vector{T1}, x), n, n)
       if disc
         return (A'*X*A - X )[:]
       else
@@ -134,8 +137,9 @@ function lyapop(A, E; disc = false, her = false)
   end
   T = promote_type(eltype(A), eltype(E))
   function prod(x)
+    T1 = promote_type(T, eltype(x))
     if her
-      X = vec2triu(convert(Vector{T}, x),her = true)
+      X = vec2triu(convert(Vector{T1}, x),her = true)
       if disc
         return triu2vec(utqu(X,A') - utqu(X,E'))
       else
@@ -143,7 +147,7 @@ function lyapop(A, E; disc = false, her = false)
         return triu2vec(Y + Y')
       end
     else
-      X = reshape(convert(Vector{T}, x), n, n)
+      X = reshape(convert(Vector{T1}, x), n, n)
       if disc
         Y = A*X*A' - E*X*E'
       else
@@ -153,8 +157,9 @@ function lyapop(A, E; disc = false, her = false)
     end
   end
   function tprod(x)
+    T1 = promote_type(T, eltype(x))
     if her
-      X = vec2triu(convert(Vector{T}, x),her = true)
+      X = vec2triu(convert(Vector{T1}, x),her = true)
       if disc
         return triu2vec(utqu(X,A) - utqu(X,E))
       else
@@ -162,7 +167,7 @@ function lyapop(A, E; disc = false, her = false)
         return triu2vec(Y + transpose(Y))
       end
     else
-      X = reshape(convert(Vector{T}, x), n, n)
+      X = reshape(convert(Vector{T1}, x), n, n)
       if disc
          Y = transpose(A)*X*A - transpose(E)*X*E
        else
@@ -172,8 +177,9 @@ function lyapop(A, E; disc = false, her = false)
     end
   end
   function ctprod(x)
+    T1 = promote_type(T, eltype(x))
     if her
-      X = vec2triu(convert(Vector{T}, x),her = true)
+      X = vec2triu(convert(Vector{T1}, x),her = true)
       if disc
         return triu2vec(utqu(X,A) - utqu(X,E))
       else
@@ -181,7 +187,7 @@ function lyapop(A, E; disc = false, her = false)
         return triu2vec(Y + Y')
       end
     else
-      X = reshape(convert(Vector{T}, x), n, n)
+      X = reshape(convert(Vector{T1}, x), n, n)
       if disc
         return (A'*X*A - E'*X*E )[:]
       else
@@ -216,16 +222,17 @@ function invlyapop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
    function prod(x)
+    T1 = promote_type(T, eltype(x))
      try
        if her
-         Y = vec2triu(convert(Vector{T}, x),her = true)
+         Y = vec2triu(convert(Vector{T1}, x),her = true)
          if disc
             return triu2vec(lyapd(A,-Y))
          else
              return triu2vec(lyapc(A,-Y))
          end
        else
-         Y = reshape(convert(Vector{T}, x), n, n)
+         Y = reshape(convert(Vector{T1}, x), n, n)
          if disc
            return sylvd(-A,A',-Y)[:]
          else
@@ -242,16 +249,17 @@ function invlyapop(A; disc = false, her = false)
      end
    end
    function tprod(x)
+    T1 = promote_type(T, eltype(x))
      try
        if her
-         Y = vec2triu(convert(Vector{T}, x),her = true)
+         Y = vec2triu(convert(Vector{T1}, x),her = true)
          if disc
            return triu2vec(lyapd(A',-Y))
          else
            return triu2vec(lyapc(A',-Y))
          end
        else
-         Y = reshape(convert(Vector{T}, x), n, n)
+         Y = reshape(convert(Vector{T1}, x), n, n)
          if disc
            return sylvd(-A',A,-Y)[:]
          else
@@ -268,16 +276,17 @@ function invlyapop(A; disc = false, her = false)
      end
    end
    function ctprod(x)
+    T1 = promote_type(T, eltype(x))
      try
        if her
-         Y = vec2triu(convert(Vector{T}, x),her = true)
+         Y = vec2triu(convert(Vector{T1}, x),her = true)
          if disc
            return triu2vec(lyapd(A',-Y))
          else
            return triu2vec(lyapc(A',-Y))
          end
        else
-         Y = reshape(convert(Vector{T}, x), n, n)
+         Y = reshape(convert(Vector{T1}, x), n, n)
          if disc
            return sylvd(-A',A,-Y)[:]
          else
@@ -323,16 +332,17 @@ function invlyapop(A, E; disc = false, her = false)
    end
    T = promote_type(eltype(A), eltype(E))
    function prod(x)
+    T1 = promote_type(T, eltype(x))
      try
        if her
-         Y = vec2triu(convert(Vector{T}, x),her = true)
+         Y = vec2triu(convert(Vector{T1}, x),her = true)
          if disc
             return triu2vec(lyapd(A,E,-Y))
          else
              return triu2vec(lyapc(A,E,-Y))
          end
        else
-         Y = reshape(convert(Vector{T}, x), n, n)
+         Y = reshape(convert(Vector{T1}, x), n, n)
          if disc
            return gsylv(-A,A',E,E',-Y)[:]
          else
@@ -349,16 +359,17 @@ function invlyapop(A, E; disc = false, her = false)
      end
    end
    function tprod(x)
+    T1 = promote_type(T, eltype(x))
      try
        if her
-         Y = vec2triu(convert(Vector{T}, x),her = true)
+         Y = vec2triu(convert(Vector{T1}, x),her = true)
          if disc
             return triu2vec(lyapd(A',E',-Y))
          else
             return triu2vec(lyapc(A',E',-Y))
          end
        else
-         Y = reshape(convert(Vector{T}, x), n, n)
+         Y = reshape(convert(Vector{T1}, x), n, n)
          if disc
             return gsylv(-A',A,E',E,-Y)[:]
          else
@@ -375,16 +386,17 @@ function invlyapop(A, E; disc = false, her = false)
      end
    end
    function ctprod(x)
+    T1 = promote_type(T, eltype(x))
      try
        if her
-         Y = vec2triu(convert(Vector{T}, x),her = true)
+         Y = vec2triu(convert(Vector{T1}, x),her = true)
          if disc
            return triu2vec(lyapd(A',E',-Y))
          else
            return triu2vec(lyapc(A',E',-Y))
          end
        else
-         Y = reshape(convert(Vector{T}, x), n, n)
+         Y = reshape(convert(Vector{T1}, x), n, n)
          if disc
            return gsylv(-A',A,E',E,-Y)[:]
          else
@@ -426,27 +438,28 @@ operators. Linear Algebra and its Applications 312:35–71, 2000.
 function invlyapsop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
-   if isa(A,Adjoint)
-     error("No calls with adjoint matrices are supported")
-   end
 
    # check A is in Schur form
    if !isschur(A)
        error("The matrix A must be in Schur form")
    end
    function prod(x)
+     T1 = promote_type(T, eltype(x))
+     if T !== T1
+       A = convert(Matrix{T1},A)
+     end
      try
        if her
-         Y = vec2triu(convert(Vector{T}, -x),her = true)
+         Y = vec2triu(convert(Vector{T1}, -x),her = true)
          disc ? lyapds!(A,Y) : lyapcs!(A,Y)
          return triu2vec(Y)
        else
-         Y = reshape(convert(Vector{T}, -x), n, n)
+         Y = reshape(convert(Vector{T1}, -x), n, n)
          if disc
            sylvds!(-A,A,Y,adjB = true)
            return Y[:]
          else
-           realcase = eltype(A) <: AbstractFloat
+           realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
            realcase ? (TA,TB) = ('N','T') : (TA,TB) = ('N','C')
            Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
            rmul!(Y, inv(-scale))
@@ -463,23 +476,27 @@ function invlyapsop(A; disc = false, her = false)
      end
    end
    function tprod(x)
+     T1 = promote_type(T, eltype(x))
+     if T !== T1
+       A = convert(Matrix{T1},A)
+     end
      try
-       if her
-         Y = vec2triu(convert(Vector{T}, -x),her = true)
-         disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
-         return triu2vec(Y)
-       else
-         Y = reshape(convert(Vector{T}, -x), n, n)
-         if disc
+      if her
+        Y = vec2triu(convert(Vector{T1}, -x),her = true)
+        disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
+        return triu2vec(Y)
+      else
+        Y = reshape(convert(Vector{T1}, -x), n, n)
+        if disc
            sylvds!(-A,A,Y,adjA = true)
            return Y[:]
-         else
-           realcase = eltype(A) <: AbstractFloat
+        else
+           realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
            realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
            Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
            rmul!(Y, inv(-scale))
            return Y[:]
-         end
+        end
        end
      catch err
        if isnothing(findfirst("LAPACKException",string(err))) ||
@@ -491,25 +508,29 @@ function invlyapsop(A; disc = false, her = false)
      end
    end
    function ctprod(x)
+     T1 = promote_type(T, eltype(x))
+     if T !== T1
+       A = convert(Matrix{T1},A)
+     end
      try
-       if her
-         Y = vec2triu(convert(Vector{T}, -x),her = true)
-         disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
-         return triu2vec(Y)
-       else
-         Y = reshape(convert(Vector{T}, -x), n, n)
-         if disc
+      if her
+        Y = vec2triu(convert(Vector{T1}, -x),her = true)
+        disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
+        return triu2vec(Y)
+      else
+        Y = reshape(convert(Vector{T1}, -x), n, n)
+        if disc
            sylvds!(-A,A,Y,adjA = true)
            return Y[:]
-         else
-           realcase = eltype(A) <: AbstractFloat
+        else
+           realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
            realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
            Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
            rmul!(Y, inv(-scale))
            return Y[:]
-         end
-       end
-     catch err
+        end
+      end
+    catch err
        if isnothing(findfirst("LAPACKException",string(err))) ||
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
@@ -525,6 +546,7 @@ function invlyapsop(A; disc = false, her = false)
    return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 invlyapsop(A :: Schur; disc = false, her = false) = invlyapsop(A.T,disc = disc,her = her)
+invlyapsop(A :: Adjoint; disc = false, her = false) = invlyapsop(A.parent,disc = disc,her = her)'
 """
     LINV = invlyapsop(A, E; disc = false, her = false) 
 
@@ -547,23 +569,34 @@ function invlyapsop(A, E; disc = false, her = false)
    if n != LinearAlgebra.checksquare(E)
      throw(DimensionMismatch("E must be a square matrix of dimension $n"))
    end
-   T = promote_type(eltype(A), eltype(E))
    if isa(A,Adjoint) || isa(E,Adjoint)
      error("No calls with adjoint matrices are supported")
    end
+   T = promote_type(eltype(A), eltype(E))
+   if eltype(A) !== T
+     A = convert(Matrix{T},A)
+   end 
+   if eltype(E) !== T
+     E = convert(Matrix{T},E)
+   end 
 
    # check A is in Schur form
    if !isschur(A,E)
        error("The matrix pair (A,E) must be in generalized Schur form")
    end
    function prod(x)
+     T1 = promote_type(T, eltype(x))
+     if T !== T1
+        A = convert(Matrix{T1},A)
+        E = convert(Matrix{T1},E)
+     end
      try
        if her
-         Y = vec2triu(convert(Vector{T}, -x),her = true)
+         Y = vec2triu(convert(Vector{T1}, -x),her = true)
          disc ? lyapds!(A,E,Y) : lyapcs!(A,E,Y)
          return triu2vec(Y)
        else
-         Y = copy(reshape(convert(Vector{T}, x), n, n))
+         Y = copy(reshape(convert(Vector{T1}, x), n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjBD = true) :
                 gsylvs!(A,E,E,A,Y,adjBD = true,DBSchur = true)
          return Y[:]
@@ -578,13 +611,18 @@ function invlyapsop(A, E; disc = false, her = false)
      end
    end
    function tprod(x)
-     try
+    T1 = promote_type(T, eltype(x))
+    if T !== T1
+       A = convert(Matrix{T1},A)
+       E = convert(Matrix{T1},E)
+    end
+    try
        if her
-         Y = vec2triu(convert(Vector{T}, -x),her = true)
+         Y = vec2triu(convert(Vector{T1}, -x),her = true)
          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
          return triu2vec(Y)
        else
-         Y = copy(reshape(convert(Vector{T}, x), n, n))
+         Y = copy(reshape(convert(Vector{T1}, x), n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
                 gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
          return Y[:]
@@ -599,13 +637,18 @@ function invlyapsop(A, E; disc = false, her = false)
      end
    end
    function ctprod(x)
-     try
+    T1 = promote_type(T, eltype(x))
+    if T !== T1
+       A = convert(Matrix{T1},A)
+       E = convert(Matrix{T1},E)
+    end
+    try
        if her
-         Y = vec2triu(convert(Vector{T}, -x),her = true)
+         Y = vec2triu(convert(Vector{T1}, -x),her = true)
          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
          return triu2vec(Y)
        else
-         Y = copy(reshape(convert(Vector{T}, x), n, n))
+         Y = copy(reshape(convert(Vector{T1}, x), n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
                 gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
          return Y[:]
@@ -626,6 +669,7 @@ function invlyapsop(A, E; disc = false, her = false)
    return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
 end
 invlyapsop(AE :: GeneralizedSchur; disc = false, her = false) = invlyapsop(AE.S, AE.T, disc = disc, her = her)
+invlyapsop(A :: Adjoint, E :: Adjoint; disc = false, her = false) = invlyapsop(A.parent,E.parent,disc = disc,her = her)'
 """
     M = sylvop(A, B; disc = false) 
 
@@ -637,17 +681,20 @@ function sylvop(A, B; disc = false)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
   function prod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x), m, n)
     disc ? Y = A * X * B + X : Y = A * X + X * B
     return Y[:]
   end
   function tprod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x), m, n)
     disc ? Y = transpose(A)*X*transpose(B) + X : Y = transpose(A)*X + X*transpose(B)
     return Y[:]
   end
   function ctprod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x), m, n)
     disc ? Y = A'*X*B' + X : Y = A'*X + X*B'
     return Y[:]
   end
@@ -667,13 +714,14 @@ function invsylvop(A, B; disc = false)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
   function prod(x)
-    C = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    C = reshape(convert(Vector{T1}, x), m, n)
     try
       if disc
         return sylvd(A,B,C)[:]
       else
         return sylvc(A,B,C)[:]
-     end
+      end
     catch err
        if isnothing(findfirst("LAPACKException",string(err))) ||
           isnothing(findfirst("SingularException",string(err)))
@@ -684,7 +732,8 @@ function invsylvop(A, B; disc = false)
     end
   end
   function tprod(x)
-    C = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    C = reshape(convert(Vector{T1}, x), m, n)
     try
       if disc
         return sylvd(A',B',C)[:]
@@ -701,7 +750,8 @@ function invsylvop(A, B; disc = false)
     end
   end
   function ctprod(x)
-    C = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    C = reshape(convert(Vector{T1}, x), m, n)
     try
       if disc
         return sylvd(A',B',C)[:]
@@ -731,13 +781,16 @@ or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A
 function invsylvsop(A, B; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
-  T = eltype(A)
-  cmplx = T<:Complex
-  if T != eltype(B)
-    error("A and B must have the same type")
-  end
+  T = promote_type(eltype(A), eltype(B))
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
+  if eltype(A) !== T
+    adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A)
+  end 
+  if eltype(B) !== T
+    adjB ? B = convert(Matrix{T},B.parent)' :  B = convert(Matrix{T},B) 
+  end 
+  cmplx = T<:Complex
   if adjA
      if !isschur(A.parent)
          error("A must be in Schur form")
@@ -761,8 +814,13 @@ function invsylvsop(A, B; disc = false)
      !disc && cmplx ? (NB, TB) = ('N','C') : (NB, TB) = ('N','T')
   end
   function prod(x)
-    C = copy(reshape(convert(Vector{T}, x), m, n))
-    try
+    T1 = promote_type(T, eltype(x))
+    C = copy(reshape(convert(Vector{T1}, x), m, n))
+    if T !== T1
+      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+   end
+   try
        if disc
           if !adjA & !adjB
              sylvds!(A, B, C, adjA = false, adjB = false)
@@ -796,7 +854,12 @@ function invsylvsop(A, B; disc = false)
     end
   end
   function tprod(x)
-    C = copy(reshape(convert(Vector{T}, x), m, n))
+    T1 = promote_type(T, eltype(x))
+    C = copy(reshape(convert(Vector{T1}, x), m, n))
+    if T !== T1
+      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+   end
     try
        if disc
           if !adjA & !adjB
@@ -831,7 +894,12 @@ function invsylvsop(A, B; disc = false)
      end
   end
   function ctprod(x)
-    C = copy(reshape(convert(Vector{T}, x), m, n))
+    T1 = promote_type(T, eltype(x))
+    C = copy(reshape(convert(Vector{T1}, x), m, n))
+    if T !== T1
+      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+    end
     try
        if disc
           if !adjA & !adjB
@@ -870,7 +938,7 @@ function invsylvsop(A, B; disc = false)
   F3 = typeof(ctprod)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
-invsylvsop(A :: Schur, B :: Schur; disc = false, her = false) = invlyapsop(A.T,B.T,disc = disc,her = her)
+invsylvsop(A :: Schur, B :: Schur; disc = false) = invsylvsop(A.T,B.T,disc = disc)
 """
     M = sylvop(A, B, C, D) 
 
@@ -884,15 +952,18 @@ function sylvop(A, B, C, D)
   end
   T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
   function prod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x), m, n)
     return (A * X * B + C * X * D)[:]
   end
   function tprod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x), m, n)
     return (transpose(A) * X * transpose(B) + transpose(C) * X * transpose(D) )[:]
   end
   function ctprod(x)
-    X = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x), m, n)
     return (A' * X * B' + C' * X * D' )[:]
   end
   F1 = typeof(prod)
@@ -914,7 +985,8 @@ function invsylvop(A, B, C, D)
   end
   T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
   function prod(x)
-    E = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x), m, n)
     try
        return gsylv(A,B,C,D,E)[:]
     catch err
@@ -924,9 +996,10 @@ function invsylvop(A, B, C, D)
           throw("ME:SingularException: Singular operator")
        end
     end
-end
+  end
   function tprod(x)
-    E = reshape(convert(Vector{T}, x), m, n)
+   T1 = promote_type(T, eltype(x))
+   E = reshape(convert(Vector{T1}, x), m, n)
     try
        return gsylv(A',B',C',D',E)[:]
     catch err
@@ -938,7 +1011,8 @@ end
     end
   end
   function ctprod(x)
-    E = reshape(convert(Vector{T}, x), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x), m, n)
     try
        return gsylv(A',B',C',D',E)[:]
     catch err
@@ -967,12 +1041,31 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   if [m; n] != LinearAlgebra.checksquare(C,D)
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
   end
-  T = eltype(A)
-  cmplx = T<:Complex
-  if T != eltype(B) || T != eltype(C) || T != eltype(D)
-    error("A, B, C and D must have the same type")
+  T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+  adjA = isa(A,Adjoint)
+  adjB = isa(B,Adjoint)
+  adjC = isa(C,Adjoint)
+  adjD = isa(D,Adjoint)
+  if adjA !== adjC 
+     error("Only calls with pairs (A,C) or (A',C') are allowed")
   end
-  adjAC = isa(A,Adjoint) & isa(C,Adjoint)
+  if adjB !== adjD
+     error("Only calls with pairs (B,D) or (B',D') are allowed")
+  end
+  if eltype(A) !== T
+    adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A)
+  end 
+  if eltype(B) !== T
+    adjB ? B = convert(Matrix{T},B.parent)' :  B = convert(Matrix{T},B) 
+  end 
+  if eltype(C) !== T
+   adjC ? C = convert(Matrix{T},C.parent)'  : C = convert(Matrix{T},C)
+  end 
+  if eltype(D) !== T
+    adjD ? D = convert(Matrix{T},D.parent)' :  D = convert(Matrix{T},D) 
+  end 
+  cmplx = T<:Complex
+  adjAC = adjA & adjC
   if adjAC
      if !isschur(A.parent,C.parent)
          error("The pair (A,C) must be in generalized Schur form")
@@ -982,7 +1075,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
         error("The pair (A,C) must be in generalized Schur form")
      end
   end
-  adjBD = isa(B,Adjoint) & isa(D,Adjoint)
+  adjBD = adjB & adjD
   if adjBD
      if DBSchur
        if !isschur(D.parent, B.parent)
@@ -1005,7 +1098,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
      end
   end
   function prod(x)
-    Y = copy(reshape(convert(Vector{T}, x), m, n))
+    T1 = promote_type(T, eltype(x))
+    Y = copy(reshape(convert(Vector{T1}, x), m, n))
+    if T !== T1
+      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+      adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
+      adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
+    end
     try
        if !adjAC & !adjBD
           gsylvs!(A, B, C, D, Y, adjAC = false, adjBD = false, DBSchur = DBSchur)
@@ -1026,7 +1126,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     end
   end
   function tprod(x)
-    Y = copy(reshape(convert(Vector{T}, x), m, n))
+    T1 = promote_type(T, eltype(x))
+    Y = copy(reshape(convert(Vector{T1}, x), m, n))
+    if T !== T1
+      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+      adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
+      adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
+    end
     try
        if !adjAC & !adjBD
           gsylvs!(A, B, C, D, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
@@ -1047,7 +1154,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     end
   end
   function ctprod(x)
+    T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T}, x), m, n))
+    if T !== T1
+      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+      adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
+      adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
+    end
     try
        if !adjAC & !adjBD
           gsylvs!(A, B, C, D, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
@@ -1072,6 +1186,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   F3 = typeof(ctprod)
   return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
+invsylvsop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsop(AC.S,BD.S,AC.T,BD.T)
 
 """
     M = sylvsysop(A, B, C, D) 
@@ -1088,18 +1203,21 @@ function sylvsysop(A, B, C, D)
   end
   mn = m*n
   function prod(x)
-    X = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    Y = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     return ([A * X + Y * B C * X + Y * D])[:]
   end
   function tprod(x)
-    X = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    Y = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     return [transpose(A) * X + transpose(C) * Y  X * transpose(B) + Y * transpose(D)][:]
   end
   function ctprod(x)
-    X = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    Y = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     return [A' * X + C' * Y  X * B' + Y * D'][:]
   end
   F1 = typeof(prod)
@@ -1122,8 +1240,9 @@ function invsylvsysop(A, B, C, D)
   T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
   mn = m*n
   function prod(x)
-    E = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     try
        (X,Y) = sylvsys(A,B,E,C,D,F)
        return [X Y][:]
@@ -1136,8 +1255,9 @@ function invsylvsysop(A, B, C, D)
     end
   end
   function tprod(x)
-    E = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     try
        (X,Y) = dsylvsys(A',B',E,C',D',F)[:]
        return [X Y][:]
@@ -1150,8 +1270,9 @@ function invsylvsysop(A, B, C, D)
     end
   end
   function ctprod(x)
-    E = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     try
        (X,Y) = dsylvsys(A',B',E,C',D',F)[:]
        return [X Y][:]
@@ -1180,14 +1301,23 @@ function invsylvsyssop(A, B, C, D)
   if [m; n] != LinearAlgebra.checksquare(C,D)
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
   end
-  T = eltype(A)
+  T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
   cmplx = T<:Complex
-  if T != eltype(B) || T != eltype(C) || T != eltype(D)
-    error("A, B, C and D must have the same type")
+  if isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)
+     error("Only calls with (A, B, C, D) without adjoints are allowed")
   end
-    if isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)
-    error("Only calls with (A, B, C, D) without adjoints are allowed")
-  end
+  if eltype(A) !== T
+     A = convert(Matrix{T},A)
+  end 
+  if eltype(B) !== T
+     B = convert(Matrix{T},B) 
+  end 
+  if eltype(C) !== T
+     C = convert(Matrix{T},C)
+  end 
+  if eltype(D) !== T
+     D = convert(Matrix{T},D) 
+  end 
   if !isschur(A,C)
      error("The pair (A,C) must be in generalized Schur form")
   end
@@ -1197,8 +1327,15 @@ function invsylvsyssop(A, B, C, D)
   cmplx ? TA = 'C' : TA = 'T'
   mn = m*n
   function prod(x)
-    E = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
+    if T !== T1
+       A = convert(Matrix{T1},A) 
+       B = convert(Matrix{T1},B) 
+       C = convert(Matrix{T1},C) 
+       D = convert(Matrix{T1},D) 
+    end
     try
        X, Y, scale =  tgsyl!('N',A,B,E,C,D,F)
        return [rmul!(X,inv(scale)) rmul!(Y,inv(-scale))][:]
@@ -1211,8 +1348,15 @@ function invsylvsyssop(A, B, C, D)
     end
   end
   function tprod(x)
-    E = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
+    if T !== T1
+      A = convert(Matrix{T1},A) 
+      B = convert(Matrix{T1},B) 
+      C = convert(Matrix{T1},C) 
+      D = convert(Matrix{T1},D) 
+    end
     try
        X, Y, scale =  tgsyl!(TA,A,B,E,C,D,-F)
        return [rmul!(X,inv(scale)) rmul!(Y,inv(scale))][:]
@@ -1225,8 +1369,15 @@ function invsylvsyssop(A, B, C, D)
     end
   end
   function ctprod(x)
-    E = reshape(convert(Vector{T}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T}, x[mn+1:2*mn]), m, n)
+    T1 = promote_type(T, eltype(x))
+    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
+    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
+    if T !== T1
+      A = convert(Matrix{T1},A) 
+      B = convert(Matrix{T1},B) 
+      C = convert(Matrix{T1},C) 
+      D = convert(Matrix{T1},D) 
+    end
     try
        X, Y, scale =  tgsyl!(TA,A,B,E,C,D,-F)
        return [rmul!(X,inv(scale)) rmul!(Y,inv(scale))][:]
@@ -1243,3 +1394,4 @@ function invsylvsyssop(A, B, C, D)
   F3 = typeof(ctprod)
   return LinearOperator{T,F1,F2,F3}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
+invsylvsyssop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsyssop(AC.S,BD.S,AC.T,BD.T)

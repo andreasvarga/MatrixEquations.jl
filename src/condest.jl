@@ -27,11 +27,11 @@ julia> opnorm1(invlyapop(A))
 function opnorm1(op::AbstractLinearOperator)
   (m, n) = size(op)
   T = eltype(op)
-  Tnorm = typeof(float(real(zero(T))))
+  Tnorm = real(T)
   Tsum = promote_type(Float64, Tnorm)
   nrm::Tsum = 0
   for j = 1 : n
-      ej = zeros(T, n)
+      ej = zeros(Tsum, n)
       ej[j] = 1
       try
          nrm = max(nrm,norm(op*ej,1))
@@ -74,13 +74,16 @@ function opnorm1est(op::AbstractLinearOperator)
   if m != n
     throw(DimensionMismatch("The operator op must be square"))
   end
-  BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
-  cmplx = eltype(op)<:Complex
-  V = Array{eltype(op),1}(undef,n)
-  X = Array{eltype(op),1}(undef,n)
+  T = promote_type(Float64,eltype(op))
+  TR = real(T)
+  TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
+  BIGNUM = 2*eps(TR) / SMLNUM
+  cmplx = T<:Complex
+  V = Array{T,1}(undef,n)
+  X = Array{T,1}(undef,n)
   cmplx ? ISGN = Array{Int,1}(undef,1) : ISGN = Array{Int,1}(undef,n)
   ISAVE = Array{Int,1}(undef,3)
-  ANORM = 0.
+  ANORM = zero(TR)
   KASE = 0
   finish = false
   while !finish
@@ -148,13 +151,16 @@ julia> 1/opnorm1(invlyapop(A))
 ```
 """
 function opsepest(opinv::AbstractLinearOperator; exact = false)
-   ZERO = zero(0.)
-   BIGNUM = eps(2.) / reinterpret(Float64, 0x2000000000000000)
+   T = promote_type(Float64,eltype(opinv))
+   TR = real(T)
+   TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
+   BIGNUM = 2*eps(TR) / SMLNUM
+   ZERO = zero(TR)
    exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
    if opinvnrm1 >= BIGNUM
       return ZERO
    end
-   return one(1.)/opinvnrm1
+   return one(TR)/opinvnrm1
 end
 """
     rcond = oprcondest(op, opinv; exact = false)
@@ -190,22 +196,4 @@ julia> 1/opnorm1(lyapop(A))/opnorm1(invlyapop(A))
 """
 function oprcondest(op:: LinearOperator, opinv::LinearOperator; exact = false)
    return opsepest(op, exact = exact)*opsepest(opinv, exact = exact)
-end
-"""
-    rcond = oprcondest(opnrm1, opinv; exact = false)
-
-Compute `rcond`, an estimate of the `1`-norm reciprocal condition number
-of a linear operator `op`, where `opnrm1` is an estimate of the `1`-norm of `op` and
-`opinv` is the inverse operator `inv(op)`. The estimate is computed as
-``\\text{rcond} = 1 / (\\text{opnrm1}\\|opinv\\|_1)``, using an estimate of the `1`-norm, if `exact = false`, or
-the computed exact value of the `1`-norm, if `exact = true`.
-The `exact = true` option is not recommended for large order operators.
-"""
-function oprcondest(opnrm1::Real, opinv::AbstractLinearOperator; exact = false)
-  ZERO = zero(0.)
-  if opnrm1 == ZERO || size(opinv,1) == 0
-     return ZERO
-  else
-     return opsepest(opinv)/opnrm1
-  end
 end

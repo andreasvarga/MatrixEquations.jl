@@ -42,7 +42,7 @@ Tccsym = lyapop(ac,her=true);
 Tccsyminv = invlyapop(ac,her=true);
 Tccssym = lyapop(acs,her=true);
 Tccssyminv = invlyapsop(acs,her=true);
-Π = trmat(n); 
+Π = trmatop(n); 
 
 @test check_ctranspose(Tcr) &&
       check_ctranspose(Tcrinv) &&
@@ -132,10 +132,10 @@ Tccssyminv = invlyapsop(acs,her=true);
       sc*opnorm1(Tccsinv) < opnorm1est(Tccsinv)
 
 
-@test sc*oprcondest(opnorm1est(Tcr),Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
-      sc*oprcondest(opnorm1est(Tcrs),Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
-      sc*oprcondest(opnorm1est(Tcc),Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
-      sc*oprcondest(opnorm1est(Tccs),Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
+@test sc*oprcondest(Tcr,Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
+      sc*oprcondest(Tcrs,Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
+      sc*oprcondest(Tcc,Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
+      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
 
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
@@ -176,7 +176,7 @@ Tccsym = lyapop(ac,ec,her=true);
 Tccsyminv = invlyapop(ac,ec,her=true);
 Tccssym = lyapop(acs,ecs,her=true);
 Tccssyminv = invlyapsop(acs,ecs,her=true);
-Π = trmat(n)
+Π = trmatop(n)
 
 @time x = Tcrinv*cr[:];
 @test norm(Tcr*x-cr[:])/norm(x[:]) < reltol
@@ -247,10 +247,10 @@ Tccssyminv = invlyapsop(acs,ecs,her=true);
       sc*opnorm1(Tccsinv) < opnorm1est(Tccsinv)
 
 
-@test sc*oprcondest(opnorm1est(Tcr),Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
-      sc*oprcondest(opnorm1est(Tcrs),Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
-      sc*oprcondest(opnorm1est(Tcc),Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
-      sc*oprcondest(opnorm1est(Tccs),Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
+@test sc*oprcondest(Tcr,Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
+      sc*oprcondest(Tcrs,Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
+      sc*oprcondest(Tcc,Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
+      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
 
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
@@ -288,7 +288,7 @@ Tdcsym = lyapop(ac,disc=true,her=true);
 Tdcsyminv = invlyapop(ac,disc=true,her=true);
 Tdcssym = lyapop(acs,disc=true,her=true);
 Tdcssyminv = invlyapsop(acs,disc=true,her=true);
-Π = trmat(n);
+Π = trmatop(n);
 
 @time x = Tdrinv*cr[:];
 @test norm(Tdr*x-cr[:])/norm(x[:]) < reltol
@@ -360,10 +360,10 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
       sc*opnorm1(Tdcsinv) < opnorm1est(Tdcsinv)
 
 
-@test sc*oprcondest(opnorm1est(Tdr),Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
-      sc*oprcondest(opnorm1est(Tdrs),Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
-      sc*oprcondest(opnorm1est(Tdc),Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
-      sc*oprcondest(opnorm1est(Tdcs),Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
+@test sc*oprcondest(Tdr,Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
+      sc*oprcondest(Tdrs,Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
+      sc*oprcondest(Tdc,Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
+      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
 
 
 @test opsepest(Tdrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
@@ -404,7 +404,7 @@ Tdcsym = lyapop(ac,ec,disc=true,her=true);
 Tdcsyminv = invlyapop(ac,ec,disc=true,her=true);
 Tdcssym = lyapop(acs,ecs,disc=true,her=true);
 Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
-Π = trmat(n)
+Π = trmatop(n)
 
 @time x = Tdrinv*cr[:];
 @test norm(Tdr*x-cr[:])/norm(x[:]) < reltol
@@ -477,10 +477,10 @@ Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
       sc*opnorm1(Tdcsinv) < opnorm1est(Tdcsinv)
 
 
-@test sc*oprcondest(opnorm1est(Tdr),Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
-      sc*oprcondest(opnorm1est(Tdrs),Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
-      sc*oprcondest(opnorm1est(Tdc),Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
-      sc*oprcondest(opnorm1est(Tdcs),Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
+@test sc*oprcondest(Tdr,Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
+      sc*oprcondest(Tdrs,Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
+      sc*oprcondest(Tdc,Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
+      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
 
 @test opsepest(Tdrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*opsepest(Tdrsinv)  &&
@@ -561,10 +561,10 @@ Tccsinv = invsylvsop(acs,bcs)
       sc*opnorm1(Tccs) < opnorm1est(Tccs)  &&
       sc*opnorm1(Tccsinv) < opnorm1est(Tccsinv)
 
-@test sc*oprcondest(opnorm1est(Tcr),Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
-      sc*oprcondest(opnorm1est(Tcrs),Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
-      sc*oprcondest(opnorm1est(Tcc),Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
-      sc*oprcondest(opnorm1est(Tccs),Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
+@test sc*oprcondest(Tcr,Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
+      sc*oprcondest(Tcrs,Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
+      sc*oprcondest(Tcc,Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
+      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
 
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
@@ -748,10 +748,10 @@ Tcsinv = invsylvsop(acs, bcs, ccs, dcs)
       sc*opnorm1(Tcs) < opnorm1est(Tcs)  &&
       sc*opnorm1(Tcsinv) < opnorm1est(Tcsinv)
 
-@test sc*oprcondest(opnorm1est(Tr),Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
-      sc*oprcondest(opnorm1est(Trs),Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
-      sc*oprcondest(opnorm1est(Tc),Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
-      sc*oprcondest(opnorm1est(Tcs),Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
+@test sc*oprcondest(Tr,Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
+      sc*oprcondest(Trs,Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
+      sc*oprcondest(Tc,Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
+      sc*oprcondest(Tcs,Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
 
 @test opsepest(Trsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Trs)))  &&
       minimum(svdvals(Matrix(Trs))) <= sqrt(2)*n*opsepest(Trsinv)  &&
@@ -835,10 +835,10 @@ Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
       sc*opnorm1(Tcs) < opnorm1est(Tcs)  &&
       sc*opnorm1(Tcsinv) < opnorm1est(Tcsinv)
 
-@test sc*oprcondest(opnorm1est(Tr),Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
-      sc*oprcondest(opnorm1est(Trs),Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
-      sc*oprcondest(opnorm1est(Tc),Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
-      sc*oprcondest(opnorm1est(Tcs),Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
+@test sc*oprcondest(Tr,Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
+      sc*oprcondest(Trs,Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
+      sc*oprcondest(Tc,Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
+      sc*oprcondest(Tcs,Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
 
 
 @test opsepest(Trsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Trs)))  &&

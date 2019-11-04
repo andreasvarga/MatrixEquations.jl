@@ -67,7 +67,7 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    end
 
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -185,7 +185,7 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
       throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    end
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -295,7 +295,7 @@ function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstract
        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
     end
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
-    if T2 == Int64 || T2 == Complex{Int64}
+    if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
     end
     if eltype(A) !== T2
@@ -439,7 +439,7 @@ function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstra
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
     end
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
-    if T2 == Int64 || T2 == Complex{Int64}
+    if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
     end
     if eltype(A) !== T2
@@ -560,7 +560,7 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
     end
 
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
-    if T2 == Int64 || T2 == Complex{Int64}
+    if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
     end
     if eltype(A) !== T2

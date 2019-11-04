@@ -8,28 +8,7 @@ using Test
 
 n = 30; m = 20;
 Ty = Float64
-
-
-ar = rand(n,n)
-br = rand(m,m)
-cr = rand(n,m)
-dr = rand(n,n)
-er = rand(m,m)
-fr = rand(n,m)
-as, ds = schur(ar,dr)
-bs, es = schur(br,er)
-ac = ar+im*rand(n,n)
-bc = br+im*rand(m,m)
-cc = cr+im*rand(n,m)
-dc = dr+im*rand(n,n)
-ec = er+im*rand(m,m)
-fc = fr+im*rand(n,m)
-acs, dcs = schur(ac,dc)
-bcs, ecs = schur(bc,ec)
 reltol = sqrt(eps(1.))
-reltol32 = min(100,n*m)*eps(1.f0)
-Tr32 = Matrix{Float32}
-Tc32 = Matrix{Complex{Float32}}
 
 
 #  continuous Sylvester equations

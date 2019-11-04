@@ -47,6 +47,7 @@ The current version of the package includes the following functions:
    * **dsylvsys**	 Solution of the dual Sylvester system of matrix equations `AX+DY = C, XB+YE = F`.
 
    **Norm, condition and separation estimation**
+   * **opnorm1**  Computation of the 1-norm of a linear operator. 
    * **opnorm1est** Estimation of 1-norm of a linear operator.
    * **oprcondest** Estimation of the reciprocal 1-norm condition number of a linear operator.
    * **opsepest** Estimation of the 1-norm separation a linear operator.

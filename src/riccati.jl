@@ -65,7 +65,7 @@ function arec(A::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix = zeros(el
       throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
     end
     T2 = promote_type(eltype(A), eltype(R), eltype(Q))
-    if T2 == Int64 || T2 == Complex{Int64}
+    if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
     end
     if eltype(A) !== T2
@@ -89,7 +89,7 @@ function arec(A::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix = zeros(el
     n2 = n+n
     ix = 1:n
     x = S.Z[n+1:n2, ix]/S.Z[ix, ix]
-    return  (x+x')/2, S.values[ix], []
+    return  (x+x')/2, S.values[ix]
 end
 function arec(A::AbstractMatrix, R::UniformScaling, Q::UniformScaling) 
    n = LinearAlgebra.checksquare(A)
@@ -172,6 +172,7 @@ julia> eigvals(A-B*F)
 """
 function arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B))) 
     n = LinearAlgebra.checksquare(A)
+    T = promote_type( eltype(A), eltype(B), eltype(Q), eltype(R), eltype(S) )
     nb, m = size(B)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix with row dimension $n"))
@@ -185,15 +186,38 @@ function arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::Abstra
     if (n,m) !== size(S)
        throw(DimensionMismatch("S must be a $n x $m matrix"))
     end
+    if !(T <: BlasFloat) 
+      T = promote_type(Float64,T)
+    end
+    TR = real(T)
+    epsm = eps(TR)
+    if eltype(A) !== T
+      A = convert(Matrix{T},A)
+    end
+    if eltype(B) !== T
+      B = convert(Matrix{T},B)
+    end
+    if eltype(Q) !== T
+      Q = convert(Matrix{T},Q)
+    end
+    if eltype(R) !== T
+      R = convert(Matrix{T},R)
+    end
+    if eltype(S) !== T
+      S = convert(Matrix{T},S)
+    end
+    if cond(R)*epsm > 1
+      error("R must be non-singular")
+    end
     S0flag = iszero(S)
     SR = schur(R)
     D = real(diag(SR.T))
     Da = abs.(D)
     minDa, = findmin(Da)
     maxDa, = findmax(Da)
-    if minDa <= eps()*maxDa
+    if minDa <= epsm*maxDa
        error("R must be non-singular")
-    elseif minDa > sqrt(eps())*maxDa
+    elseif minDa > sqrt(epsm)*maxDa
        #Dinv = diagm(0 => 1 ./ D)
        Dinv = Diagonal(1 ./ D)
        Bu = B*SR.Z
@@ -289,9 +313,9 @@ julia> eigvals(A-B*F,E)
   -0.216130599644518 + 0.0im
 ```
 """
-function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
+function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
     n = LinearAlgebra.checksquare(A)
-    T = promote_type(eltype(A), eltype(B), eltype(Q), eltype(R) )
+    T = promote_type( eltype(A), eltype(B), eltype(Q), eltype(R), eltype(S) )
     nb, m = size(B)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix of row dimension $n"))
@@ -306,10 +330,6 @@ function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::Abstr
        if eident
           E = I
        else
-          Et = LinearAlgebra.LAPACK.getrf!(copy(E))
-          if LinearAlgebra.LAPACK.gecon!('1',Et[1],norm(E,1))  < eps(1.)
-             error("E must be non-singular")
-          end
           T = promote_type(T,eltype(E))
        end
     end
@@ -319,33 +339,42 @@ function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::Abstr
     if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
        throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
     end
-    if cond(R)*eps(1.) > 1.
-       error("R must be non-singular")
-    end
     if (n,m) !== size(S)
        throw(DimensionMismatch("S must be a $n x $m matrix"))
     end
-    T = promote_type(T,eltype(S))
-    if eltype(A) !== T
-      A = complex(A)
+    if !(T <: BlasFloat) 
+      T = promote_type(Float64,T)
     end
-    if !eident && eltype(E) !== T
-      E = complex(E)
+    TR = real(T)
+    epsm = eps(TR)
+    if eltype(A) !== T
+      A = convert(Matrix{T},A)
+    end
+    if !eident && eltype(E) != T
+      E = convert(Matrix{T},E)
     end
     if eltype(B) !== T
-      B = complex(B)
+      B = convert(Matrix{T},B)
     end
     if eltype(Q) !== T
-      Q = complex(Q)
+      Q = convert(Matrix{T},Q)
     end
     if eltype(R) !== T
-      R = complex(R)
+      R = convert(Matrix{T},R)
     end
     if eltype(S) !== T
-      S = complex(S)
+      S = convert(Matrix{T},S)
     end
-
-    """
+    if cond(R)*epsm > 1
+      error("R must be non-singular")
+    end
+    if !eident
+       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
+       if LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm
+          error("E must be non-singular")
+       end
+    end
+"""
     Method:  A stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
 
                  [  A   0    B ]      [ E  0  0 ]
@@ -359,8 +388,8 @@ function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::Abstr
 
     #deflate m simple infinite eigenvalues
     n2 = n+n;
-    G = qr([S; B; R]);
-    if cond(G.R) * eps(1.)  > 1.
+    G = qr(Matrix([S; B; R]));
+    if cond(G.R) * epsm  > 1
        error("The extended Hamiltonian pencil is not regular")
     end
 
@@ -371,7 +400,7 @@ function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::Abstr
     L11 = [ A zeros(T,n,n) B; -Q -A' -S]*z
     P11 = [ E zeros(T,n,n); zeros(T,n,n) E']*z[iric,:]
     LPS = schur(L11,P11)
-    select = real.(LPS.α ./ LPS.β) .< 0.
+    select = real.(LPS.α ./ LPS.β) .< 0
     if n !== length(filter(y-> y == true,select))
        error("The extended simplectic pencil is not dichotomic")
     end
@@ -471,7 +500,7 @@ julia> eigvals(A-B*F,E)
 """
 function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
     n = LinearAlgebra.checksquare(A)
-    T = promote_type(eltype(A), eltype(B), eltype(Q), eltype(R) )
+    T = promote_type( eltype(A), eltype(B), eltype(Q), eltype(R), eltype(S) )
     nb, m = size(B)
     if n !== nb
        throw(DimensionMismatch("B must be a matrix with row dimension $n"))
@@ -499,24 +528,28 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}},
     if (n,m) !== size(S)
       throw(DimensionMismatch("S must be a $n x $m matrix"))
     end
-    T = promote_type(T,eltype(S))
-    if eltype(A) != T
-      A = complex(A)
+    if !(T <: BlasFloat) 
+      T = promote_type(Float64,T)
+    end
+    TR = real(T)
+    epsm = eps(TR)
+    if eltype(A) !== T
+      A = convert(Matrix{T},A)
     end
     if !eident && eltype(E) != T
-      E = complex(E)
+      E = convert(Matrix{T},E)
     end
-    if eltype(B) != T
-      B = complex(B)
+    if eltype(B) !== T
+      B = convert(Matrix{T},B)
     end
-    if eltype(Q) != T
-      Q = complex(Q)
+    if eltype(Q) !== T
+      Q = convert(Matrix{T},Q)
     end
-    if eltype(R) != T
-      R = complex(R)
+    if eltype(R) !== T
+      R = convert(Matrix{T},R)
     end
-    if eltype(S) != T
-      S = complex(S)
+    if eltype(S) !== T
+      S = convert(Matrix{T},S)
     end
 
     """
@@ -536,7 +569,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}},
     P2 = [zeros(T,n,n) F.R zeros(T,n,m)]
 
     G = qr(L2[n+1:n+m,:]')
-    if cond(G.R) * eps(1.)  > 1.
+    if cond(G.R) * epsm  > 1
        error("The extended symplectic pencil is not regular")
     end
     z = (G.Q*I)[:,[m+1:m+n2; 1:m]]

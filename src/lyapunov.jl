@@ -58,7 +58,7 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    adj = isa(A,Adjoint)
 
    T2 = promote_type(eltype(A), eltype(C))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -177,7 +177,7 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    adj = adjA & adjE
 
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -283,7 +283,7 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
    adj = isa(A,Adjoint)
 
    T2 = promote_type(eltype(A), eltype(C))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2
@@ -401,7 +401,7 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    adj = adjA & adjE
 
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
-   if T2 == Int64 || T2 == Complex{Int64}
+   if !(T2 <: BlasFloat) 
       T2 = promote_type(Float64,T2)
    end
    if eltype(A) !== T2

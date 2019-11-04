@@ -9,5 +9,5 @@ invsylvsop
 sylvsysop
 invsylvsysop
 invsylvsyssop
-trmat
+trmatop
 ```
