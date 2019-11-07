@@ -21,7 +21,7 @@ after_success:
   #- julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter", version="0.23"))' && julia docs/make.jl
   - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
  
- jobs:
+jobs:
   include:
     - stage: "Documentation"
       julia: 1.2
