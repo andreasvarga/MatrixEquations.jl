@@ -38,8 +38,17 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapd(ar,br);
 x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
 
+@time u = plyapd(ar,ar);
+x = u*u'; @test norm(ar*x*ar'-x+ar*ar')/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time u = plyapd(ar,I,br);
+x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
+
 @time u = plyapd(ar',cr');
 x = u'*u; @test norm(ar'*x*ar-x+cr'*cr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time u = plyapd(ar',ar');
+x = u'*u; @test norm(ar'*x*ar-x+ar'*ar)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time u = plyapd(ac,bc);
 x = u*u'; @test norm(ac*x*ac'-x+bc*bc')/norm(x)/max(1.,norm(ac)^2) < reltol
@@ -89,11 +98,14 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapd(ar,er,br);
 x = u*u'; @test norm(ar*x*ar'-er*x*er'+br*br')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
-@time u = plyapd(ar,er,br);
-x = u*u'; @test norm(ar*x*ar'-er*x*er'+br*br')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+@time u = plyapd(ar,er,ar);
+x = u*u'; @test norm(ar*x*ar'-er*x*er'+ar*ar')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
 @time u = plyapd(ar',er',cr');
 x = u'*u; @test norm(ar'*x*ar-er'*x*er+cr'*cr)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time u = plyapd(ar',er',ar');
+x = u'*u; @test norm(ar'*x*ar-er'*x*er+ar'*ar)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
 @time u = plyapd(ac,ec,bc);
 x = u*u'; @test norm(ac*x*ac'-ec*x*ec'+bc*bc')/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
@@ -192,8 +204,14 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyaps(as,br,disc = true);
 x = u*u'; @test norm(as*x*as'-x+br*br')/norm(x)/norm(as) < reltol
 
+@time u = plyaps(as,ar,disc = true);
+x = u*u'; @test norm(as*x*as'-x+ar*ar')/norm(x)/norm(as) < reltol
+
 @time u = plyaps(as',cr',disc = true);
 x = u'*u; @test norm(as'*x*as-x+cr'*cr)/norm(x)/norm(as) < reltol
+
+@time u = plyaps(as',ar',disc = true);
+x = u'*u; @test norm(as'*x*as-x+ar'*ar)/norm(x)/norm(as) < reltol
 
 @time u = plyaps(acs,bc,disc = true);
 x = u*u'; @test norm(acs*x*acs'-x+bc*bc')/norm(x)/norm(acs) < reltol
@@ -233,8 +251,14 @@ acs, ecs = schur(ac,ec)
 @time u = plyaps(as,es,br,disc = true);
 x = u*u'; @test norm(as*x*as'-es*x*es'+br*br')/norm(x)/norm(as) < reltol
 
+@time u = plyaps(as,es,ar,disc = true);
+x = u*u'; @test norm(as*x*as'-es*x*es'+ar*ar')/norm(x)/norm(as) < reltol
+
 @time u = plyaps(as',es',cr',disc = true);
 x = u'*u; @test norm(as'*x*as-es'*x*es+cr'*cr)/norm(x)/norm(as) < reltol
+
+@time u = plyaps(as',es',ar',disc = true);
+x = u'*u; @test norm(as'*x*as-es'*x*es+ar'*ar)/norm(x)/norm(as) < reltol
 
 @time u = plyaps(acs,ecs,bc,disc = true);
 x = u*u'; @test norm(acs*x*acs'-ecs*x*ecs'+bc*bc')/norm(x)/norm(as) < reltol

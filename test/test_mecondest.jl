@@ -216,6 +216,10 @@ try
    T = invlyapsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
    T*rand(n*n);
    T*complex(rand(n*n));
+   transpose(T)*rand(n*n);
+   transpose(T)*complex(rand(n*n));
+   T'*rand(n*n);
+   T'*complex(rand(n*n));
    @test true
 catch
    @test false
@@ -1063,7 +1067,8 @@ try
       norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol &&
       norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol &&
       norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol &&
-      norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol
+      norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol &&
+      opnorm1(Trsinv-invsylvsyssop(schur(ar,cr),schur(br,dr))) == 0
 
 
 @test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
