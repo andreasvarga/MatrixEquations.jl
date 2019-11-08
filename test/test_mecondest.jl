@@ -62,6 +62,19 @@ Tccssyminv = invlyapsop(acs,her=true);
       #check_ctranspose(Tccssyminv) 
 
 
+try
+    T = invlyapsop(convert(Matrix{Complex{Float32}},acs));
+    T*rand(n*n);
+    T*complex(rand(n*n));
+    transpose(T)*rand(n*n);
+    transpose(T)*complex(rand(n*n));
+    adjoint(T)*rand(n*n);
+    adjoint(T)*complex(rand(n*n));
+    @test true
+ catch
+    @test false
+ end 
+ 
 
 @time x = Tcrinv*cr[:];
 @test norm(Tcr*x-cr[:])/norm(x[:]) < reltol
@@ -152,7 +165,7 @@ Tccssyminv = invlyapsop(acs,her=true);
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
       opsepest(invlyapop([0. 1.; 0. 1.])) == 0. &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.]))) == 0. &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.]))) == 0.  &&
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.]))) == 0.  &&
       opsepest(invlyapsop([0. 1.; 0. 1.])) == 0.  &&
       opsepest(transpose(invlyapsop([0. 1.; 0. 1.]))) == 0.  &&
       opsepest(adjoint(invlyapsop([0. 1.; 0. 1.]))) == 0.
@@ -241,6 +254,9 @@ end
 @time x = transpose(Tcrssyminv)*triu2vec(cr);
 @test norm(transpose(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
 
+@time x = adjoint(Tcrssyminv)*triu2vec(cr);
+@test norm(adjoint(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
+
 @time x = Tccinv*cc[:]
 @test norm(Tcc*x-cc[:])/norm(x[:]) < reltol
 
@@ -298,7 +314,7 @@ end
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
       opsepest(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.])) == 0. &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0. &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.  &&
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.  &&
       opsepest(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.])) == 0.  &&
       opsepest(transpose(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.  &&
       opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.
@@ -583,6 +599,10 @@ try
     T = invsylvsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs));
     T*rand(n*m);
     T*complex(rand(n*m));
+    transpose(T)*rand(n*m);
+    transpose(T)*complex(rand(n*m));
+    T'*rand(n*m);
+    T'*complex(rand(n*m));
     @test true
  catch
     @test false
@@ -671,9 +691,11 @@ x = rand(n*m);
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
       opsepest(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.])) == 0. &&
-      opsepest(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.])) == 0.
-
-
+      opsepest(transpose(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(adjoint(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.])) == 0. &&
+      opsepest(transpose(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(adjoint(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0.
 
 end
 
@@ -834,9 +856,13 @@ try
     T*rand(n*m);
     T*complex(rand(n*m));
     T = invsylvsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs),
-                   convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs));
+                   convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},dcs));
     T*rand(n*m);
     T*complex(rand(n*m));
+    transpose(T)*rand(n*m);
+    transpose(T)*complex(rand(n*m));
+    T'*rand(n*m);
+    T'*complex(rand(n*m));
     @test true
  catch
     @test false
@@ -944,7 +970,11 @@ x = rand(n*m);
 @test opsepest(Trsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Trs)))  &&
       minimum(svdvals(Matrix(Trs))) <= sqrt(2)*n*opsepest(Trsinv)  &&
       opsepest(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0. &&
-      opsepest(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.
+      opsepest(transpose(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(adjoint(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0. &&
+      opsepest(transpose(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(adjoint(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. 
 
 end
 
@@ -976,6 +1006,27 @@ Tc = sylvsysop(ac, bc, cc, dc)
 Tcinv = invsylvsysop(ac, bc, cc, dc)
 Tcs = sylvsysop(acs, bcs, ccs, dcs)
 Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
+
+try
+    T = invsylvsyssop(triu(as),triu(bs),ccs,dcs);
+    T = invsylvsyssop(acs,bcs,cs,ds);
+    T*rand(2n*m);
+    T*complex(rand(2n*m));
+    T = invsylvsyssop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs),
+                   convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},dcs));
+    T*rand(2n*m);
+    T*complex(rand(2n*m));
+    transpose(T)*rand(2n*m);
+    transpose(T)*complex(rand(2n*m));
+    T'*rand(2n*m);
+    T'*complex(rand(2n*m));
+    @test true
+ catch
+    @test false
+ end 
+
+
+
 
 @time xy = Trinv*[er[:];fr[:]]
 @test norm(Tr*xy-[er[:];fr[:]])/norm(xy[:]) < reltol
@@ -1032,7 +1083,12 @@ Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
 
 @test opsepest(Trsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Trs)))  &&
       minimum(svdvals(Matrix(Trs))) <= sqrt(2)*n*opsepest(Trsinv)  &&
-      opsepest(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.
+      opsepest(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.   &&
+      opsepest(transpose(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
+      opsepest(adjoint(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
+      opsepest(invsylvsyssop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.  &&
+      opsepest(transpose(invsylvsyssop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
+      opsepest(adjoint(invsylvsyssop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. 
 
 
 end

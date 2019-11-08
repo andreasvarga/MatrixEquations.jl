@@ -443,10 +443,14 @@ function invlyapsop(A; disc = false, her = false)
    if !isschur(A)
        error("The matrix A must be in Schur form")
    end
+   cmplx = T<:Complex
    function prod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
-       A = convert(Matrix{T1},A)
+      if !cmplx && T1<:Complex && !istriu(A)
+         error("Conversion of A to complex Schur form not possible")
+      end
+     A = convert(Matrix{T1},A)
      end
      try
        if her
@@ -478,6 +482,9 @@ function invlyapsop(A; disc = false, her = false)
    function tprod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
+       if !cmplx && T1<:Complex && !istriu(A)
+          error("Conversion of A to complex Schur form not possible")
+       end
        A = convert(Matrix{T1},A)
      end
      try
@@ -510,6 +517,9 @@ function invlyapsop(A; disc = false, her = false)
    function ctprod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
+       if !cmplx && T1<:Complex && !istriu(A)
+          error("Conversion of A to complex Schur form not possible")
+       end
        A = convert(Matrix{T1},A)
      end
      try
@@ -1205,7 +1215,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   end
   function ctprod(x)
     T1 = promote_type(T, eltype(x))
-    Y = copy(reshape(convert(Vector{T}, x), m, n))
+    Y = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
       if !cmplx && T1<:Complex 
          if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
