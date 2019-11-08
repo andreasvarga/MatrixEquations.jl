@@ -240,7 +240,7 @@ function invlyapop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -267,7 +267,7 @@ function invlyapop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -294,7 +294,7 @@ function invlyapop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -350,7 +350,7 @@ function invlyapop(A, E; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -377,7 +377,7 @@ function invlyapop(A, E; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -404,7 +404,7 @@ function invlyapop(A, E; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -467,7 +467,7 @@ function invlyapsop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -499,7 +499,7 @@ function invlyapsop(A; disc = false, her = false)
         end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -531,7 +531,7 @@ function invlyapsop(A; disc = false, her = false)
         end
       end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -573,6 +573,7 @@ function invlyapsop(A, E; disc = false, her = false)
      error("No calls with adjoint matrices are supported")
    end
    T = promote_type(eltype(A), eltype(E))
+   cmplx = T<:Complex
    if eltype(A) !== T
      A = convert(Matrix{T},A)
    end 
@@ -580,13 +581,16 @@ function invlyapsop(A, E; disc = false, her = false)
      E = convert(Matrix{T},E)
    end 
 
-   # check A is in Schur form
+   # check (A,E) is in generalized Schur form
    if !isschur(A,E)
        error("The matrix pair (A,E) must be in generalized Schur form")
    end
    function prod(x)
      T1 = promote_type(T, eltype(x))
-     if T !== T1
+     if T !== T1 
+        if !cmplx && T1<:Complex && !istriu(A)
+           error("Conversion to complex generalized Schur form not possible")
+        end
         A = convert(Matrix{T1},A)
         E = convert(Matrix{T1},E)
      end
@@ -602,7 +606,7 @@ function invlyapsop(A, E; disc = false, her = false)
          return Y[:]
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -613,6 +617,9 @@ function invlyapsop(A, E; disc = false, her = false)
    function tprod(x)
     T1 = promote_type(T, eltype(x))
     if T !== T1
+       if !cmplx && T1<:Complex && !istriu(A)
+          error("Conversion to complex generalized Schur form not possible")
+       end
        A = convert(Matrix{T1},A)
        E = convert(Matrix{T1},E)
     end
@@ -628,7 +635,7 @@ function invlyapsop(A, E; disc = false, her = false)
          return Y[:]
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -639,6 +646,9 @@ function invlyapsop(A, E; disc = false, her = false)
    function ctprod(x)
     T1 = promote_type(T, eltype(x))
     if T !== T1
+       if !cmplx && T1<:Complex && !istriu(A)
+          error("Conversion to complex generalized Schur form not possible")
+       end
        A = convert(Matrix{T1},A)
        E = convert(Matrix{T1},E)
     end
@@ -654,7 +664,7 @@ function invlyapsop(A, E; disc = false, her = false)
          return Y[:]
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -723,7 +733,7 @@ function invsylvop(A, B; disc = false)
         return sylvc(A,B,C)[:]
       end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -741,7 +751,7 @@ function invsylvop(A, B; disc = false)
         return sylvc(A',B',C)[:]
      end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -759,7 +769,7 @@ function invsylvop(A, B; disc = false)
         return sylvc(A',B',C)[:]
      end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) ||
+       if isnothing(findfirst("LAPACKException",string(err))) &&
           isnothing(findfirst("SingularException",string(err)))
           rethrow()
        else
@@ -817,6 +827,14 @@ function invsylvsop(A, B; disc = false)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
+             error("Conversion of A to complex Schur form not possible")
+         end
+         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
+            error("Conversion of B to complex Schur form not possible")
+         end
+      end
       adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
       adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
    end
@@ -857,6 +875,14 @@ function invsylvsop(A, B; disc = false)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
+             error("Conversion of A to complex Schur form not possible")
+         end
+         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
+            error("Conversion of B to complex Schur form not possible")
+         end
+      end
       adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
       adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
    end
@@ -897,6 +923,14 @@ function invsylvsop(A, B; disc = false)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
+             error("Conversion of A to complex Schur form not possible")
+         end
+         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
+            error("Conversion of B to complex Schur form not possible")
+         end
+      end
       adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
       adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
     end
@@ -1101,6 +1135,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
+             error("Conversion of (A,C) to complex generalized Schur form not possible")
+         end
+         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
+            error("Conversion of (B,D) to complex generalized Schur form not possible")
+         end
+      end
       adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
       adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
       adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
@@ -1129,6 +1171,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
+             error("Conversion of (A,C) to complex generalized Schur form not possible")
+         end
+         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
+            error("Conversion of (B,D) to complex generalized Schur form not possible")
+         end
+      end
       adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
       adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
       adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
@@ -1157,6 +1207,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T}, x), m, n))
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
+             error("Conversion of (A,C) to complex generalized Schur form not possible")
+         end
+         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
+            error("Conversion of (B,D) to complex generalized Schur form not possible")
+         end
+      end
       adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
       adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
       adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
@@ -1331,6 +1389,14 @@ function invsylvsyssop(A, B, C, D)
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     if T !== T1
+       if !cmplx && T1<:Complex 
+          if !istriu(A) 
+             error("Conversion of (A,C) to complex generalized Schur form not possible")
+          end
+          if !istriu(B)
+            error("Conversion of (B,D) to complex generalized Schur form not possible")
+          end
+       end
        A = convert(Matrix{T1},A) 
        B = convert(Matrix{T1},B) 
        C = convert(Matrix{T1},C) 
@@ -1352,6 +1418,14 @@ function invsylvsyssop(A, B, C, D)
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if !istriu(A) 
+            error("Conversion of (A,C) to complex generalized Schur form not possible")
+         end
+         if !istriu(B)
+           error("Conversion of (B,D) to complex generalized Schur form not possible")
+         end
+      end
       A = convert(Matrix{T1},A) 
       B = convert(Matrix{T1},B) 
       C = convert(Matrix{T1},C) 
@@ -1373,6 +1447,14 @@ function invsylvsyssop(A, B, C, D)
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     if T !== T1
+      if !cmplx && T1<:Complex 
+         if !istriu(A) 
+            error("Conversion of (A,C) to complex generalized Schur form not possible")
+         end
+         if !istriu(B)
+           error("Conversion of (B,D) to complex generalized Schur form not possible")
+         end
+      end
       A = convert(Matrix{T1},A) 
       B = convert(Matrix{T1},B) 
       C = convert(Matrix{T1},C) 
