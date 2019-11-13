@@ -5,11 +5,11 @@ os:
 
 julia:
   - 1.2
-  - nightly
+#  - nightly
 
 matrix:
   allow_failures:
-    - julia: nightly
+#    - julia: nightly
 
 
 notifications:
@@ -24,7 +24,6 @@ branches:
 
 
 after_success:
-  #- julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter", version="0.23"))' && julia docs/make.jl
   - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
  
 jobs:
@@ -33,7 +32,5 @@ jobs:
       julia: 1.1
       os: windows
       script:
-        # - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()));
-        #                                        Pkg.instantiate()'
         - julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter"))' && julia docs/make.jl
       after_success: skip
