@@ -38,6 +38,67 @@ x = copy(Qr); @time utqu!(x,ur');
 @time x = vec2triu(triu2vec(Qr, rowwise = true, her = true),rowwise = true, her = true)
 @test x == Qr
 
+@test isschur(rand(2,3)) == false &&
+      isschur(rand(1,1)) == true &&
+      isschur(rand(3,3)) == false &&
+      isschur(rand(3,3),rand(2,2)) == false
+
+try
+    utqu!(rand(3,3),rand(3,3)) 
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    utqu!(Symmetric(rand(3,3)),rand(2,2))
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    utqu(rand(3,3),rand(3,3)) 
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    utqu(Symmetric(rand(3,3)),rand(2,2))
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    utqu(Symmetric(rand(3,3)),rand(2,2)')
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    qrupdate!(triu(rand(4,4)), rand(2,3))
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    rqupdate!(triu(rand(4,4)), rand(2,3))
+    @test false   
+catch
+    @test true   
+end     
+
+try
+    triu2vec(rand(2,2), her = true)
+    @test false   
+catch
+    @test true   
+end     
+
 end
 
 end

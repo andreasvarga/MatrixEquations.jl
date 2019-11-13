@@ -29,17 +29,21 @@ ar = ar/(one(Ty) + norm(ar))
 ac = rand(Ty,n,n)+im*rand(Ty,n,n)
 ac = ac/(one(Ty) + norm(ac))
 br = rand(Ty,n,m)
+brw = rand(Ty,n,n+m)
 bc = br+im*rand(Ty,n,m)
+bcw = brw+im*rand(Ty,n,n+m)
 cr = rand(Ty,p,n)
+crt = rand(Ty,n+p,n)
 cc = cr+im*rand(Ty,p,n)
+cct = crt+im*rand(Ty,n+p,n)
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 
 @time u = plyapd(ar,br);
 x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
 
-@time u = plyapd(ar,ar);
-x = u*u'; @test norm(ar*x*ar'-x+ar*ar')/norm(x)/max(1.,norm(ar)^2) < reltol
+@time u = plyapd(ar,brw);
+x = u*u'; @test norm(ar*x*ar'-x+brw*brw')/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time u = plyapd(ar,I,br);
 x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
@@ -47,14 +51,20 @@ x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
 @time u = plyapd(ar',cr');
 x = u'*u; @test norm(ar'*x*ar-x+cr'*cr)/norm(x)/max(1.,norm(ar)^2) < reltol
 
-@time u = plyapd(ar',ar');
-x = u'*u; @test norm(ar'*x*ar-x+ar'*ar)/norm(x)/max(1.,norm(ar)^2) < reltol
+@time u = plyapd(ar',crt');
+x = u'*u; @test norm(ar'*x*ar-x+crt'*crt)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time u = plyapd(ac,bc);
 x = u*u'; @test norm(ac*x*ac'-x+bc*bc')/norm(x)/max(1.,norm(ac)^2) < reltol
 
+@time u = plyapd(ac,bcw);
+x = u*u'; @test norm(ac*x*ac'-x+bcw*bcw')/norm(x)/max(1.,norm(ac)^2) < reltol
+
 @time u = plyapd(ac',cc');
 x = u'*u; @test norm(ac'*x*ac-x+cc'*cc)/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time u = plyapd(ac',cct');
+x = u'*u; @test norm(ac'*x*ac-x+cct'*cct)/norm(x)/max(1.,norm(ac)^2) < reltol
 
 @time u = plyapd(ac',cr');
 x = u'*u; @test norm(ac'*x*ac-x+cr'*cr)/norm(x)/max(1.,norm(ac)^2) < reltol
@@ -86,32 +96,42 @@ er = rand(Ty,n,n)
 ar = er*ar
 ac = rand(Ty,n,n)+im*rand(Ty,n,n)
 ac = ac/(one(Ty) + norm(ac))
-br = rand(Ty,n,m)
-ec = er+im*rand(n,n)
+ec = er+im*rand(Ty,n,n)
 ac = ec*ac
+br = rand(Ty,n,m)
+brw = rand(Ty,n,n+m)
 bc = br+im*rand(Ty,n,m)
+bcw = brw+im*rand(Ty,n,n+m)
 cr = rand(Ty,p,n)
+crt = rand(Ty,n+p,n)
 cc = cr+im*rand(Ty,p,n)
+cct = crt+im*rand(Ty,n+p,n)
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
-
-@time u = plyapd(ar,er,br);
-x = u*u'; @test norm(ar*x*ar'-er*x*er'+br*br')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
-
-@time u = plyapd(ar,er,ar);
-x = u*u'; @test norm(ar*x*ar'-er*x*er'+ar*ar')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
 @time u = plyapd(ar',er',cr');
 x = u'*u; @test norm(ar'*x*ar-er'*x*er+cr'*cr)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
-@time u = plyapd(ar',er',ar');
-x = u'*u; @test norm(ar'*x*ar-er'*x*er+ar'*ar)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+@time u = plyapd(ar',er',crt');
+x = u'*u; @test norm(ar'*x*ar-er'*x*er+crt'*crt)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time u = plyapd(ar,er,br);
+x = u*u'; @test norm(ar*x*ar'-er*x*er'+br*br')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time u = plyapd(ar,er,brw);
+x = u*u'; @test norm(ar*x*ar'-er*x*er'+brw*brw')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
 @time u = plyapd(ac,ec,bc);
 x = u*u'; @test norm(ac*x*ac'-ec*x*ec'+bc*bc')/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
 
+@time u = plyapd(ac,ec,bcw);
+x = u*u'; @test norm(ac*x*ac'-ec*x*ec'+bcw*bcw')/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
 @time u = plyapd(ac',ec',cc');
 x = u'*u; @test norm(ac'*x*ac-ec'*x*ec+cc'*cc)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time u = plyapd(ac',ec',cct');
+x = u'*u; @test norm(ac'*x*ac-ec'*x*ec+cct'*cct)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
 
 @time u = plyapd(ar,er,bc);
 x = u*u'; @test norm(ar*x*ar'-er*x*er'+bc*bc')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol

@@ -127,6 +127,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(ar,er,Qr);
 @test norm(ar*x*er'+er*x*ar'+Qr)/norm(x)/norm(ar)/norm(er)  < reltol
 
+@time x = lyapc(ar,er,qc);
+@test norm(ar*x*er'+er*x*ar'+qc)/norm(x)/norm(ar)/norm(er)  < reltol
+
 @time x = lyapc(ar',er',Qr);
 @test norm(ar'*x*er+er'*x*ar+Qr)/norm(x)/norm(ar)/norm(er) < reltol
 
@@ -195,6 +198,10 @@ x = copy(Qr)
 @time lyapcs!(as,es,x);
 @test norm(as*x*es'+es*x*as'+Qr)/norm(x)/norm(as)/norm(es) < reltol
 
+x = copy(qc)
+@time lyapcs!(as,es,x);
+@test norm(as*x*es'+es*x*as'+qc)/norm(x)/norm(as)/norm(es) < reltol
+
 x = copy(Qr)
 @time lyapcs!(as,I,x);
 @test norm(as*x+x*as'+Qr)/norm(x)/norm(as) < reltol
@@ -202,6 +209,20 @@ x = copy(Qr)
 x = copy(Qr)
 @time lyapcs!(as,x);
 @test norm(as*x+x*as'+Qr)/norm(x)/norm(as) < reltol
+
+x = copy(qc)
+@time lyapcs!(as,x);
+@test norm(as*x+x*as'+qc)/norm(x)/norm(as)/norm(es) < reltol
+
+if Ty == Float64
+try
+  x = convert(Matrix{Complex{Float32}},copy(qc))
+  @time lyapcs!(as,x);
+  @test false
+catch
+  @test true
+end
+end
 
 x = copy(Qr)
 @time lyapcs!(as,es,x,adj=true);

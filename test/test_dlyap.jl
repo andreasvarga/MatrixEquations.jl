@@ -104,6 +104,7 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 try
    @time x = lyapd(0*ac,0*ec,qc);
+   @test false
 catch
    @test true
 end
@@ -117,6 +118,7 @@ end
 try
    α = 1; β = 1; #SingularException
    @time x = lyapd(α,β,qc);
+   @test false
 catch
    @test true
 end
@@ -201,9 +203,17 @@ x = copy(Qr)
 @time lyapds!(as,x);
 @test norm(as*x*as'+Qr-x)/norm(x)/max(norm(as)^2,1.) < reltol
 
+x = copy(qc)
+@time lyapds!(as,x);
+@test norm(as*x*as'+qc-x)/norm(x)/max(norm(as)^2,1.) < reltol
+
 x = copy(Qr)
 @time lyapds!(as,x,adj=true);
 @test norm(as'*x*as+Qr-x)/norm(x)/max(norm(as)^2,1.) < reltol
+
+x = copy(qc)
+@time lyapds!(as,x,adj=true);
+@test norm(as'*x*as+qc-x)/norm(x)/max(norm(as)^2,1.) < reltol
 
 x = copy(qc)
 @time lyapds!(acs,ecs,x);
@@ -224,6 +234,15 @@ x = copy(Qr)
 x = copy(Qr)
 @time lyapds!(as,es,x,adj=true);
 @test norm(as'*x*as+Qr-es'*x*es)/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
+
+x = copy(qc)
+@time lyapds!(as,es,x);
+@test norm(as*x*as'+qc-es*x*es')/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
+
+x = copy(qc)
+@time lyapds!(as,es,x,adj=true);
+@test norm(as'*x*as+qc-es'*x*es)/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
+
 end
 end
 

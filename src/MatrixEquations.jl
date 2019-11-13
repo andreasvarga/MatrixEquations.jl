@@ -18,7 +18,7 @@ export lyapc, lyapd, lyapcs!, lyapds!
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2, pglyap2
 export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
-export sylvsys, dsylvsys, tgsyl!
+export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export opnorm1, opnorm1est, oprcondest, opsepest, trmatop
 export lyapop, invlyapop, invlyapsop

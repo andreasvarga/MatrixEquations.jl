@@ -459,13 +459,18 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 `C` contains on output the solution `X`.
 """
-function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function lyapcs!(A::T1, C::Union{T1,T2}; adj = false) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
    end
 
    T = eltype(A)
+   TR = real(eltype(C))
+   if T !== TR
+      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+   end
    ZERO = zero(T)
    # determine the structure of the real Schur form
    ba = fill(1,n)
@@ -669,7 +674,9 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
+#function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj = false) where 
+      {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
@@ -681,6 +688,12 @@ function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
       end
+   end
+
+   T = eltype(A)
+   TR = real(eltype(C))
+   if T !== TR
+      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
    end
 
    # determine the structure of the generalized real Schur form
@@ -925,10 +938,17 @@ where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function lyapds!(A::T1, C::Union{T1,T2}; adj = false) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   end
+
+   T = eltype(A)
+   TR = real(eltype(C))
+   if T !== TR
+      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
    end
 
    # determine the structure of the real Schur form
@@ -1134,7 +1154,9 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj = false) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+#function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
       throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
@@ -1146,6 +1168,12 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
       if LinearAlgebra.checksquare(E) != n
          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
       end
+   end
+
+   T = eltype(A)
+   TR = real(eltype(C))
+   if T !== TR
+      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
    end
 
    # determine the structure of the real Schur form

@@ -112,6 +112,18 @@ y = copy(cr); @time sylvcs!(as,bs,y,adjB=true)
 y = copy(cr); @time sylvcs!(as,bs,y,adjA=true,adjB=true)
 @test norm(as'*y+y*bs'-cr)/norm(y) < reltol
 
+y = copy(cc); @time sylvcs!(as,bs,y)
+@test norm(as*y+y*bs-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(as,bs,y,adjA=true)
+@test norm(as'*y+y*bs-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(as,bs,y,adjB=true)
+@test norm(as*y+y*bs'-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(as,bs,y,adjA=true,adjB=true)
+@test norm(as'*y+y*bs'-cc)/norm(y) < reltol
+
 y = copy(cc); @time sylvcs!(acs,bcs,y)
 @test norm(acs*y+y*bcs-cc)/norm(y) < reltol
 
@@ -221,6 +233,18 @@ y = copy(cr); @time sylvds!(as,bs,y,adjB=true)
 
 y = copy(cr); @time sylvds!(as,bs,y,adjA=true,adjB=true)
 @test norm(as'*y*bs'+y-cr)/norm(y) < reltol
+
+y = copy(cc); @time sylvds!(as,bs,y)
+@test norm(as*y*bs+y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds!(as,bs,y,adjA=true)
+@test norm(as'*y*bs+y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds!(as,bs,y,adjB=true)
+@test norm(as*y*bs'+y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds!(as,bs,y,adjA=true,adjB=true)
+@test norm(as'*y*bs'+y-cc)/norm(y) < reltol
 
 y = copy(cc); @time sylvds!(acs,bcs,y)
 @test norm(acs*y*bcs+y-cc)/norm(y) < reltol
@@ -359,6 +383,18 @@ y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjBD=true)
 
 y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjAC=true,adjBD=true)
 @test norm(as'*y*bs'+ds'*y*es'-cr)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs!(as,bs,ds,es,y)
+@test norm(as*y*bs+ds*y*es-cc)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs!(as,bs,ds,es,y,adjAC=true)
+@test norm(as'*y*bs+ds'*y*es-cc)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs!(as,bs,ds,es,y,adjBD=true)
+@test norm(as*y*bs'+ds*y*es'-cc)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs!(as,bs,ds,es,y,adjAC=true,adjBD=true)
+@test norm(as'*y*bs'+ds'*y*es'-cc)/norm(y) < reltol
 
 y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y)
 @test norm(acs*y*bcs+dcs*y*ecs-cc)/norm(y) < reltol
@@ -550,6 +586,58 @@ x = copy(cc); y = copy(fc);
 @time x, y, scale =  tgsyl!('C',acs, bcs, x, dcs, ecs, y)
 @test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
       norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cr); y = copy(fr);
+@time x, y, scale =  tgsyl!(as, bs, x, ds, es, y)
+@test norm(as*x-y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(ds*x-y*es-fr)/max(norm(x),norm(y)) < reltol
+
+x = copy(cr); y = copy(fr);
+@time x, y, scale =  tgsyl!('T',as, bs, x, ds, es, y)
+@test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bs'+y*es'+fr)/max(norm(x),norm(y)) < reltol
+
+
+x = copy(cc); y = copy(fc);
+@time x, y, scale =  tgsyl!(acs, bcs, x, dcs, ecs, y)
+@test norm(acs*x-y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(dcs*x-y*ecs-fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time x, y, scale =  tgsyl!('C',acs, bcs, x, dcs, ecs, y)
+@test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cr); y = copy(fr);
+@time x, y =  sylvsyss!(as, bs, x, ds, es, y)
+@test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time x, y =  sylvsyss!(as, bs, x, ds, es, y)
+@test norm(as*x+y*bs-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(ds*x+y*es-fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cr); y = copy(fr);
+@time x, y =  dsylvsyss!(as, bs, x, ds, es, y)
+@test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time x, y =  dsylvsyss!(as, bs, x, ds, es, y)
+@test norm(as'*x+ds'*y-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bs'+y*es'-fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time x, y =  sylvsyss!(acs, bcs, x, dcs, ecs, y)
+@test norm(acs*x+y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(dcs*x+y*ecs-fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time x, y =  dsylvsyss!(acs, bcs, x, dcs, ecs, y)
+@test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bcs'+y*ecs'-fc)/max(norm(x),norm(y)) < reltol
+
 end
 end
 

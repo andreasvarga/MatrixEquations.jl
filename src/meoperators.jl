@@ -6,15 +6,15 @@ Define the transposition operator `M: X -> X'` for all `n x m` matrices.
 function trmatop(n::Int,m::Int)
   function prod(x)
     X = reshape(x, n, m)
-    return transpose(X)[:]
+    return adjoint(X)[:]
   end
   function tprod(x)
     X = reshape(x, m, n)
-    return transpose(X)[:]
+    return adjoint(X)[:]
   end
   function ctprod(x)
     X = reshape(x, m, n)
-    return transpose(X)[:]
+    return adjoint(X)[:]
   end
   F1 = typeof(prod)
   F2 = typeof(tprod)
@@ -77,14 +77,14 @@ function lyapop(A; disc = false, her = false)
         return triu2vec(utqu(X,A) - X)
       else
         Y = X * A
-        return triu2vec(Y + transpose(Y))
+        return triu2vec(Y + adjoint(Y))
       end
     else
       X = reshape(convert(Vector{T1}, x), n, n)
       if disc
-         Y = transpose(A)*X*A - X
+         Y = adjoint(A)*X*A - X
        else
-         Y = transpose(A)*X + X*A
+         Y = adjoint(A)*X + X*A
        end
        return Y[:]
     end
@@ -164,16 +164,15 @@ function lyapop(A, E; disc = false, her = false)
         return triu2vec(utqu(X,A) - utqu(X,E))
       else
         Y = E' * X * A
-        return triu2vec(Y + transpose(Y))
+        return triu2vec(Y + Y')
       end
     else
       X = reshape(convert(Vector{T1}, x), n, n)
       if disc
-         Y = transpose(A)*X*A - transpose(E)*X*E
-       else
-         Y = transpose(A)*X*E + transpose(E)*X*A
-       end
-       return Y[:]
+        return (A'*X*A - E'*X*E )[:]
+      else
+        return (A'*X*E + E'*X*A)[:]
+      end
     end
   end
   function ctprod(x)
@@ -339,7 +338,7 @@ function invlyapop(A, E; disc = false, her = false)
          if disc
             return triu2vec(lyapd(A,E,-Y))
          else
-             return triu2vec(lyapc(A,E,-Y))
+            return triu2vec(lyapc(A,E,-Y))
          end
        else
          Y = reshape(convert(Vector{T1}, x), n, n)
@@ -438,6 +437,12 @@ operators. Linear Algebra and its Applications 312:35–71, 2000.
 function invlyapsop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
+   if !(T <: BlasFloat) 
+      T = promote_type(Float64,T)
+   end
+   if eltype(A) !== T
+      A = convert(Matrix{T},A)
+   end
 
    # check A is in Schur form
    if !isschur(A)
@@ -447,10 +452,14 @@ function invlyapsop(A; disc = false, her = false)
    function prod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
-      if !cmplx && T1<:Complex && !istriu(A)
-         error("Conversion of A to complex Schur form not possible")
-      end
-     A = convert(Matrix{T1},A)
+        if cmplx
+           A = convert(Matrix{T1},A)
+        else
+           T1r = real(T1)
+           if T1r !== T
+              A = convert(Matrix{T1r},A)
+           end
+        end
      end
      try
        if her
@@ -460,14 +469,11 @@ function invlyapsop(A; disc = false, her = false)
        else
          Y = reshape(convert(Vector{T1}, -x), n, n)
          if disc
-           sylvds!(-A,A,Y,adjB = true)
-           return Y[:]
+            sylvds!(-A,A,Y,adjB = true)
+            return Y[:]
          else
-           realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
-           realcase ? (TA,TB) = ('N','T') : (TA,TB) = ('N','C')
-           Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
-           rmul!(Y, inv(-scale))
-           return Y[:]
+            sylvcs!(A,A,Y,adjB = true)
+            return -Y[:]
          end
        end
      catch err
@@ -482,10 +488,14 @@ function invlyapsop(A; disc = false, her = false)
    function tprod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
-       if !cmplx && T1<:Complex && !istriu(A)
-          error("Conversion of A to complex Schur form not possible")
-       end
-       A = convert(Matrix{T1},A)
+        if cmplx
+           A = convert(Matrix{T1},A)
+        else
+           T1r = real(T1)
+           if T1r !== T
+              A = convert(Matrix{T1r},A)
+           end
+        end
      end
      try
       if her
@@ -498,11 +508,12 @@ function invlyapsop(A; disc = false, her = false)
            sylvds!(-A,A,Y,adjA = true)
            return Y[:]
         else
-           realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
-           realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
-           Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
-           rmul!(Y, inv(-scale))
-           return Y[:]
+           sylvcs!(A,A,Y,adjA = true)
+         #   realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
+         #   realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
+         #   Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
+         #   rmul!(Y, inv(-scale))
+            return -Y[:]
         end
        end
      catch err
@@ -517,10 +528,14 @@ function invlyapsop(A; disc = false, her = false)
    function ctprod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
-       if !cmplx && T1<:Complex && !istriu(A)
-          error("Conversion of A to complex Schur form not possible")
+       if cmplx
+          A = convert(Matrix{T1},A)
+       else
+          T1r = real(T1)
+          if T1r !== T
+             A = convert(Matrix{T1r},A)
+          end
        end
-       A = convert(Matrix{T1},A)
      end
      try
       if her
@@ -533,11 +548,12 @@ function invlyapsop(A; disc = false, her = false)
            sylvds!(-A,A,Y,adjA = true)
            return Y[:]
         else
-           realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
-           realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
-           Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
-           rmul!(Y, inv(-scale))
-           return Y[:]
+           sylvcs!(A,A,Y,adjA = true)
+         #   realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
+         #   realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
+         #   Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
+         #   rmul!(Y, inv(-scale))
+           return -Y[:]
         end
       end
     catch err
@@ -583,13 +599,19 @@ function invlyapsop(A, E; disc = false, her = false)
      error("No calls with adjoint matrices are supported")
    end
    T = promote_type(eltype(A), eltype(E))
-   cmplx = T<:Complex
+   if !(T <: BlasFloat) 
+      T = promote_type(Float64,T)
+   end
+   if eltype(A) !== T
+      A = convert(Matrix{T},A)
+   end
    if eltype(A) !== T
      A = convert(Matrix{T},A)
    end 
    if eltype(E) !== T
      E = convert(Matrix{T},E)
    end 
+   cmplx = T<:Complex
 
    # check (A,E) is in generalized Schur form
    if !isschur(A,E)
@@ -597,12 +619,17 @@ function invlyapsop(A, E; disc = false, her = false)
    end
    function prod(x)
      T1 = promote_type(T, eltype(x))
-     if T !== T1 
-        if !cmplx && T1<:Complex && !istriu(A)
-           error("Conversion to complex generalized Schur form not possible")
-        end
-        A = convert(Matrix{T1},A)
-        E = convert(Matrix{T1},E)
+     if T !== T1
+       if cmplx
+         A = convert(Matrix{T1},A)
+         E = convert(Matrix{T1},E)
+       else
+         T1r = real(T1)
+         if T1r !== T
+            A = convert(Matrix{T1r},A)
+            E = convert(Matrix{T1},E)
+         end
+       end
      end
      try
        if her
@@ -627,11 +654,16 @@ function invlyapsop(A, E; disc = false, her = false)
    function tprod(x)
     T1 = promote_type(T, eltype(x))
     if T !== T1
-       if !cmplx && T1<:Complex && !istriu(A)
-          error("Conversion to complex generalized Schur form not possible")
-       end
-       A = convert(Matrix{T1},A)
-       E = convert(Matrix{T1},E)
+      if cmplx
+         A = convert(Matrix{T1},A)
+         E = convert(Matrix{T1},E)
+      else
+         T1r = real(T1)
+         if T1r !== T
+            A = convert(Matrix{T1r},A)
+            E = convert(Matrix{T1},E)
+         end
+      end
     end
     try
        if her
@@ -656,11 +688,16 @@ function invlyapsop(A, E; disc = false, her = false)
    function ctprod(x)
     T1 = promote_type(T, eltype(x))
     if T !== T1
-       if !cmplx && T1<:Complex && !istriu(A)
-          error("Conversion to complex generalized Schur form not possible")
-       end
-       A = convert(Matrix{T1},A)
-       E = convert(Matrix{T1},E)
+      if cmplx
+         A = convert(Matrix{T1},A)
+         E = convert(Matrix{T1},E)
+      else
+         T1r = real(T1)
+         if T1r !== T
+            A = convert(Matrix{T1r},A)
+            E = convert(Matrix{T1},E)
+         end
+      end
     end
     try
        if her
@@ -709,7 +746,7 @@ function sylvop(A, B; disc = false)
   function tprod(x)
     T1 = promote_type(T, eltype(x))
     X = reshape(convert(Vector{T1}, x), m, n)
-    disc ? Y = transpose(A)*X*transpose(B) + X : Y = transpose(A)*X + X*transpose(B)
+    disc ? Y = adjoint(A)*X*adjoint(B) + X : Y = adjoint(A)*X + X*adjoint(B)
     return Y[:]
   end
   function ctprod(x)
@@ -802,6 +839,9 @@ function invsylvsop(A, B; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
+  if !(T <: BlasFloat) 
+     T = promote_type(Float64,T)
+  end
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
   if eltype(A) !== T
@@ -815,40 +855,36 @@ function invsylvsop(A, B; disc = false)
      if !isschur(A.parent)
          error("A must be in Schur form")
      end
-     !disc && cmplx ? (NA, TA) = ('C','N') : (NA, TA) = ('T','N')
   else
      if !isschur(A)
         error("A must be in Schur form")
      end
-     !disc && cmplx ? (NA, TA) = ('N','C') : (NA, TA) = ('N','T')
   end
   if adjB
      if !isschur(B.parent)
          error("B must be in Schur form")
      end
-     !disc && cmplx ? (NB, TB) = ('C','N') : (NB, TB) = ('T','N')
   else
      if !isschur(B)
         error("B must be in Schur form")
      end
-     !disc && cmplx ? (NB, TB) = ('N','C') : (NB, TB) = ('N','T')
   end
   function prod(x)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
-             error("Conversion of A to complex Schur form not possible")
-         end
-         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
-            error("Conversion of B to complex Schur form not possible")
-         end
+      if cmplx
+         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+      else
+        T1r = real(T1)
+        if T1r !== T
+          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
+        end
       end
-      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-   end
-   try
+    end
+    try
        if disc
           if !adjA & !adjB
              sylvds!(A, B, C, adjA = false, adjB = false)
@@ -861,17 +897,16 @@ function invsylvsop(A, B; disc = false)
           end
           return C[:]
        else
-          if !adjA & !adjB
-             Y, scale = LAPACK.trsyl!(NA, NB, A, B, C)
-          elseif !adjA & adjB
-             Y, scale = LAPACK.trsyl!(NA, NB, A, B.parent, C)
-          elseif adjA & !adjB
-             Y, scale = LAPACK.trsyl!(NA, NB, A.parent, B, C)
-          else
-             Y, scale = LAPACK.trsyl!(NA, NB, A.parent, B.parent, C)
-          end
-          rmul!(Y, inv(scale))
-          return Y[:]
+         if !adjA & !adjB
+            sylvcs!(A, B, C, adjA = false, adjB = false)
+         elseif !adjA & adjB
+            sylvcs!(A, B.parent, C, adjA = false, adjB = true)
+         elseif adjA & !adjB
+            sylvcs!(A.parent, B, C, adjA = true, adjB = false)
+         else
+            sylvcs!(A.parent, B.parent, C, adjA = true, adjB = true)
+         end
+         return C[:]
        end
     catch err
        if isnothing(findfirst("LAPACKException",string(err)))
@@ -885,64 +920,16 @@ function invsylvsop(A, B; disc = false)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
-             error("Conversion of A to complex Schur form not possible")
-         end
-         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
-            error("Conversion of B to complex Schur form not possible")
-         end
-      end
-      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-   end
-    try
-       if disc
-          if !adjA & !adjB
-             sylvds!(A, B, C, adjA = true, adjB = true)
-          elseif !adjA & adjB
-             sylvds!(A, B.parent, C, adjA = true, adjB = false)
-          elseif adjA & !adjB
-             sylvds!(A.parent, B, C, adjA = false, adjB = true)
-          else
-             sylvds!(A.parent, B.parent, C, adjA = false, adjB = false)
-          end
-          return C[:]
-       else
-          if !adjA & !adjB
-             Y, scale = LAPACK.trsyl!(TA, TB, A, B, C)
-          elseif !adjA & adjB
-             Y, scale = LAPACK.trsyl!(TA, TB, A, B.parent, C)
-          elseif adjA & !adjB
-             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B, C)
-          else
-             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B.parent, C)
-          end
-          rmul!(Y, inv(scale))
-          return Y[:]
-       end
-    catch err
-        if isnothing(findfirst("LAPACKException",string(err)))
-           rethrow()
-        else
-           throw("ME:SingularException: Singular operator")
+      if cmplx
+         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+      else
+        T1r = real(T1)
+        if T1r !== T
+          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
         end
-     end
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
-      if !cmplx && T1<:Complex 
-         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
-             error("Conversion of A to complex Schur form not possible")
-         end
-         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
-            error("Conversion of B to complex Schur form not possible")
-         end
       end
-      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
     end
     try
        if disc
@@ -957,17 +944,63 @@ function invsylvsop(A, B; disc = false)
           end
           return C[:]
        else
+         if !adjA & !adjB
+            sylvcs!(A, B, C, adjA = true, adjB = true)
+         elseif !adjA & adjB
+            sylvcs!(A, B.parent, C, adjA = true, adjB = false)
+         elseif adjA & !adjB
+            sylvcs!(A.parent, B, C, adjA = false, adjB = true)
+         else
+            sylvcs!(A.parent, B.parent, C, adjA = false, adjB = false)
+         end
+         return C[:]
+         end
+    catch err
+        if isnothing(findfirst("LAPACKException",string(err)))
+           rethrow()
+        else
+           throw("ME:SingularException: Singular operator")
+        end
+     end
+  end
+  function ctprod(x)
+    T1 = promote_type(T, eltype(x))
+    C = copy(reshape(convert(Vector{T1}, x), m, n))
+    if T !== T1
+      if cmplx
+         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+      else
+        T1r = real(T1)
+        if T1r !== T
+          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
+        end
+      end
+    end
+    try
+       if disc
           if !adjA & !adjB
-             Y, scale = LAPACK.trsyl!(TA, TB, A, B, C)
+             sylvds!(A, B, C, adjA = true, adjB = true)
           elseif !adjA & adjB
-             Y, scale = LAPACK.trsyl!(TA, TB, A, B.parent, C)
+             sylvds!(A, B.parent, C, adjA = true, adjB = false)
           elseif adjA & !adjB
-             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B, C)
+             sylvds!(A.parent, B, C, adjA = false, adjB = true)
           else
-             Y, scale = LAPACK.trsyl!(TA, TB, A.parent, B.parent, C)
+             sylvds!(A.parent, B.parent, C, adjA = false, adjB = false)
           end
-          rmul!(Y, inv(scale))
-          return Y[:]
+          return C[:]
+       else
+         if !adjA & !adjB
+            sylvcs!(A, B, C, adjA = true, adjB = true)
+         elseif !adjA & adjB
+            sylvcs!(A, B.parent, C, adjA = true, adjB = false)
+         elseif adjA & !adjB
+            sylvcs!(A.parent, B, C, adjA = false, adjB = true)
+         else
+            sylvcs!(A.parent, B.parent, C, adjA = false, adjB = false)
+         end
+         return C[:]
        end
     catch err
         if isnothing(findfirst("LAPACKException",string(err)))
@@ -1003,7 +1036,7 @@ function sylvop(A, B, C, D)
   function tprod(x)
     T1 = promote_type(T, eltype(x))
     X = reshape(convert(Vector{T1}, x), m, n)
-    return (transpose(A) * X * transpose(B) + transpose(C) * X * transpose(D) )[:]
+    return (adjoint(A) * X * adjoint(B) + adjoint(C) * X * adjoint(D) )[:]
   end
   function ctprod(x)
     T1 = promote_type(T, eltype(x))
@@ -1086,6 +1119,9 @@ function invsylvsop(A, B, C, D; DBSchur = false)
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
   end
   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+  if !(T <: BlasFloat) 
+     T = promote_type(Float64,T)
+  end
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
   adjC = isa(C,Adjoint)
@@ -1145,18 +1181,20 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
-             error("Conversion of (A,C) to complex generalized Schur form not possible")
-         end
-         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
-            error("Conversion of (B,D) to complex generalized Schur form not possible")
-         end
+      if cmplx
+         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+         adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
+         adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
+         else
+        T1r = real(T1)
+        if T1r !== T
+          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
+          adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
+          adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
+        end
       end
-      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-      adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
-      adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
     end
     try
        if !adjAC & !adjBD
@@ -1181,18 +1219,20 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
-             error("Conversion of (A,C) to complex generalized Schur form not possible")
-         end
-         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
-            error("Conversion of (B,D) to complex generalized Schur form not possible")
-         end
+      if cmplx
+         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+         adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
+         adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
+         else
+        T1r = real(T1)
+        if T1r !== T
+          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
+          adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
+          adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
+        end
       end
-      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-      adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
-      adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
     end
     try
        if !adjAC & !adjBD
@@ -1217,18 +1257,20 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if adjA && !istriu(A.parent) || !adjA && !istriu(A) 
-             error("Conversion of (A,C) to complex generalized Schur form not possible")
-         end
-         if (adjB && !istriu(B.parent) || !adjB && !istriu(B))
-            error("Conversion of (B,D) to complex generalized Schur form not possible")
-         end
+      if cmplx
+         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
+         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
+         adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
+         adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
+         else
+        T1r = real(T1)
+        if T1r !== T
+          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
+          adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
+          adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
+        end
       end
-      adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-      adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-      adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
-      adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
     end
     try
        if !adjAC & !adjBD
@@ -1280,7 +1322,7 @@ function sylvsysop(A, B, C, D)
     T1 = promote_type(T, eltype(x))
     X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    return [transpose(A) * X + transpose(C) * Y  X * transpose(B) + Y * transpose(D)][:]
+    return [adjoint(A) * X + adjoint(C) * Y  X * adjoint(B) + Y * adjoint(D)][:]
   end
   function ctprod(x)
     T1 = promote_type(T, eltype(x))
@@ -1370,6 +1412,9 @@ function invsylvsyssop(A, B, C, D)
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
   end
   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
+  if !(T <: BlasFloat) 
+     T = promote_type(Float64,T)
+  end
   cmplx = T<:Complex
   if isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)
      error("Only calls with (A, B, C, D) without adjoints are allowed")
@@ -1399,22 +1444,24 @@ function invsylvsyssop(A, B, C, D)
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     if T !== T1
-       if !cmplx && T1<:Complex 
-          if !istriu(A) 
-             error("Conversion of (A,C) to complex generalized Schur form not possible")
-          end
-          if !istriu(B)
-            error("Conversion of (B,D) to complex generalized Schur form not possible")
-          end
-       end
-       A = convert(Matrix{T1},A) 
-       B = convert(Matrix{T1},B) 
-       C = convert(Matrix{T1},C) 
-       D = convert(Matrix{T1},D) 
+      if cmplx
+         A = convert(Matrix{T1},A) 
+         B = convert(Matrix{T1},B) 
+         C = convert(Matrix{T1},C) 
+         D = convert(Matrix{T1},D) 
+      else
+        T1r = real(T1)
+        if T1r !== T
+         A = convert(Matrix{T1r},A) 
+         B = convert(Matrix{T1r},B) 
+         C = convert(Matrix{T1r},C) 
+         D = convert(Matrix{T1r},D) 
+        end
+      end
     end
     try
-       X, Y, scale =  tgsyl!('N',A,B,E,C,D,F)
-       return [rmul!(X,inv(scale)) rmul!(Y,inv(-scale))][:]
+      X, Y = sylvsyss!(A,B,E,C,D,F) 
+      return [X Y][:]
     catch err
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
@@ -1428,22 +1475,24 @@ function invsylvsyssop(A, B, C, D)
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if !istriu(A) 
-            error("Conversion of (A,C) to complex generalized Schur form not possible")
-         end
-         if !istriu(B)
-           error("Conversion of (B,D) to complex generalized Schur form not possible")
-         end
+      if cmplx
+         A = convert(Matrix{T1},A) 
+         B = convert(Matrix{T1},B) 
+         C = convert(Matrix{T1},C) 
+         D = convert(Matrix{T1},D) 
+      else
+        T1r = real(T1)
+        if T1r !== T
+         A = convert(Matrix{T1r},A) 
+         B = convert(Matrix{T1r},B) 
+         C = convert(Matrix{T1r},C) 
+         D = convert(Matrix{T1r},D) 
+        end
       end
-      A = convert(Matrix{T1},A) 
-      B = convert(Matrix{T1},B) 
-      C = convert(Matrix{T1},C) 
-      D = convert(Matrix{T1},D) 
     end
     try
-       X, Y, scale =  tgsyl!(TA,A,B,E,C,D,-F)
-       return [rmul!(X,inv(scale)) rmul!(Y,inv(scale))][:]
+      X, Y = dsylvsyss!(A,B,E,C,D,F) 
+      return [X Y][:]
     catch err
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()
@@ -1457,22 +1506,24 @@ function invsylvsyssop(A, B, C, D)
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     if T !== T1
-      if !cmplx && T1<:Complex 
-         if !istriu(A) 
-            error("Conversion of (A,C) to complex generalized Schur form not possible")
-         end
-         if !istriu(B)
-           error("Conversion of (B,D) to complex generalized Schur form not possible")
-         end
+      if cmplx
+         A = convert(Matrix{T1},A) 
+         B = convert(Matrix{T1},B) 
+         C = convert(Matrix{T1},C) 
+         D = convert(Matrix{T1},D) 
+      else
+        T1r = real(T1)
+        if T1r !== T
+         A = convert(Matrix{T1r},A) 
+         B = convert(Matrix{T1r},B) 
+         C = convert(Matrix{T1r},C) 
+         D = convert(Matrix{T1r},D) 
+        end
       end
-      A = convert(Matrix{T1},A) 
-      B = convert(Matrix{T1},B) 
-      C = convert(Matrix{T1},C) 
-      D = convert(Matrix{T1},D) 
     end
     try
-       X, Y, scale =  tgsyl!(TA,A,B,E,C,D,-F)
-       return [rmul!(X,inv(scale)) rmul!(Y,inv(scale))][:]
+      X, Y = dsylvsyss!(A,B,E,C,D,F) 
+      return [X Y][:]
     catch err
        if isnothing(findfirst("LAPACKException",string(err)))
           rethrow()

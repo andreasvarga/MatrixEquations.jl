@@ -582,8 +582,6 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
       F = convert(Matrix{T2},F)
     end
     realcase = T2 <: AbstractFloat
-    #realcase = eltype(A) == Float64 && eltype(B) == Float64 && eltype(C) == Float64 &&
-   #            eltype(D) == Float64 && eltype(E) == Float64 && eltype(F) == Float64
     transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
     realcase ? trans = 'T' : trans = 'C'
     if transsylv
@@ -615,25 +613,53 @@ where `op(A) = A` or `op(A) = A'` if `adjA = false` or `adjA = true`, respective
 and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively.
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
+
+_Note:_ This is an enhanced interface to `LAPACK.trsyl!` also covering the case when
+`A` and `B` are real matrices and `C` is a complex matrix. 
 """
-function sylvcs!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{Array{Float64,2},Array{Float32,2},Matrix{Complex{Float64}},Matrix{Complex{Float32}}}}
+function sylvcs!(A::T1, B::T1, C::Union{T1,T2}; adjA = false, adjB = false) where 
+     {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+   """
+   This is a wrapper to the LAPACK.trsylv! function for real matrices A and B, 
+   based on the Bartels-Stewart Schur form based approach.
+   For a complex C, two calls of trsyl! are performed (for the real and imaginary parts). 
+   Reference:
+   R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+   Comm. ACM, 15:820–826, 1972.
+   """
+   T = eltype(A)
+   TC = eltype(C)
+   TR = real(TC)
+   if T !== TR
+      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+   end
+   cmplx = TC <: Complex 
+   adjA ? TA = 'T' : TA = 'N'
+   adjB ? TB = 'T' : TB = 'N'
+   if cmplx
+      YR = real(C)
+      YR, scale = LAPACK.trsyl!(TA, TB, A, B, YR)
+      rmul!(YR, inv(scale))
+      YI = imag(C)
+      YI, scale = LAPACK.trsyl!(TA, TB, A, B, YI)
+      rmul!(YI, inv(scale)) 
+      C[:,:] = YR + im*YI
+      return C
+   else
+      C, scale = LAPACK.trsyl!(TA, TB, A, B, C)
+      rmul!(C, inv(scale))
+      return C
+   end
+end
+function sylvcs!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}}
    """
    This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
    Reference:
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
-   realcase = eltype(A) <: AbstractFloat
-   if adjA
-      realcase ? TA = 'T' : TA = 'C'
-    else
-      TA = 'N'
-   end
-   if adjB
-      realcase ? TB = 'T' : TB = 'C'
-   else
-      TB = 'N'
-   end
+   adjA ? TA = 'C' : TA = 'N'
+   adjB ? TB = 'C' : TB = 'N'
    C, scale = LAPACK.trsyl!(TA, TB, A, B, C)
    rmul!(C, inv(scale))
 end
@@ -649,7 +675,9 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{Array{Float64,2},Array{Float32,2}}}
+function sylvds!(A::T1, B::T1, C::Union{T1,T2}; adjA = false, adjB = false) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+#function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{Array{Float64,2},Array{Float32,2}}}
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -660,6 +688,13 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where  {T<:Union{
    m, n = LinearAlgebra.checksquare(A,B)
    if size(C,1) != m || size(C,2) != n
       throw(DimensionMismatch("C must be an $m x $n matrix"))
+   end
+   
+   T = eltype(A)
+   TC = eltype(C)
+   TR = real(TC)
+   if T !== TR
+      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
    end
 
    # determine the structure of the real Schur form of A
@@ -1065,7 +1100,9 @@ The matrix pair `(B,D)` is in a generalized real or complex Schur form if `DBSch
 or the matrix pair `(D,B)` is in a generalized real or complex Schur form if `DBSchur = true`.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
-function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Float64,2},Array{Float32,2}}}
+function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::Union{T1,T2}; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+#function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Float64,2},Array{Float32,2}}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1078,6 +1115,13 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
    m, n = size(E);
    if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
+   end
+
+   T = eltype(A)
+   TE = eltype(E)
+   TR = real(TE)
+   if T !== TR
+      error("TypeError: for real part of E expected Type{$T}, got Type{$TR}")
    end
 
    # determine the structure of the generalized real Schur form of (A,C)
@@ -1550,3 +1594,117 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
    end
    return E
 end
+"""
+    (X,Y) = sylvsyss!s(A,B,C,D,E,F)
+
+Solve the Sylvester system of matrix equations
+
+                AX + YB = C
+                DX + YE = F,
+
+where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generalized Schur forms.
+The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
+solution `(X,Y)` is contained in `(C,F)`.
+
+_Note:_ This is an enhanced interface to the `LAPACK.tgsyl!` function to also cover the case when
+`A`, `B`, `D` and `E` are real matrices and `C` and `F` are complex matrices.
+"""
+function sylvsyss!(A::T, B::T, C::T, D::T, E::T, F::T) where {T<:Union{Array{Complex{Float64},2},Array{Complex{Float32},2}}}
+   """
+   This is a wrapper to the complex LAPACK.tgsyl! function with `trans = 'N'`.
+   """
+   C, F, scale =  tgsyl!('N',A,B,C,D,E,F)
+   return rmul!(C,inv(scale)), rmul!(F,inv(-scale))
+end
+function sylvsyss!(A::T1, B::T1, C::Union{T1,T2}, D::T1, E::T1, F::Union{T1,T2}) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+   """
+   This is an enhanced interface to the real LAPACK.tgsyl! function with `trans = 'N'`. 
+   For a complex pair (C,F), two calls of tgsyl! are performed (for the real and imaginary parts). 
+   """
+   T = eltype(A)
+   TC = promote_type(eltype(C),eltype(F))
+   TR = real(TC)
+   if T !== TR
+      error("TypeError: for real parts of (C,F) expected Type{$T}, got Type{$TR}")
+   end
+   cmplx = TC <: Complex 
+   if cmplx
+      XR = real(C)
+      XI = imag(C)
+      YR = real(F)
+      YI = imag(F)
+      XR, YR, scale =  tgsyl!('N',A,B,XR,D,E,YR)
+      rmul!(XR,inv(scale)) 
+      rmul!(YR,inv(-scale))
+      XI, YI, scale =  tgsyl!('N',A,B,XI,D,E,YI)
+      rmul!(XI,inv(scale)) 
+      rmul!(YI,inv(-scale))
+      C = XR+im*XI
+      F = YR+im*YI
+      return C[:,:], F[:,:]
+   else
+      C, F, scale =  tgsyl!('N',A,B,C,D,E,F)
+      return rmul!(C,inv(scale)), rmul!(F,inv(-scale))
+   end
+end
+"""
+    (X,Y) = dsylvsyss!(A,B,C,D,E,F)
+
+Solve the dual Sylvester system of matrix equations
+
+
+    A'X + D'Y = C
+    XB' + YE' = F,
+
+where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generalized Schur forms.
+The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
+solution `(X,Y)` is contained in `(C,F)`.
+
+_Note:_ This is an enhanced interface to the `LAPACK.tgsyl!` function to also cover the case when
+`A`, `B`, `D` and `E` are real matrices and `C` and `F` are complex matrices.
+"""
+function dsylvsyss!(A::T, B::T, C::T, D::T, E::T, F::T) where {T<:Union{Array{Complex{Float64},2},Array{Complex{Float32},2}}}
+   """
+   This is an interface to the complex LAPACK.tgsyl! function with `trans = 'C'`. 
+   """
+   MF = -F
+   E, F, scale =  tgsyl!('C',A,B,C,D,E,MF)
+   F = MF
+   return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
+end
+function dsylvsyss!(A::T1, B::T1, C::Union{T1,T2}, D::T1, E::T1, F::Union{T1,T2}) where 
+   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+   """
+   This is an interface to the real LAPACK.tgsyl! function with `trans = 'T'`. 
+   For a complex pair (C,F), two calls of tgsyl! are performed (for the real and imaginary parts). 
+   """
+   T = eltype(A)
+   TC = promote_type(eltype(C),eltype(F))
+   TR = real(TC)
+   if T !== TR
+      error("TypeError: for real parts of (C,F) expected Type{$T}, got Type{$TR}")
+   end
+   cmplx = TC <: Complex 
+   if cmplx
+      XR = real(C)
+      XI = imag(C)
+      YR = -real(F)
+      YI = -imag(F)
+      XR, YR, scale =  tgsyl!('T',A,B,XR,D,E,YR)
+      rmul!(XR,inv(scale)) 
+      rmul!(YR,inv(scale))
+      XI, YI, scale =  tgsyl!('T',A,B,XI,D,E,YI)
+      rmul!(XI,inv(scale)) 
+      rmul!(YI,inv(scale))
+      C = XR+im*XI
+      F = YR+im*YI
+      return C[:,:], F[:,:]
+   else
+      MF = -F
+      C, MF, scale =  tgsyl!('T',A,B,C,D,E,MF)
+      F = MF
+      return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
+   end
+end
+
