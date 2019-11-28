@@ -1,4 +1,5 @@
 # Riccati Matrix Equation Solvers
+
 ```@docs
 arec
 garec

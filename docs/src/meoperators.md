@@ -1,4 +1,5 @@
 # Linear Operators Related to Matrix Equation Solvers
+
 ```@docs
 lyapop
 invlyapop

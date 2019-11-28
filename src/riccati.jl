@@ -1,13 +1,20 @@
 """
-    arec(A, R, Q) -> (X, EVALS)
+    arec(A, G, Q = 0; as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
 
-Compute `X`, the hermitian/symmetric stabilizing solution of the continuous-time
+Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the continuous-time
 algebraic Riccati equation
 
-     A'X + XA - XRX + Q = 0,
+     A'X + XA - XGX + Q = 0,
 
-where `Q` and `R` are hermitian/symmetric matrices.
-`EVALS` is a vector containing the (stable) eigenvalues of `A-RX`.
+where `G` and `Q` are hermitian/symmetric matrices or uniform scaling operators. 
+Scalar-valued `G` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I` and `Q*I`.
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) eigenvalues of `A-GX`. 
+`Z = [ U; V ]` is an orthogonal basis for the stable/anti-stable deflating subspace such that `X = V/U`. 
 
 `Reference:`
 Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
@@ -23,13 +30,13 @@ julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
   5.0   1.0  -1.0
  -4.0  -2.0  -1.0
 
-julia> R = [1. 0. 0.; 0. 5. 0.; 0. 0. 10.]
+julia> G = [1. 0. 0.; 0. 5. 0.; 0. 0. 10.]
 3×3 Array{Float64,2}:
  1.0  0.0   0.0
  0.0  5.0   0.0
  0.0  0.0  10.0
 
-julia> X, CLSEIG = arec(A,R,2I);
+julia> X, CLSEIG = arec(A,G,2I);
 
 julia> X
 3×3 Array{Float64,2}:
@@ -37,11 +44,11 @@ julia> X
   0.333603   0.65916    -0.0999216
  -0.144406  -0.0999216   0.340483
 
-julia> A'*X+X*A-X*R*X+2I
+julia> A'*X+X*A-X*G*X+2I
 3×3 Array{Float64,2}:
- -1.33227e-15  4.44089e-16  -2.22045e-15
-  4.44089e-16  8.88178e-16   1.11022e-16
- -2.22045e-15  0.0          -1.77636e-15
+  2.22045e-16  4.44089e-16  -1.77636e-15
+  4.44089e-16  6.66134e-16   1.11022e-16
+ -1.77636e-15  1.11022e-16  -1.33227e-15
 
 julia> CLSEIG
 3-element Array{Complex{Float64},1}:
@@ -49,74 +56,104 @@ julia> CLSEIG
  -4.411547592296008 - 2.4222082620381102im
  -4.337128244724371 + 0.0im
 
-julia> eigvals(A-R*X)
+julia> eigvals(A-G*X)
 3-element Array{Complex{Float64},1}:
- -4.411547592296008 - 2.4222082620381076im
- -4.411547592296008 + 2.4222082620381076im
- -4.337128244724376 + 0.0im
+ -4.4115475922960075 - 2.4222082620381076im
+ -4.4115475922960075 + 2.4222082620381076im
+  -4.337128244724374 + 0.0im
 ```
 """
-function arec(A::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix = zeros(eltype(A),size(A)))
+function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex} = zero(eltype(A)); 
+              as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
     n = LinearAlgebra.checksquare(A)
-    if LinearAlgebra.checksquare(R) != n || !ishermitian(R)
-       throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $n"))
+    T = promote_type( eltype(A), eltype(G), eltype(Q) )
+    if typeof(G) <: AbstractArray
+       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+          throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+       G = G*I
+       if !iszero(imag(G.λ))
+          throw("G must be a symmetric/hermitian matrix")
+       end
     end
-    if LinearAlgebra.checksquare(Q) != n || !ishermitian(Q)
-      throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+    if typeof(Q) <: AbstractArray
+       if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+          throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+       Q = Q*I
+       if !iszero(imag(Q.λ))
+          throw("Q must be a symmetric/hermitian matrix")
+       end
     end
-    T2 = promote_type(eltype(A), eltype(R), eltype(Q))
-    if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
+    if !(T <: BlasFloat) 
+       T = promote_type(Float64,T)
     end
-    if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
+    TR = real(T)
+    epsm = eps(TR)
+    if eltype(A) !== T
+       A = convert(Matrix{T},A)
     end
-    if eltype(R) !== T2
-      R = convert(Matrix{T2},R)
+    if eltype(G) !== T
+       typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I
     end
-    if eltype(Q) !== T2
-      Q = convert(Matrix{T2},Q)
+    if eltype(Q) !== T
+       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
     end
-
-    S = schur([A  -R; -Q  -copy(A')])
+   
+    S = schur([A  -G; -Q  -copy(A')])
     
-    select = real(S.values) .< 0
+    as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
     if n != length(filter(y-> y == true,select))
        error("The Hamiltonian matrix is not dichotomic")
-   end
+    end
     ordschur!(S, select)
 
     n2 = n+n
     ix = 1:n
-    x = S.Z[n+1:n2, ix]/S.Z[ix, ix]
-    return  (x+x')/2, S.values[ix]
+    F = _LUwithRicTest(S.Z[ix, ix],rtol)
+    x = S.Z[n+1:n2, ix]/F
+    return  (x+x')/2, S.values[ix], S.Z[:,ix]
 end
-function arec(A::AbstractMatrix, R::UniformScaling, Q::UniformScaling) 
-   n = LinearAlgebra.checksquare(A)
-   T = eltype(A)
-   return arec(A,Matrix(one(T)*R,n,n),Matrix(one(T)*Q,n,n))
-end
-function arec(A::AbstractMatrix, R::UniformScaling, Q::AbstractMatrix) 
-   n = LinearAlgebra.checksquare(A)
-   T = eltype(A)
-   return arec(A,Matrix(one(T)*R,n,n),Q)
-end
-function arec(A::AbstractMatrix, R::AbstractMatrix, Q::UniformScaling) 
-   n = LinearAlgebra.checksquare(A)
-   T = eltype(A)
-   return arec(A,R,Matrix(one(T)*Q,n,n))
+function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
+   try 
+      F = LinearAlgebra.lu(Z11)
+      Z11norm = opnorm(Z11,1)
+      if Z11norm > 2*rtol
+         rcond = LAPACK.gecon!('1',F.factors,Z11norm)
+      else
+         rcond = zero(eltype(Z11))
+      end
+      if rcond <= rtol
+         error("no finite solution exists for the Riccati equation")
+      else
+         return  F
+      end
+   catch
+      error("no finite solution exists for the Riccati equation")
+   end
 end
 """
-    arec(A, B, R, Q, S) -> (X, EVALS, F)
+    arec(A, B, R, Q, S; as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z)
 
-Computes `X`, the hermitian/symmetric stabilizing solution of the continuous-time
- algebraic Riccati equation
+Computes `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the continuous-time
+algebraic Riccati equation
 
      A'X + XA - (XB+S)R^(-1)(B'X+S') + Q = 0,
 
-where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular.
-`EVALS` is a vector containing the (stable) eigenvalues of `A-BF`.
-`F` is the stabilizing gain matrix `F = R^(-1)(B'X+S')`.
+where `R` and `Q` are hermitian/symmetric matrices or uniform scaling operators such that `R` is nonsingular. 
+Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling operators `R*I` and `Q*I`.
+`S`, if not specified, is set to `S = zeros(size(B))`.  
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) eigenvalues of `A-BF`.
+`F` is the stabilizing or anti-stabilizing gain matrix `F = R^(-1)(B'X+S')`.
+`Z = [ U; V; W ]` is a basis for the relevant stable/anti-stable deflating subspace such that `X = V/U` and `F = -W/U`. 
+An orthogonal basis Z can be determined, with an increased computational cost, by setting `orth = true`.
 
 `Reference:`
 Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
@@ -153,9 +190,9 @@ julia> X
 
 julia> A'*X+X*A-X*B*inv(R)*B'*X+2I
 3×3 Array{Float64,2}:
- -2.66454e-15  -1.55431e-15   1.11022e-15
- -1.55431e-15   1.9984e-15   -3.21965e-15
-  1.22125e-15  -2.9976e-15    6.66134e-16
+ -2.66454e-15  -1.55431e-15   8.88178e-16
+ -1.55431e-15   2.22045e-15  -2.9976e-15
+  9.99201e-16  -2.9976e-15    4.44089e-16
 
 julia> CLSEIG
 3-element Array{Complex{Float64},1}:
@@ -170,23 +207,87 @@ julia> eigvals(A-B*F)
  -1.8663764577096063 + 0.0im
 ```
 """
-function arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B))) 
+function arec(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+   Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B)); 
+   as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false) 
+   if orth
+      return garec(A, I, B, 0, R, Q, S; as = as, rtol = rtol)
+   else
+      return arec(A, B, 0, R, Q, S; as = as, rtol = rtol) 
+   end
+end
+"""
+    arec(A, B, G, R, Q, S; as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z)
+
+Computes `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the continuous-time
+algebraic Riccati equation
+
+     A'X + XA - XGX - (XB+S)R^(-1)(B'X+S') + Q = 0,
+
+where `G`, `R` and `Q` are hermitian/symmetric matrices or uniform scaling operators such that `R` is nonsingular. 
+Scalar-valued `G`, `R` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I`, `R*I` and `Q*I`.
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) eigenvalues of `A-BF-GX`.
+`F` is the stabilizing or anti-stabilizing gain matrix `F = R^(-1)(B'X+S')`.
+`Z = [ U; V; W ]` is a basis for the relevant stable/anti-stable deflating subspace such that `X = V/U` and `F = -W/U`. 
+An orthogonal basis Z can be determined, with an increased computational cost, by setting `orth = true`.
+
+`Reference:`
+Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
+IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
+"""
+function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+              R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+              S::AbstractVecOrMat; as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false) 
+    if orth
+       return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol)
+    end
+          
     n = LinearAlgebra.checksquare(A)
-    T = promote_type( eltype(A), eltype(B), eltype(Q), eltype(R), eltype(S) )
-    nb, m = size(B)
+    T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
+    typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
     if n !== nb
-       throw(DimensionMismatch("B must be a matrix with row dimension $n"))
+       throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
     end
-    if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
-          throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-    end
-    if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
-       throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
-    end
-    if (n,m) !== size(S)
-       throw(DimensionMismatch("S must be a $n x $m matrix"))
-    end
-    if !(T <: BlasFloat) 
+    if typeof(G) <: AbstractArray
+      if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+          throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
+      end
+   else
+     G = G*I
+     if !iszero(imag(G.λ))
+        throw("G must be a symmetric/hermitian matrix")
+     end
+   end
+   if typeof(R) <: AbstractArray
+      if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+         throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+      end
+   else
+      R = R*I
+      if !iszero(imag(R.λ))
+        throw("R must be a symmetric/hermitian matrix")
+      end
+   end
+   if typeof(Q) <: AbstractArray
+     if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+        throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+     end
+   else
+     Q = Q*I
+     if !iszero(imag(Q.λ))
+        throw("Q must be a symmetric/hermitian matrix")
+      end
+   end
+   typeof(S) <: AbstractVector ? (ns, ms) = (length(S), 1) : (ns, ms) = size(S)
+   if n !== ns || m !== ms
+      throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
+   end
+   if !(T <: BlasFloat) 
       T = promote_type(Float64,T)
     end
     TR = real(T)
@@ -195,21 +296,53 @@ function arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::Abstra
       A = convert(Matrix{T},A)
     end
     if eltype(B) !== T
-      B = convert(Matrix{T},B)
+       if typeof(B) <: AbstractVector
+          B = convert(Vector{T},B)
+       else
+          B = convert(Matrix{T},B)
+       end
     end
-    if eltype(Q) !== T
-      Q = convert(Matrix{T},Q)
+    if typeof(G) <: AbstractArray
+       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+          throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+      G = G*I
+      if !iszero(imag(G.λ))
+         throw("G must be a symmetric/hermitian matrix")
+      end
     end
-    if eltype(R) !== T
-      R = convert(Matrix{T},R)
+    if typeof(R) <: AbstractArray
+       if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+          throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+       end
+    else
+       R = R*I
+       if !iszero(imag(R.λ))
+         throw("R must be a symmetric/hermitian matrix")
+       end
+    end
+    if typeof(Q) <: AbstractArray
+      if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+         throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+      end
+    else
+      Q = Q*I
+      if !iszero(imag(Q.λ))
+         throw("Q must be a symmetric/hermitian matrix")
+       end
     end
     if eltype(S) !== T
-      S = convert(Matrix{T},S)
-    end
-    if cond(R)*epsm > 1
-      error("R must be non-singular")
+       if typeof(S) <: AbstractVector
+          S = convert(Vector{T},S)
+       else
+          S = convert(Matrix{T},S)
+       end
     end
     S0flag = iszero(S)
+    if typeof(R) <: UniformScaling
+       R = Matrix{T}(R,m,m)
+    end
     SR = schur(R)
     D = real(diag(SR.T))
     Da = abs.(D)
@@ -217,42 +350,167 @@ function arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::Abstra
     maxDa, = findmax(Da)
     if minDa <= epsm*maxDa
        error("R must be non-singular")
-    elseif minDa > sqrt(epsm)*maxDa
+    elseif minDa > sqrt(epsm)*maxDa && maxDa > 100*eps(max(opnorm(A,1),opnorm(G,1),opnorm(Q,1)))
        #Dinv = diagm(0 => 1 ./ D)
        Dinv = Diagonal(1 ./ D)
        Bu = B*SR.Z
-       #G = Bu*Dinv*Bu'
-       G = utqu(Dinv,Bu')
+       #G = G + Bu*Dinv*Bu'
+       #G = utqu(Dinv,Bu')  
+       G += utqu(Dinv,Bu')
        if S0flag
-          sol = arec(A,G,Q)
-          f = SR.Z*Dinv*Bu'*sol[1]
+          sol = arec(A,G,Q; as = as, rtol = rtol)
+          w2 = SR.Z*Dinv*Bu'
+          f = w2*sol[1]
+          z = [sol[3]; w2*(sol[3])[n+1:end,:]]
        else
           Su = S*SR.Z
           #Q -= Su*Dinv*Su'
           Q -= utqu(Dinv,Su')
-          sol = arec(A-Bu*Dinv*Su',G,Q)
-          f = SR.Z*Dinv*(Bu'*sol[1]+Su')
+          sol = arec(A-Bu*Dinv*Su',G,Q; as = as, rtol = rtol)
+          w1 = SR.Z*Dinv*Su'
+          w2 = SR.Z*Dinv*Bu'
+          f = w1+w2*sol[1]
+          #f = SR.Z*Dinv*(Bu'*sol[1]+Su')
+          z = [sol[3]; [w1 w2]*sol[3] ]
        end
-       return sol[1], sol[2], f
+       return sol[1], sol[2], f, z
    else
-       #UseImplicitForm
-       garec(A, I, B, R, Q, S)
-   end
+       # use implicit form 
+       @warn "R nearly singular: using the orthogonal reduction method"
+       return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol)
+    end
 end
-arec(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::UniformScaling) = arec(A,B,R,Matrix(one(eltype(A))*Q,size(A)))
-
 """
-    garec(A, E, B, R, Q, S) -> (X, EVALS, F)
+    garec(A, E, G, Q = 0; as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
 
-Compute `X`, the hermitian/symmetric
-stabilizing solution of the generalized continuous-time algebraic Riccati equation
+Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the generalized continuous-time
+algebraic Riccati equation
+
+    A'XE + E'XA - E'XGXE + Q = 0,
+
+where `G` and `Q` are hermitian/symmetric matrices or uniform scaling operators and `E` is a nonsingular matrix.
+Scalar-valued `G` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I` and `Q*I`.
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) generalized eigenvalues of the pair `(A-GXE,E)`.
+`Z = [ U; V ]` is an orthogonal basis for the stable/anti-stable deflating subspace such that `X = V/(EU)`. 
+
+`Reference:`
+W.F. Arnold, III and A.J. Laub,
+Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
+Proc. IEEE, 72:1746-1754, 1984.
+"""
+function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+               Q::Union{AbstractMatrix,UniformScaling,Real,Complex} = zero(eltype(A)); 
+               as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
+    n = LinearAlgebra.checksquare(A)
+    T = promote_type( eltype(A), eltype(G), eltype(Q) )
+    if E == I
+       eident = true
+    else
+       if LinearAlgebra.checksquare(E) != n
+          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+       end
+       eident = isequal(E,I)
+       if eident
+          E = I
+       else
+          T = promote_type(T,eltype(E))
+       end
+    end
+    if typeof(G) <: AbstractArray
+       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+          throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+      G = G*I
+      if !iszero(imag(G.λ))
+         throw("G must be a symmetric/hermitian matrix")
+      end
+    end
+    if typeof(Q) <: AbstractArray
+       if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+          throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+       Q = Q*I
+       if !iszero(imag(Q.λ))
+          throw("Q must be a symmetric/hermitian matrix")
+       end
+    end
+    if !(T <: BlasFloat) 
+       T = promote_type(Float64,T)
+    end
+    TR = real(T)
+    epsm = eps(TR)
+    if eltype(A) !== T
+       A = convert(Matrix{T},A)
+    end
+    if !eident && eltype(E) != T
+       E = convert(Matrix{T},E)
+    end
+    if eltype(G) !== T
+       typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I
+    end
+    if eltype(Q) !== T
+       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
+    end
+    if !eident
+       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
+       if LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm
+          error("E must be non-singular")
+       end
+    end
+    """
+    Method:  A stable/anti-stable deflating subspace Z1 = [Z11; Z21] of the pencil
+
+         L -s P := [  A  -G ]  - s [ E  0  ]
+                   [ -Q  -A']      [ 0  E' ]
+   
+    is determined and the solution X is computed as X = Z21*inv(E*Z11).
+    """
+    L = [ A -G; -Q -A']
+    P = [ E zeros(T,n,n); zeros(T,n,n) E']
+    LPS = schur(L,P)
+    as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
+    if n !== length(filter(y-> y == true,select))
+       error("The Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
+    end
+    ordschur!(LPS, select)
+    i1 = 1:n
+    i2 = n+1:2n
+    F = _LUwithRicTest(LPS.Z[i1, i1],rtol)
+    if eident
+       x = LPS.Z[i2,i1]/F
+    else
+       x = LPS.Z[i2,i1]/(E*LPS.Z[i1,i1])
+    end
+
+    return  (x+x')/2, LPS.values[i1], LPS.Z[:,i1] 
+end
+"""
+    garec(A, E, B, R, Q, S; as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
+
+Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the generalized continuous-time
+algebraic Riccati equation
 
     A'XE + E'XA - (E'XB+S)R^(-1)(B'XE+S') + Q = 0,
 
-where `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular, and
+where `R` and `Q` are hermitian/symmetric matrices such that `R` is nonsingular, and
 `E` is a nonsingular matrix.
-`EVALS` is a vector containing the (stable) generalized eigenvalues of the pair `(A-BF,E)`.
-`F` is the stabilizing gain matrix `F = R^(-1)(B'XE+S')`.
+Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling operators `R*I` and `Q*I`.
+`S`, if not specified, is set to `S = zeros(size(B))`.  
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) generalized eigenvalues of the pair `(A-BF,E)`.
+`F` is the stabilizing/anti-stabilizing gain matrix `F = R^(-1)(B'XE+S')`.
+`Z = [ U; V; W ]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace such that `X = V/(EU)` and `F = -W/U`. 
 
 `Reference:`
 W.F. Arnold, III and A.J. Laub,
@@ -313,12 +571,45 @@ julia> eigvals(A-B*F,E)
   -0.216130599644518 + 0.0im
 ```
 """
-function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
+function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+   Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B)); 
+   as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
+   garec(A, E, B, 0, R, Q, S; as = as, rtol = rtol) 
+end
+"""
+    garec(A, E, B, G, R, Q, S; as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
+
+Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the generalized continuous-time
+algebraic Riccati equation
+
+    A'XE + E'XA - E'XGXE - (E'XB+S)R^(-1)(B'XE+S') + Q = 0,
+
+where `G`, `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular, and
+`E` is a nonsingular matrix.
+Scalar-valued `G`, `R` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I`, `R*I` and `Q*I`.
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) generalized eigenvalues of the pair `(A-BF-GXE,E)`.
+`F` is the stabilizing/anti-stabilizing gain matrix `F = R^(-1)(B'XE+S')`.
+`Z = [ U; V; W ]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace such that `X = V/(EU)` and `F = -W/U`. 
+
+`Reference:`
+W.F. Arnold, III and A.J. Laub,
+Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
+Proc. IEEE, 72:1746-1754, 1984.
+"""
+function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat, 
+               G::Union{AbstractMatrix,UniformScaling,Real,Complex}, R::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+               Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat; 
+               as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
     n = LinearAlgebra.checksquare(A)
-    T = promote_type( eltype(A), eltype(B), eltype(Q), eltype(R), eltype(S) )
-    nb, m = size(B)
+    T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
+    typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
     if n !== nb
-       throw(DimensionMismatch("B must be a matrix of row dimension $n"))
+       throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
     end
     if E == I
        eident = true
@@ -333,14 +624,39 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
           T = promote_type(T,eltype(E))
        end
     end
-    if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
-       throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+    if typeof(G) <: AbstractArray
+       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+      G = G*I
+      if !iszero(imag(G.λ))
+         throw("G must be a symmetric/hermitian matrix")
+      end
     end
-    if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
-       throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+    if typeof(R) <: AbstractArray
+       if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+          throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+       end
+    else
+       R = R*I
+       if !iszero(imag(R.λ))
+         throw("R must be a symmetric/hermitian matrix")
+       end
     end
-    if (n,m) !== size(S)
-       throw(DimensionMismatch("S must be a $n x $m matrix"))
+    if typeof(Q) <: AbstractArray
+      if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+         throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+      end
+    else
+      Q = Q*I
+      if !iszero(imag(Q.λ))
+         throw("Q must be a symmetric/hermitian matrix")
+       end
+    end
+    typeof(S) <: AbstractVector ? (ns, ms) = (length(S), 1) : (ns, ms) = size(S)
+    if n !== ns || m !== ms
+       throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
     end
     if !(T <: BlasFloat) 
       T = promote_type(Float64,T)
@@ -354,18 +670,29 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
       E = convert(Matrix{T},E)
     end
     if eltype(B) !== T
-      B = convert(Matrix{T},B)
+      if typeof(B) <: AbstractVector
+         B = convert(Vector{T},B)
+      else
+         B = convert(Matrix{T},B)
+      end
+   end
+    if eltype(G) !== T
+       typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I
     end
     if eltype(Q) !== T
-      Q = convert(Matrix{T},Q)
+       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
     end
     if eltype(R) !== T
-      R = convert(Matrix{T},R)
+       typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I
     end
     if eltype(S) !== T
-      S = convert(Matrix{T},S)
-    end
-    if cond(R)*epsm > 1
+      if typeof(S) <: AbstractVector
+         S = convert(Vector{T},S)
+      else
+         S = convert(Matrix{T},S)
+      end
+   end
+   if cond(R)*epsm > 1
       error("R must be non-singular")
     end
     if !eident
@@ -374,70 +701,150 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
           error("E must be non-singular")
        end
     end
-"""
-    Method:  A stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
+    """
+    Method:  A stable/ant-stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
 
-                 [  A   0    B ]      [ E  0  0 ]
+                 [  A  -G    B ]      [ E  0  0 ]
         L -s P = [ -Q  -A'  -S ]  - s [ 0  E' 0 ]
-                 [ S'   B'   R ]      [ 0  0  0 ]
+                 [  S'  B'   R ]      [ 0  0  0 ]
 
    is determined and the solution X and feedback F are computed as
 
-            X = Z21*inv(E*Z11),   F = Z31*inv(Z11).
+            X = Z21*inv(E*Z11),   F = -Z31*inv(Z11).
     """
 
     #deflate m simple infinite eigenvalues
     n2 = n+n;
-    G = qr(Matrix([S; B; R]));
-    if cond(G.R) * epsm  > 1
-       error("The extended Hamiltonian pencil is not regular")
+    W = qr(Matrix([S; B; R]));
+    if cond(W.R) * epsm  > 1
+       error("The extended Hamiltonian/skew-Hamiltonian pencil is not regular")
     end
 
-    #z = G.Q[:,m+1:m+n2]
-    z = G.Q*[fill(false,m,n2); I ]
+    #z = W.Q[:,m+1:m+n2]
+    z = W.Q*[fill(false,m,n2); I ]
 
     iric = 1:n2
-    L11 = [ A zeros(T,n,n) B; -Q -A' -S]*z
-    P11 = [ E zeros(T,n,n); zeros(T,n,n) E']*z[iric,:]
-    LPS = schur(L11,P11)
-    select = real.(LPS.α ./ LPS.β) .< 0
-    if n !== length(filter(y-> y == true,select))
-       error("The extended simplectic pencil is not dichotomic")
-    end
-    ordschur!(LPS, select)
     i1 = 1:n
     i2 = n+1:n2
     i3 = n2+1:n2+m
+    L11 = [ A -G B; -Q -A' -S]*z
+    P11 = [ E*z[i1,:]; E'*z[i2,:] ]
+    LPS = schur(L11,P11)
+    as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
+    if n !== length(filter(y-> y == true,select))
+       error("The extended Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
+    end
+    ordschur!(LPS, select)
 
     z[:,i1] = z[:,iric]*LPS.Z[:,i1];
 
+    F = _LUwithRicTest(z[i1,i1],rtol)
     if eident
-       x = z[n+1:end,i1]/z[i1,i1]
+       x = z[n+1:end,i1]/F
        f = -x[n+1:end,:]
        x = x[i1,:]
     else
-       f = -z[i3,i1]/z[i1,i1]
+       f = -z[i3,i1]/F
        x = z[i2,i1]/(E*z[i1,i1])
     end
 
-    return  (x+x')/2, LPS.values[i1] , f
-end
-function garec(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::UniformScaling, S::AbstractMatrix = zeros(eltype(B),size(B))) 
-   garec(A, E, B, R, Matrix(one(eltype(A))*Q,size(A)), S)
+    return  (x+x')/2, LPS.values[i1] , f, z[:,i1]
 end
 
 
 """
-    gared(A, E, B, R, Q, S) -> (X, EVALS, F)
+    ared(A, B, R, Q, S; as = false, rtol::Real = n) -> (X, EVALS, F, Z)
 
-Compute `X`, the hermitian/symmetric
-stabilizing solution of the generalized discrete-time algebraic Riccati equation
+Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the discrete-time algebraic Riccati equation
+
+    A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0,
+
+where `R` and `Q` are hermitian/symmetric matrices.
+Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling operators `R*I` and `Q*I`.
+`S`, if not specified, is set to `S = zeros(size(B))`.  
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable) eigenvalues of `A-BF`.
+`F` is the stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
+`Z = [ U; V; W ]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace such that `X = V/(EU)` and `F = -W/U`. 
+
+`Reference:`
+W.F. Arnold, III and A.J. Laub,
+Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
+Proc. IEEE, 72:1746-1754, 1984.
+
+# Example
+```jldoctest
+julia> using LinearAlgebra
+
+julia> A = [ 0. 1.; 0. 0. ]
+2×2 Array{Float64,2}:
+ 0.0  1.0
+ 0.0  0.0
+
+julia> B = [ 0.; sqrt(2.) ]
+2-element Array{Float64,1}:
+ 0.0
+ 1.4142135623730951
+
+julia> R = 1.
+1.0
+
+julia> Q = [ 1. -1.; -1. 1. ]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -1.0   1.0
+
+julia> X, CLSEIG, F = ared(A,B,R,Q);
+
+julia> X
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -1.0   1.5
+
+julia> A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q
+2×2 Array{Float64,2}:
+  0.0          -3.33067e-16
+ -3.33067e-16   8.88178e-16
+
+julia> CLSEIG
+2-element Array{Complex{Float64},1}:
+ 0.4999999999999998 - 0.0im
+               -0.0 - 0.0im
+
+julia> eigvals(A-B*F)
+2-element Array{Float64,1}:
+ -2.7755575615628914e-16
+  0.5
+```
+"""
+function ared(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+              Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B)); 
+              as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
+    gared(A, I, B, R, Q, S; as = as, rtol = rtol)
+end
+"""
+    gared(A, E, B, R, Q, S; as = false, rtol::Real = n) -> (X, EVALS, F, Z)
+
+Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
+anti-stabilizing solution (if `as = true`) of the generalized discrete-time
+algebraic Riccati equation
 
     A'XA - E'XE - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0,
 
-where `Q` and `R` are hermitian/symmetric matrices.
-`EVALS` is a vector containing the (stable) generalized eigenvalues of the pair `(A-BF,E)`.
-`F` is the stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
+where `R` and `Q` are hermitian/symmetric matrices, and `E` ist non-singular.
+Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling operators `R*I` and `Q*I`.
+`S`, if not specified, is set to `S = zeros(size(B))`.  
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A` 
+and `ϵ` is the _machine epsilon_ of the element type of `A`. 
+
+`EVALS` is a vector containing the (stable or anti-stable) generalized eigenvalues of the pair `(A-BF,E)`.
+`F` is the stabilizing/anti-stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
+`Z = [ U; V; W ]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace such that `X = V/(EU)` and `F = -W/U`. 
 
 `Reference:`
 W.F. Arnold, III and A.J. Laub,
@@ -493,17 +900,19 @@ julia> CLSEIG
 
 julia> eigvals(A-B*F,E)
 3-element Array{Float64,1}:
- -0.5238922629921537
- -0.19053355203423877
- -0.08423561575133914
+ -0.5238922629921539 
+ -0.19053355203423886
+ -0.08423561575133902
 ```
 """
-function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B)))
+function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat,
+               R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
+               S::AbstractVecOrMat = zeros(eltype(B),size(B)); as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
     n = LinearAlgebra.checksquare(A)
-    T = promote_type( eltype(A), eltype(B), eltype(Q), eltype(R), eltype(S) )
-    nb, m = size(B)
+    T = promote_type( eltype(A), eltype(B), eltype(R), eltype(Q), eltype(S) )
+    typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
     if n !== nb
-       throw(DimensionMismatch("B must be a matrix with row dimension $n"))
+       throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
     end
     if typeof(E) <: UniformScaling{Bool} 
        eident = true
@@ -519,14 +928,29 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}},
           T = promote_type(T,eltype(E))
        end
     end
-    if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
-       throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+    if typeof(R) <: AbstractArray
+      if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+         throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+      end
+    else
+      R = R*I
+      if !iszero(imag(R.λ))
+        throw("R must be a symmetric/hermitian matrix")
+      end
     end
-    if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
-       throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+    if typeof(Q) <: AbstractArray
+       if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+          throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+       end
+    else
+       Q = Q*I
+       if !iszero(imag(Q.λ))
+          throw("Q must be a symmetric/hermitian matrix")
+       end
     end
-    if (n,m) !== size(S)
-      throw(DimensionMismatch("S must be a $n x $m matrix"))
+    typeof(S) <: AbstractVector ? (ns, ms) = (length(S), 1) : (ns, ms) = size(S)
+    if n !== ns || m !== ms
+       throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
     end
     if !(T <: BlasFloat) 
       T = promote_type(Float64,T)
@@ -540,17 +964,31 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}},
       E = convert(Matrix{T},E)
     end
     if eltype(B) !== T
-      B = convert(Matrix{T},B)
+       if typeof(B) <: AbstractVector
+          B = convert(Vector{T},B)
+       else
+          B = convert(Matrix{T},B)
+        end
     end
     if eltype(Q) !== T
-      Q = convert(Matrix{T},Q)
+       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
     end
     if eltype(R) !== T
-      R = convert(Matrix{T},R)
+       typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I
     end
     if eltype(S) !== T
-      S = convert(Matrix{T},S)
+       if typeof(S) <: AbstractVector
+          S = convert(Vector{T},S)
+       else
+          S = convert(Matrix{T},S)
+       end
     end
+    if !eident
+      Et = LinearAlgebra.LAPACK.getrf!(copy(E))
+      if LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm
+         error("E must be non-singular")
+      end
+   end
 
     """
     Method:  A stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
@@ -574,106 +1012,37 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}},
     end
     z = (G.Q*I)[:,[m+1:m+n2; 1:m]]
 
-    L1 = [ A zeros(T,n,n) B; L2[1:n,:]]*z
+    i1 = 1:n
+    i2 = n+1:n2
+    i3 = n2+1:n2+m
+    iric = 1:n2
+   
+    L1 = [ A zeros(T,n,n) B; L2[i1,:]]*z
     P1 = [ E zeros(T,n,n+m); P2]*z
 
-    iric = 1:n2
-    PLS = schur(P1[iric,iric],L1[iric,iric])
+    as ? PLS = schur(L1[iric,iric],P1[iric,iric]) : PLS = schur(P1[iric,iric],L1[iric,iric]) 
     select = abs.(PLS.α) .> abs.(PLS.β)
 
     if n !== length(filter(y-> y == true,select))
        error("The extended simplectic pencil is not dichotomic")
     end
     ordschur!(PLS, select)
-    z[:,iric]= z[:,iric]*PLS.Z;
+    z[:,i1]= z[:,iric]*PLS.Z[:,i1];
 
-    i1 = 1:n
-    i2 = n+1:n2
-    i3 = n2+1:n2+m
+    F = _LUwithRicTest(z[i1,i1],rtol)
     if eident
-       x = z[n+1:end,i1]/z[i1,i1]
+       x = z[n+1:end,i1]/F
        f = -x[n+1:end,:]
        x = x[i1,:]
     else
-       f = -z[i3,i1]/z[i1,i1]
+       f = -z[i3,i1]/F
        x = z[i2,i1]/(E*z[i1,i1])
     end
 
-    return  (x+x')/2, PLS.β[i1] ./ PLS.α[i1], f
-end
-function gared(A::AbstractMatrix, E::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::UniformScaling, S::AbstractMatrix = zeros(eltype(B),size(B))) 
-   gared(A, E, B, R, Matrix(one(eltype(A))*Q,size(A)), S)
-end
-
-
-"""
-    ared(A, B, R, Q, S) -> (X, EVALS, F)
-
-Computes `X`, the hermitian/symmetric
-stabilizing solution of the discrete-time algebraic Riccati equation
-
-     A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0,
-
-where `Q` and `R` are hermitian/symmetric matrices.
-`EVALS` is a vector containing the (stable) eigenvalues of `A-BF`.
-`F` is the stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
-
-`Reference:`
-W.F. Arnold, III and A.J. Laub,
-Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
-Proc. IEEE, 72:1746-1754, 1984.
-
-# Example
-```jldoctest
-julia> using LinearAlgebra
-
-julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
-3×3 Array{Float64,2}:
- -6.0  -2.0   1.0
-  5.0   1.0  -1.0
- -4.0  -2.0  -1.0
-
-julia> B = [1. 2.; 2. 0.; 0. 1.]
-3×2 Array{Float64,2}:
- 1.0  2.0
- 2.0  0.0
- 0.0  1.0
-
-julia> R = [1. 0.; 0. 5.]
-2×2 Array{Float64,2}:
- 1.0  0.0
- 0.0  5.0
-
-julia> X, CLSEIG, F = ared(A,B,R,2I);
-
-julia> X
-3×3 Array{Float64,2}:
-  109.316   -63.1658  -214.318
-  -63.1658  184.047    426.081
- -214.318   426.081   1051.16
-
-julia> A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+2I
-3×3 Array{Float64,2}:
- -2.50111e-11   4.16094e-11   1.06184e-10
-  4.75211e-11  -8.11724e-11  -2.06228e-10
-  1.11186e-10  -2.06455e-10  -5.15001e-10
-
-julia> CLSEIG
-3-element Array{Complex{Float64},1}:
- -0.04209841276282689 - 0.0497727979322874im
- -0.04209841276282689 + 0.0497727979322874im
-  -0.5354826075405217 - 0.0im
-
-julia> eigvals(A-B*F)
-3-element Array{Complex{Float64},1}:
-  -0.5354826075397419 + 0.0im
- -0.04209841276292829 - 0.049772797931966324im
- -0.04209841276292829 + 0.049772797931966324im
-```
-"""
-function ared(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::AbstractMatrix, S::AbstractMatrix = zeros(eltype(B),size(B))) 
-    gared(A, I, B, R, Q, S)
-end
-function ared(A::AbstractMatrix, B::AbstractMatrix, R::AbstractMatrix, Q::UniformScaling, S::AbstractMatrix = zeros(eltype(B),size(B))) 
-   gared(A, I, B, R, Matrix(one(eltype(A))*Q,size(A)), S)
+    as ? iev = i2 : iev = i1
+    clseig = PLS.β[iev] ./ PLS.α[iev]
+    if as && T <: Complex
+      clseig =  conj(clseig)
+    end
+    return  (x+x')/2, clseig, f, z[:,i1]
 end

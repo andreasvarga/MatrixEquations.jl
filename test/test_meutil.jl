@@ -43,6 +43,28 @@ x = copy(Qr); @time utqu!(x,ur');
       isschur(rand(3,3)) == false &&
       isschur(rand(3,3),rand(2,2)) == false
 
+ u = [1 2;3 4]
+ q = [1 3; 3 1]
+
+try
+    utqu(q,u) 
+    utqu(q//2,u) 
+    utqu(q//2,u//2) 
+    utqu!(q,u) 
+    utqu!(q//2,u) 
+    utqu(q//2,u//2) 
+   @test true   
+catch
+    @test false   
+end     
+
+try
+    utqu!(q,u//2) 
+    @test false   
+catch
+    @test true   
+end     
+     
 try
     utqu!(rand(3,3),rand(3,3)) 
     @test false   

@@ -1,4 +1,5 @@
 # Lyapunov Matrix Equation Solvers
+
 ```@docs
 lyapc
 lyapcs!

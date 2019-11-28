@@ -69,6 +69,17 @@ function utqu!(Q,U)
       throw(DimensionMismatch("U must be a matrix of dimension $n x $n"))
    end
 
+   T = promote_type(eltype(Q),eltype(U))
+   if !(T <: BlasFloat) 
+      if T == eltype(Q)
+         Q[:,:] = U'*Q*U
+         return 
+      else
+         error("TypeError: same type expected for Q and U ")
+      end
+   end
+
+
    idiag = diagind(Q)
    Q[idiag] = Q[idiag]/2
    if isa(U,Adjoint)
@@ -108,6 +119,11 @@ function utqu(Q,U)
       if n1 != n
          throw(DimensionMismatch("U must be a matrix of row dimension $n"))
       end
+   end
+
+   T = promote_type(eltype(Q),eltype(U))
+   if !(T <: BlasFloat)
+      return U'*Q*U
    end
 
    t = triu(Q)

@@ -1,4 +1,5 @@
 # Matrix Equations Utilities
+
 ```@docs
 utqu
 utqu!

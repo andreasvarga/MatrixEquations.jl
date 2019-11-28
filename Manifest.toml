@@ -60,3 +60,11 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
+
+[[WorkWithJulia]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "e29ee13ed4a2d587f26d9cbb679a90db156cefe9"
+repo-rev = "master"
+repo-url = "WorkWithJulia.jl"
+uuid = "55275afe-dba1-513a-a458-076405b8ae78"
+version = "0.0.0"
