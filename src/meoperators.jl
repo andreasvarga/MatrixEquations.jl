@@ -20,7 +20,7 @@ function trmatop(n::Int,m::Int)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
   m == n ? sym = true : sym = false
-  return LinearOperator{Int,F1,F2,F3}(n * m, n * m, sym, sym, prod, tprod, ctprod)
+  return LinearOperator{Int}(n * m, n * m, sym, sym, prod, tprod, ctprod)
 end
 trmatop(n::Int) = trmatop(n,n)
 trmatop(dims::Tuple{Int,Int}) = trmatop(dims[1],dims[2])
@@ -112,7 +112,7 @@ function lyapop(A; disc = false, her = false)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
   her ? N = Int(n*(n+1)/2) : N = n*n
-  return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 """
     L = lyapop(A, E; disc = false, her = false) 
@@ -198,7 +198,7 @@ function lyapop(A, E; disc = false, her = false)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
   her ? N = Int(n*(n+1)/2) : N = n*n
-  return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 """
     LINV = invlyapop(A; disc = false, her = false) 
@@ -305,7 +305,7 @@ function invlyapop(A; disc = false, her = false)
    F2 = typeof(tprod)
    F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 """
     LINV = invlyapop(A, E; disc = false, her = false) 
@@ -415,7 +415,7 @@ function invlyapop(A, E; disc = false, her = false)
    F2 = typeof(tprod)
    F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 """
     LINV = invlyapsop(A; disc = false, her = false) 
@@ -569,7 +569,7 @@ function invlyapsop(A; disc = false, her = false)
    F2 = typeof(tprod)
    F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 invlyapsop(A :: Schur; disc = false, her = false) = invlyapsop(A.T,disc = disc,her = her)
 invlyapsop(A :: Adjoint; disc = false, her = false) = invlyapsop(A.parent,disc = disc,her = her)'
@@ -723,7 +723,7 @@ function invlyapsop(A, E; disc = false, her = false)
    F2 = typeof(tprod)
    F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T,F1,F2,F3}(N, N, false, false, prod, tprod, ctprod)
+   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 invlyapsop(AE :: GeneralizedSchur; disc = false, her = false) = invlyapsop(AE.S, AE.T, disc = disc, her = her)
 invlyapsop(A :: Adjoint, E :: Adjoint; disc = false, her = false) = invlyapsop(A.parent,E.parent,disc = disc,her = her)'
@@ -758,7 +758,7 @@ function sylvop(A, B; disc = false)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
     MINV = invsylvop(A, B; disc = false) 
@@ -827,7 +827,7 @@ function invsylvop(A, B; disc = false)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
     MINV = invsylvsop(A, B; disc = false) 
@@ -1013,7 +1013,7 @@ function invsylvsop(A, B; disc = false)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 invsylvsop(A :: Schur, B :: Schur; disc = false) = invsylvsop(A.T,B.T,disc = disc)
 """
@@ -1046,7 +1046,7 @@ function sylvop(A, B, C, D)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
     MINV = invsylvop(A, B, C, D) 
@@ -1103,7 +1103,7 @@ function invsylvop(A, B, C, D)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
     MINV = invsylvsop(A, B, C, D; DBSchur = false) 
@@ -1294,7 +1294,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(m * n, n * m, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 invsylvsop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsop(AC.S,BD.S,AC.T,BD.T)
 
@@ -1333,7 +1333,7 @@ function sylvsysop(A, B, C, D)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 """
     MINV = invsylvsysop(A, B, C, D) 
@@ -1397,7 +1397,7 @@ function invsylvsysop(A, B, C, D)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 """
     MINV = invsylvsyssop(A, B, C, D) 
@@ -1535,6 +1535,6 @@ function invsylvsyssop(A, B, C, D)
   F1 = typeof(prod)
   F2 = typeof(tprod)
   F3 = typeof(ctprod)
-  return LinearOperator{T,F1,F2,F3}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
+  return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 invsylvsyssop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsyssop(AC.S,BD.S,AC.T,BD.T)
