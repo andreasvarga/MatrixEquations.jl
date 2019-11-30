@@ -1,8 +1,15 @@
 # Riccati Matrix Equation Solvers
 
+## Standard Riccati Matrix Equations
+
 ```@docs
 arec
-garec
 ared
+```
+
+## Generalized Riccati Matrix Equations
+
+```@docs
+garec
 gared
 ```

@@ -70,7 +70,7 @@ The collection of tools will be extended by adding new functionality, such as ex
 
 ### Version 1.1.1
 
-Minor release to fix upgrading problems to version v0.7.1 of LinearOperators.jl.
+Patch release to fix upgrading problems to version v0.7.1 of LinearOperators.jl.
 
 ### Version 1.1.0
 
