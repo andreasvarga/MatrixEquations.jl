@@ -68,6 +68,10 @@ The collection of tools will be extended by adding new functionality, such as ex
 
 ## Release Notes
 
+### Version 1.1.1
+
+Minor release to fix upgrading problems to version v0.7.1 of LinearOperators.jl.
+
 ### Version 1.1.0
 
 This release includes several enhancements of the Riccati equation solvers:
