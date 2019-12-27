@@ -36,8 +36,10 @@ function opnorm1(op::AbstractLinearOperator)
       try
          nrm = max(nrm,norm(op*ej,1))
       catch err
-         if isnothing(findfirst("SingularException",string(err))) &&
-            isnothing(findfirst("LAPACKException",string(err)))
+         # if isnothing(findfirst("SingularException",string(err))) &&
+         #    isnothing(findfirst("LAPACKException",string(err)))
+         if findfirst("SingularException",string(err)) === nothing &&
+            findfirst("LAPACKException",string(err)) === nothing
             rethrow()
          else
             return Inf
@@ -99,8 +101,10 @@ function opnorm1est(op::AbstractLinearOperator)
         try
            KASE == 1 ? X = op*X : X = op'*X
         catch err
-           if isnothing(findfirst("SingularException",string(err))) &&
-              isnothing(findfirst("LAPACKException",string(err)))
+         #   if isnothing(findfirst("SingularException",string(err))) &&
+         #      isnothing(findfirst("LAPACKException",string(err)))
+           if findfirst("SingularException",string(err)) === nothing &&
+              findfirst("LAPACKException",string(err)) === nothing
               rethrow()
            else
               return Inf

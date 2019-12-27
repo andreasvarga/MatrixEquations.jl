@@ -239,8 +239,10 @@ function invlyapop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+      if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -266,8 +268,10 @@ function invlyapop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -293,8 +297,10 @@ function invlyapop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -349,8 +355,10 @@ function invlyapop(A, E; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -376,8 +384,10 @@ function invlyapop(A, E; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -403,8 +413,10 @@ function invlyapop(A, E; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -477,8 +489,10 @@ function invlyapsop(A; disc = false, her = false)
          end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -517,8 +531,10 @@ function invlyapsop(A; disc = false, her = false)
         end
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -557,8 +573,10 @@ function invlyapsop(A; disc = false, her = false)
         end
       end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -643,8 +661,10 @@ function invlyapsop(A, E; disc = false, her = false)
          return Y[:]
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -677,8 +697,10 @@ function invlyapsop(A, E; disc = false, her = false)
          return Y[:]
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -711,8 +733,10 @@ function invlyapsop(A, E; disc = false, her = false)
          return Y[:]
        end
      catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -780,8 +804,10 @@ function invsylvop(A, B; disc = false)
         return sylvc(A,B,C)[:]
       end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -798,8 +824,10 @@ function invsylvop(A, B; disc = false)
         return sylvc(A',B',C)[:]
      end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
          throw("ME:SingularException: Singular operator")
@@ -816,8 +844,10 @@ function invsylvop(A, B; disc = false)
         return sylvc(A',B',C)[:]
      end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err))) &&
-          isnothing(findfirst("SingularException",string(err)))
+      #  if isnothing(findfirst("LAPACKException",string(err))) &&
+      #     isnothing(findfirst("SingularException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing &&
+          findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
          throw("ME:SingularException: Singular operator")
@@ -909,8 +939,9 @@ function invsylvsop(A, B; disc = false)
          return C[:]
        end
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
-          rethrow()
+      # if isnothing(findfirst("LAPACKException",string(err)))
+      if findfirst("LAPACKException",string(err)) === nothing
+         rethrow()
        else
           throw("ME:SingularException: Singular operator")
        end
@@ -956,7 +987,8 @@ function invsylvsop(A, B; disc = false)
          return C[:]
          end
     catch err
-        if isnothing(findfirst("LAPACKException",string(err)))
+        # if isnothing(findfirst("LAPACKException",string(err)))
+        if findfirst("LAPACKException",string(err)) === nothing
            rethrow()
         else
            throw("ME:SingularException: Singular operator")
@@ -1003,7 +1035,8 @@ function invsylvsop(A, B; disc = false)
          return C[:]
        end
     catch err
-        if isnothing(findfirst("LAPACKException",string(err)))
+        # if isnothing(findfirst("LAPACKException",string(err)))
+        if findfirst("LAPACKException",string(err)) === nothing
            rethrow()
         else
            throw("ME:SingularException: Singular operator")
@@ -1067,7 +1100,8 @@ function invsylvop(A, B, C, D)
     try
        return gsylv(A,B,C,D,E)[:]
     catch err
-       if isnothing(findfirst("SingularException",string(err)))
+       # if isnothing(findfirst("SingularException",string(err)))
+       if findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1080,7 +1114,8 @@ function invsylvop(A, B, C, D)
     try
        return gsylv(A',B',C',D',E)[:]
     catch err
-       if isnothing(findfirst("SingularException",string(err)))
+       # if isnothing(findfirst("SingularException",string(err)))
+       if findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1093,7 +1128,8 @@ function invsylvop(A, B, C, D)
     try
        return gsylv(A',B',C',D',E)[:]
     catch err
-       if isnothing(findfirst("SingularException",string(err)))
+       # if isnothing(findfirst("SingularException",string(err)))
+       if findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1208,7 +1244,8 @@ function invsylvsop(A, B, C, D; DBSchur = false)
        end
        return Y[:]
     catch err
-       if isnothing(findfirst("SingularException",string(err)))
+       # if isnothing(findfirst("SingularException",string(err)))
+       if findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1246,7 +1283,8 @@ function invsylvsop(A, B, C, D; DBSchur = false)
        end
        return Y[:]
     catch err
-       if isnothing(findfirst("SingularException",string(err)))
+       # if isnothing(findfirst("SingularException",string(err)))
+       if findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1284,7 +1322,8 @@ function invsylvsop(A, B, C, D; DBSchur = false)
        end
        return Y[:]
     catch err
-       if isnothing(findfirst("SingularException",string(err)))
+       # if isnothing(findfirst("SingularException",string(err)))
+       if findfirst("SingularException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1357,7 +1396,8 @@ function invsylvsysop(A, B, C, D)
        (X,Y) = sylvsys(A,B,E,C,D,F)
        return [X Y][:]
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
+       # if isnothing(findfirst("LAPACKException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1372,7 +1412,8 @@ function invsylvsysop(A, B, C, D)
        (X,Y) = dsylvsys(A',B',E,C',D',F)[:]
        return [X Y][:]
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
+       # if isnothing(findfirst("LAPACKException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1387,7 +1428,8 @@ function invsylvsysop(A, B, C, D)
        (X,Y) = dsylvsys(A',B',E,C',D',F)[:]
        return [X Y][:]
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
+       # if isnothing(findfirst("LAPACKException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1463,7 +1505,8 @@ function invsylvsyssop(A, B, C, D)
       X, Y = sylvsyss!(A,B,E,C,D,F) 
       return [X Y][:]
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
+       # if isnothing(findfirst("LAPACKException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1494,7 +1537,8 @@ function invsylvsyssop(A, B, C, D)
       X, Y = dsylvsyss!(A,B,E,C,D,F) 
       return [X Y][:]
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
+       # if isnothing(findfirst("LAPACKException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
@@ -1525,7 +1569,8 @@ function invsylvsyssop(A, B, C, D)
       X, Y = dsylvsyss!(A,B,E,C,D,F) 
       return [X Y][:]
     catch err
-       if isnothing(findfirst("LAPACKException",string(err)))
+       # if isnothing(findfirst("LAPACKException",string(err)))
+       if findfirst("LAPACKException",string(err)) === nothing
           rethrow()
        else
           throw("ME:SingularException: Singular operator")
