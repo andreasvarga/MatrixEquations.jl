@@ -62,24 +62,14 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    """
 
    m, n = size(C);
-   if [m; n] != LinearAlgebra.checksquare(A,B)
-      throw(DimensionMismatch("A, B and C have incompatible dimensions"))
-   end
-
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+ 
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-     B = convert(Matrix{T2},B)
-   end
-   if eltype(C) !== T2
-     C = convert(Matrix{T2},C)
-   end
-
+   T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (B = convert(Matrix{T2},B))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+ 
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if adjA
@@ -181,22 +171,13 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    """
 
    m, n = size(C);
-   if [m; n] != LinearAlgebra.checksquare(A,B)
-      throw(DimensionMismatch("A, B and C have incompatible dimensions"))
-   end
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-     B = convert(Matrix{T2},B)
-   end
-   if eltype(C) !== T2
-     C = convert(Matrix{T2},C)
-   end
+   T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (B = convert(Matrix{T2},B))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if adjA
@@ -291,28 +272,15 @@ julia> A*X*B + C*X*D - E
 function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix)
 
     m, n = size(E);
-    if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
+    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
-    end
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
-    if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-    end
-    if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
-    end
-    if eltype(B) !== T2
-      B = convert(Matrix{T2},B)
-    end
-    if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-    end
-    if eltype(D) !== T2
-      D = convert(Matrix{T2},D)
-    end
-    if eltype(E) !== T2
-      E = convert(Matrix{T2},E)
-    end
+    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
+    eltype(A) == T2 || (A = convert(Matrix{T2},A))
+    eltype(B) == T2 || (B = convert(Matrix{T2},B))
+    eltype(C) == T2 || (C = convert(Matrix{T2},C))
+    eltype(D) == T2 || (D = convert(Matrix{T2},D))
+    eltype(E) == T2 || (E = convert(Matrix{T2},E))
 
     adjA = isa(A,Adjoint)
     adjB = isa(B,Adjoint)
@@ -432,34 +400,18 @@ julia> D*X + Y*E - F
 function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix,F::AbstractMatrix)
 
     m, n = size(C);
-    if m != size(F,1) || n != size(F,2)
+    (m == size(F,1) && n == size(F,2)) ||
       throw(DimensionMismatch("C and F must have the same dimensions"))
-    end
-    if [m; n; m; n] != LinearAlgebra.checksquare(A,B,D,E)
+    [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
-    end
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
-    if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-    end
-    if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
-    end
-    if eltype(B) !== T2
-      B = convert(Matrix{T2},B)
-    end
-    if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-    end
-    if eltype(D) !== T2
-      D = convert(Matrix{T2},D)
-    end
-    if eltype(E) !== T2
-      E = convert(Matrix{T2},E)
-    end
-    if eltype(F) !== T2
-      F = convert(Matrix{T2},F)
-    end
+    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
+    eltype(A) == T2 || (A = convert(Matrix{T2},A))
+    eltype(B) == T2 || (B = convert(Matrix{T2},B))
+    eltype(C) == T2 || (C = convert(Matrix{T2},C))
+    eltype(D) == T2 || (D = convert(Matrix{T2},D))
+    eltype(E) == T2 || (E = convert(Matrix{T2},E))
+    eltype(F) == T2 || (F = convert(Matrix{T2},F))
 
     if isa(A,Adjoint)
       A = copy(A)
@@ -552,35 +504,19 @@ julia> X*B + Y*E - F
 function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix,F::AbstractMatrix)
 
     m, n = size(C);
-    if m != size(F,1) || n != size(F,2)
+    (m == size(F,1) && n == size(F,2)) ||
       throw(DimensionMismatch("C and F must have the same dimensions"))
-    end
-    if [m; n; m; n] != LinearAlgebra.checksquare(A,B,D,E)
+    [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
-    end
 
     T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
-    if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-    end
-    if eltype(A) !== T2
-      A = convert(Matrix{T2},A)
-    end
-    if eltype(B) !== T2
-      B = convert(Matrix{T2},B)
-    end
-    if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-    end
-    if eltype(D) !== T2
-      D = convert(Matrix{T2},D)
-    end
-    if eltype(E) !== T2
-      E = convert(Matrix{T2},E)
-    end
-    if eltype(F) !== T2
-      F = convert(Matrix{T2},F)
-    end
+    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
+    eltype(A) == T2 || (A = convert(Matrix{T2},A))
+    eltype(B) == T2 || (B = convert(Matrix{T2},B))
+    eltype(C) == T2 || (C = convert(Matrix{T2},C))
+    eltype(D) == T2 || (D = convert(Matrix{T2},D))
+    eltype(E) == T2 || (E = convert(Matrix{T2},E))
+    eltype(F) == T2 || (F = convert(Matrix{T2},F))
     realcase = T2 <: AbstractFloat
     transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
     realcase ? trans = 'T' : trans = 'C'
@@ -630,10 +566,8 @@ function sylvcs!(A::T1, B::T1, C::Union{T1,T2}; adjA = false, adjB = false) wher
    T = eltype(A)
    TC = eltype(C)
    TR = real(TC)
-   if T !== TR
-      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   end
-   cmplx = TC <: Complex 
+   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+    cmplx = TC <: Complex 
    adjA ? TA = 'T' : TA = 'N'
    adjB ? TB = 'T' : TB = 'N'
    if cmplx
@@ -686,17 +620,13 @@ function sylvds!(A::T1, B::T1, C::Union{T1,T2}; adjA = false, adjB = false) wher
    Comm. ACM, 15:820–826, 1972.
    """
    m, n = LinearAlgebra.checksquare(A,B)
-   if size(C,1) != m || size(C,2) != n
-      throw(DimensionMismatch("C must be an $m x $n matrix"))
-   end
+   (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
    
    T = eltype(A)
    TC = eltype(C)
    TR = real(TC)
-   if T !== TR
-      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   end
-
+   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+ 
    # determine the structure of the real Schur form of A
    ba = fill(1,m,1)
    pa = 1
@@ -921,11 +851,8 @@ function sylvds!(A::T, B::T, C::T; adjA = false, adjB = false) where {T<:Union{M
    Comm. ACM, 15:820–826, 1972.
    """
    m, n = LinearAlgebra.checksquare(A,B)
-   if size(C,1) != m || size(C,2) != n
-      throw(DimensionMismatch("C must be an $m x $n matrix"))
-   end
-
-
+   (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
+  
    W = fill(zero(eltype(C)),m,1)
    if !adjA && !adjB
       """
@@ -1102,7 +1029,6 @@ The pencils `A-λC` and `D+λB` must be regular and must not have common eigenva
 """
 function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::Union{T1,T2}; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where 
    {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
-#function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where {T<:Union{Array{Float64,2},Array{Float32,2}}}
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1113,16 +1039,13 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::Union{T1,T2}; adjAC = false, adj
        Comm. ACM, 15:820–826, 1972.
    """
    m, n = size(E);
-   if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) || 
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
-   end
-
+ 
    T = eltype(A)
    TE = eltype(E)
    TR = real(TE)
-   if T !== TR
-      error("TypeError: for real part of E expected Type{$T}, got Type{$TR}")
-   end
+   T == TR || error("TypeError: for real part of E expected Type{$T}, got Type{$TR}")
 
    # determine the structure of the generalized real Schur form of (A,C)
    ba = fill(1,m,1)
@@ -1392,10 +1315,8 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
        Comm. ACM, 15:820–826, 1972.
    """
    m, n = size(E);
-   if [m; n; m; n] != LinearAlgebra.checksquare(A,B,C,D)
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
-   end
-
 
    WB = fill(zero(eltype(E)),m,1)
    WD = fill(zero(eltype(E)),m,1)
@@ -1595,7 +1516,7 @@ function gsylvs!(A::T, B::T, C::T, D::T, E::T; adjAC = false, adjBD = false, CAS
    return E
 end
 """
-    (X,Y) = sylvsyss!s(A,B,C,D,E,F)
+    (X,Y) = sylvsyss!(A,B,C,D,E,F)
 
 Solve the Sylvester system of matrix equations
 
@@ -1625,9 +1546,7 @@ function sylvsyss!(A::T1, B::T1, C::Union{T1,T2}, D::T1, E::T1, F::Union{T1,T2})
    T = eltype(A)
    TC = promote_type(eltype(C),eltype(F))
    TR = real(TC)
-   if T !== TR
-      error("TypeError: for real parts of (C,F) expected Type{$T}, got Type{$TR}")
-   end
+   T == TR || error("TypeError: for real parts of (C,F) expected Type{$T}, got Type{$TR}")
    cmplx = TC <: Complex 
    if cmplx
       XR = real(C)
@@ -1682,9 +1601,7 @@ function dsylvsyss!(A::T1, B::T1, C::Union{T1,T2}, D::T1, E::T1, F::Union{T1,T2}
    T = eltype(A)
    TC = promote_type(eltype(C),eltype(F))
    TR = real(TC)
-   if T !== TR
-      error("TypeError: for real parts of (C,F) expected Type{$T}, got Type{$TR}")
-   end
+   T == TR || error("TypeError: for real parts of (C,F) expected Type{$T}, got Type{$TR}")
    cmplx = TC <: Complex 
    if cmplx
       XR = real(C)

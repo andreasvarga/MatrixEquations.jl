@@ -71,6 +71,11 @@ end
 
 @testset "Discrete generalized Lyapunov equations" begin
 
+reltol = eps(float(100))
+ac = -2+im; ec = 4+im; b = 2; @time x = lyapd(ac,ec,b)
+@test abs(ac*x*ac'-ec*x*ec'+b) < reltol
+
+
 for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)

@@ -1,6 +1,6 @@
 # MatrixEquations.jl
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3556377.svg)](https://doi.org/10.5281/zenodo.3556377)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3556377.svg)](https://doi.org/10.5281/zenodo.3556867)
 [![Travis](https://travis-ci.com/andreasvarga/MatrixEquations.jl.svg?branch=master)](https://travis-ci.com/andreasvarga/MatrixEquations.jl)
 [![codecov.io](https://codecov.io/gh/andreasvarga/MatrixEquations.jl/coverage.svg?branch=master)](https://codecov.io/gh/andreasvarga/MatrixEquations.jl?branch=master)
 [![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/dev/)
@@ -31,7 +31,7 @@ the MATLAB Control System Toolbox (which rely on SLICOT).
 The available functions in the `MatrixEquation.jl` package cover both standard
 and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data. The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure
 exploiting solvers for which the input data are in Schur or generalized Schur forms. A comprehensive set of Lyapunov and Sylvester operators has been implemented, which allow the estimation of condition numbers of these operators. The implementation of Riccati equation solvers employ orthogonal Schur vectors
-based methods and their extensions to linear matrix pencil based reduction approaches. The calls of all functions with adjoint (in complex case) or transposed (in real case) arguments are fully supported by appropriate computational algorithms, thus the matrix copying operations are mostly avoided.     
+based methods and their extensions to linear matrix pencil based reduction approaches. The calls of all functions with adjoint (in complex case) or transposed (in real case) arguments are fully supported by appropriate computational algorithms, thus the matrix copying operations are mostly avoided.
 
 The current version of the package includes the following functions:
 

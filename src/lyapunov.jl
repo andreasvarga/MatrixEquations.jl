@@ -51,23 +51,16 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    Comm. ACM, 15:820–826, 1972.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
-   end
 
    adj = isa(A,Adjoint)
 
    T2 = promote_type(eltype(A), eltype(C))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-   end
-
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+ 
    # Reduce A to Schur form and transform C
    if adj
       AS, Q = schur(A.parent)
@@ -153,16 +146,10 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
-   end
-   if isequal(E,I) && size(E,1) == n
-      return lyapc(A, C)
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-      end
-   end
+   isequal(E,I) && size(E,1) == n && (return lyapc(A, C))
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
 
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
@@ -177,18 +164,10 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    adj = adjA & adjE
 
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(E) !== T2
-     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
-   end
-   if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
 
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
@@ -276,22 +255,15 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
    International Journal of Control, 25:745-753, 1977.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
-      throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
-   end
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
+       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
 
    adj = isa(A,Adjoint)
 
    T2 = promote_type(eltype(A), eltype(C))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
 
    # Reduce A to Schur form and transform C
    if adj
@@ -377,17 +349,11 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
-   end
-   if isequal(E,I) && size(E,1) == n
-      return lyapd(A, C)
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
-
+   isequal(E,I) && size(E,1) == n && (return lyapd(A, C))
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
+ 
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
    if adjA && !adjE
@@ -401,18 +367,10 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    adj = adjA & adjE
 
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(E) !== T2
-     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
-   end
-   if eltype(C) !== T2
-      C = convert(Matrix{T2},C)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
 
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
@@ -462,15 +420,12 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 function lyapcs!(A::T1, C::Union{T1,T2}; adj = false) where 
    {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
-   end
 
    T = eltype(A)
    TR = real(eltype(C))
-   if T !== TR
-      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   end
+   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
    ZERO = zero(T)
    # determine the structure of the real Schur form
    ba = fill(1,n)
@@ -589,9 +544,8 @@ function lyapcs!(A::T1, C::Union{T1,T2}; adj = false) where
 end
 function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
-      throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
-   end
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
 
    if adj
       """
@@ -674,27 +628,17 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-#function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
 function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj = false) where 
       {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
-      throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
-   end
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
-      lyapcs!(A, C, adj = adj)
-      return
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapcs!(A, C, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
    T = eltype(A)
    TR = real(eltype(C))
-   if T !== TR
-      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   end
+   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
 
    # determine the structure of the generalized real Schur form
    ba = fill(1,n)
@@ -848,18 +792,10 @@ function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj 
 end
 function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
-      throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
-   end
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
-      lyapcs!(A, C, adj = adj)
-      return
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
-
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapcs!(A, C, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
    W = Array{Complex{Float64},1}(undef,n)
    # Compute the hermitian solution
@@ -941,15 +877,12 @@ The computed symmetric or hermitian solution `X` is contained in `C`.
 function lyapds!(A::T1, C::Union{T1,T2}; adj = false) where 
    {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
-   end
 
    T = eltype(A)
    TR = real(eltype(C))
-   if T !== TR
-      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   end
+   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
 
    # determine the structure of the real Schur form
    ba = fill(1,n)
@@ -1080,9 +1013,8 @@ end
 
 function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n  || !ishermitian(C)
-      throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
-   end
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
 
    # Compute the hermitian solution
    if adj
@@ -1156,26 +1088,16 @@ The computed symmetric or hermitian solution `X` is contained in `C`.
 """
 function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj = false) where 
    {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
-#function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
-      throw(DimensionMismatch("C must be a $n x $n hermitian/symmetric matrix"))
-   end
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
-      lyapds!(A, C, adj = adj)
-      return
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapds!(A, C, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
    T = eltype(A)
    TR = real(eltype(C))
-   if T !== TR
-      error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   end
-
+   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+ 
    # determine the structure of the real Schur form
    ba = fill(1,n)
    p = 1
@@ -1328,17 +1250,10 @@ end
 
 function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(C) != n || !ishermitian(C)
+   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
-   end
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
-      lyapds!(A, C, adj = adj)
-      return
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapds!(A, C, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
    W = Array{Complex{Float64},1}(undef,n)
    # Compute the hermitian solution

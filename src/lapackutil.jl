@@ -36,27 +36,20 @@ for (fn, elty, relty) in ((:dtgsyl_, :Float64, :Float64),
             ldb = max(1, stride(B, 2))
             ldc = max(1, stride(C, 2))
             m1, n1 = size(C)
-            if m != m1 || n != n1
+            (m == m1 && n == n1) ||
                 throw(DimensionMismatch("dimensions of A($m,$m),  B($n,$n), and C($m1,$n1) must match"))
-            end
             m2, n2 = checksquare(D, E)
-            if m != m2
-                throw(DimensionMismatch("dimensions of A($m,$m) and D($m2,$m2) must match"))
-            end
-            if n != n2
-                throw(DimensionMismatch("dimensions of B($n,$n) and E($n2,$n2), must match"))
-            end
+            m == m2 || throw(DimensionMismatch("dimensions of A($m,$m) and D($m2,$m2) must match"))
+            n == n2 || throw(DimensionMismatch("dimensions of B($n,$n) and E($n2,$n2), must match"))
             ldd = max(1, stride(D, 2))
             lde = max(1, stride(E, 2))
             ldf = max(1, stride(F, 2))
             m3, n3 = size(F)
-            if m2 != m3 || n2 != n3
+            (m2 == m3 && n2 == n3) ||
                 throw(DimensionMismatch("dimensions of D($m,$m),  E($n,$n), and F($m3,$n3) must match"))
-            end
             dif = Vector{$relty}(undef, 1)
             scale = Vector{$relty}(undef, 1)
             info  = Ref{BlasInt}()
-            #trans = AbstractChar('N')
             ijob = 0
             work = Vector{$elty}(undef, 1)
             lwork = 1
@@ -274,9 +267,7 @@ for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
             @assert !has_offset_axes(V, X)
             chkstride1(V,X)
             n = length(V)
-            if n != length(X)
-                throw(DimensionMismatch("dimensions of V and X must be equal"))
-            end
+            n == length(X) || throw(DimensionMismatch("dimensions of V and X must be equal"))
             """
             *       SUBROUTINE ZLACN2( N, V, X, EST, KASE, ISAVE )
             *

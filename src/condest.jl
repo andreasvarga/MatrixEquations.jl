@@ -38,12 +38,8 @@ function opnorm1(op::AbstractLinearOperator)
       catch err
          # if isnothing(findfirst("SingularException",string(err))) &&
          #    isnothing(findfirst("LAPACKException",string(err)))
-         if findfirst("SingularException",string(err)) === nothing &&
-            findfirst("LAPACKException",string(err)) === nothing
-            rethrow()
-         else
-            return Inf
-         end
+         findfirst("SingularException",string(err)) === nothing &&
+         findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
       end
   end
   return convert(Tnorm, nrm)
@@ -73,9 +69,7 @@ julia> opnorm1est(invlyapop(A))
 """
 function opnorm1est(op::AbstractLinearOperator)
   m, n = size(op)
-  if m != n
-    throw(DimensionMismatch("The operator op must be square"))
-  end
+  m == n || throw(DimensionMismatch("The operator op must be square"))
   T = promote_type(Float64,eltype(op))
   TR = real(T)
   TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
@@ -94,21 +88,15 @@ function opnorm1est(op::AbstractLinearOperator)
      else
         ANORM, KASE = LapackUtil.lacn2!(V, X, ISGN, ANORM, KASE, ISAVE )
      end
-     if !isfinite(ANORM) || ANORM >= BIGNUM
-        return Inf
-      end
+     (isfinite(ANORM) && ANORM < BIGNUM) || (return Inf)
      if KASE != 0
         try
            KASE == 1 ? X = op*X : X = op'*X
         catch err
          #   if isnothing(findfirst("SingularException",string(err))) &&
          #      isnothing(findfirst("LAPACKException",string(err)))
-           if findfirst("SingularException",string(err)) === nothing &&
-              findfirst("LAPACKException",string(err)) === nothing
-              rethrow()
-           else
-              return Inf
-           end
+           findfirst("SingularException",string(err)) === nothing &&
+           findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
         end
       else
         finish = true

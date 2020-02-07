@@ -68,46 +68,30 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(G), eltype(Q) )
     if typeof(G) <: AbstractArray
-       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+       (LinearAlgebra.checksquare(G) == n && ishermitian(G)) ||
           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
-       end
     else
        G = G*I
-       if !iszero(imag(G.λ))
-          throw("G must be a symmetric/hermitian matrix")
-       end
+       iszero(imag(G.λ)) || throw("G must be a symmetric/hermitian matrix")
     end
     if typeof(Q) <: AbstractArray
-       if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+       (LinearAlgebra.checksquare(Q) == n && ishermitian(Q)) ||
           throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-       end
     else
        Q = Q*I
-       if !iszero(imag(Q.λ))
-          throw("Q must be a symmetric/hermitian matrix")
-       end
+       iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
     end
-    if !(T <: BlasFloat) 
-       T = promote_type(Float64,T)
-    end
+    T <: BlasFloat || (T = promote_type(Float64,T))
     TR = real(T)
     epsm = eps(TR)
-    if eltype(A) !== T
-       A = convert(Matrix{T},A)
-    end
-    if eltype(G) !== T
-       typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I
-    end
-    if eltype(Q) !== T
-       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
-    end
-   
+    eltype(A) == T || (A = convert(Matrix{T},A))
+    eltype(G) == T || (typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I)
+    eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
+    
     S = schur([A  -G; -Q  -copy(A')])
     
     as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
-    if n != length(filter(y-> y == true,select))
-       error("The Hamiltonian matrix is not dichotomic")
-    end
+    n == length(filter(y-> y == true,select)) || error("The Hamiltonian matrix is not dichotomic")
     ordschur!(S, select)
 
     n2 = n+n
@@ -120,17 +104,9 @@ function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
    try 
       F = LinearAlgebra.lu(Z11)
       Z11norm = opnorm(Z11,1)
-      if Z11norm > 2*rtol
-         rcond = LAPACK.gecon!('1',F.factors,Z11norm)
-      else
-         rcond = zero(eltype(Z11))
-      end
-      if rcond <= rtol
-         error("no finite solution exists for the Riccati equation")
-      else
-         return  F
-      end
-   catch
+      Z11norm > 2*rtol ? (rcond = LAPACK.gecon!('1',F.factors,Z11norm)) : (rcond = zero(eltype(Z11)))
+      rcond <= rtol ? error("no finite solution exists for the Riccati equation") : (return  F)
+    catch
       error("no finite solution exists for the Riccati equation")
    end
 end
@@ -243,142 +219,113 @@ IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
               R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, 
               S::AbstractVecOrMat; as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false) 
-    if orth
-       return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol)
-    end
+    orth && (return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol))
           
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
-    if n !== nb
-       throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
-    end
+    n == nb || throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
     if typeof(G) <: AbstractArray
-      if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+      (LinearAlgebra.checksquare(G) == n && ishermitian(G)) || 
           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
-      end
    else
      G = G*I
-     if !iszero(imag(G.λ))
-        throw("G must be a symmetric/hermitian matrix")
-     end
+     iszero(imag(G.λ)) || throw("G must be a symmetric/hermitian matrix")
    end
    if typeof(R) <: AbstractArray
-      if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+      (LinearAlgebra.checksquare(R) == m && ishermitian(R)) ||
          throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
-      end
    else
       R = R*I
-      if !iszero(imag(R.λ))
-        throw("R must be a symmetric/hermitian matrix")
-      end
+      iszero(imag(R.λ)) || throw("R must be a symmetric/hermitian matrix")
    end
    if typeof(Q) <: AbstractArray
-     if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+     (LinearAlgebra.checksquare(Q) == n && ishermitian(Q)) ||
         throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-     end
    else
      Q = Q*I
-     if !iszero(imag(Q.λ))
-        throw("Q must be a symmetric/hermitian matrix")
-      end
+     iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
    end
    typeof(S) <: AbstractVector ? (ns, ms) = (length(S), 1) : (ns, ms) = size(S)
-   if n !== ns || m !== ms
+   (n == ns && m == ms) || 
       throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
+   T <: BlasFloat || (T = promote_type(Float64,T))
+   TR = real(T)
+   epsm = eps(TR)
+   eltype(A) == T || (A = convert(Matrix{T},A))
+   if eltype(B) !== T
+      if typeof(B) <: AbstractVector
+         B = convert(Vector{T},B)
+      else
+         B = convert(Matrix{T},B)
+      end
    end
-   if !(T <: BlasFloat) 
-      T = promote_type(Float64,T)
-    end
-    TR = real(T)
-    epsm = eps(TR)
-    if eltype(A) !== T
-      A = convert(Matrix{T},A)
-    end
-    if eltype(B) !== T
-       if typeof(B) <: AbstractVector
-          B = convert(Vector{T},B)
-       else
-          B = convert(Matrix{T},B)
-       end
-    end
-    if typeof(G) <: AbstractArray
-       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+   if typeof(G) <: AbstractArray
+       (LinearAlgebra.checksquare(G) == n && ishermitian(G)) ||
           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
-       end
-    else
-      G = G*I
-      if !iszero(imag(G.λ))
-         throw("G must be a symmetric/hermitian matrix")
-      end
-    end
-    if typeof(R) <: AbstractArray
-       if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
-          throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
-       end
-    else
-       R = R*I
-       if !iszero(imag(R.λ))
-         throw("R must be a symmetric/hermitian matrix")
-       end
-    end
-    if typeof(Q) <: AbstractArray
-      if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
-         throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-      end
-    else
-      Q = Q*I
-      if !iszero(imag(Q.λ))
-         throw("Q must be a symmetric/hermitian matrix")
-       end
-    end
-    if eltype(S) !== T
-       if typeof(S) <: AbstractVector
-          S = convert(Vector{T},S)
-       else
-          S = convert(Matrix{T},S)
-       end
-    end
-    S0flag = iszero(S)
-    if typeof(R) <: UniformScaling
-       R = Matrix{T}(R,m,m)
-    end
-    SR = schur(R)
-    D = real(diag(SR.T))
-    Da = abs.(D)
-    minDa, = findmin(Da)
-    maxDa, = findmax(Da)
-    if minDa <= epsm*maxDa
-       error("R must be non-singular")
-    elseif minDa > sqrt(epsm)*maxDa && maxDa > 100*eps(max(opnorm(A,1),opnorm(G,1),opnorm(Q,1)))
-       #Dinv = diagm(0 => 1 ./ D)
-       Dinv = Diagonal(1 ./ D)
-       Bu = B*SR.Z
-       #G = G + Bu*Dinv*Bu'
-       #G = utqu(Dinv,Bu')  
-       G += utqu(Dinv,Bu')
-       if S0flag
-          sol = arec(A,G,Q; as = as, rtol = rtol)
-          w2 = SR.Z*Dinv*Bu'
-          f = w2*sol[1]
-          z = [sol[3]; w2*(sol[3])[n+1:end,:]]
-       else
-          Su = S*SR.Z
-          #Q -= Su*Dinv*Su'
-          Q -= utqu(Dinv,Su')
-          sol = arec(A-Bu*Dinv*Su',G,Q; as = as, rtol = rtol)
-          w1 = SR.Z*Dinv*Su'
-          w2 = SR.Z*Dinv*Bu'
-          f = w1+w2*sol[1]
-          #f = SR.Z*Dinv*(Bu'*sol[1]+Su')
-          z = [sol[3]; [w1 w2]*sol[3] ]
-       end
-       return sol[1], sol[2], f, z
    else
-       # use implicit form 
-       @warn "R nearly singular: using the orthogonal reduction method"
-       return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol)
-    end
+      G = G*I
+      iszero(imag(G.λ)) || throw("G must be a symmetric/hermitian matrix")
+   end
+   if typeof(R) <: AbstractArray
+      (LinearAlgebra.checksquare(R) == m && ishermitian(R)) ||
+         throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
+   else
+      R = R*I
+      iszero(imag(R.λ)) || throw("R must be a symmetric/hermitian matrix")
+   end
+   if typeof(Q) <: AbstractArray
+     (LinearAlgebra.checksquare(Q) == n && ishermitian(Q)) ||
+        throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
+   else
+      Q = Q*I
+      iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
+   end
+   if eltype(S) !== T
+      if typeof(S) <: AbstractVector
+         S = convert(Vector{T},S)
+      else
+         S = convert(Matrix{T},S)
+      end
+   end
+   S0flag = iszero(S)
+   typeof(R) <: UniformScaling && (R = Matrix{T}(R,m,m))
+   SR = schur(R)
+   D = real(diag(SR.T))
+   Da = abs.(D)
+   minDa, = findmin(Da)
+   maxDa, = findmax(Da)
+   if minDa <= epsm*maxDa
+      error("R must be non-singular")
+   elseif minDa > sqrt(epsm)*maxDa && maxDa > 100*eps(max(opnorm(A,1),opnorm(G,1),opnorm(Q,1)))
+      #Dinv = diagm(0 => 1 ./ D)
+      Dinv = Diagonal(1 ./ D)
+      Bu = B*SR.Z
+      #G = G + Bu*Dinv*Bu'
+      #G = utqu(Dinv,Bu')  
+      G += utqu(Dinv,Bu')
+      if S0flag
+         sol = arec(A,G,Q; as = as, rtol = rtol)
+         w2 = SR.Z*Dinv*Bu'
+         f = w2*sol[1]
+         z = [sol[3]; w2*(sol[3])[n+1:end,:]]
+      else
+         Su = S*SR.Z
+         #Q -= Su*Dinv*Su'
+         Q -= utqu(Dinv,Su')
+         sol = arec(A-Bu*Dinv*Su',G,Q; as = as, rtol = rtol)
+         w1 = SR.Z*Dinv*Su'
+         w2 = SR.Z*Dinv*Bu'
+         f = w1+w2*sol[1]
+         #f = SR.Z*Dinv*(Bu'*sol[1]+Su')
+         z = [sol[3]; [w1 w2]*sol[3] ]
+      end
+      return sol[1], sol[2], f, z
+   else
+      # use implicit form 
+      @warn "R nearly singular: using the orthogonal reduction method"
+      return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol)
+   end
 end
 """
     garec(A, E, G, Q = 0; as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
@@ -411,58 +358,34 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     if E == I
        eident = true
     else
-       if LinearAlgebra.checksquare(E) != n
-          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-       end
+       LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        eident = isequal(E,I)
-       if eident
-          E = I
-       else
-          T = promote_type(T,eltype(E))
-       end
+       eident ? (E = I) : (T = promote_type(T,eltype(E)))
     end
     if typeof(G) <: AbstractArray
-       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+       (LinearAlgebra.checksquare(G) == n && ishermitian(G)) ||
           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
-       end
     else
       G = G*I
-      if !iszero(imag(G.λ))
-         throw("G must be a symmetric/hermitian matrix")
-      end
+      iszero(imag(G.λ)) || throw("G must be a symmetric/hermitian matrix")
     end
     if typeof(Q) <: AbstractArray
-       if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+       (LinearAlgebra.checksquare(Q) == n && ishermitian(Q)) ||
           throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-       end
     else
        Q = Q*I
-       if !iszero(imag(Q.λ))
-          throw("Q must be a symmetric/hermitian matrix")
-       end
+       iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
     end
-    if !(T <: BlasFloat) 
-       T = promote_type(Float64,T)
-    end
+    T <: BlasFloat || (T = promote_type(Float64,T))
     TR = real(T)
     epsm = eps(TR)
-    if eltype(A) !== T
-       A = convert(Matrix{T},A)
-    end
-    if !eident && eltype(E) != T
-       E = convert(Matrix{T},E)
-    end
-    if eltype(G) !== T
-       typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I
-    end
-    if eltype(Q) !== T
-       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
-    end
+    eltype(A) == T || (A = convert(Matrix{T},A))
+    eident || eltype(E) == T || (E = convert(Matrix{T},E))
+    eltype(G) == T || (typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I)
+    eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
     if !eident
        Et = LinearAlgebra.LAPACK.getrf!(copy(E))
-       if LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm
-          error("E must be non-singular")
-       end
+       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
     end
     """
     Method:  A stable/anti-stable deflating subspace Z1 = [Z11; Z21] of the pencil
@@ -476,9 +399,8 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     P = [ E zeros(T,n,n); zeros(T,n,n) E']
     LPS = schur(L,P)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
-    if n !== length(filter(y-> y == true,select))
+    n == length(filter(y-> y == true,select)) ||
        error("The Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
-    end
     ordschur!(LPS, select)
     i1 = 1:n
     i2 = n+1:2n
@@ -608,98 +530,55 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
-    if n !== nb
-       throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
-    end
+    n == nb || throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
     if E == I
        eident = true
     else
-       if LinearAlgebra.checksquare(E) != n
-          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-       end
+       LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        eident = isequal(E,I)
-       if eident
-          E = I
-       else
-          T = promote_type(T,eltype(E))
-       end
+       eident ? (E = I) : (T = promote_type(T,eltype(E)))
     end
     if typeof(G) <: AbstractArray
-       if LinearAlgebra.checksquare(G) !== n || !ishermitian(G)
+       (LinearAlgebra.checksquare(G) == n && ishermitian(G)) ||
            throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
-       end
     else
       G = G*I
-      if !iszero(imag(G.λ))
-         throw("G must be a symmetric/hermitian matrix")
-      end
+      iszero(imag(G.λ)) || throw("G must be a symmetric/hermitian matrix")
     end
     if typeof(R) <: AbstractArray
-       if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+       (LinearAlgebra.checksquare(R) == m && ishermitian(R)) ||
           throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
-       end
     else
        R = R*I
-       if !iszero(imag(R.λ))
-         throw("R must be a symmetric/hermitian matrix")
-       end
+       iszero(imag(R.λ)) || throw("R must be a symmetric/hermitian matrix")
     end
     if typeof(Q) <: AbstractArray
-      if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+      (LinearAlgebra.checksquare(Q) == n && ishermitian(Q)) ||
          throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-      end
     else
       Q = Q*I
-      if !iszero(imag(Q.λ))
-         throw("Q must be a symmetric/hermitian matrix")
-       end
+      iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
     end
     typeof(S) <: AbstractVector ? (ns, ms) = (length(S), 1) : (ns, ms) = size(S)
-    if n !== ns || m !== ms
-       throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
-    end
-    if !(T <: BlasFloat) 
-      T = promote_type(Float64,T)
-    end
+    (n == ns && m == ms) || throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
+    T <: BlasFloat || (T = promote_type(Float64,T))
     TR = real(T)
     epsm = eps(TR)
-    if eltype(A) !== T
-      A = convert(Matrix{T},A)
-    end
-    if !eident && eltype(E) != T
-      E = convert(Matrix{T},E)
-    end
-    if eltype(B) !== T
-      if typeof(B) <: AbstractVector
-         B = convert(Vector{T},B)
-      else
-         B = convert(Matrix{T},B)
-      end
-   end
-    if eltype(G) !== T
-       typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I
-    end
-    if eltype(Q) !== T
-       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
-    end
-    if eltype(R) !== T
-       typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I
-    end
-    if eltype(S) !== T
-      if typeof(S) <: AbstractVector
-         S = convert(Vector{T},S)
-      else
-         S = convert(Matrix{T},S)
-      end
-   end
-   if cond(R)*epsm > 1
-      error("R must be non-singular")
-    end
+    eltype(A) == T || (A = convert(Matrix{T},A))
+    eident || eltype(E) == T || (E = convert(Matrix{T},E))
     if !eident
        Et = LinearAlgebra.LAPACK.getrf!(copy(E))
-       if LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm
-          error("E must be non-singular")
-       end
+       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
+    end
+    eltype(B) == T || (typeof(B) <: AbstractVector ? B = convert(Vector{T},B) : B = convert(Matrix{T},B))
+    eltype(G) == T || (typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I)
+    eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
+    eltype(R) == T || (typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I)
+    eltype(S) == T || (typeof(S) <: AbstractVector ? S = convert(Vector{T},S) : S = convert(Matrix{T},S))
+    cond(R)*epsm < 1 || error("R must be non-singular")
+    if !eident
+       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
+       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
     end
     """
     Method:  A stable/ant-stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
@@ -716,9 +595,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     #deflate m simple infinite eigenvalues
     n2 = n+n;
     W = qr(Matrix([S; B; R]));
-    if cond(W.R) * epsm  > 1
-       error("The extended Hamiltonian/skew-Hamiltonian pencil is not regular")
-    end
+    cond(W.R) * epsm  < 1 || error("The extended Hamiltonian/skew-Hamiltonian pencil is not regular")
 
     #z = W.Q[:,m+1:m+n2]
     z = W.Q*[fill(false,m,n2); I ]
@@ -731,9 +608,8 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     P11 = [ E*z[i1,:]; E'*z[i2,:] ]
     LPS = schur(L11,P11)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
-    if n !== length(filter(y-> y == true,select))
-       error("The extended Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
-    end
+    n == length(filter(y-> y == true,select)) || 
+         error("The extended Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
     ordschur!(LPS, select)
 
     z[:,i1] = z[:,iric]*LPS.Z[:,i1];
@@ -911,16 +787,12 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(B), eltype(R), eltype(Q), eltype(S) )
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
-    if n !== nb
-       throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
-    end
+    n == nb || throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
     if typeof(E) <: UniformScaling{Bool} 
        eident = true
        E = I
     else
-       if LinearAlgebra.checksquare(E) != n
-          throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-       end
+       LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        eident = isequal(E,I)
        if eident
           E = I
@@ -929,66 +801,38 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
        end
     end
     if typeof(R) <: AbstractArray
-      if LinearAlgebra.checksquare(R) !== m || !ishermitian(R)
+       (LinearAlgebra.checksquare(R) == m && ishermitian(R)) ||
          throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
-      end
     else
       R = R*I
-      if !iszero(imag(R.λ))
-        throw("R must be a symmetric/hermitian matrix")
-      end
+      iszero(imag(R.λ)) || throw("R must be a symmetric/hermitian matrix")
     end
     if typeof(Q) <: AbstractArray
-       if LinearAlgebra.checksquare(Q) !== n || !ishermitian(Q)
+       (LinearAlgebra.checksquare(Q) == n && ishermitian(Q)) ||
           throw(DimensionMismatch("Q must be a symmetric/hermitian matrix of dimension $n"))
-       end
     else
        Q = Q*I
-       if !iszero(imag(Q.λ))
-          throw("Q must be a symmetric/hermitian matrix")
-       end
+       iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
     end
     typeof(S) <: AbstractVector ? (ns, ms) = (length(S), 1) : (ns, ms) = size(S)
-    if n !== ns || m !== ms
-       throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
-    end
-    if !(T <: BlasFloat) 
-      T = promote_type(Float64,T)
-    end
+    (n == ns && m == ms) || throw(DimensionMismatch("S must be a $n x $m matrix or a vector of length $n"))
+    T <: BlasFloat || (T = promote_type(Float64,T))
     TR = real(T)
     epsm = eps(TR)
-    if eltype(A) !== T
-      A = convert(Matrix{T},A)
+    eltype(A) == T || (A = convert(Matrix{T},A))
+    eident || eltype(E) == T || (E = convert(Matrix{T},E))
+    if !eident
+       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
+       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
     end
-    if !eident && eltype(E) != T
-      E = convert(Matrix{T},E)
-    end
-    if eltype(B) !== T
-       if typeof(B) <: AbstractVector
-          B = convert(Vector{T},B)
-       else
-          B = convert(Matrix{T},B)
-        end
-    end
-    if eltype(Q) !== T
-       typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I
-    end
-    if eltype(R) !== T
-       typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I
-    end
-    if eltype(S) !== T
-       if typeof(S) <: AbstractVector
-          S = convert(Vector{T},S)
-       else
-          S = convert(Matrix{T},S)
-       end
-    end
+    eltype(B) == T || (typeof(B) <: AbstractVector ? B = convert(Vector{T},B) : B = convert(Matrix{T},B))
+    eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
+    eltype(R) == T || (typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I)
+    eltype(S) == T || (typeof(S) <: AbstractVector ? S = convert(Vector{T},S) : S = convert(Matrix{T},S))
     if !eident
       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
-      if LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm
-         error("E must be non-singular")
-      end
-   end
+      LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
+    end
 
     """
     Method:  A stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
@@ -1007,9 +851,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     P2 = [zeros(T,n,n) F.R zeros(T,n,m)]
 
     G = qr(L2[n+1:n+m,:]')
-    if cond(G.R) * epsm  > 1
-       error("The extended symplectic pencil is not regular")
-    end
+    cond(G.R) * epsm  < 1 || error("The extended symplectic pencil is not regular")
     z = (G.Q*I)[:,[m+1:m+n2; 1:m]]
 
     i1 = 1:n

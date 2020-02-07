@@ -107,6 +107,10 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(α,β,qc);
 @test norm(α*x*β'+β*x*α'+qc)/norm(x)/norm(ac)/norm(ec) < reltol
 
+α = 2+3im; β = (1+im); # α = im; β = 1  # SingularException
+@time x = lyapc(α*I,β*I,qc);
+@test norm(α*x*β'+β*x*α'+qc)/norm(x)/norm(ac)/norm(ec) < reltol
+
 @time x = lyapc(ac',ec',qc);
 @test norm(ac'*x*ec+ec'*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
 

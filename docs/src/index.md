@@ -17,7 +17,7 @@ This goal has been fully achieved for Lyapunov and Sylvester equation solvers, f
 codes for both real and complex data perform at practically same performance level as similar functions available in
 the MATLAB Control System Toolbox (which rely on SLICOT).
 
-The available functions in the `MatrixEquation.jl` package cover both standard
+The available functions in the `MatrixEquations.jl` package cover both standard
 and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data. The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure exploiting solvers for which the input data are in Schur or generalized Schur forms. A comprehensive set of Lyapunov and Sylvester operators has been implemented, which allow the estimation of condition numbers of these operators. The implementation of Riccati equation solvers employ orthogonal Schur vectors
 based methods and their extensions to linear matrix pencil based reduction approaches. The calls of all functions with adjoint (in complex case) or transposed (in real case) arguments are fully supported by appropriate computational algorithms, thus the matrix copying operations are mostly avoided.
 
