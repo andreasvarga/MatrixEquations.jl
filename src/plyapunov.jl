@@ -46,47 +46,34 @@ julia> A*U*U'+U*U'*A'+B*B'
 ```
 """
 function plyapc(A::AbstractMatrix, B::AbstractMatrix)
-   """
-   Method
+   # Method
 
-   The Bartels-Steward Schur form based method is employed [1], with the
-   modifications proposed by Hammarling [2].
+   # The Bartels-Steward Schur form based method is employed [1], with the
+   # modifications proposed by Hammarling [2].
 
-   Reference:
+   # Reference:
 
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
-       equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
-   [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
-       Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   """
+   # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
+   #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
+   # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
+   #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+
    adj = isa(A,Adjoint)
-   if xor(adj,isa(B,Adjoint))
-      error("Only calls with A and B or with A' and B' allowed")
-   end
-
+   xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+ 
    n = LinearAlgebra.checksquare(A)
    if adj
       nb, mb = size(B)
-      if nb != n
-         throw(DimensionMismatch("B must be a matrix of column dimension $n"))
-      end
+      nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
    else
       mb, nb = size(B)
-      if mb != n
-         throw(DimensionMismatch("B must be a matrix of row dimension $n"))
-      end
+      mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
    T2 = promote_type(eltype(A), eltype(B))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    realAB = eltype(A) <: AbstractFloat
    ZERO = zero(real(T2))
@@ -99,10 +86,8 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
       AS, Q, EV = schur(A)
    end
 
-   if maximum(real(EV)) >= ZERO
-      error("A must have only eigenvalues with negative real part")
-   end
-
+   maximum(real(EV)) >= ZERO && error("A must have only eigenvalues with negative real part")
+   
    if adj
       #U'U = Q'*B'*B*Q
       u = B.parent*Q
@@ -234,62 +219,43 @@ julia> A*U*U'*E'+E*U*U'*A'+B*B'
 ```
 """
 function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
-   """
-   Method
+   # Method
 
-   A generalization of Bartels-Steward Schur form based method is employed [1],
-   with the modifications proposed by Hammarling [2] and Penzl [3].
+   # A generalization of Bartels-Steward Schur form based method is employed [1],
+   # with the modifications proposed by Hammarling [2] and Penzl [3].
 
-   Reference:
+   # Reference:
 
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
-       equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
-   [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
-       Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   [3] Penzl, T.
-       Numerical solution of generalized Lyapunov equations.
-       Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
-   """
-   adj = isa(A,Adjoint)
-   if xor(adj,isa(E,Adjoint)) && xor(adj,isa(B,Adjoint))
-      error("Only calls with A, E and B or with A', E' and B' allowed")
-   end
+   # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
+   #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
+   # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
+   #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [3] Penzl, T.
+   #     Numerical solution of generalized Lyapunov equations.
+   #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
 
    n = LinearAlgebra.checksquare(A)
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)
-      return plyapc(A, B)
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapc(A, B))
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+
+   adj = isa(A,Adjoint)
+   (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
+      error("Only calls with A, E and B or with A', E' and B' allowed")
 
    if adj
       nb, mb = size(B)
-      if nb != n
-         throw(DimensionMismatch("B must be a matrix of column dimension $n"))
-      end
+      nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
    else
       mb, nb = size(B)
-      if mb != n
-         throw(DimensionMismatch("B must be a matrix of row dimension $n"))
-      end
+      mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-   T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(E) !== T2
-     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
-   end
-   if eltype(B) !== T2
-      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
-   end
-
+   T2 = promote_type(eltype(A), eltype(B))
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
+   eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
+ 
    realAEB = eltype(A) <: AbstractFloat
    ZERO = zero(real(T2))
    ONE = one(real(T2))
@@ -302,10 +268,8 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       AS, ES, Q, Z, α, β = schur(A,E)
    end
 
-   if maximum(real(α./β)) >= ZERO
-      error("A-λE must have only eigenvalues with negative real parts")
-   end
-
+   maximum(real(α./β)) >= ZERO && error("A-λE must have only eigenvalues with negative real parts")
+ 
    if adj
       #U'*U = Z'*B'*B*Z
       u = B.parent*Z
@@ -430,50 +394,37 @@ julia> A*U*U'*A'-U*U'+B*B'
 ```
 """
 function plyapd(A::AbstractMatrix, B::AbstractMatrix)
-   """
-   Method
+   # Method
 
-   The Bartels-Steward Schur form based method is employed [1], with the
-   modifications proposed by Hammarling in [2] and [3].
+   # The Bartels-Steward Schur form based method is employed [1], with the
+   # modifications proposed by Hammarling in [2] and [3].
 
-   Reference:
+   # Reference:
 
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
-       equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
-   [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
-       Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   [3] Hammarling, S.J. Numerical solution of the discrete-time, convergent,
-       non-negative definite Lyapunov equation.
-       Systems & Control Letters 17 (1991) 137-139.
-   """
+   # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
+   #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
+   # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
+   #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [3] Hammarling, S.J. Numerical solution of the discrete-time, convergent,
+   #     non-negative definite Lyapunov equation.
+   #     Systems & Control Letters 17 (1991) 137-139.
+
    adj = isa(A,Adjoint)
-   if xor(adj,isa(B,Adjoint))
-      error("Only calls with A and B or with A' and B' allowed")
-   end
-
+   xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+ 
    n = LinearAlgebra.checksquare(A)
    if adj
       nb, mb = size(B)
-      if nb != n
-         throw(DimensionMismatch("B must be a matrix of column dimension $n"))
-      end
+      nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
    else
       mb, nb = size(B)
-      if mb != n
-         throw(DimensionMismatch("B must be a matrix of row dimension $n"))
-      end
+      mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
    T2 = promote_type(eltype(A), eltype(B))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    realAB = eltype(A) <: AbstractFloat
    ZERO = zero(real(T2))
@@ -485,10 +436,8 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
    else
       AS, Q, EV = schur(A)
    end
-   if maximum(abs.(EV)) >= ONE
-      error("A must have only eigenvalues with moduli less than one")
-   end
-
+   maximum(abs.(EV)) >= ONE && error("A must have only eigenvalues with moduli less than one")
+ 
    if adj
       #U'U = Q'*B'*B*Q
       u = B.parent*Q
@@ -620,61 +569,42 @@ julia> A*U*U'*A'-E*U*U'*E'+B*B'
 ```
 """
 function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
-   """
-   Method
+   # Method
 
-   The Bartels-Steward Schur form based method is employed [1], with the
-   modifications proposed by Hammarling in [2] and Penzl in [3].
+   # The Bartels-Steward Schur form based method is employed [1], with the
+   # modifications proposed by Hammarling in [2] and Penzl in [3].
 
-   Reference:
+   # Reference:
 
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
-       equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
-   [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
-       Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   [3] Penzl, T.
-       Numerical solution of generalized Lyapunov equations.
-       Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
-   """
-   adj = isa(A,Adjoint)
-   if xor(adj,isa(E,Adjoint)) && xor(adj,isa(B,Adjoint))
-      error("Only calls with A, E and B or with A', E' and B' allowed")
-   end
+   # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
+   #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
+   # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
+   #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [3] Penzl, T.
+   #     Numerical solution of generalized Lyapunov equations.
+   #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
 
    n = LinearAlgebra.checksquare(A)
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)
-      return plyapd(A, B)
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapd(A, B))
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+
+   adj = isa(A,Adjoint)
+   (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
+      error("Only calls with A, E and B or with A', E' and B' allowed")
 
    if adj
       nb, mb = size(B)
-      if nb != n
-         throw(DimensionMismatch("B must be a matrix of column dimension $n"))
-      end
+      nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
    else
       mb, nb = size(B)
-      if mb != n
-         throw(DimensionMismatch("B must be a matrix of row dimension $n"))
-      end
+      mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(E) !== T2
-     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
-   end
-   if eltype(B) !== T2
-      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
+   eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    realAEB = eltype(A) <: AbstractFloat
    ZERO = zero(real(T2))
@@ -688,10 +618,8 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       AS, ES, Q, Z, α, β = schur(A,E)
    end
 
-   if maximum(abs.(α./β)) >= ONE
-      error("A-λE must have only eigenvalues with moduli less than one")
-   end
-
+   maximum(abs.(α./β)) >= ONE && error("A-λE must have only eigenvalues with moduli less than one")
+ 
    if adj
       #U'*U = Z'*B'*B*Z
       u = B.parent*Z
@@ -820,50 +748,37 @@ respectively, and `B` is a matrix with the same number of columns as `A`.
 Hessenberg part of `A` is referenced.
 """
 function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
-   """
-   Method
+   # Method
 
-   The Bartels-Steward Schur form based method is employed [1], with the
-   modifications proposed by Hammarling in [2] and [3].
+   # The Bartels-Steward Schur form based method is employed [1], with the
+   # modifications proposed by Hammarling in [2] and [3].
 
-   Reference:
+   # Reference:
 
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
-       equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
-   [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
-       Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   [3] Hammarling, S.J. Numerical solution of the discrete-time, convergent,
-       non-negative definite Lyapunov equation.
-       Systems & Control Letters 17 (1991) 137-139.
-   """
+   # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
+   #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
+   # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
+   #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [3] Hammarling, S.J. Numerical solution of the discrete-time, convergent,
+   #     non-negative definite Lyapunov equation.
+   #     Systems & Control Letters 17 (1991) 137-139.
+
    adj = isa(A,Adjoint)
-   if xor(adj,isa(B,Adjoint))
-      error("Only calls with A and B or with A' and B' allowed")
-   end
-
+   xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+ 
    n = LinearAlgebra.checksquare(A)
    if adj
       nb, mb = size(B)
-      if nb != n
-         throw(DimensionMismatch("B must be a matrix of column dimension $n"))
-      end
+      nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
    else
       mb, nb = size(B)
-      if mb != n
-         throw(DimensionMismatch("B must be a matrix of row dimension $n"))
-      end
+      mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
    T2 = promote_type(eltype(A), eltype(B))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(B) !== T2
-      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    realAB = eltype(A) <: AbstractFloat
    ZERO = zero(real(T2))
@@ -996,62 +911,43 @@ with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 """
 function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; disc = false)
-   """
-   Method
+   # Method
 
-   Generalizations of Bartels-Steward Schur form based method is employed [1],
-   with the modifications proposed by Hammarling [2] and Penzl [3].
+   # Generalizations of Bartels-Steward Schur form based method is employed [1],
+   # with the modifications proposed by Hammarling [2] and Penzl [3].
 
-   Reference:
+   # Reference:
 
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
-       equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
-   [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
-       Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   [3] Penzl, T.
-       Numerical solution of generalized Lyapunov equations.
-       Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
-   """
-   adj = isa(A,Adjoint)
-   if xor(adj,isa(E,Adjoint)) && xor(adj,isa(B,Adjoint))
-      error("Only calls with A, E and B or with A', E' and B' allowed")
-   end
-
+   # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
+   #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
+   # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
+   #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [3] Penzl, T.
+   #     Numerical solution of generalized Lyapunov equations.
+   #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
+ 
    n = LinearAlgebra.checksquare(A)
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)
-      return plyaps(A, B)
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyaps(A, B))
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+
+   adj = isa(A,Adjoint)
+   (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
+      error("Only calls with A, E and B or with A', E' and B' allowed")
 
    if adj
       nb, mb = size(B)
-      if nb != n
-         throw(DimensionMismatch("B must be a matrix of column dimension $n"))
-      end
+      nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
    else
       mb, nb = size(B)
-      if mb != n
-         throw(DimensionMismatch("B must be a matrix of row dimension $n"))
-      end
+      mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
 
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   if !(T2 <: BlasFloat) 
-      T2 = promote_type(Float64,T2)
-   end
-   if eltype(A) !== T2
-     adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
-   end
-   if eltype(E) !== T2
-     adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E)
-   end
-   if eltype(B) !== T2
-      adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B)
-   end
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
+   eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    realAEB = eltype(A) <: AbstractFloat
    ZERO = zero(real(T2))
@@ -1149,10 +1045,8 @@ complex Schur form and `R` is an upper triangular matrix.
 """
 function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
-
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+ 
    T = eltype(A)
    ZERO = zero(T)
    ONE = one(T)
@@ -1198,25 +1092,17 @@ function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
           l = j:j+dl-1
           if dl == 1
              λ = A[j,j]
-             if λ >= 0.
-                error("A is not stable")
-             end
+             λ >= 0. && error("A is not stable")
              TEMP = sqrt( abs( TWO*λ ) )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-                error("Singular Lyapunov equation")
-             end
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
              α = copysign( TEMP, R[j,j])
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
              R[l,l], scale, β, α = plyap2(A[l,l], R[l,l], adj = true)
-             if scale != ONE
-                error("Singular Lyapunov equation")
-             end
+             scale == ONE || error("Singular Lyapunov equation")
           end
           if ll < p
              j += dl
@@ -1255,25 +1141,17 @@ function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
           l = j-dl+1:j
           if dl == 1
              λ = A[j,j]
-             if λ >= 0.
-                error("A is not stable")
-             end
+             λ >= 0. && error("A is not stable")
              TEMP = sqrt( abs( TWO*λ ) )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP  = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-                error("Singular Lyapunov equation")
-             end
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
              α = copysign( TEMP, R[j,j])
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
              U, scale, β, α = plyap2(A[l,l], R[l,l], adj = false)
-             if scale != ONE
-                error("Singular Lyapunov equation")
-             end
+             scale == ONE || error("Singular Lyapunov equation")
              R[l,l] = UpperTriangular(U)
           end
           if ll > 1
@@ -1304,9 +1182,7 @@ function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
 end
 function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    T = real(eltype(A))
    ONE = one(T)
@@ -1332,17 +1208,11 @@ function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
       """
       for j = 1:n
           λ = real(A[j,j])
-          if λ >= ZERO
-             error("A is not stable")
-          end
+          λ >= ZERO && error("A is not stable")
           TEMP = sqrt( -TWO*λ )
-          if TEMP < SMIN
-             TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP  = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-             error("Singular Lyapunov equation")
-          end
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
           α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
@@ -1382,17 +1252,11 @@ function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
       """
       for j = n:-1:1
           λ = real(A[j,j])
-          if λ >= ZERO
-             error("A is not stable")
-          end
+          λ >= ZERO && error("A is not stable")
           TEMP = sqrt( -TWO*λ  )
-          if TEMP < SMIN
-             TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP  = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-             error("Singular Lyapunov equation")
-          end
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
           α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
@@ -1438,18 +1302,10 @@ real parts. `R` contains on output the solution `U`.
 """
 function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
-      plyapcs!(A, R, adj = adj)
-      return
-   else
-      if LinearAlgebra.checksquare(E) != n
-         throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-      end
-   end
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
-
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+   
    T = eltype(A)
    ZERO = zero(T)
    ONE = one(T)
@@ -1495,26 +1351,18 @@ function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
           l = j:j+dl-1
           if dl == 1
              λ = A[j,j]*E[j,j]
-             if λ >= ZERO
-                error("A-λE has eigenvalues with non-negative real parts")
-             end
+             λ >= ZERO && error("A-λE has eigenvalues with non-negative real parts")
              TEMP = sqrt( -TWO*λ )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-                error("Singular generalized Lyapunov equation")
-             end
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
              TEMP = sign(R[j,j])*TEMP
              R[j,j] = R[j,j]/TEMP
              β = A[l,l]/E[j,j]
              α = TEMP/E[j,j]
           else
              R[l,l], scale, β, α = pglyap2(A[l,l], E[l,l], R[l,l], adj = true)
-             if scale != ONE
-                error("Singular generalized Lyapunov equation")
-             end
+             scale == ONE || error("Singular generalized continuous Lyapunov equation")
           end
           if ll < p
              j += dl
@@ -1556,26 +1404,18 @@ function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
           l = j-dl+1:j
           if dl == 1
              λ = A[j,j]*E[j,j]
-             if λ >= ZERO
-                error("A-λE has eigenvalues with non-negative real parts")
-             end
+             λ >= ZERO && error("A-λE has eigenvalues with non-negative real parts")
              TEMP = sqrt( -TWO*λ )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-                error("Singular generalized Lyapunov equation")
-             end
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
              TEMP = sign(R[j,j])*TEMP
              R[j,j] = R[j,j]/TEMP
              β = A[l,l]/E[j,j]
              α = TEMP/E[j,j]
           else
              R[l,l], scale, β, α = pglyap2(A[l,l], E[l,l], R[l,l], adj = false)
-             if scale != ONE
-                error("Singular generalized Lyapunov equation")
-             end
+             scale == ONE || error("Singular generalized Lyapunov equation")
           end
           if ll > 1
              j -= dl
@@ -1608,16 +1448,11 @@ function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
 end
 function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
-   if (typeof(E) == UniformScaling{Bool}) || isempty(E) || (isequal(E,I) && size(E,1) == n)
-      plyapcs!(A, R, adj = adj)
-      return
-   end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-   end
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+   (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) && 
+         (plyapcs!(A, R, adj = adj); return)
+
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
    T = real(eltype(A))
    ZERO = zero(T)
@@ -1644,17 +1479,11 @@ function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
       """
       for j = 1:n
           δ = -TWO*real(A[j,j]'*E[j,j])
-          if δ <= ZERO
-             error("A-λE has unstable eigenvalues")
-          end
+          δ <= ZERO && error("A-λE has unstable eigenvalues")
           TEMP = sqrt( δ )
-          if TEMP < SMIN
-             TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-             error("Singular generalized Lyapunov equation")
-          end
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
           TEMP = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/TEMP
           l = j:j
@@ -1698,17 +1527,11 @@ function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
       """
       for j = n:-1:1
           δ = -TWO*real(A[j,j]'*E[j,j])
-          if δ <= ZERO
-            error("A-λE has unstable eigenvalues")
-          end
+          δ <= ZERO && error("A-λE has unstable eigenvalues")
           TEMP = sqrt( δ )
-          if TEMP < SMIN
-            TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
-             error("Singular generalized Lyapunov equation")
-          end
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
           TEMP = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/TEMP
           l = j:j
@@ -1756,9 +1579,7 @@ complex Schur form and `R` is an upper triangular matrix.
 """
 function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    T = eltype(A)
    ZERO = zero(T)
@@ -1804,25 +1625,18 @@ function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
           l = j:j+dl-1
           if dl == 1
              λ = abs(A[j,j])
-             if λ >= 1.
-                error("A is not convergent")
-             end
+             λ >= 1 && error("A is not convergent")
              TEMP = sqrt( (ONE - λ)*(ONE + λ) )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP  = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular Lyapunov equation")
-             end
              α = copysign( TEMP, R[j,j])
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
              u11, scale, β, α = plyap2(A[l,l], R[l,l], adj = true, disc = true)
-             if scale != ONE
-                error("Singular Lyapunov equation")
-             end
+             scale == ONE || error("Singular Lyapunov equation")
              R[l,l] = UpperTriangular(u11)
           end
           if ll < p
@@ -1872,25 +1686,18 @@ function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
           l = j-dl+1:j
           if dl == 1
              λ = abs(A[j,j])
-             if λ >= 1.
-                error("A is not convergent")
-             end
+             λ >= 1 && error("A is not convergent")
              TEMP = sqrt( (ONE - λ)*(ONE + λ) )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP  = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular Lyapunov equation")
-             end
              α = copysign( TEMP, R[j,j])
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
              u11, scale, β, α = plyap2(A[l,l], R[l,l], adj = false, disc = true)
-             if scale != ONE
-                error("Singular Lyapunov equation")
-             end
+             scale == ONE || error("Singular Lyapunov equation")
              R[l,l] = UpperTriangular(u11)
           end
           if ll > 1
@@ -1957,17 +1764,12 @@ function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
       """
       for j = 1:n
           λ = abs(A[j,j])
-          if λ >= ONE
-             error("A is not convergent")
-          end
+          λ >= ONE && error("A is not convergent")
           TEMP = sqrt( (ONE - λ)*(ONE + λ) )
-          if TEMP < SMIN
-             TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP  = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
              error("Singular Lyapunov equation")
-          end
           α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
@@ -2005,17 +1807,12 @@ function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
       """
       for j = n:-1:1
           λ = abs(A[j,j])
-          if λ >= ONE
-            error("A is not convergent")
-          end
+          λ >= ONE && error("A is not convergent")
           TEMP = sqrt( (ONE - λ)*(ONE + λ) )
-          if TEMP < SMIN
-            TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP  = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
              error("Singular Lyapunov equation")
-          end
           α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
@@ -2060,24 +1857,16 @@ and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
 function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
-   """
-   The method of [1] for the discrete case is implemented.
+   # The method of [1] for the discrete case is implemented.
 
-   [1] Penzl, T.
-       Numerical solution of generalized Lyapunov equations.
-       Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
-   """
+   # [1] Penzl, T.
+   #     Numerical solution of generalized Lyapunov equations.
+   #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
+
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
-   if typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)
-      plyapds!(A, R, adj = adj)
-      return
-   end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-   end
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    T = eltype(A)
    ONE = one(T)
@@ -2121,17 +1910,12 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
           l = j:j+dl-1
           if dl == 1
              λ = abs(A[j,j])
-             if abs(A[j,j]) >= abs(E[j,j])
-                error("A-λE must have only eigenvalues with moduli less than one")
-             end
+             abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
              TEMP = sqrt( real((E[j,j] - A[j,j])*(E[j,j] + A[j,j])) )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular generalized discrete Lyapunov equation")
-             end
              TEMP = sign(R[j,j])*TEMP
              R[j,j] = R[j,j]/TEMP
              l = j:j
@@ -2139,9 +1923,7 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
              α = TEMP/E[j,j]
           else
              u11, scale, β, α = pglyap2(A[l,l], E[l,l], R[l,l], adj = true, disc = true)
-             if scale != ONE
-                error("Singular generalized discrete Lyapunov equation")
-             end
+             scale == ONE || error("Singular generalized discrete Lyapunov equation")
              R[l,l] = UpperTriangular(u11)
           end
           if ll < p
@@ -2190,18 +1972,12 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
           dl = ba[ll]
           l = j-dl+1:j
           if dl == 1
-             λ = abs(A[j,j])
-             if abs(A[j,j]) >= abs(E[j,j])
-                error("A-λE must have only eigenvalues with moduli less than one")
-             end
+             abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
              TEMP = sqrt( real((E[j,j] - A[j,j])*(E[j,j] + A[j,j])) )
-             if TEMP < SMIN
-                TEMP  = SMIN
-             end
+             TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
-             if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+             TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular generalized discrete Lyapunov equation")
-             end
              TEMP = sign(R[j,j])*TEMP
              R[j,j] = R[j,j]/TEMP
              l = j:j
@@ -2209,9 +1985,7 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
              α = TEMP/E[j,j]
           else
              u11, scale, β, α = pglyap2(A[l,l], E[l,l], R[l,l], adj = false, disc = true)
-             if scale != ONE
-                error("Singular generalized discrete Lyapunov equation")
-             end
+             scale == ONE || error("Singular generalized discrete Lyapunov equation")
              R[l,l] = UpperTriangular(u11)
           end
           if ll > 1
@@ -2252,16 +2026,9 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
 end
 function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
-   if (typeof(E) == UniformScaling{Bool}) || isempty(E) || (isone(E) && size(E,1) == n)
-      plyapds!(A, R, adj = adj)
-      return
-   end
-   if LinearAlgebra.checksquare(E) != n
-      throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-   end
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    T = real(eltype(A))
    ONE = one(T)
@@ -2284,18 +2051,12 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
 
       """
       for j = 1:n
-          λ = abs(A[j,j])
-          if abs(A[j,j]) >= abs(E[j,j])
-             error("A-λE must have only eigenvalues with moduli less than one")
-          end
+          abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
           TEMP = sqrt( real((E[j,j]' - A[j,j]')*(E[j,j] + A[j,j])) )
-          if TEMP < SMIN
-             TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
              error("Singular generalized discrete Lyapunov equation")
-          end
           TEMP = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/TEMP
           l = j:j
@@ -2334,18 +2095,12 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
       A(L,L)*X(L,L)*A(L,L)' - E(L,L)*X(L,L)*E(L,L)' = -R(L,L)*R(L,L)',
       """
       for j = n:-1:1
-          λ = abs(A[j,j])
-          if abs(A[j,j]) >= abs(E[j,j])
-            error("A-λE must have only eigenvalues with moduli less than one")
-          end
+          abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
           TEMP = sqrt( real((E[j,j]' - A[j,j]')*(E[j,j] + A[j,j])) )
-          if TEMP < SMIN
-            TEMP  = SMIN
-          end
+          TEMP < SMIN && (TEMP = SMIN)
           DR = abs( R[j,j] )
-          if TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
             error("Singular generalized discrete Lyapunov equation")
-          end
           TEMP = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/TEMP
           l = j:j
@@ -2424,16 +2179,15 @@ the sense that small perturbations in `A` can make one or more of the
 eigenvalues lie outside the unit circle.
 """
 function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Float64},Matrix{Float32}}
-   """
-   This function is based on the SLICOT routine SB03OY, which implements the
-   the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
-   for 2-by-2 Lyapunov equations, but directly computing the Cholesky factor
-   of the solution.
+   # This function is based on the SLICOT routine SB03OY, which implements the
+   # the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
+   # for 2-by-2 Lyapunov equations, but directly computing the Cholesky factor
+   # of the solution.
 
-   [1] Hammarling S. J.
-       Numerical solution of the stable, non-negative definite Lyapunov equation.
-       IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   """
+   # [1] Hammarling S. J.
+   #     Numerical solution of the stable, non-negative definite Lyapunov equation.
+   #     IMA J. Num. Anal., 2, pp. 303-325, 1982.
+
    T1 = eltype(A)
    ZERO = zero(T1)
    ONE = one(T1)
@@ -2455,26 +2209,16 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    S21 = A[2,1]
    S22 = A[2,2]
    TEMPR, TEMPI, E1, E2, CSP, CSQ = LapackUtil.lanv2( S11, S12, S21, S22)
-   if TEMPI == ZERO
-      error("A has real eigenvalues")
-   end
+   TEMPI == ZERO && error("A has real eigenvalues")
    ABSB = hypot(E1,E2)
    if disc
-      if ABSB  >= ONE
-         error("A is not convergent")
-      end
+      ABSB >= ONE && error("A is not convergent")
    else
-      if E1 >= ZERO
-         error("A is not stable")
-      end
+      E1 >= ZERO && error("A is not stable")
    end
 #     Compute the cos and sine that define  Qhat.  The sine is real.
    TEMP1 = S11 - E1
-   if noadj
-      TEMP2 = -E2
-   else
-      TEMP2 =  E2
-   end
+   noadj ? TEMP2 = -E2 : TEMP2 =  E2
    CSQR, CSQI, SNQ = cgivens2( TEMP1, TEMP2, S21, small )
 
    #     beta in (6.9) is given by  beta = E1 + i*E2,  compute  t.
@@ -2541,17 +2285,14 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    SCALOC = ONE
    if ALPHA < SMIN
       ALPHA = SMIN
-      # INFO = 1
    end
    ABST = abs( P1 )
-   if ALPHA < ONE && ABST > ONE && ABST > BIGNUM*ALPHA
-      SCALOC = ONE / ABST
-   end
+   ALPHA < ONE && ABST > ONE && ABST > BIGNUM*ALPHA && (SCALOC = ONE / ABST)
    if SCALOC !== ONE
-      P1    = SCALOC*P1
+      P1  = SCALOC*P1
       P2R = SCALOC*P2R
       P2I = SCALOC*P2I
-      P3    = SCALOC*P3
+      P3  = SCALOC*P3
       scale = SCALOC*scale
    end
    V1 = P1/ALPHA
@@ -2561,16 +2302,11 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       G2 = -TWO*E1*E2
       ABSG =  hypot(G1,G2)
       SCALOC = ONE
-      if ABSG < SMIN
-         ABSG = SMIN
-         #INFO = 1
-      end
+      ABSG < SMIN && (ABSG = SMIN)
       TEMP1 = ALPHA*P2R + V1*( E1*T1 - E2*T2 )
       TEMP2 = ALPHA*P2I + V1*( E1*T2 + E2*T1 )
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
-      if ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG
-            SCALOC = ONE / ABST
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && (SCALOC = ONE / ABST)
       if SCALOC !== ONE
          V1      = SCALOC*V1
          TEMP1   = SCALOC*TEMP1
@@ -2608,17 +2344,16 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       TEMP1 = P1*T1 - TWO*E2*P2I
       TEMP2 = P1*T2 + TWO*E2*P2R
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
-      if ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG
-         SCALOC = ONE / ABST
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG &&
+         (SCALOC = ONE / ABST)
       if SCALOC !== ONE
          TEMP1 = SCALOC*TEMP1
          TEMP2 = SCALOC*TEMP2
-         V1      = SCALOC*V1
+         V1    = SCALOC*V1
          V2R   = SCALOC*V2R
          V2I   = SCALOC*V2I
-         P3      = SCALOC*P3
-         scale   = SCALOC*scale
+         P3    = SCALOC*P3
+         scale = SCALOC*scale
       end
       TEMP1 = TEMP1/ABSG
       TEMP2 = TEMP2/ABSG
@@ -2627,9 +2362,8 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       YR  = -( G1*TEMP1 + G2*TEMP2 )
       YI  = -( G1*TEMP2 - G2*TEMP1 )
       ABST    = max( abs( YR ), abs( YI ) )
-      if ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG
-         SCALOC = ONE / ABST
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG &&
+         (SCALOC = ONE / ABST)
       if SCALOC !== ONE
          YR  = SCALOC*YR
          YI  = SCALOC*YI
@@ -2644,16 +2378,12 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    else
 
       SCALOC = ONE
-      if ABSB < SMIN
-         ABSB = SMIN
-         #INFO = 1
-      end
+      ABSB < SMIN && (ABSB = SMIN)
       TEMP1 = ALPHA*P2R + V1*T1
       TEMP2 = ALPHA*P2I + V1*T2
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
-      if ABSB < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSB
-         SCALOC = ONE / ABST
-      end
+      ABSB < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSB &&
+         (SCALOC = ONE / ABST)
       if SCALOC !== ONE
          V1      = SCALOC*V1
          TEMP1   = SCALOC*TEMP1
@@ -2669,9 +2399,8 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       V2R     =  -(E1*TEMP1 + E2*TEMP2)
       V2I     =  -(E1*TEMP2 - E2*TEMP1)
       ABST = max( abs( V2R ), abs( V2I ) )
-      if ABSB < ONE  &&  ABST > ONE &&  ABST > BIGNUM*ABSB
-         SCALOC = ONE / ABST
-      end
+      ABSB < ONE  &&  ABST > ONE &&  ABST > BIGNUM*ABSB &&
+         (SCALOC = ONE / ABST)
       if SCALOC !== ONE
          V1    = SCALOC*V1
          V2R   = SCALOC*V2R
@@ -2689,9 +2418,8 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
 
    SCALOC = ONE
    V3     = hypot3(P3,YR,YI)
-   if ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA
-      SCALOC = ONE / V3
-   end
+   ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA &&
+      (SCALOC = ONE / V3) 
    if SCALOC !== ONE
       V1    = SCALOC*V1
       V2R = SCALOC*V2R
@@ -2915,18 +2643,17 @@ the sense that small perturbations in `A` or `E`  can make one or more of the
 eigenvalues lie outside the unit circle.
 """
 function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union{Matrix{Float64},Matrix{Float32}}
-   """
-   This function is based on the SLICOT routine SG03BX, which implements the
-   generalization of the method due to Hammarling ([1], section 6) for Lyapunov
-   equations of order 2. A more detailed description is given in [2].
+   # This function is based on the SLICOT routine SG03BX, which implements the
+   # generalization of the method due to Hammarling ([1], section 6) for Lyapunov
+   # equations of order 2. A more detailed description is given in [2].
 
-   [1] Hammarling S. J.
-       Numerical solution of the stable, non-negative definite Lyapunov equation.
-       IMA J. Num. Anal., 2, pp. 303-325, 1982.
-   [2] Penzl, T.
-       Numerical solution of generalized Lyapunov equations.
-       Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
-   """
+   # [1] Hammarling S. J.
+   #     Numerical solution of the stable, non-negative definite Lyapunov equation.
+   #     IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [2] Penzl, T.
+   #     Numerical solution of generalized Lyapunov equations.
+   #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
+ 
    T1 = eltype(A)
    ZERO = zero(T1)
    ONE = one(T1)
@@ -2974,9 +2701,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       RR[2,2] = V
    end
    scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(AA,EE,small)
-   if LAMI == ZERO
-      error("The pair (A,E) has real generalized eigenvalues")
-   end
+   LAMI == ZERO && error("The pair (A,E) has real generalized eigenvalues")
    # Compute right orthogonal transformation matrix Q.
    @inbounds CR, CI, SR, SI, L =  cgivensc2( scale1*AA[1,1] - EE[1,1]*LAMR,
                                    -EE[1,1]*LAMI, scale1*AA[2,1], ZERO, small )
@@ -3069,9 +2794,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       # Step I:  Compute U[1,1]. Set U[2,1] = 0.
 
       V = -TWO*( AR[1,1]*ER[1,1] + AI[1,1]*EI[1,1] )
-      if V <= ZERO
-         error("The eigenvalues of the pencil A - λE  are not in the open right half plane")
-      end
+      V <= ZERO && error("The eigenvalues of the pencil A - λE  are not in the open right half plane")
       V = sqrt( V )
       T = TWO*abs( BR[1,1] )*SMLNUM
       if T > V
@@ -3142,10 +2865,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       YR =  BR[1,2] - YR
       YI = -BI[1,2] - YI
       V  = -TWO*( AR[2,2]*ER[2,2] + AI[2,2]*EI[2,2] )
-      if V <= ZERO
-         INFO = 3
-         RETURN
-      end
+      V <= ZERO && error("The eigenvalues of the pencil A - λE have no negative real parts")
       V = sqrt( V )
       W = hypot4( BR[2,2], BI[2,2], YR, YI )
       T = TWO*W*SMLNUM
@@ -3206,9 +2926,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       T = max(abs(AR[1,1]),abs(AI[1,1]),abs(ER[1,1]),abs(EI[1,1]))
       #V = ER[1,1]^2 + EI[1,1]^2 - AR[1,1]^2 - AI[1,1]^2
       V = (ER[1,1]/T)^2 + (EI[1,1]/T)^2 - (AR[1,1]/T)^2 - (AI[1,1]/T)^2
-      if V <= ZERO
-         error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
-      end
+      V <= ZERO && error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
       V = T*sqrt( V )
       T = TWO*abs( BR[1,1] )*SMLNUM
       if T > V
@@ -3263,9 +2981,7 @@ function pglyap2(A::TT, E::TT, R::TT; adj = false, disc = false) where TT<:Union
       YR =  AR[1,2]*UR[1,1] + AR[2,2]*UR[1,2] - AI[2,2]*UI[1,2]
       YI = -AI[1,2]*UR[1,1] - AR[2,2]*UI[1,2] - AI[2,2]*UR[1,2]
       V  = ER[2,2]^2 + EI[2,2]^2 - AR[2,2]^2 - AI[2,2]^2
-      if V <= ZERO
-         error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
-      end
+      V <= ZERO && error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
       V = sqrt( V )
       T = max( abs( BR[2,2] ), abs( BR[1,2] ), abs( BI[1,2] ),
                abs( XR ), abs( XI ), abs( YR ), abs( YI) )

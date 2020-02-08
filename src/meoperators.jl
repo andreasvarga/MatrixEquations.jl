@@ -132,9 +132,8 @@ operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
 function lyapop(A, E; disc = false, her = false)
   n = LinearAlgebra.checksquare(A)
-  if n != LinearAlgebra.checksquare(E)
-    throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-  end
+  n == LinearAlgebra.checksquare(E) ||
+       throw(DimensionMismatch("E must be a square matrix of dimension $n"))
   T = promote_type(eltype(A), eltype(E))
   function prod(x)
     T1 = promote_type(T, eltype(x))
@@ -221,7 +220,7 @@ function invlyapop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
    function prod(x)
-    T1 = promote_type(T, eltype(x))
+     T1 = promote_type(T, eltype(x))
      try
        if her
          Y = vec2triu(convert(Vector{T1}, x),her = true)
@@ -332,9 +331,8 @@ operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
 function invlyapop(A, E; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
-   if n != LinearAlgebra.checksquare(E)
-     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-   end
+   n == LinearAlgebra.checksquare(E) || 
+       throw(DimensionMismatch("E must be a square matrix of dimension $n"))
    T = promote_type(eltype(A), eltype(E))
    function prod(x)
     T1 = promote_type(T, eltype(x))
@@ -449,17 +447,11 @@ operators. Linear Algebra and its Applications 312:35–71, 2000.
 function invlyapsop(A; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
    T = eltype(A)
-   if !(T <: BlasFloat) 
-      T = promote_type(Float64,T)
-   end
-   if eltype(A) !== T
-      A = convert(Matrix{T},A)
-   end
-
+   T <: BlasFloat || (T = promote_type(Float64,T))
+   eltype(A) == T || (A = convert(Matrix{T},A))
+ 
    # check A is in Schur form
-   if !isschur(A)
-       error("The matrix A must be in Schur form")
-   end
+   isschur(A) || error("The matrix A must be in Schur form")
    cmplx = T<:Complex
    function prod(x)
      T1 = promote_type(T, eltype(x))
@@ -610,31 +602,18 @@ operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
 function invlyapsop(A, E; disc = false, her = false)
    n = LinearAlgebra.checksquare(A)
-   if n != LinearAlgebra.checksquare(E)
+   n == LinearAlgebra.checksquare(E) ||
      throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-   end
-   if isa(A,Adjoint) || isa(E,Adjoint)
+   (isa(A,Adjoint) || isa(E,Adjoint)) &&
      error("No calls with adjoint matrices are supported")
-   end
    T = promote_type(eltype(A), eltype(E))
-   if !(T <: BlasFloat) 
-      T = promote_type(Float64,T)
-   end
-   if eltype(A) !== T
-      A = convert(Matrix{T},A)
-   end
-   if eltype(A) !== T
-     A = convert(Matrix{T},A)
-   end 
-   if eltype(E) !== T
-     E = convert(Matrix{T},E)
-   end 
+   T <: BlasFloat || (T = promote_type(Float64,T))
+   eltype(A) == T || (A = convert(Matrix{T},A))
+   eltype(E) == T || (E = convert(Matrix{T},E))
    cmplx = T<:Complex
 
    # check (A,E) is in generalized Schur form
-   if !isschur(A,E)
-       error("The matrix pair (A,E) must be in generalized Schur form")
-   end
+   isschur(A,E) || error("The matrix pair (A,E) must be in generalized Schur form")
    function prod(x)
      T1 = promote_type(T, eltype(x))
      if T !== T1
@@ -869,9 +848,7 @@ function invsylvsop(A, B; disc = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
-  if !(T <: BlasFloat) 
-     T = promote_type(Float64,T)
-  end
+  T <: BlasFloat || (T = promote_type(Float64,T))
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
   if eltype(A) !== T
@@ -882,22 +859,14 @@ function invsylvsop(A, B; disc = false)
   end 
   cmplx = T<:Complex
   if adjA
-     if !isschur(A.parent)
-         error("A must be in Schur form")
-     end
+     isschur(A.parent) || error("A must be in Schur form")
   else
-     if !isschur(A)
-        error("A must be in Schur form")
-     end
+     isschur(A) || error("A must be in Schur form")
   end
   if adjB
-     if !isschur(B.parent)
-         error("B must be in Schur form")
-     end
+     isschur(B.parent) || error("B must be in Schur form")
   else
-     if !isschur(B)
-        error("B must be in Schur form")
-     end
+     isschur(B) || error("B must be in Schur form")
   end
   function prod(x)
     T1 = promote_type(T, eltype(x))
@@ -1057,9 +1026,8 @@ Define the generalized Sylvester operator `M: X -> AXB+CXD`, where `(A,C)` and `
 function sylvop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
-  if [m; n] != LinearAlgebra.checksquare(C,D)
+  [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  end
   T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
   function prod(x)
     T1 = promote_type(T, eltype(x))
@@ -1090,9 +1058,8 @@ where (A,C) and (B,D) a pairs of square matrices.
 function invsylvop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
-  if [m; n] != LinearAlgebra.checksquare(C,D)
+  [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  end
   T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
   function prod(x)
     T1 = promote_type(T, eltype(x))
@@ -1151,66 +1118,47 @@ the pair `(D,B)` is in generalized Schur form.
 function invsylvsop(A, B, C, D; DBSchur = false)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
-  if [m; n] != LinearAlgebra.checksquare(C,D)
+  [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  end
   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-  if !(T <: BlasFloat) 
-     T = promote_type(Float64,T)
-  end
+  T <: BlasFloat || (T = promote_type(Float64,T))
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
   adjC = isa(C,Adjoint)
   adjD = isa(D,Adjoint)
-  if adjA !== adjC 
-     error("Only calls with pairs (A,C) or (A',C') are allowed")
-  end
-  if adjB !== adjD
-     error("Only calls with pairs (B,D) or (B',D') are allowed")
-  end
-  if eltype(A) !== T
-    adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A)
-  end 
-  if eltype(B) !== T
-    adjB ? B = convert(Matrix{T},B.parent)' :  B = convert(Matrix{T},B) 
-  end 
-  if eltype(C) !== T
-   adjC ? C = convert(Matrix{T},C.parent)'  : C = convert(Matrix{T},C)
-  end 
-  if eltype(D) !== T
-    adjD ? D = convert(Matrix{T},D.parent)' :  D = convert(Matrix{T},D) 
-  end 
+  adjA == adjC || error("Only calls with pairs (A,C) or (A',C') are allowed")
+  adjB == adjD || error("Only calls with pairs (B,D) or (B',D') are allowed")
+  eltype(A) == T || 
+    (adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A))
+  eltype(B) == T || 
+    (adjB ? B = convert(Matrix{T},B.parent)'  : B = convert(Matrix{T},B))
+  eltype(C) == T ||
+    (adjC ? C = convert(Matrix{T},C.parent)'  : C = convert(Matrix{T},C))
+  eltype(D) == T ||
+    (adjD ? D = convert(Matrix{T},D.parent)' :  D = convert(Matrix{T},D))
   cmplx = T<:Complex
   adjAC = adjA & adjC
   if adjAC
-     if !isschur(A.parent,C.parent)
+     isschur(A.parent,C.parent) || 
          error("The pair (A,C) must be in generalized Schur form")
-     end
   else
-     if !isschur(A,C)
+     isschur(A,C) ||
         error("The pair (A,C) must be in generalized Schur form")
-     end
   end
   adjBD = adjB & adjD
   if adjBD
      if DBSchur
-       if !isschur(D.parent, B.parent)
+       isschur(D.parent, B.parent) ||
            error("The pair (D,B) must be in generalized Schur form")
-       end
-     else
-        if !isschur(B.parent, D.parent)
+      else
+        isschur(B.parent, D.parent) ||
             error("The pair (B,D) must be in generalized Schur form")
-        end
      end
   else
      if DBSchur
-        if !isschur(D,B)
-           error("The pair (D,B) must be in generalized Schur form")
-        end
+        isschur(D,B) || error("The pair (D,B) must be in generalized Schur form")
      else
-        if !isschur(B,D)
-           error("The pair (B,D) must be in generalized Schur form")
-        end
+        isschur(B,D) || error("The pair (B,D) must be in generalized Schur form")
      end
   end
   function prod(x)
@@ -1222,14 +1170,14 @@ function invsylvsop(A, B, C, D; DBSchur = false)
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
          adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
          adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
-         else
-        T1r = real(T1)
-        if T1r !== T
-          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-          adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
-          adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
-        end
+      else
+         T1r = real(T1)
+         if T1r !== T
+            adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
+            adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
+            adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
+            adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
+         end
       end
     end
     try
@@ -1347,9 +1295,8 @@ function sylvsysop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   T = promote_type(eltype(A), eltype(B))
-  if [m; n] != LinearAlgebra.checksquare(C,D)
+  [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  end
   mn = m*n
   function prod(x)
     T1 = promote_type(T, eltype(x))
@@ -1383,9 +1330,8 @@ where `(A,C)` and `(B,D)` a pairs of square matrices.
 function invsylvsysop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
-  if [m; n] != LinearAlgebra.checksquare(C,D)
+  [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  end
   T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
   mn = m*n
   function prod(x)
@@ -1450,35 +1396,20 @@ with the pairs `(A,C)` and `(B,D)` in generalized Schur forms.
 function invsylvsyssop(A, B, C, D)
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
-  if [m; n] != LinearAlgebra.checksquare(C,D)
+  [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  end
   T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-  if !(T <: BlasFloat) 
-     T = promote_type(Float64,T)
-  end
+  T <: BlasFloat || (T = promote_type(Float64,T))
   cmplx = T<:Complex
   if isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)
      error("Only calls with (A, B, C, D) without adjoints are allowed")
   end
-  if eltype(A) !== T
-     A = convert(Matrix{T},A)
-  end 
-  if eltype(B) !== T
-     B = convert(Matrix{T},B) 
-  end 
-  if eltype(C) !== T
-     C = convert(Matrix{T},C)
-  end 
-  if eltype(D) !== T
-     D = convert(Matrix{T},D) 
-  end 
-  if !isschur(A,C)
-     error("The pair (A,C) must be in generalized Schur form")
-  end
-  if !isschur(B,D)
-     error("The pair (B,D) must be in generalized Schur form")
-  end
+  eltype(A) == T || (A = convert(Matrix{T},A))
+  eltype(B) == T || (B = convert(Matrix{T},B))
+  eltype(C) == T || (C = convert(Matrix{T},C))
+  eltype(D) == T || (D = convert(Matrix{T},D))
+  isschur(A,C) || error("The pair (A,C) must be in generalized Schur form")
+  isschur(B,D) || error("The pair (B,D) must be in generalized Schur form")
   cmplx ? TA = 'C' : TA = 'T'
   mn = m*n
   function prod(x)
