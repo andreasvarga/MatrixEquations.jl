@@ -37,7 +37,7 @@ jobs:
   include:
     - stage: "Documentation"
       julia: 1.2
-      os: windows
+      os: linux
       script:
         - julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter"))' && julia docs/make.jl
       after_success: skip

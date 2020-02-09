@@ -25,9 +25,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LinearOperators]]
 deps = ["FastClosures", "LinearAlgebra", "Printf", "SparseArrays", "TimerOutputs"]
-git-tree-sha1 = "fa2f62960b1e12c5d11450a33b68da7ea5a031dd"
+git-tree-sha1 = "3d4043d5cc711f2fcdca545bfd4aafe5bc0b1bee"
 uuid = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
-version = "0.7.1"
+version = "1.0.1"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -66,4 +66,3 @@ version = "0.5.3"
 
 [[Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
-
