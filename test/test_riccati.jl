@@ -12,7 +12,7 @@ using Test
 #for (Ty,n,p,m) in ((Float64, 30, 10, 10), (Float32, 5, 3, 3))
 for (Ty,n,p,m) in ((Float64, 30, 10, 10),  (Float64, 5, 1, 1))
 
-Random.seed!(21234)
+Random.seed!(21235)
 
 #(Ty,n,p,m) = (Float64, 30, 10, 10)
 #(Ty,n,p,m) = (Float64, 2, 1, 1)
