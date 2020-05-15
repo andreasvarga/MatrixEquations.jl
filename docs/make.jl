@@ -25,8 +25,7 @@ makedocs(
   ]
 )
 
-deploydocs(deps = nothing, make = nothing,
+deploydocs(
   repo = "github.com/andreasvarga/MatrixEquations.jl.git",
   target = "build",
-  devbranch = "master"
-)
+  )
