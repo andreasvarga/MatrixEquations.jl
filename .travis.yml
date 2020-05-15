@@ -11,14 +11,6 @@ julia:
   - 1.4
   - nightly
 
-matrix:
-  allow_failures:
-    - julia: 1.0
-    - julia: 1.1
-    - julia: 1.4
-    - julia: nightly
-
-
 notifications:
   email:
     recipients: varga.andreas@gmail.com
@@ -31,13 +23,22 @@ branches:
 
 
 after_success:
-  - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+  - julia --project=test/coverage -e 'using Pkg; Pkg.instantiate()'
+  - julia --project=test/coverage test/coverage/coverage.jl
+#  - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
  
 jobs:
+  allow_failures:
+    - julia: 1.0
+    - julia: 1.1
+    - julia: 1.4
+    - julia: nightly
   include:
     - stage: "Documentation"
       julia: 1.2
       os: linux
       script:
-        - julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter"))' && julia docs/make.jl
+#        - julia -e 'using Pkg; Pkg.add(PackageSpec(name="Documenter"))' && julia docs/make.jl
+        - julia --project=docs/ -e 'using Pkg; Pkg.instantiate()'
+        - julia --project=docs/ docs/make.jl
       after_success: skip
