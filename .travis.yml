@@ -12,20 +12,18 @@ julia:
   - nightly
 
 notifications:
-  email:
-    recipients: varga.andreas@gmail.com
-    on_success: never
-    on_failure: change
+  email: false
 
 branches:
   only:
     - master
 
+codecov: true
 
-after_success:
-  - julia --project=test/coverage -e 'using Pkg; Pkg.instantiate()'
-  - julia --project=test/coverage test/coverage/coverage.jl
-#  - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
+# after_success:
+#   - julia --project=test/coverage -e 'using Pkg; Pkg.instantiate()'
+#   - julia --project=test/coverage test/coverage/coverage.jl
+#   - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
  
 jobs:
   allow_failures:
