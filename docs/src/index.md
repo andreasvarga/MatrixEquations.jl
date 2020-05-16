@@ -68,13 +68,9 @@ The collection of tools will be extended by adding new functionality, such as ex
 
 ## Release Notes
 
-### Version 1.1.2
+### Versions 1.1.1-1.1.4
 
-Patch release to enforce compatibility with Julia 1.0 - 1.3.
-
-### Version 1.1.1
-
-Patch release to fix upgrading problems to version v0.7.1 of LinearOperators.jl.
+Patch releases to fix upgrading problems to version v0.7.1 of LinearOperators.jl, compatibility problems with Julia 1.0 - 1.3, and updating problems of the online documentation on the gh-pages.
 
 ### Version 1.1.0
 
