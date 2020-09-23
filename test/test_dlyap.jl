@@ -6,7 +6,7 @@ using Test
 
 @testset "Testing discrete Lyapunov equation solvers" begin
 
-n = 100
+n = 10
 Ty = Float64
 
 @testset "Discrete Lyapunov equations" begin
@@ -192,33 +192,25 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = rand(Ty,n,n)+im*rand(Ty,n,n)
-er = rand(Ty,n,n)
-ec = er+im*rand(Ty,n,n)
-as, es = schur(ar,er)
-acs, ecs = schur(ac,ec)
+ar = rand(Ty,n,n);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+er = rand(Ty,n,n);
+ec = er+im*rand(Ty,n,n);
+as, es = schur(ar,er);
+acs, ecs = schur(ac,ec);
 
-c = rand(Ty,n,n)+im*rand(Ty,n,n)
-qc = c'*c
-Qr = real(qc)
+c = rand(Ty,n,n)+im*rand(Ty,n,n);
+qc = c'*c;
+Qr = real(qc);
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 x = copy(Qr)
 @time lyapds!(as,x);
 @test norm(as*x*as'+Qr-x)/norm(x)/max(norm(as)^2,1.) < reltol
 
-x = copy(qc)
-@time lyapds!(as,x);
-@test norm(as*x*as'+qc-x)/norm(x)/max(norm(as)^2,1.) < reltol
-
 x = copy(Qr)
 @time lyapds!(as,x,adj=true);
 @test norm(as'*x*as+Qr-x)/norm(x)/max(norm(as)^2,1.) < reltol
-
-x = copy(qc)
-@time lyapds!(as,x,adj=true);
-@test norm(as'*x*as+qc-x)/norm(x)/max(norm(as)^2,1.) < reltol
 
 x = copy(qc)
 @time lyapds!(acs,ecs,x);
@@ -239,14 +231,6 @@ x = copy(Qr)
 x = copy(Qr)
 @time lyapds!(as,es,x,adj=true);
 @test norm(as'*x*as+Qr-es'*x*es)/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
-
-x = copy(qc)
-@time lyapds!(as,es,x);
-@test norm(as*x*as'+qc-es*x*es')/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
-
-x = copy(qc)
-@time lyapds!(as,es,x,adj=true);
-@test norm(as'*x*as+qc-es'*x*es)/norm(x)/max(norm(as)^2,norm(es)^2) < reltol
 
 end
 end

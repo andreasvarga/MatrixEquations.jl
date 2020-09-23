@@ -9,6 +9,7 @@ julia:
   - 1.2
   - 1.3
   - 1.4
+  - 1.5
   - nightly
 
 notifications:
@@ -20,16 +21,11 @@ branches:
 
 codecov: true
 
-# after_success:
-#   - julia --project=test/coverage -e 'using Pkg; Pkg.instantiate()'
-#   - julia --project=test/coverage test/coverage/coverage.jl
-#   - julia -e 'using Pkg; cd(Pkg.dir("MatrixEquations")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
- 
 jobs:
   allow_failures:
     - julia: 1.0
     - julia: 1.1
-    - julia: 1.4
+    - julia: 1.5
     - julia: nightly
   include:
     - stage: "Documentation"

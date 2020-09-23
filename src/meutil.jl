@@ -10,28 +10,19 @@ is upper triangular.
 function isschur(A)
    @assert !Base.has_offset_axes(A)
    m, n = size(A)
-   if m != n
-      return false
-   end
-   if m == 1
-      return true
-   end
-   if eltype(A)<:Complex
-      return istriu(A)
-   else
-      if m == 2
-         return true
-      end
-      if istriu(A,-1)
-         for i = 1:m-2
-             if !iszero(A[i+1,i]) & !iszero(A[i+2,i+1])
+   m == n || (return false)
+   m == 1 && (return true)
+   eltype(A)<:Complex && (return istriu(A))
+   m == 2 && (return true)
+   if istriu(A,-1)
+      for i = 1:m-2
+          if !iszero(A[i+1,i]) & !iszero(A[i+2,i+1])
                 return false
-             end
           end
-          return true
-      else
-          return false
       end
+      return true
+   else
+      return false
    end
 end
 """
@@ -45,13 +36,26 @@ however must not correspond to complex conjugate eigenvalues.
 In the complex case, it is tested if `A` and `B` are both upper triangular.
 
 """
-function isschur(A,B)
+function isschur(A::AbstractMatrix,B::AbstractMatrix)
    ma, na = size(A)
    mb, nb = size(B)
    if eltype(A) != eltype(B) || ma != na || mb != nb || na != nb
       return false
    end
    return isschur(A) && istriu(B)
+end
+function sfstruct(A)
+   # determine the structure of the generalized real Schur form
+   n = size(A,1)
+   ba = fill(1,n)
+   p = 0
+   i = 1
+   while i < n
+      p += 1
+      iszero(A[i+1,i]) ? (i += 1) : (ba[p] = 2; i += 2)
+   end
+   i == n && (p += 1)
+   return ba[1:p], p
 end
 """
     utqu!(Q,U) -> Q
@@ -62,12 +66,9 @@ The resulting product overwrites `Q`.
 """
 function utqu!(Q,U)
    n = LinearAlgebra.checksquare(Q)
-   if !ishermitian(Q)
-      error("Q must be a symmetric/hermitian matrix")
-   end
-   if LinearAlgebra.checksquare(U) != n
+   ishermitian(Q) || error("Q must be a symmetric/hermitian matrix")
+   LinearAlgebra.checksquare(U) == n ||
       throw(DimensionMismatch("U must be a matrix of dimension $n x $n"))
-   end
 
    T = promote_type(eltype(Q),eltype(U))
    if !(T <: BlasFloat) 
@@ -105,20 +106,14 @@ where Q is a symmetric/hermitian matrix.
 """
 function utqu(Q,U)
    n = LinearAlgebra.checksquare(Q)
-   if !ishermitian(Q)
-      error("Q must be a symmetric/hermitian matrix")
-   end
+   ishermitian(Q) || error("Q must be a symmetric/hermitian matrix")
    adj = isa(U,Adjoint)
    if adj
       m, n1 = size(U.parent)
-      if n1 != n
-         throw(DimensionMismatch("U must be a matrix of column dimension $n"))
-      end
+      n1 == n || throw(DimensionMismatch("U must be a matrix of column dimension $n"))
    else
       n1, m = size(U)
-      if n1 != n
-         throw(DimensionMismatch("U must be a matrix of row dimension $n"))
-      end
+      n1 == n || throw(DimensionMismatch("U must be a matrix of row dimension $n"))
    end
 
    T = promote_type(eltype(Q),eltype(U))
@@ -157,9 +152,7 @@ updated in place and the matrix `Y` is destroyed during the computation.
 """
 function qrupdate!(R, Y)
     n, m = size(Y)
-    if size(R, 1) != n
-      throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
-    end
+    size(R,1) == n || throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
     #Y = conj(Y)
     for k = 1:m
         for i = 1:n
@@ -194,9 +187,7 @@ updated in place and the matrix `Y` is destroyed during the computation.
 """
 function rqupdate!(R, Y)
     n, m = size(Y)
-    if size(R, 1) != n
-        throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
-    end
+    size(R,1) == n || throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
 
     for k = 1:m
         for j = n:-1:1
@@ -227,12 +218,10 @@ The elements of `x` correspond to stacking the elements of successive columns
 of the upper triangular part of `Q`, if `rowwise = false`, or stacking the elements
 of successive rows of the upper triangular part of `Q`, if `rowwise = true`.
 """
-function triu2vec(Q::AbstractArray; rowwise = false, her = false)
+function triu2vec(Q::AbstractArray{T}; rowwise::Bool = false, her::Bool = false) where T
    n = LinearAlgebra.checksquare(Q)
-   if her && !ishermitian(Q)
-      error("Q must be a symmetric/hermitian matrix")
-   end
-   x = Array{eltype(Q),1}(undef,Int(n*(n+1)/2))
+   her && !ishermitian(Q) && error("Q must be a symmetric/hermitian matrix")
+   x = Array{T,1}(undef,Int(n*(n+1)/2))
    k = 1
    if rowwise
       for i = 1:n
@@ -261,11 +250,11 @@ The elements of `x` correspond to stacking the elements of successive columns
 of the upper triangular part of `Q`, if `rowwise = false`, or stacking the elements
 of successive rows of the upper triangular part of `Q`, if `rowwise = true`.
 """
-function vec2triu(x::AbstractVector; rowwise = false, her = false)
+function vec2triu(x::AbstractVector{T}; rowwise = false, her = false) where T
    k = length(x)
    n = (sqrt(1+8*k)-1)/2
    isinteger(n) ? n = Int(n) : error("The lenght of x must be of the form n(n+1)/2")
-   her ? Q = Array{eltype(x),2}(undef,n,n) : Q = zeros(eltype(x),n,n) 
+   her ? Q = Array{T,2}(undef,n,n) : Q = zeros(T,n,n) 
    k = 1
    if rowwise
       for i = 1:n

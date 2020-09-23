@@ -253,7 +253,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
    TR = real(T)
    epsm = eps(TR)
    eltype(A) == T || (A = convert(Matrix{T},A))
-   if eltype(B) !== T
+   if eltype(B) != T
       if typeof(B) <: AbstractVector
          B = convert(Vector{T},B)
       else
@@ -281,7 +281,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
       Q = Q*I
       iszero(imag(Q.λ)) || throw("Q must be a symmetric/hermitian matrix")
    end
-   if eltype(S) !== T
+   if eltype(S) != T
       if typeof(S) <: AbstractVector
          S = convert(Vector{T},S)
       else
@@ -865,7 +865,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     as ? PLS = schur(L1[iric,iric],P1[iric,iric]) : PLS = schur(P1[iric,iric],L1[iric,iric]) 
     select = abs.(PLS.α) .> abs.(PLS.β)
 
-    if n !== length(filter(y-> y == true,select))
+    if n != length(filter(y-> y == true,select))
        error("The extended simplectic pencil is not dichotomic")
     end
     ordschur!(PLS, select)

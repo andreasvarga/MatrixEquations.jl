@@ -1043,7 +1043,7 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with negative real parts.
 `R` contains on output the solution `U`.
 """
-function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
  
@@ -1180,7 +1180,7 @@ function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
        end
    end
 end
-function plyapcs!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1300,7 +1300,7 @@ The pair `(A,E)` is in a generalized real/complex Schur form and `R` is an upper
 triangular matrix. The pencil `A-λE` must have only eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
 """
-function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -1446,7 +1446,7 @@ function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
        end
    end
 end
-function plyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) && 
@@ -1577,7 +1577,7 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1736,7 +1736,7 @@ function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matri
    end
    return UpperTriangular(R)
 end
-function plyapds!(A::T1, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    if LinearAlgebra.checksquare(R) != n
       throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
@@ -1856,7 +1856,7 @@ The pair `(A,E)` of square real or complex matrices is in a generalized Schur fo
 and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Float32},Matrix{Float64}}
+function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    # The method of [1] for the discrete case is implemented.
 
    # [1] Penzl, T.
@@ -2024,7 +2024,7 @@ function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; 
    end
    return UpperTriangular(R)
 end
-function plyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, R::UpperTriangular; adj = false)  where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -2288,7 +2288,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    end
    ABST = abs( P1 )
    ALPHA < ONE && ABST > ONE && ABST > BIGNUM*ALPHA && (SCALOC = ONE / ABST)
-   if SCALOC !== ONE
+   if SCALOC != ONE
       P1  = SCALOC*P1
       P2R = SCALOC*P2R
       P2I = SCALOC*P2I
@@ -2307,7 +2307,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       TEMP2 = ALPHA*P2I + V1*( E1*T2 + E2*T1 )
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
       ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && (SCALOC = ONE / ABST)
-      if SCALOC !== ONE
+      if SCALOC != ONE
          V1      = SCALOC*V1
          TEMP1   = SCALOC*TEMP1
          TEMP2   = SCALOC*TEMP2
@@ -2327,7 +2327,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       if ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG
          SCALOC = ONE / ABST
       end
-      if SCALOC !== ONE
+      if SCALOC != ONE
          V1    = SCALOC*V1
          V2R   = SCALOC*V2R
          V2I   = SCALOC*V2I
@@ -2346,7 +2346,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
       ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG &&
          (SCALOC = ONE / ABST)
-      if SCALOC !== ONE
+      if SCALOC != ONE
          TEMP1 = SCALOC*TEMP1
          TEMP2 = SCALOC*TEMP2
          V1    = SCALOC*V1
@@ -2364,7 +2364,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       ABST    = max( abs( YR ), abs( YI ) )
       ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG &&
          (SCALOC = ONE / ABST)
-      if SCALOC !== ONE
+      if SCALOC != ONE
          YR  = SCALOC*YR
          YI  = SCALOC*YI
          V1    = SCALOC*V1
@@ -2384,7 +2384,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
       ABSB < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSB &&
          (SCALOC = ONE / ABST)
-      if SCALOC !== ONE
+      if SCALOC != ONE
          V1      = SCALOC*V1
          TEMP1   = SCALOC*TEMP1
          TEMP2   = SCALOC*TEMP2
@@ -2401,7 +2401,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       ABST = max( abs( V2R ), abs( V2I ) )
       ABSB < ONE  &&  ABST > ONE &&  ABST > BIGNUM*ABSB &&
          (SCALOC = ONE / ABST)
-      if SCALOC !== ONE
+      if SCALOC != ONE
          V1    = SCALOC*V1
          V2R   = SCALOC*V2R
          V2I   = SCALOC*V2I
@@ -2420,7 +2420,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    V3     = hypot3(P3,YR,YI)
    ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA &&
       (SCALOC = ONE / V3) 
-   if SCALOC !== ONE
+   if SCALOC != ONE
       V1    = SCALOC*V1
       V2R = SCALOC*V2R
       V2I = SCALOC*V2I
@@ -2584,7 +2584,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       α[2,2] = DT1*TEMPR   + DT2*TEMPI
    end
 
-   if scale !== ONE
+   if scale != ONE
       α[1,1] = scale*α[1,1]
       α[1,2] = scale*α[1,2]
       α[2,2] = scale*α[2,2]

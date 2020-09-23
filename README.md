@@ -1,12 +1,12 @@
 # MatrixEquations.jl
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3556377.svg)](https://doi.org/10.5281/zenodo.3556867)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3556867.svg)](https://doi.org/10.5281/zenodo.3556867)
 [![Travis](https://travis-ci.com/andreasvarga/MatrixEquations.jl.svg?branch=master)](https://travis-ci.com/andreasvarga/MatrixEquations.jl)
 [![codecov.io](https://codecov.io/gh/andreasvarga/MatrixEquations.jl/coverage.svg?branch=master)](https://codecov.io/gh/andreasvarga/MatrixEquations.jl?branch=master)
 [![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/dev/)
 [![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/MatrixEquations.jl/blob/master/LICENSE.md)
 
-**Solution of some control system related matrix equations using [Julia](http://julialang.org)**
+**Solution of Lyapunov, Sylvester and Riccati matrix equations using [Julia](http://julialang.org)**
 
 ## Compatibility
 
@@ -68,8 +68,8 @@ The current version of the package includes the following functions:
 * **oprcondest** Estimation of the reciprocal 1-norm condition number of a linear operator.
 * **opsepest** Estimation of the 1-norm separation a linear operator.
 
-The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/site/andreasvargacontact/home/software/matrix-equations-in-julia).
+The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/view/andreasvarga/home/software/matrix-equations-in-julia).
 
 ## Future plans
 
-The collection of tools will be extended by adding new functionality, such as expert solvers which additionally compute error bounds and condition estimates. Further, performance improvements are planned to be implemented employing more efficient and accurate low dimensional linear system solvers available in LAPACK, using static arrays for manipulation of small order matrices, and exploring block variant solvers for Lyapunov and Sylvester equations.
+The collection of tools will be extended by adding new functionality, such as expert solvers which additionally compute error bounds and condition estimates. Further, performance improvements are planned to be implemented employing more efficient and accurate low dimensional linear system solvers available in LAPACK, using static arrays for manipulation of small order matrices, and exploring block variants of solvers for Lyapunov and Sylvester equations.

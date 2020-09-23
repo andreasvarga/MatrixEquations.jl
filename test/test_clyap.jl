@@ -4,9 +4,10 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
+
 @testset "Testing continuous Lyapunov equation solvers" begin
 
-n = 100
+n = 10
 Ty = Float64
 
 @testset "Continuous Lyapunov equations" begin
@@ -21,11 +22,11 @@ a = 1f0-2f0im; b = 2f0; @time x = lyapc(a,b)
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = rand(Ty,n,n)+im*rand(Ty,n,n)
-c = rand(Ty,n,n)+im*rand(Ty,n,n)
-qc = c'*c
-Qr = real(qc)
+ar = rand(Ty,n,n);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+c = rand(Ty,n,n)+im*rand(Ty,n,n);
+qc = c'*c;
+Qr = real(qc);
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 @time x = lyapc(ac,qc);
@@ -173,16 +174,16 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = rand(Ty,n,n)+im*rand(Ty,n,n)
-er = rand(Ty,n,n)
-ec = er+im*rand(Ty,n,n)
-as, es = schur(ar,er)
-acs, ecs = schur(ac,ec)
+ar = rand(Ty,n,n);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+er = rand(Ty,n,n);
+ec = er+im*rand(Ty,n,n);
+as, es = schur(ar,er);
+acs, ecs = schur(ac,ec);
 
-c = rand(Ty,n,n)+im*rand(Ty,n,n)
-qc = c'*c
-Qr = real(qc)
+c = rand(Ty,n,n)+im*rand(Ty,n,n);
+qc = c'*c;
+Qr = real(qc);
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 
@@ -198,13 +199,14 @@ x = copy(qc)
 @time lyapcs!(acs,ecs,x,adj=true);
 @test norm(acs'*x*ecs+ecs'*x*acs+qc)/norm(x)/norm(acs)/norm(ecs) < reltol
 
-x = copy(Qr)
+# test
+x = copy(Qr);
 @time lyapcs!(as,es,x);
 @test norm(as*x*es'+es*x*as'+Qr)/norm(x)/norm(as)/norm(es) < reltol
 
-x = copy(qc)
-@time lyapcs!(as,es,x);
-@test norm(as*x*es'+es*x*as'+qc)/norm(x)/norm(as)/norm(es) < reltol
+x = copy(Qr);
+@time lyapcs!(as,es,x,adj=true);
+@test norm(as'*x*es+es'*x*as+Qr)/norm(x)/norm(as)/norm(es) < reltol
 
 x = copy(Qr)
 @time lyapcs!(as,I,x);
@@ -213,10 +215,6 @@ x = copy(Qr)
 x = copy(Qr)
 @time lyapcs!(as,x);
 @test norm(as*x+x*as'+Qr)/norm(x)/norm(as) < reltol
-
-x = copy(qc)
-@time lyapcs!(as,x);
-@test norm(as*x+x*as'+qc)/norm(x)/norm(as)/norm(es) < reltol
 
 if Ty == Float64
 try

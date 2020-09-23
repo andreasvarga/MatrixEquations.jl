@@ -417,34 +417,20 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 `C` contains on output the solution `X`.
 """
-function lyapcs!(A::T1, C::Union{T1,T2}; adj = false) where 
-   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
 
-   T = eltype(A)
-   TR = real(eltype(C))
-   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
-   ZERO = zero(T)
+   ONE = one(T1)
+   ZERO = zero(T1)
+
    # determine the structure of the real Schur form
-   ba = fill(1,n)
-   p = 1
-   if n > 1
-      d = [diag(A,-1);zeros(1)]
-      i = 1
-      p = 0
-      while i <= n
-         p += 1
-         if d[i] != ZERO
-            ba[p] = 2
-            i += 1
-         end
-         i += 1
-      end
-   end
+   ba, p = sfstruct(A)
 
-   W = Array{eltype(A),2}(I,2,2)
+   #W = Array{T1,2}(I,2,2)
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if adj
       """
       The (K,L)th block of X is determined starting from
@@ -465,33 +451,32 @@ function lyapcs!(A::T1, C::Union{T1,T2}; adj = false) where
           for kk = ll:p
               dk = ba[kk]
               k = i:i+dk-1
-              y = C[k,l]
+              y = view(C,k,l)
               if kk > ll
                  ia = j:i-1
-                 y += A[ia,k]'*C[ia,l]
-              end
-              Z = (kron(W[1:dl,1:dl],transpose(A[k,k]))+kron(transpose(A[l,l]),W[1:dk,1:dk]))\(-y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
-              if i == j && dk == 2
-                 temp = C[k,l]
-                 C[k,l] = (temp'+temp)/2
-              else
-                 C[l,k] = C[k,l]'
-              end
-              i += dk
-           end
-           j += dl
-           if j <= n
-              for jr = j:n
-                 for ir = jr:n
-                     for lll = l
-                         C[ir,jr] += C[ir,lll]*A[lll,jr] + (A[lll,ir]*C[jr,lll])'
-                         C[jr,ir] = C[ir,jr]'
-                      end
-                  end
+                 # y += A[ia,k]'*C[ia,l]
+                 mul!(y,transpose(view(A,ia,k)),view(C,ia,l),ONE,ONE)
                end
-           end
-      end
+               if i == j 
+                  lyapc2!(adj,y,dk,view(A,k,k),Xw,Yw)
+               else
+                  lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)  
+                  transpose!(view(C,l,k),y)
+               end
+               i += dk
+          end
+          j += dl
+          if j <= n
+             for jr = j:n
+                for ir = jr:n
+                    for lll = l
+                        C[ir,jr] += C[ir,lll]*A[lll,jr] + A[lll,ir]*C[jr,lll]
+                    end
+                    C[jr,ir] = C[ir,jr]
+                end
+             end
+          end
+       end
    else
       """
       The (K,L)th block of X is determined starting from
@@ -513,39 +498,122 @@ function lyapcs!(A::T1, C::Union{T1,T2}; adj = false) where
               dk = ba[kk]
               i1 = i-dk+1
               k = i1:i
-              y = C[k,l]
+              y = view(C,k,l)
               if kk < ll
                  ia = i+1:j
-                 y += A[k,ia]*C[ia,l]
+                 #  y += A[k,ia]*C[ia,l]
+                 mul!(y,view(A,k,ia),view(C,ia,l),ONE,ONE)
               end
-              Z = (kron(W[1:dl,1:dl],A[k,k])+kron(A[l,l],W[1:dk,1:dk]))\(-y[:])
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
-              if i == j && dl == 2
-                 temp = C[k,l]
-                 C[k,l] = (temp'+temp)/2
+              if i == j
+                 lyapc2!(adj,y,dk,view(A,k,k),Xw,Yw)
               else
-                 C[l,k] = C[k,l]'
-               end
-              i = i-dk
+                 lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)  
+                 transpose!(view(C,l,k),y)
+              end
+              i -= dk
            end
-           j = j-dl
+           j -= dl
            if j >= 0
               for jr = 1:j
                  for ir = 1:jr
                      for lll = l
                          C[ir,jr] += C[ir,lll]*A[jr,lll] + A[ir,lll]*C[lll,jr]
-                         C[jr,ir] = C[ir,jr]'
                       end
-                  end
-               end
+                      C[jr,ir] = C[ir,jr]
+                 end
+              end
            end
        end
    end
 end
-function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+@inline function lyapc2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+# speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
+#      A'*X + X*A = -C if adj = true  -> R = kron(I,A')+kron(A',I) = (kron(I,A)+kron(A,I))'
+#      A*X + X*A' = -C if adj = false -> R = kron(I,A)+kron(A,I)
+   if na == 1 
+      temp = A[1,1]
+      iszero(temp) && throw("ME:SingularException: A has zero eigenvalue(s)")
+      return rmul!(C,inv(-2*temp))
+   end
+   i1 = 1:3
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y = [-C[1]/2; -C[2]; -C[4]/2]
+   if adj
+      @inbounds R = [ A[1,1]    A[2,1]         0;
+                      A[1,2]    A[1,1]+A[2,2]  A[2,1];
+                      0         A[1,2]         A[2,2] ] 
+   else
+      @inbounds R = [ A[1,1]    A[1,2]         0;
+                      A[2,1]    A[1,1]+A[2,2]  A[1,2];
+                      0         A[2,1]         A[2,2] ] 
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+   end
+   C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
+   return C
+end
+@inline function lyapcsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},B::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+# speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
+# encountered in solving continuous Lyapunov equations: 
+#      A'*X + X*B = -C if adj = true  -> R = kron(I,A')+kron(B',I) = (kron(I,A)+kron(B,I))'
+#      A*X + X*B' = -C if adj = false -> R = kron(I,A)+kron(B,I)
+if na == 1 && nb == 1
+      temp = A[1,1] + B[1,1]
+      iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+      return rmul!(C,inv(-temp))
+   end
+   nv = na*nb
+   i1 = 1:nv
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y[:] = -C[i1]
+   if adj
+      if na == 1
+            @inbounds R = [ A[1,1]+B[1,1]    B[2,1];
+                              B[1,2]        A[1,1]+B[2,2]]
+      else
+         if nb == 1
+            @inbounds R = [ A[1,1]+B[1,1]       A[2,1];
+                             A[1,2]          A[2,2]+B[1,1] ]
+         else
+            @inbounds R = [ A[1,1]+B[1,1]       A[2,1]       B[2,1]           0;
+                            A[1,2]        A[2,2]+B[1,1]      0             B[2,1];
+                            B[1,2]              0       A[1,1]+B[2,2]     A[2,1];
+                              0               B[1,2]       A[1,2]       A[2,2]+B[2,2]]
+         end
+      end
+   else
+      if na == 1
+            @inbounds R = [ A[1,1]+B[1,1]       B[1,2];
+                            B[2,1]       A[1,1] + B[2,2]]
+      else
+         if nb == 1
+            @inbounds R = [ A[1,1]+B[1,1]       A[1,2];
+                            A[2,1]        A[2,2]+B[1,1]]
+         else
+            @inbounds R = [ A[1,1]+B[1,1]       A[1,2]       B[1,2]         0;
+                            A[2,1]      A[2,2]+B[1,1]       0         B[1,2];
+                             B[2,1]            0      A[1,1]+B[2,2]     A[1,2];
+                             0             B[2,1]        A[2,1]    A[2,2]+B[2,2]]
+         end
+      end
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+   end
+   C[:,:] = Y
+   return C
+end
+function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+      throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
 
    if adj
       """
@@ -565,8 +633,9 @@ function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float
               for ia = l:k-1
                   y += A[ia,k]'*C[ia,l]
               end
-              Z = -y/(A[k,k]'+A[l,l])
-              isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+              temp = A[k,k]'+A[l,l]
+              iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+              C[k,l] = -y/temp
               if k != l
                  C[l,k] = C[k,l]'
               end
@@ -598,8 +667,9 @@ function lyapcs!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float
               for ia = k+1:l
                  y += A[k,ia]*C[ia,l]
               end
-              Z = -y/(A[k,k]+A[l,l]')
-              isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+              temp = A[k,k]+A[l,l]'
+              iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+              C[k,l] = -y/temp
               if k != l
                  C[l,k] = C[k,l]'
                end
@@ -628,36 +698,22 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj = false) where 
-      {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapcs!(A, C, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
-   T = eltype(A)
-   TR = real(eltype(C))
-   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+   ONE = one(T1)
+   ZERO = zero(T1)
 
-   # determine the structure of the generalized real Schur form
-   ba = fill(1,n)
-   p = 1
-   if n > 1
-      d = [diag(A,-1);zeros(1)]
-      i = 1
-      p = 0
-      while i <= n
-         p += 1
-         if d[i] != 0
-            ba[p] = 2
-            i += 1
-         end
-         i += 1
-      end
-   end
+   # determine the structure of the real Schur form
+   ba, p = sfstruct(A)
 
-   W = Array{eltype(C),2}(undef,n,2)
+   W = Array{T1,2}(undef,n,2)
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if adj
       """
       The (K,L)th block of X is determined starting from the
@@ -689,35 +745,38 @@ function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj 
           k = i:i+dk-1
           j = 1
           for ll = 1:kk
-             j1 = j+ba[ll]-1
+             dl = ba[ll]
+             j1 = j+dl-1
              l = j:j1
              y = C[k,l]
              if kk > 1
                  ir = 1:i-1
-                 C[l,k] = C[l,ir]*A[ir,k]
-                 W[l,dkk] = C[l,ir]*E[ir,k]
+                 #   C[l,k] = C[l,ir]*A[ir,k]
+                 #   W[l,dkk] = C[l,ir]*E[ir,k]
+                 mul!(view(C,l,k),view(C,l,ir),view(A,ir,k))
+                 mul!(view(W,l,dkk),view(C,l,ir),view(E,ir,k))
                  ic = 1:j1
-                 y += C[ic,k]'*E[ic,l] + W[ic,dkk]'*A[ic,l]
+                 #   y += C[ic,k]'*E[ic,l] + W[ic,dkk]'*A[ic,l]
+                 mul!(y,transpose(view(C,ic,k)),view(E,ic,l),ONE,ONE)
+                 mul!(y,transpose(view(W,ic,dkk)),view(A,ic,l),ONE,ONE)
              end
-             Z = ((kron(E[l,l],A[k,k])+kron(A[l,l],E[k,k]))')\(-y[:])
-             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
-             if i == j
-                if dk == 2
-                   temp = C[k,l]
-                   C[k,l] = Hermitian((temp'+temp)/2)
-                else
-                   C[k,l] = real(C[k,l])
-                end
+             if i == j 
+                C[k,k] = lyapc2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+             else
+                C[k,l] = lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(E,k,k),view(A,l,l),view(E,l,l),Xw,Yw)  
              end
-             j += ba[ll]
+             j += dl
              if j <= i
-                C[l,k] += C[k,l]'*A[k,k]
-                W[l,dkk] += C[k,l]'*E[k,k]
+                #  C[l,k] += C[k,l]'*A[k,k]
+                #  W[l,dkk] += C[k,l]'*E[k,k]
+                mul!(view(C,l,k),transpose(view(C,k,l)),view(A,k,k),ONE,ONE)
+                mul!(view(W,l,dkk),transpose(view(C,k,l)),view(E,k,k),ONE,ONE)
              end
           end
           if kk > 1
              ir = 1:i-1
-             C[ir,k] = C[k,ir]'
+             #C[ir,k] = C[k,ir]'
+             transpose!(view(C,ir,k),view(C,k,ir))
           end
           i += dk
       end
@@ -759,45 +818,180 @@ function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj 
             y = C[l,k]
             if ll < p
                ir = j+1:n
-               C[k,l] = C[k,ir]*A[l,ir]'
-               W[k,dll] = C[k,ir]*E[l,ir]'
+               # C[k,l] = C[k,ir]*A[l,ir]'
+               # W[k,dll] = C[k,ir]*E[l,ir]'
+               mul!(view(C,k,l),view(C,k,ir),transpose(view(A,l,ir)))
+               mul!(view(W,k,dll),view(C,k,ir),transpose(view(E,l,ir)))
                ic = i1:n
-               y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic,dll])'
+               # y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic,dll])'
+               mul!(y,transpose(view(C,ic,l)),transpose(view(E,k,ic)),ONE,ONE)
+               mul!(y,transpose(view(W,ic,dll)),transpose(view(A,k,ic)),ONE,ONE)
             end
-            Z = (kron(E[k,k],A[l,l])+kron(A[k,k],E[l,l]))\(-y[:])
-            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
-            if i == j
-               if dk == 2
-                  temp = C[l,k]
-                  C[l,k] = Hermitian((temp'+temp)/2)
-               else
-                  C[l,k] = real(C[l,k])
-               end
+            if i == j 
+               C[k,k] = lyapc2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+            else
+               C[l,k] = lyapcsylv2!(adj,y,dl,dk,view(A,l,l),view(E,l,l),view(A,k,k),view(E,k,k),Xw,Yw)  
             end
-            i = i-dk
+            i -= dk
             if i >= j
-               C[k,l] += (A[l,l]*C[l,k])'
-               W[k,dll] += (E[l,l]*C[l,k])'
+               # C[k,l] += (A[l,l]*C[l,k])'
+               # W[k,dll] += (E[l,l]*C[l,k])'
+               mul!(view(C,k,l),transpose(view(C,l,k)),transpose(view(A,l,l)),ONE,ONE)
+               mul!(view(W,k,dll),transpose(view(C,l,k)),transpose(view(E,l,l)),ONE,ONE)
             else
                break
             end
         end
         if ll < p
            ir = j+1:n
-           C[ir,l] = C[l,ir]'
-        end
-        j = j-dl
+           # C[ir,l] = C[l,ir]'
+           transpose!(view(C,ir,l),view(C,l,ir))
+         end
+        j -= dl
       end
    end
 end
-function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+@inline function lyapc2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},E::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+# speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 generalized continuous Lyapunov equations
+# LAPACK generated diagonal structure of E is exploited when possible
+#      A'*X*E + E'*X*A = -C if adj = true  -> R = kron(E',A')+kron(A',E') = (kron(E,A)+kron(A,E))'
+#      A*X*E' + E*X*A' = -C if adj = false -> R = kron(E,A)+kron(A,E)
+if na == 1 
+      temp = E[1,1]*A[1,1]
+      iszero(temp) && throw("ME:SingularException: A-λE has zero or infinite eigenvalue(s)")
+      return rmul!(C,inv(-2*temp))
+   end
+   i1 = 1:3
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y = [-C[1]/2; -C[2]; -C[4]/2]
+   if adj
+      # Rt =  
+      #  [        a11*e11,                   a21*e11,         0
+      #  a11*e12 + a12*e11, a11*e22 + a21*e12 + a22*e11,   a21*e22
+      #          a12*e12,       a12*e22 + a22*e12, a22*e22]
+      iszero(E[1,2]) ? 
+         (@inbounds R = [  A[1,1]*E[1,1]             A[2,1]*E[1,1]               0 ;
+                           A[1,2]*E[1,1]    A[1,1]*E[2,2]+A[2,2]*E[1,1]    A[2,1]*E[2,2];
+                                0                   A[1,2]*E[2,2]          A[2,2]*E[2,2]]) : 
+         (@inbounds R = [  A[1,1]*E[1,1]                    A[2,1]*E[1,1]                              0 ;
+               A[1,1]*E[1,2]+A[1,2]*E[1,1]    A[1,1]*E[2,2]+A[2,1]*E[1,2]+A[2,2]*E[1,1]    A[2,1]*E[2,2];
+               A[1,2]*E[1,2]                    A[1,2]*E[2,2]+A[2,2]*E[1,2]                A[2,2]*E[2,2]] ) 
+   else
+      # R =  
+      # [ a11*e11,       a11*e12 + a12*e11,         a12*e12
+      # a21*e11, a11*e22 + a21*e12 + a22*e11, a12*e22 + a22*e12
+      #       0,                   a21*e22,         a22*e22]
+      iszero(E[1,2]) ? 
+         (@inbounds  R = [  A[1,1]*E[1,1]            A[1,2]*E[1,1]                    0;
+                            A[2,1]*E[1,1]    A[1,1]*E[2,2]+A[2,2]*E[1,1]     A[1,2]*E[2,2];
+                                  0                  A[2,1]*E[2,2]           A[2,2]*E[2,2]] ) :
+         (@inbounds  R = [  A[1,1]*E[1,1]    A[1,1]*E[1,2]+A[1,2]*E[1,1]             A[1,2]*E[1,2];
+                A[2,1]*E[1,1]    A[1,1]*E[2,2]+A[2,1]*E[1,2]+A[2,2]*E[1,1]     A[1,2]*E[2,2]+A[2,2]*E[1,2];
+                      0                   A[2,1]*E[2,2]                              A[2,2]*E[2,2]] )
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
+   end
+   C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
+   return C
+end
+@inline function lyapcsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},E::StridedMatrix{T},B::StridedMatrix{T},F::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+# speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
+# encountered in solving generalized continuous Lyapunov equations:
+#      A'*X*F + E'*X*B = -C if adj = true  -> R = kron(F',A')+kron(B',E') = (kron(F,A)+kron(B,E))'
+#      A*X*F' + E*X*B' = -C if adj = false -> R = kron(F,A)+kron(B,E)
+   if na == 1 && nb == 1
+      temp = A[1,1]*F[1,1] + E[1,1]*B[1,1]
+      iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
+      return rmul!(C,inv(-temp))
+   end
+   nv = na*nb
+   i1 = 1:nv
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y[:] = -C[i1]
+   if adj
+      if na == 1
+         # R12t =
+         # [ a11*f11+b11*e11           b21*e11]
+         # [ a11*f12+b12*e11 a11*f22+b22*e11]
+         @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           B[2,1]*E[1,1];
+                         A[1,1]*F[1,2]+B[1,2]*E[1,1] A[1,1]*F[2,2]+B[2,2]*E[1,1]]
+      else
+         if nb == 1
+            # R21t = 
+            # [ a11*f11+b11*e11           a21*f11]
+            # [ a12*f11+b11*e12 a22*f11+b11*e22]                
+            @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           A[2,1]*F[1,1];
+                            A[1,2]*F[1,1]+B[1,1]*E[1,2] A[2,2]*F[1,1]+B[1,1]*E[2,2] ]
+         else
+            # Rt = 
+            # [ a11*f11+b11*e11           a21*f11           b21*e11                 0]
+            # [ a12*f11+b11*e12 a22*f11+b11*e22           b21*e12           b21*e22]
+            # [ a11*f12+b12*e11           a21*f12 a11*f22+b22*e11           a21*f22]
+            # [ a12*f12+b12*e12 a22*f12+b12*e22 a12*f22+b22*e12 a22*f22+b22*e22]
+            (iszero(E[1,2]) && iszero(F[1,2])) ? 
+             (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           A[2,1]*F[1,1]           B[2,1]*E[1,1]                 0;
+                           A[1,2]*F[1,1]  A[2,2]*F[1,1]+B[1,1]*E[2,2]           0           B[2,1]*E[2,2];
+                           B[1,2]*E[1,1]        0  A[1,1]*F[2,2]+B[2,2]*E[1,1]           A[2,1]*F[2,2];
+                           0  B[1,2]*E[2,2] A[1,2]*F[2,2]+B[2,2]*E[1,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]]) : 
+             (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           A[2,1]*F[1,1]           B[2,1]*E[1,1]                 0;
+                           A[1,2]*F[1,1]+B[1,1]*E[1,2] A[2,2]*F[1,1]+B[1,1]*E[2,2]           B[2,1]*E[1,2]           B[2,1]*E[2,2];
+                           A[1,1]*F[1,2]+B[1,2]*E[1,1]           A[2,1]*F[1,2] A[1,1]*F[2,2]+B[2,2]*E[1,1]           A[2,1]*F[2,2];
+                           A[1,2]*F[1,2]+B[1,2]*E[1,2] A[2,2]*F[1,2]+B[1,2]*E[2,2] A[1,2]*F[2,2]+B[2,2]*E[1,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]])
+         end
+      end
+   else
+      if na == 1
+         # R12 = 
+         # [ a11*f11+b11*e11 a11*f12+b12*e11]
+         # [           b21*e11 a11*f22+b22*e11]
+            @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,1]*F[1,2]+B[1,2]*E[1,1];
+                            B[2,1]*E[1,1] A[1,1]*F[2,2]+B[2,2]*E[1,1]]
+      else
+         if nb == 1
+            # R21 = 
+            # [ a11*f11+b11*e11 a12*f11+b11*e12]
+            # [           a21*f11 a22*f11+b11*e22]
+             @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,2]*F[1,1]+B[1,1]*E[1,2];
+                             A[2,1]*F[1,1] A[2,2]*F[1,1]+B[1,1]*E[2,2]]
+         else
+            # R = 
+            # [ a11*f11+b11*e11 a12*f11+b11*e12 a11*f12+b12*e11 a12*f12+b12*e12]
+            # [           a21*f11 a22*f11+b11*e22           a21*f12 a22*f12+b12*e22]
+            # [           b21*e11           b21*e12 a11*f22+b22*e11 a12*f22+b22*e12]
+            # [                 0           b21*e22           a21*f22 a22*f22+b22*e22]                
+            (iszero(E[1,2]) && iszero(F[1,2])) ? 
+            (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,2]*F[1,1] B[1,2]*E[1,1] 0;
+                           A[2,1]*F[1,1] A[2,2]*F[1,1]+B[1,1]*E[2,2]           0   B[1,2]*E[2,2];
+                           B[2,1]*E[1,1]           0   A[1,1]*F[2,2]+B[2,2]*E[1,1] A[1,2]*F[2,2];
+                           0           B[2,1]*E[2,2]           A[2,1]*F[2,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]]) : 
+            (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,2]*F[1,1]+B[1,1]*E[1,2] A[1,1]*F[1,2]+B[1,2]*E[1,1] A[1,2]*F[1,2]+B[1,2]*E[1,2];
+                           A[2,1]*F[1,1] A[2,2]*F[1,1]+B[1,1]*E[2,2]           A[2,1]*F[1,2] A[2,2]*F[1,2]+B[1,2]*E[2,2];
+                           B[2,1]*E[1,1]           B[2,1]*E[1,2] A[1,1]*F[2,2]+B[2,2]*E[1,1] A[1,2]*F[2,2]+B[2,2]*E[1,2];
+                           0           B[2,1]*E[2,2]           A[2,1]*F[2,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]])
+         end
+      end
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
+   end
+   C[:,:] = Y
+   return C
+end
+function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+      throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapcs!(A, C, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
-   W = Array{Complex{Float64},1}(undef,n)
+   W = Array{T1,1}(undef,n)
    # Compute the hermitian solution
    if adj
       for k = 1:n
@@ -814,11 +1008,10 @@ function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
                    y += C[ic,k]'*E[ic,l] + W[ic]'*A[ic,l]
                 end
             end
-            Z = -y/(A[k,k]'*E[l,l]+E[k,k]'*A[l,l])
-            isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
-            if k == l
-               C[k,l] = real(C[k,l])
-            end
+            temp = A[k,k]'*E[l,l]+E[k,k]'*A[l,l]
+            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
+            C[k,l] = -y/temp
+            k == l && (C[k,k] = real(C[k,k]))
             if l < k
                C[l,k] += C[k,l]'*A[k,k]
                W[l] += C[k,l]'*E[k,k]
@@ -843,11 +1036,10 @@ function lyapcs!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
                    y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic])'
                end
             end
-            Z = -y/(E[k,k]'*A[l,l]+A[k,k]'*E[l,l])
-            isfinite(Z) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
-            if k == l
-               C[k,l] = real(C[k,l])
-            end
+            temp = A[k,k]'*E[l,l]+E[k,k]'*A[l,l]
+            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
+            C[l,k] = -y/temp
+            k == l && (C[k,k] = real(C[k,k]))
             if k > l
                C[k,l] += (A[l,l]*C[l,k])'
                W[k] += (E[l,l]*C[l,k])'
@@ -874,33 +1066,18 @@ where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::T1, C::Union{T1,T2}; adj = false) where 
-   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
 
-   T = eltype(A)
-   TR = real(eltype(C))
-   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
+   ONE = one(T1)
 
    # determine the structure of the real Schur form
-   ba = fill(1,n)
-   p = 1
-   if n > 1
-      d = [diag(A,-1);zeros(1)]
-      i = 1
-      p = 0
-      while i <= n
-         p += 1
-         if d[i] != 0
-            ba[p] = 2
-            i += 1
-         end
-         i += 1
-      end
-   end
+   ba, p = sfstruct(A)
 
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if adj
       """
       The (K,L)th block of X is determined starting from the
@@ -923,33 +1100,33 @@ function lyapds!(A::T1, C::Union{T1,T2}; adj = false) where
           k = i:i+dk-1
           j = 1
           for ll = 1:kk
-              j1 = j+ba[ll]-1
+              dl = ba[ll]
+              j1 = j+dl-1
               l = j:j1
               y = C[k,l]
               if kk > 1
                  ir = 1:i-1
-                 C[l,k] = C[l,ir]*A[ir,k]
+                 # C[l,k] = C[l,ir]*A[ir,k]
+                 mul!(view(C,l,k),view(C,l,ir),view(A,ir,k))
                  ic = 1:j1
-                 y += C[ic,k]'*A[ic,l]
+                 #y += C[ic,k]'*A[ic,l]
+                 mul!(y,transpose(view(C,ic,k)),view(A,ic,l),ONE,ONE)
+               end
+              if i == j 
+                 C[k,k] = lyapd2!(adj,y,dk,view(A,k,k),Xw,Yw)
+              else
+                 C[k,l] = lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)  
               end
-              Z = (I-kron(A[l,l]',A[k,k]'))\y[:]
-              isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
-              if i == j
-                 if dk == 2
-                    temp = C[k,l]
-                    C[k,l] = Hermitian((temp'+temp)/2)
-                 else
-                    C[k,l] = real(C[k,l])
-                 end
-              end
-              j += ba[ll]
+              j += dl
               if j <= i
-                 C[l,k] += C[k,l]'*A[k,k]
+                 # C[l,k] += C[k,l]'*A[k,k]
+                 mul!(view(C,l,k),transpose(view(C,k,l)),view(A,k,k),ONE,ONE)
               end
           end
           if kk > 1
              ir = 1:i-1
-             C[ir,k] = C[k,ir]'
+             # C[ir,k] = C[k,ir]'
+             transpose!(view(C,ir,k),view(C,k,ir))
           end
           i += dk
       end
@@ -976,45 +1153,164 @@ function lyapds!(A::T1, C::Union{T1,T2}; adj = false) where
           l = j-dl+1:j
           i = n
           for kk = p:-1:ll
-              i1 = i-ba[kk]+1
+              dk = ba[kk]
+              i1 = i-dk+1
               k = i1:i
               y = C[l,k]
               if ll < p
                  ir = j+1:n
-                 C[k,l] = C[k,ir]*A[l,ir]'
+                 # C[k,l] = C[k,ir]*A[l,ir]'
+                 mul!(view(C,k,l),view(C,k,ir),transpose(view(A,l,ir)))
                  ic = i1:n
-                 y += (A[k,ic]*C[ic,l])'
+                 # y += (A[k,ic]*C[ic,l])'
+                 mul!(y,transpose(view(C,ic,l)),transpose(view(A,k,ic)),ONE,ONE)
               end
-              Z = (I-kron(A[k,k],A[l,l]))\y[:]
-              isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
-              if i == j
-                 if dl == 2
-                    temp = C[l,k]
-                    C[l,k] = Hermitian((temp'+temp)/2)
-                 else
-                    C[l,k] = real(C[l,k])
-                 end
+              if i == j 
+                 C[k,k] = lyapd2!(adj,y,dk,view(A,k,k),Xw,Yw)
+              else
+                 C[l,k] = lyapdsylv2!(adj,y,dl,dk,view(A,l,l),view(A,k,k),Xw,Yw)  
               end
-              i = i-ba[kk]
+              i -= dk
               if i >= j
-                 C[k,l] += (A[l,l]*C[l,k])'
+                 #C[k,l] += (A[l,l]*C[l,k])'
+                 mul!(view(C,k,l),transpose(view(C,l,k)),transpose(view(A,l,l)),ONE,ONE)
               else
                  break
               end
           end
           if ll < p
              ir = i+2:n
-             C[ir,l] = C[l,ir]'
+             # C[ir,l] = C[l,ir]'
+             transpose!(view(C,ir,l),view(C,l,ir))
           end
-          j = j-dl
+          j -= dl
       end
    end
 end
-
-function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+@inline function lyapd2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+   # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
+   #      A'*X*A - X = -C if adj = true  -> R = kron(A',A')-I = (kron(A,A)-I)'
+   #      A*X*A' - X = -C if adj = false -> R = kron(A,A)-I
+   MONE = -one(T)
+   if na == 1 
+      temp = A[1,1]^2+MONE
+      iszero(temp) && throw("ME:SingularException: A has eigenvalue(s) with moduli equal to one")
+      return rmul!(C,inv(-temp))
+   end
+   TWO = 2*one(T)
+   i1 = 1:3
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y = [-C[1]; -C[2]; -C[4]]
+   if adj
+      # Rt = 
+      # [ a11^2-1              2*a11*a21      a21^2]
+      # [   a11*a12  a11*a22+a12*a21-1    a21*a22]
+      # [     a12^2              2*a12*a22  a22^2-1]
+      @inbounds R = [ A[1,1]^2+MONE    TWO*A[1,1]*A[2,1]         A[2,1]^2;
+                      A[1,1]*A[1,2]    A[1,1]*A[2,2]+A[1,2]*A[2,1]+MONE  A[2,1]*A[2,2];
+                      A[1,2]^2         TWO*A[1,2]*A[2,2]         A[2,2]^2+MONE ] 
+   else
+      # R = 
+      # [ a11^2-1              2*a11*a12      a12^2]
+      # [   a11*a21  a11*a22+a12*a21-1    a12*a22]
+      # [     a21^2              2*a21*a22  a22^2-1]
+       
+      @inbounds R = [ A[1,1]^2+MONE    TWO*A[1,1]*A[1,2]         A[1,2]^2;
+                      A[1,1]*A[2,1]    A[1,1]*A[2,2]+A[1,2]*A[2,1]+MONE  A[1,2]*A[2,2];
+                      A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2+MONE ] 
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
+   end
+   C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
+   return C
+end
+@inline function lyapdsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},B::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
+   # encountered in solving discrete Lyapunov equations: 
+   #      A'*X*B - X = -C if adj = true  -> R = kron(B',A') - I = (kron(B,A)-I)'
+   #      A*X*B' - X = -C if adj = false -> R = kron(B,A)-I
+   MONE = -one(T)
+   if na == 1 && nb == 1
+      temp = A[1,1]*B[1,1] + MONE
+      iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
+      return rmul!(C,inv(-temp))
+   end
+   nv = na*nb
+   i1 = 1:nv
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y[:] = -C[i1]
+   if adj
+      if na == 1
+         # R12t = 
+         # [ a11*b11-1      a11*b21]
+         # [     a11*b12  a11*b22-1]
+         @inbounds R = [ A[1,1]*B[1,1]+MONE      A[1,1]*B[2,1];
+                         A[1,1]*B[1,2]  A[1,1]*B[2,2]+MONE]
+      else
+         if nb == 1
+            # R21t = 
+            # [ a11*b11-1      a21*b11]
+            # [     a12*b11  a22*b11-1]
+            @inbounds R = [ A[1,1]*B[1,1]+MONE      A[2,1]*B[1,1];
+                            A[1,2]*B[1,1]  A[2,2]*B[1,1]+MONE ]
+         else
+            # Rt = 
+            # [ a11*b11-1      a21*b11      a11*b21      a21*b21]
+            # [     a12*b11  a22*b11-1      a12*b21      a22*b21]
+            # [     a11*b12      a21*b12  a11*b22-1      a21*b22]
+            # [     a12*b12      a22*b12      a12*b22  a22*b22-1]
+            @inbounds R = [ A[1,1]*B[1,1]+MONE      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
+            A[1,2]*B[1,1]  A[2,2]*B[1,1]+MONE      A[1,2]*B[2,1]      A[2,2]*B[2,1];
+            A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+MONE      A[2,1]*B[2,2];
+            A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+MONE]
+         end
+      end
+   else
+      if na == 1
+         # R12 =
+         # [ a11*b11-1      a11*b12]
+         # [     a11*b21  a11*b22-1]
+         @inbounds R = [ A[1,1]*B[1,1]+MONE      A[1,1]*B[1,2];
+                         A[1,1]*B[2,1]  A[1,1]*B[2,2]+MONE]
+      else
+         if nb == 1
+            # R21 =
+            #    [ a11*b11-1      a12*b11]
+            #    [     a21*b11  a22*b11-1]
+            @inbounds R = [ A[1,1]*B[1,1]+MONE      A[1,2]*B[1,1];
+                            A[2,1]*B[1,1]  A[2,2]*B[1,1]+MONE]
+         else
+            # R = 
+            # [ a11*b11-1      a12*b11      a11*b12      a12*b12]
+            # [     a21*b11  a22*b11-1      a21*b12      a22*b12]
+            # [     a11*b21      a12*b21  a11*b22-1      a12*b22]
+            # [     a21*b21      a22*b21      a21*b22  a22*b22-1]
+            @inbounds R = [ A[1,1]*B[1,1]+MONE      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
+            A[2,1]*B[1,1]  A[2,2]*B[1,1]+MONE      A[2,1]*B[1,2]      A[2,2]*B[1,2];
+            A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+MONE      A[1,2]*B[2,2];
+            A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+MONE]
+         end
+      end
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
+   end
+   C[:,:] = Y
+   return C
+end
+function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+      throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
+
+   ONE = one(T1)
 
    # Compute the hermitian solution
    if adj
@@ -1027,14 +1323,13 @@ function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float
                   C[l,k] +=  C[l,ir]*A[ir,k]
                end
                for ic = 1:l
-                   y += C[ic,k]'*A[ic,l]
-                end
+                  y += C[ic,k]'*A[ic,l]
+               end
             end
-            Z = y/(I-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
-            if k == l
-               C[k,l] = real(C[k,l])
-            end
+            temp = ONE-A[k,k]'*A[l,l]
+            iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
+            C[k,l] = y/temp 
+            k == l && (C[k,k] = real(C[k,k]))
             if l < k
                C[l,k] += C[k,l]'*A[k,k]
             end
@@ -1056,11 +1351,10 @@ function lyapds!(A::T1, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float
                    y += (A[k,ic]*C[ic,l])'
                end
             end
-            Z = y/(I-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[l,k] = Z : throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
-            if k == l
-               C[k,l] = real(C[k,l])
-            end
+            temp = ONE-A[k,k]'*A[l,l]
+            iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
+            C[l,k] = y/temp 
+            k == l && (C[k,k] = real(C[k,k]))
             if k > l
                C[k,l] += (A[l,l]*C[l,k])'
             end
@@ -1086,36 +1380,23 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj = false) where 
-   {T1<:Union{Matrix{Float32},Matrix{Float64}}, T2<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}} }
+function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric/hermitian matrix"))
+   (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
+      throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapds!(A, C, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
-   T = eltype(A)
-   TR = real(eltype(C))
-   T == TR || error("TypeError: for real part of C expected Type{$T}, got Type{$TR}")
- 
-   # determine the structure of the real Schur form
-   ba = fill(1,n)
-   p = 1
-   if n > 1
-      d = [diag(A,-1);zeros(1)]
-      i = 1
-      p = 0
-      while i <= n
-         p += 1
-         if d[i] != 0
-            ba[p] = 2
-            i += 1
-         end
-         i += 1
-      end
-   end
+   ONE = one(T1)
+   MONE = -ONE
+   ZERO = zero(T1)
 
-   W = Array{eltype(C),2}(undef,n,2)
+   # determine the structure of the real Schur form
+   ba, p = sfstruct(A)
+
+   W = Array{T1,2}(undef,n,2)
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if adj
       """
       The (K,L)th block of X is determined starting from the
@@ -1147,35 +1428,41 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj 
           k = i:i+dk-1
           j = 1
           for ll = 1:kk
-             j1 = j+ba[ll]-1
+             dl = ba[ll]
+             j1 = j+dl-1
              l = j:j1
              y = C[k,l]
              if kk > 1
                  ir = 1:i-1
-                 C[l,k] = C[l,ir]*A[ir,k]
-                 W[l,dkk] = C[l,ir]*E[ir,k]
+                 # C[l,k] = C[l,ir]*A[ir,k]
+                 # W[l,dkk] = C[l,ir]*E[ir,k]
+                 mul!(view(C,l,k),view(C,l,ir),view(A,ir,k))
+                 mul!(view(W,l,dkk),view(C,l,ir),view(E,ir,k))
                  ic = 1:j1
-                 y += C[ic,k]'*A[ic,l] -W[ic,dkk]'*E[ic,l]
+                 # y += C[ic,k]'*A[ic,l] -W[ic,dkk]'*E[ic,l]
+                 mul!(y,transpose(view(C,ic,k)),view(A,ic,l),ONE,ONE)
+                 mul!(y,transpose(view(W,ic,dkk)),view(E,ic,l),MONE,ONE)
              end
-             Z = (kron(E[l,l]',E[k,k]')-kron(A[l,l]',A[k,k]'))\y[:]
-             isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
-             if i == j
-                if dk == 2
-                   temp = C[k,l]
-                   C[k,l] = Hermitian((temp'+temp)/2)
-                else
-                   C[k,l] = real(C[k,l])
-                end
+             if i == j 
+                C[k,k] = lyapd2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+             else
+                C[k,l] = lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(E,k,k),view(A,l,l),view(E,l,l),Xw,Yw)  
+               #  Z = (kron(E[l,l]',E[k,k]')-kron(A[l,l]',A[k,k]'))\y[:]
+               #  isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+               #  C[k,l] = real(C[k,l])
              end
-             j += ba[ll]
+             j += dl
              if j <= i
-                 C[l,k] += C[k,l]'*A[k,k]
-                 W[l,dkk] += C[k,l]'*E[k,k]
-             end
+                 # C[l,k] += C[k,l]'*A[k,k]
+                 # W[l,dkk] += C[k,l]'*E[k,k]
+                 mul!(view(C,l,k),transpose(view(C,k,l)),view(A,k,k),ONE,ONE)
+                 mul!(view(W,l,dkk),transpose(view(C,k,l)),view(E,k,k),ONE,ONE)
+              end
           end
           if kk > 1
              ir = 1:i-1
-             C[ir,k] = C[k,ir]'
+             # C[ir,k] = C[k,ir]'
+             transpose!(view(C,ir,k),view(C,k,ir))
           end
           i += dk
       end
@@ -1203,7 +1490,7 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj 
                   N
                { SUM [E(K,J)*X(J,L)]}*E(L,L)'
                 J=K+1
-   """
+      """
       j = n
       for ll = p:-1:1
         dl = ba[ll]
@@ -1211,51 +1498,192 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::Union{T1,T2}; adj 
         dll = 1:dl
         i = n
         for kk = p:-1:ll
-            i1 = i-ba[kk]+1
+            dk = ba[kk]
+            i1 = i-dk+1
             k = i1:i
             y = C[l,k]
             if ll < p
                ir = j+1:n
-               C[k,l] = C[k,ir]*A[l,ir]'
-               W[k,dll] = C[k,ir]*E[l,ir]'
+               # C[k,l] = C[k,ir]*A[l,ir]'
+               # W[k,dll] = C[k,ir]*E[l,ir]'
+               mul!(view(C,k,l),view(C,k,ir),transpose(view(A,l,ir)))
+               mul!(view(W,k,dll),view(C,k,ir),transpose(view(E,l,ir)))
                ic = i1:n
-               y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic,dll])'
+               # y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic,dll])'
+               mul!(y,transpose(view(C,ic,l)),transpose(view(A,k,ic)),ONE,ONE)
+               mul!(y,transpose(view(W,ic,dll)),transpose(view(E,k,ic)),MONE,ONE)
             end
-            Z = (kron(E[k,k],E[l,l])-kron(A[k,k],A[l,l]))\y[:]
-            isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
-            if i == j
-               if dl == 2
-                  temp = C[l,k]
-                  C[l,k] = Hermitian((temp'+temp)/2)
-               else
-                  C[l,k] = real(C[l,k])
-               end
+            if i == j 
+               C[k,k] = lyapd2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+            else
+               C[l,k] = lyapdsylv2!(adj,y,dl,dk,view(A,l,l),view(E,l,l),view(A,k,k),view(E,k,k),Xw,Yw)  
+               # Z = (kron(E[k,k],E[l,l])-kron(A[k,k],A[l,l]))\y[:]
+               # isfinite(maximum(abs.(Z))) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+               # C[l,k] = real(C[l,k])
             end
-            i = i-ba[kk]
+            i -= dk
             if i >= j
-               C[k,l] += (A[l,l]*C[l,k])'
-               W[k,dll] += (E[l,l]*C[l,k])'
+               # C[k,l] += (A[l,l]*C[l,k])'
+               # W[k,dll] += (E[l,l]*C[l,k])'
+               mul!(view(C,k,l),transpose(view(C,l,k)),transpose(view(A,l,l)),ONE,ONE)
+               mul!(view(W,k,dll),transpose(view(C,l,k)),transpose(view(E,l,l)),ONE,ONE)
             else
                break
             end
         end
         if ll < p
            ir = i+2:n
-           C[ir,l] = C[l,ir]'
-        end
-        j = j-dl
+           # C[ir,l] = C[l,ir]'
+           transpose!(view(C,ir,l),view(C,l,ir))
+         end
+        j -= dl
       end
    end
 end
-
-function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) where T1<:Union{Matrix{Complex{Float64}},Matrix{Complex{Float32}}}
+@inline function lyapd2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},E::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+   # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
+   #      A'*X*A - E'*X*E = -C if adj = true  -> R = kron(A',A')-kron(E',E') = (kron(A,A)-kron(E,E))'
+   #      A*X*A' - E*X*E' = -C if adj = false -> R = kron(A,A)-kron(E,E)
+   MONE = -one(T)
+   if na == 1 
+      temp = E[1,1]^2-A[1,1]^2
+      iszero(temp) && throw("ME:SingularException: A-λE has eigenvalue(s) with moduli equal to one")
+      return rmul!(C,inv(temp))
+   end
+   TWO = 2*one(T)
+   i1 = 1:3
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y = [-C[1]; -C[2]; -C[4]]
+   if adj
+      # Rt = 
+      # [     a11^2 - e11^2,                   2*a11*a21,         a21^2]
+      # [ a11*a12 - e11*e12, a11*a22 + a12*a21 - e11*e22,       a21*a22]
+      # [     a12^2 - e12^2,       2*a12*a22 - 2*e12*e22, a22^2 - e22^2]
+      iszero(E[1,2]) ? 
+         (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*A[1,1]*A[2,1]         A[2,1]^2;
+                      A[1,1]*A[1,2]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[2,1]*A[2,2];
+                      A[1,2]^2         TWO*A[1,2]*A[2,2]         A[2,2]^2-E[2,2]^2 ] ) :
+         (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*A[1,1]*A[2,1]         A[2,1]^2;
+                      A[1,1]*A[1,2]-E[1,1]*E[1,2]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[2,1]*A[2,2];
+                      A[1,2]^2-E[1,2]^2         TWO*(A[1,2]*A[2,2]-E[1,2]*E[2,2])         A[2,2]^2-E[2,2]^2 ]) 
+   else
+      # R = 
+      # [ a11^2 - e11^2,       2*a11*a12 - 2*e11*e12,     a12^2 - e12^2]
+      # [       a11*a21, a11*a22 + a12*a21 - e11*e22, a12*a22 - e12*e22]
+      # [         a21^2,                   2*a21*a22,     a22^2 - e22^2]
+      iszero(E[1,2]) ? 
+         (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*A[1,1]*A[1,2]         A[1,2]^2;
+                      A[1,1]*A[2,1]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[1,2]*A[2,2];
+                      A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2-E[2,2]^2 ] ) : 
+             
+         (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*(A[1,1]*A[1,2]-E[1,1]*E[1,2])         A[1,2]^2-E[1,2]^2;
+                      A[1,1]*A[2,1]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[1,2]*A[2,2]-E[1,2]*E[2,2];
+                      A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2-E[2,2]^2 ] )
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+   end
+   C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
+   return C
+end
+@inline function lyapdsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},E::StridedMatrix{T},B::StridedMatrix{T},F::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
+   # encountered in solving discrete Lyapunov equations: 
+   #      A'*X*B - E'*X*F = -C if adj = true  -> R = kron(B',A') - kron(F',E') = (kron(B,A)-kron(F,E))'
+   #      A*X*B' - E*X*F' = -C if adj = false -> R = kron(B,A)-kron(F,E)
+   MONE = -one(T)
+   if na == 1 && nb == 1
+      temp = E[1,1]*F[1,1] - A[1,1]*B[1,1] 
+      iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+      return rmul!(C,inv(temp))
+   end
+   nv = na*nb
+   i1 = 1:nv
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y[:] = -C[i1]
+   if adj
+      if na == 1
+         # R12t = 
+         # [ a11*b11 - e11*f11,           a11*b21]
+         # [ a11*b12 - e11*f12, a11*b22 - e11*f22]          
+         @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,1]*B[2,1];
+                         A[1,1]*B[1,2]-E[1,1]*F[1,2]  A[1,1]*B[2,2]-E[1,1]*F[2,2]]
+      else
+         if nb == 1
+            # R21t =
+            # [ a11*b11 - e11*f11,           a21*b11]
+            # [ a12*b11 - e12*f11, a22*b11 - e22*f11]            
+            @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[2,1]*B[1,1];
+                            A[1,2]*B[1,1]-E[1,2]*F[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1] ]
+         else
+            # Rt = 
+            # [ a11*b11 - e11*f11,           a21*b11,           a11*b21,           a21*b21]
+            # [ a12*b11 - e12*f11, a22*b11 - e22*f11,           a12*b21,           a22*b21]
+            # [ a11*b12 - e11*f12,           a21*b12, a11*b22 - e11*f22,           a21*b22]
+            # [ a12*b12 - e12*f12, a22*b12 - e22*f12, a12*b22 - e12*f22, a22*b22 - e22*f22]
+            (iszero(E[1,2]) && iszero(F[1,2])) ?   
+            (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
+            A[1,2]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
+            A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[2,1]*B[2,2];
+            A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]]) : 
+            (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
+            A[1,2]*B[1,1]-E[1,1]*F[1,2]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
+            A[1,1]*B[1,2]-E[1,1]*F[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[2,1]*B[2,2];
+            A[1,2]*B[1,2]-E[1,2]*F[1,2]      A[2,2]*B[1,2]-E[2,2]*F[1,2]      A[1,2]*B[2,2]-E[1,2]*F[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]])  
+         end
+      end
+   else
+      if na == 1
+         # R12 = 
+         # [ a11*b11 - e11*f11, a11*b12 - e11*f12]
+         # [           a11*b21, a11*b22 - e11*f22]
+         @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,1]*B[1,2]-E[1,1]*F[1,2];
+                         A[1,1]*B[2,1]  A[1,1]*B[2,2]-E[1,1]*F[2,2]]
+      else
+         if nb == 1
+            # R21 = 
+            # [ a11*b11 - e11*f11, a12*b11 - e12*f11]
+            # [           a21*b11, a22*b11 - e22*f11]
+            @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,2]*B[1,1]-E[1,2]*F[1,1];
+                            A[2,1]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]]
+         else
+            # R = 
+            # [ a11*b11 - e11*f11, a12*b11 - e12*f11, a11*b12 - e11*f12, a12*b12 - e12*f12]
+            # [           a21*b11, a22*b11 - e22*f11,           a21*b12, a22*b12 - e22*f12]
+            # [           a11*b21,           a12*b21, a11*b22 - e11*f22, a12*b22 - e12*f22]
+            # [           a21*b21,           a22*b21,           a21*b22, a22*b22 - e22*f22]
+            (iszero(E[1,2]) && iszero(F[1,2])) ?   
+            (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
+            A[2,1]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2];
+            A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[1,2]*B[2,2];
+            A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]]) : 
+            (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,2]*B[1,1]-E[1,2]*F[1,1]      A[1,1]*B[1,2]-E[1,1]*F[1,2]      A[1,2]*B[1,2]-E[1,2]*F[1,2];
+            A[2,1]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2]-E[2,2]*F[1,2];
+            A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[1,2]*B[2,2]-E[1,2]*F[2,2];
+            A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]])
+         end
+      end
+   end
+   try
+      ldiv!(lu!(R),Y)
+   catch 
+      throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+   end
+   C[:,:] = Y
+   return C
+end
+function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (lyapds!(A, C, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
-   W = Array{Complex{Float64},1}(undef,n)
+   W = Array{T1,1}(undef,n)
    # Compute the hermitian solution
    if adj
       for k = 1:n
@@ -1272,11 +1700,10 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
                    y += C[ic,k]'*A[ic,l] - W[ic]'*E[ic,l]
                 end
             end
-            Z = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
-            if k == l
-               C[k,l] = real(C[k,l])
-            end
+            temp = E[k,k]'*E[l,l]-A[k,k]'*A[l,l]
+            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+            C[k,l] = y/temp  
+            k == l && (C[k,k] = real(C[k,k]))
             if l < k
                C[l,k] += C[k,l]'*A[k,k]
                W[l] += C[k,l]'*E[k,k]
@@ -1301,11 +1728,10 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
                    y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic])'
                end
             end
-            Z = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
-            isfinite(Z) ? C[l,k] = Z : throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
-            if k == l
-               C[k,l] = real(C[k,l])
-            end
+            temp = E[k,k]'*E[l,l]-A[k,k]'*A[l,l]
+            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
+            C[l,k] = y/temp  
+            k == l && (C[k,k] = real(C[k,k]))
             if k > l
                C[k,l] += (A[l,l]*C[l,k])'
                W[k] += (E[l,l]*C[l,k])'
@@ -1318,4 +1744,17 @@ function lyapds!(A::T1, E::Union{T1,UniformScaling{Bool}}, C::T1; adj = false) w
         end
       end
    end
+end
+# fallback for versions prior 1.3
+if VERSION < v"1.3.0" 
+   mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::StridedMatrix{T}, α::T, β::T) where {T<:BlasReal} = 
+                           BLAS.gemm!('N', 'N', α, A, B, β, C)
+   mul!(C::StridedMatrix{T}, adjA::Transpose{T,<:StridedMatrix{T}}, B::StridedMatrix{T}, α::T, β::T) where {T<:BlasReal} = 
+                           BLAS.gemm!('T', 'N', α, parent(adjA), B, β, C)
+   mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, adjB::Transpose{T,<:StridedMatrix{T}}, α::T, β::T) where {T<:BlasReal} = 
+                           BLAS.gemm!('N', 'T', α, A, parent(adjB),  β, C)
+   mul!(C::StridedMatrix{T}, adjA::Transpose{T,<:StridedMatrix{T}}, adjB::Transpose{T,<:StridedMatrix{T}}, α::T, β::T) where {T<:BlasReal} = 
+                           BLAS.gemm!('T', 'T', α, parent(adjA), parent(adjB),  β, C)
+   mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where {T<:BlasReal} = 
+        mul!(C,A,B,one(T),zero(T))
 end

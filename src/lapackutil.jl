@@ -4,7 +4,7 @@ const liblapack = Base.liblapack_name
 
 import LinearAlgebra.BLAS.@blasfunc
 
-import LinearAlgebra: BlasFloat, BlasInt, LAPACKException,
+import LinearAlgebra: BlasFloat, BlasInt, BlasReal, BlasComplex, LAPACKException,
     DimensionMismatch, SingularException, PosDefException, chkstride1, checksquare
 
 using Base: iszero, has_offset_axes
@@ -12,13 +12,8 @@ using Base: iszero, has_offset_axes
 export tgsyl!, lanv2, ladiv, lag2, lacn2!
 
 function chklapackerror(ret::BlasInt)
-    if ret == 0
-        return
-    elseif ret < 0
-        throw(ArgumentError("invalid argument #$(-ret) to LAPACK call"))
-    else # ret > 0
-        throw(LAPACKException(ret))
-    end
+   ret == 0 && return
+   ret < 0 ? throw(ArgumentError("invalid argument #$(-ret) to LAPACK call")) : throw(LAPACKException(ret))
 end
 
 
@@ -135,7 +130,7 @@ standardised Schur form. `RT1R+im*RT1I` and `RT2R+im*RT2I` are the resulting eig
 `CS` and `SN` are the parameters of the rotation matrix.
 Interface to the LAPACK subroutines DLANV2/SLANV2.
 """
-lanv2(A::Union{Float32,Float64}, B::Union{Float32,Float64}, C::Union{Float32,Float64}, D::Union{Float32,Float64})
+lanv2(A::BlasReal, B::BlasReal, C::BlasReal, D::BlasReal)
 
 
 for (fn, elty) in ((:dlag2_, :Float64),
@@ -175,7 +170,14 @@ If `WI = 0`, `WR1/SCALE1` and `WR2/SCALE2` are the resulting real eigenvalues, w
 if `WI <> 0`, then `(WR1+/-im*WI)/SCALE1` are the resulting complex eigenvalues.
 Interface to the LAPACK subroutines DLAG2/SLAG2.
 """
-lag2(A::StridedMatrix{Union{Float32,Float64}}, B::StridedMatrix{Union{Float32,Float64}}, SAFMIN::Union{Float32,Float64})
+lag2(A::StridedMatrix{BlasReal}, B::StridedMatrix{BlasReal}, SAFMIN::BlasReal) 
+
+lag2(A::StridedMatrix{T}, B::StridedMatrix{T}) where T <: BlasReal = lag2(A,B,safemin(T))
+
+function safemin(::Type{T}) where T <: BlasReal
+    SMLNUM = (T == Float64) ? reinterpret(Float64, 0x2000000000000000) : reinterpret(Float32, 0x20000000)
+    return SMLNUM * 2/ eps(T)
+end
 
 for (fn, elty) in ((:dladiv_, :Float64),
                    (:sladiv_, :Float32))
@@ -206,7 +208,7 @@ Perform the complex division in real arithmetic
 by avoiding unnecessary overflow.
 Interface to the LAPACK subroutines DLADIV/SLADIV.
 """
-ladiv(A::Union{Float32,Float64}, B::Union{Float32,Float64}, C::Union{Float32,Float64}, D::Union{Float32,Float64})
+ladiv(A::BlasReal, B::BlasReal, C::BlasReal, D::BlasReal)
 
 for (fn, elty) in ((:dlacn2_, :Float64),
                    (:slacn2_, :Float32))
@@ -216,9 +218,7 @@ for (fn, elty) in ((:dlacn2_, :Float64),
             @assert !has_offset_axes(V, X)
             chkstride1(V,X)
             n = length(V)
-            if n != length(X) || n != length(ISGN)
-                throw(DimensionMismatch("dimensions of V,  X, and ISIGN must be equal"))
-            end
+            (n != length(X) || n != length(ISGN)) && throw(DimensionMismatch("dimensions of V,  X, and ISIGN must be equal"))
             """
             *       SUBROUTINE DLACN2( N, V, X, ISGN, EST, KASE, ISAVE )
             *
@@ -256,7 +256,7 @@ vector and `ISAVE` is a 3-dimensional integer vector used to save information
 between the calls.
 Interface to the LAPACK subroutines DLACN2/SLACN2.
 """
-lacn2!(V::AbstractVector{Union{Float32,Float64}}, X::AbstractVector{Union{Float32,Float64}}, ISGN::AbstractVector{Int64}, EST::Union{Float32,Float64}, KASE::Int64, ISAVE::AbstractVector{Int64})
+lacn2!(V::AbstractVector{BlasReal}, X::AbstractVector{BlasReal}, ISGN::AbstractVector{BlasInt}, EST::BlasReal, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
 
 
 for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
@@ -304,6 +304,6 @@ for the 1-norm of `A`. `V` is a complex work vector and `ISAVE` is a 3-dimension
 integer vector used to save information between the calls.
 Interface to the LAPACK subroutines ZLACN2/CLACN2.
 """
-lacn2!(V::AbstractVector{Union{ComplexF32,ComplexF64}}, X::AbstractVector{Union{ComplexF32,ComplexF64}}, EST::Union{Float32,Float64}, KASE::Int64, ISAVE::AbstractVector{Int64})
+lacn2!(V::AbstractVector{BlasComplex}, X::AbstractVector{BlasComplex}, EST::Union{Float32,Float64}, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
 
 end

@@ -419,12 +419,12 @@ function invlyapsop(A; disc = false, her = false)
    cmplx = T<:Complex
    function prod(x)
      T1 = promote_type(T, eltype(x))
-     if T !== T1
+     if T != T1
         if cmplx
            A = convert(Matrix{T1},A)
         else
            T1r = real(T1)
-           if T1r !== T
+           if T1r != T
               A = convert(Matrix{T1r},A)
            end
         end
@@ -451,12 +451,12 @@ function invlyapsop(A; disc = false, her = false)
    end
    function tprod(x)
      T1 = promote_type(T, eltype(x))
-     if T !== T1
+     if T != T1
         if cmplx
            A = convert(Matrix{T1},A)
         else
            T1r = real(T1)
-           if T1r !== T
+           if T1r != T
               A = convert(Matrix{T1r},A)
            end
         end
@@ -487,12 +487,12 @@ function invlyapsop(A; disc = false, her = false)
    end
    function ctprod(x)
      T1 = promote_type(T, eltype(x))
-     if T !== T1
+     if T != T1
        if cmplx
           A = convert(Matrix{T1},A)
        else
           T1r = real(T1)
-          if T1r !== T
+          if T1r != T
              A = convert(Matrix{T1r},A)
           end
        end
@@ -562,13 +562,13 @@ function invlyapsop(A, E; disc = false, her = false)
    isschur(A,E) || error("The matrix pair (A,E) must be in generalized Schur form")
    function prod(x)
      T1 = promote_type(T, eltype(x))
-     if T !== T1
+     if T != T1
        if cmplx
          A = convert(Matrix{T1},A)
          E = convert(Matrix{T1},E)
        else
          T1r = real(T1)
-         if T1r !== T
+         if T1r != T
             A = convert(Matrix{T1r},A)
             E = convert(Matrix{T1},E)
          end
@@ -592,13 +592,13 @@ function invlyapsop(A, E; disc = false, her = false)
    end
    function tprod(x)
     T1 = promote_type(T, eltype(x))
-    if T !== T1
+    if T != T1
       if cmplx
          A = convert(Matrix{T1},A)
          E = convert(Matrix{T1},E)
       else
          T1r = real(T1)
-         if T1r !== T
+         if T1r != T
             A = convert(Matrix{T1r},A)
             E = convert(Matrix{T1},E)
          end
@@ -622,13 +622,13 @@ function invlyapsop(A, E; disc = false, her = false)
    end
    function ctprod(x)
     T1 = promote_type(T, eltype(x))
-    if T !== T1
+    if T != T1
       if cmplx
          A = convert(Matrix{T1},A)
          E = convert(Matrix{T1},E)
       else
          T1r = real(T1)
-         if T1r !== T
+         if T1r != T
             A = convert(Matrix{T1r},A)
             E = convert(Matrix{T1},E)
          end
@@ -761,10 +761,10 @@ function invsylvsop(A, B; disc = false)
   T <: BlasFloat || (T = promote_type(Float64,T))
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
-  if eltype(A) !== T
+  if eltype(A) != T
     adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A)
   end 
-  if eltype(B) !== T
+  if eltype(B) != T
     adjB ? B = convert(Matrix{T},B.parent)' :  B = convert(Matrix{T},B) 
   end 
   cmplx = T<:Complex
@@ -781,13 +781,13 @@ function invsylvsop(A, B; disc = false)
   function prod(x)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
+    if T != T1
       if cmplx
          adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
       else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
           adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
           adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
         end
@@ -824,13 +824,13 @@ function invsylvsop(A, B; disc = false)
   function tprod(x)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
+    if T != T1
       if cmplx
          adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
       else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
           adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
           adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
         end
@@ -867,13 +867,13 @@ function invsylvsop(A, B; disc = false)
   function ctprod(x)
     T1 = promote_type(T, eltype(x))
     C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
+    if T != T1
       if cmplx
          adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
       else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
           adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
           adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
         end
@@ -1044,7 +1044,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   function prod(x)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
+    if T != T1
       if cmplx
          adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
@@ -1052,7 +1052,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
          adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
       else
          T1r = real(T1)
-         if T1r !== T
+         if T1r != T
             adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
             adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
             adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
@@ -1078,7 +1078,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   function tprod(x)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
+    if T != T1
       if cmplx
          adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
@@ -1086,7 +1086,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
          adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
          else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
           adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
           adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
           adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
@@ -1112,7 +1112,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
   function ctprod(x)
     T1 = promote_type(T, eltype(x))
     Y = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T !== T1
+    if T != T1
       if cmplx
          adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
          adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
@@ -1120,7 +1120,7 @@ function invsylvsop(A, B, C, D; DBSchur = false)
          adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
          else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
           adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
           adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
           adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
@@ -1266,7 +1266,7 @@ function invsylvsyssop(A, B, C, D)
     T1 = promote_type(T, eltype(x))
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    if T !== T1
+    if T != T1
       if cmplx
          A = convert(Matrix{T1},A) 
          B = convert(Matrix{T1},B) 
@@ -1274,7 +1274,7 @@ function invsylvsyssop(A, B, C, D)
          D = convert(Matrix{T1},D) 
       else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
          A = convert(Matrix{T1r},A) 
          B = convert(Matrix{T1r},B) 
          C = convert(Matrix{T1r},C) 
@@ -1293,7 +1293,7 @@ function invsylvsyssop(A, B, C, D)
     T1 = promote_type(T, eltype(x))
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    if T !== T1
+    if T != T1
       if cmplx
          A = convert(Matrix{T1},A) 
          B = convert(Matrix{T1},B) 
@@ -1301,7 +1301,7 @@ function invsylvsyssop(A, B, C, D)
          D = convert(Matrix{T1},D) 
       else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
          A = convert(Matrix{T1r},A) 
          B = convert(Matrix{T1r},B) 
          C = convert(Matrix{T1r},C) 
@@ -1320,7 +1320,7 @@ function invsylvsyssop(A, B, C, D)
     T1 = promote_type(T, eltype(x))
     E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
     F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    if T !== T1
+    if T != T1
       if cmplx
          A = convert(Matrix{T1},A) 
          B = convert(Matrix{T1},B) 
@@ -1328,7 +1328,7 @@ function invsylvsyssop(A, B, C, D)
          D = convert(Matrix{T1},D) 
       else
         T1r = real(T1)
-        if T1r !== T
+        if T1r != T
          A = convert(Matrix{T1r},A) 
          B = convert(Matrix{T1r},B) 
          C = convert(Matrix{T1r},C) 

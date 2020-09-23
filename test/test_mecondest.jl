@@ -122,8 +122,8 @@ try
 @time x = Tcrssyminv*triu2vec(cr);
 @test norm(Tcrssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tcrssyminv*triu2vec(cc);
-@test norm(Tcrssym*x-triu2vec(cc))/norm(x[:]) < reltol
+# @time x = Tcrssyminv*triu2vec(cc);
+# @test norm(Tcrssym*x-triu2vec(cc))/norm(x[:]) < reltol
 
 @time x = transpose(Tcrssyminv)*triu2vec(cr);
 @test norm(transpose(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
@@ -302,8 +302,8 @@ end
 @time x = Tcrssyminv*triu2vec(cr);
 @test norm(Tcrssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tcrssyminv*triu2vec(cc);
-@test norm(Tcrssym*x-triu2vec(cc))/norm(x[:]) < reltol
+# @time x = Tcrssyminv*triu2vec(cc);
+# @test norm(Tcrssym*x-triu2vec(cc))/norm(x[:]) < reltol
 
 @time x = transpose(Tcrssyminv)*triu2vec(cr);
 @test norm(transpose(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
@@ -444,8 +444,8 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
 @time x = Tdrssyminv*triu2vec(cr);
 @test norm(Tdrssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tdrssyminv*triu2vec(cc);
-@test norm(Tdrssym*x-triu2vec(cc))/norm(x[:]) < reltol
+# @time x = Tdrssyminv*triu2vec(cc);
+# @test norm(Tdrssym*x-triu2vec(cc))/norm(x[:]) < reltol
 
 @time x = transpose(Tdrsyminv)*triu2vec(cr);
 @test norm(transpose(Tdrsym)*x-triu2vec(cr))/norm(x[:]) < reltol
