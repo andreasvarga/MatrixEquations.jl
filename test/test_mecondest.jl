@@ -65,11 +65,8 @@ Tccssyminv = invlyapsop(acs,her=true);
 try
    T = invlyapsop(convert(Matrix{Float32},as));
    T*rand(n*n);
-   T*complex(rand(n*n));
    transpose(T)*rand(n*n);
-   transpose(T)*complex(rand(n*n));
    adjoint(T)*rand(n*n);
-   adjoint(T)*complex(rand(n*n));
    T = invlyapsop(convert(Matrix{Complex{Float32}},acs));
     T*rand(n*n);
     T*complex(rand(n*n));
@@ -107,23 +104,14 @@ try
 @time x = Tcrsinv*cr[:]
 @test norm(Tcrs*x-cr[:])/norm(x[:]) < reltol
 
-@time x = Tcrsinv*cc[:]
-@test norm(Tcrs*x-cc[:])/norm(x[:]) < reltol
-
 @time x = Tcrsinv*real(cc[:])+im*Tcrsinv*imag(cc[:])
 @test norm(Tcrs*x-cc[:])/norm(x[:]) < reltol
 
 @time x = transpose(Tcrsinv)*cr[:]
 @test norm(transpose(Tcrs)*x-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(Tcrsinv)*cc[:]
-@test norm(transpose(Tcrs)*x-cc[:])/norm(x[:]) < reltol
-
 @time x = Tcrssyminv*triu2vec(cr);
 @test norm(Tcrssym*x-triu2vec(cr))/norm(x[:]) < reltol
-
-# @time x = Tcrssyminv*triu2vec(cc);
-# @test norm(Tcrssym*x-triu2vec(cc))/norm(x[:]) < reltol
 
 @time x = transpose(Tcrssyminv)*triu2vec(cr);
 @test norm(transpose(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
@@ -293,17 +281,11 @@ end
 @time x = Tcrsinv*cr[:]
 @test norm(Tcrs*x-cr[:])/norm(x[:]) < reltol
 
-@time x = Tcrsinv*cc[:]
-@test norm(Tcrs*x-cc[:])/norm(x[:]) < reltol
-
 @time x = transpose(Tcrsinv)*cr[:]
 @test norm(transpose(Tcrs)*x-cr[:])/norm(x[:]) < reltol
 
 @time x = Tcrssyminv*triu2vec(cr);
 @test norm(Tcrssym*x-triu2vec(cr))/norm(x[:]) < reltol
-
-# @time x = Tcrssyminv*triu2vec(cc);
-# @test norm(Tcrssym*x-triu2vec(cc))/norm(x[:]) < reltol
 
 @time x = transpose(Tcrssyminv)*triu2vec(cr);
 @test norm(transpose(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
@@ -444,9 +426,6 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
 @time x = Tdrssyminv*triu2vec(cr);
 @test norm(Tdrssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-# @time x = Tdrssyminv*triu2vec(cc);
-# @test norm(Tdrssym*x-triu2vec(cc))/norm(x[:]) < reltol
-
 @time x = transpose(Tdrsyminv)*triu2vec(cr);
 @test norm(transpose(Tdrsym)*x-triu2vec(cr))/norm(x[:]) < reltol
 
@@ -574,9 +553,6 @@ Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
 
 @time x = Tdrsinv*cr[:]
 @test norm(Tdrs*x-cr[:])/norm(x[:]) < reltol
-
-@time x = Tdrsinv*cc[:]
-@test norm(Tdrs*x-cc[:])/norm(x[:]) < reltol
 
 @time x = transpose(Tdrsinv)*cr[:]
 @test norm(transpose(Tdrs)*x-cr[:])/norm(x[:]) < reltol
@@ -724,9 +700,6 @@ try
 @time x = invsylvsop(as,bs)*cr[:]
 @test norm(sylvop(as, bs)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as,bs)*cc[:]
-@test norm(sylvop(as, bs)*x[:]-cc[:])/norm(x[:]) < reltol
-
 @time x = invsylvsop(as,bs')*cr[:]
 @test norm(sylvop(as, bs')*x[:]-cr[:])/norm(x[:]) < reltol
 
@@ -738,9 +711,6 @@ try
 
 @time x = transpose(invsylvsop(as,bs))*cr[:]
 @test norm(transpose(sylvop(as, bs))*x[:]-cr[:])/norm(x[:]) < reltol
-
-@time x = transpose(invsylvsop(as,bs))*cc[:]
-@test norm(transpose(sylvop(as, bs))*x[:]-cc[:])/norm(x[:]) < reltol
 
 @time x = transpose(invsylvsop(as,bs'))*cr[:]
 @test norm(transpose(sylvop(as, bs'))*x[:]-cr[:])/norm(x[:]) < reltol
@@ -854,9 +824,6 @@ Tdcsinv = invsylvsop(acs,bcs, disc = true)
 
 @time x = invsylvsop(as,bs, disc = true)*cr[:]
 @test norm(sylvop(as, bs, disc = true)*x[:]-cr[:])/norm(x[:]) < reltol
-
-@time x = invsylvsop(as,bs, disc = true)*cc[:]
-@test norm(sylvop(as, bs, disc = true)*x[:]-cc[:])/norm(x[:]) < reltol
 
 @time x = invsylvsop(as,bs', disc = true)*cr[:]
 @test norm(sylvop(as, bs', disc = true)*x[:]-cr[:])/norm(x[:]) < reltol
@@ -1026,18 +993,6 @@ try
 @time x = invsylvsop(as', bs', cs', ds')*er[:]
 @test norm(sylvop(as', bs', cs', ds')*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as, bs, cs, ds)*ec[:]
-@test norm(sylvop(as, bs, cs, ds)*x[:]-ec[:])/norm(x[:]) < reltol
-
-@time x = invsylvsop(as', bs, cs', ds)*ec[:]
-@test norm(sylvop(as', bs, cs', ds)*x[:]-ec[:])/norm(x[:]) < reltol
-
-@time x = invsylvsop(as, bs', cs, ds')*ec[:]
-@test norm(sylvop(as, bs', cs, ds')*x[:]-ec[:])/norm(x[:]) < reltol
-
-@time x = invsylvsop(as', bs', cs', ds')*ec[:]
-@test norm(sylvop(as', bs', cs', ds')*x[:]-ec[:])/norm(x[:]) < reltol
-
 @time x = transpose(invsylvsop(as, bs, cs, ds))*er[:]
 @test norm(transpose(sylvop(as, bs, cs, ds))*x[:]-er[:])/norm(x[:]) < reltol
 
@@ -1064,18 +1019,6 @@ try
 
 @time x = adjoint(invsylvsop(as', bs', cs', ds'))*er[:]
 @test norm(adjoint(sylvop(as', bs', cs', ds'))*x[:]-er[:])/norm(x[:]) < reltol
-
-@time x = adjoint(invsylvsop(as, bs, cs, ds))*ec[:]
-@test norm(adjoint(sylvop(as, bs, cs, ds))*x[:]-ec[:])/norm(x[:]) < reltol
-
-@time x = adjoint(invsylvsop(as', bs, cs', ds))*ec[:]
-@test norm(adjoint(sylvop(as', bs, cs', ds))*x[:]-ec[:])/norm(x[:]) < reltol
-
-@time x = adjoint(invsylvsop(as, bs', cs, ds'))*ec[:]
-@test norm(adjoint(sylvop(as, bs', cs, ds'))*x[:]-ec[:])/norm(x[:]) < reltol
-
-@time x = adjoint(invsylvsop(as', bs', cs', ds'))*ec[:]
-@test norm(adjoint(sylvop(as', bs', cs', ds'))*x[:]-ec[:])/norm(x[:]) < reltol
 
 @time x = Tcinv*ec[:]
 @test norm(Tc*x[:]-ec[:])/norm(x[:]) < reltol
@@ -1223,17 +1166,11 @@ try
 @time xy = Trsinv*[er[:];fr[:]]
 @test norm(Trs*xy-[er[:];fr[:]])/norm(xy[:]) < reltol
 
-@time xy = Trsinv*[ec[:];fc[:]]
-@test norm(Trs*xy-[ec[:];fc[:]])/norm(xy[:]) < reltol
-
 @time xy = Tcsinv*[er[:];fr[:]]
 @test norm(Tcs*xy-[er[:];fr[:]])/norm(xy[:]) < reltol
 
 @time xy = transpose(Trsinv)*[er[:];fr[:]]
 @test norm(transpose(Trs)*xy-[er[:];fr[:]])/norm(xy[:]) < reltol
-
-@time xy = transpose(Trsinv)*[ec[:];fc[:]]
-@test norm(transpose(Trs)*xy-[ec[:];fc[:]])/norm(xy[:]) < reltol
 
 @time xy = Tcsinv*[er[:];fr[:]]
 @test norm(Tcs*xy-[er[:];fr[:]])/norm(xy[:]) < reltol

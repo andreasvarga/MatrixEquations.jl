@@ -6,7 +6,7 @@ using Test
 
 @testset "Testing Sylvester equation solvers" begin
 
-n = 30; m = 20;
+n = 30; m = 20; n = 3; m = 2;
 Ty = Float64
 reltol = sqrt(eps(1.))
 
@@ -86,17 +86,17 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = ar+im*rand(Ty,n,n)
-br = rand(Ty,m,m)
-bc = br+im*rand(Ty,m,m)
-cr = rand(Ty,n,m)
-cc = cr+im*rand(Ty,n,m)
+ar = rand(Ty,n,n);
+ac = ar+im*rand(Ty,n,n);
+br = rand(Ty,m,m);
+bc = br+im*rand(Ty,m,m);
+cr = rand(Ty,n,m);
+cc = cr+im*rand(Ty,n,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
-as, = schur(ar)
-bs,  = schur(br)
-acs, = schur(ac)
-bcs, = schur(bc)
+as, = schur(ar);
+bs,  = schur(br);
+acs, = schur(ac);
+bcs, = schur(bc);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 
@@ -111,18 +111,6 @@ y = copy(cr); @time sylvcs!(as,bs,y,adjB=true)
 
 y = copy(cr); @time sylvcs!(as,bs,y,adjA=true,adjB=true)
 @test norm(as'*y+y*bs'-cr)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(as,bs,y)
-@test norm(as*y+y*bs-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(as,bs,y,adjA=true)
-@test norm(as'*y+y*bs-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(as,bs,y,adjB=true)
-@test norm(as*y+y*bs'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(as,bs,y,adjA=true,adjB=true)
-@test norm(as'*y+y*bs'-cc)/norm(y) < reltol
 
 y = copy(cc); @time sylvcs!(acs,bcs,y)
 @test norm(acs*y+y*bcs-cc)/norm(y) < reltol
@@ -208,17 +196,17 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = ar+im*rand(Ty,n,n)
-br = rand(Ty,m,m)
-bc = br+im*rand(Ty,m,m)
-cr = rand(Ty,n,m)
-cc = cr+im*rand(Ty,n,m)
+ar = rand(Ty,n,n);
+ac = ar+im*rand(Ty,n,n);
+br = rand(Ty,m,m);
+bc = br+im*rand(Ty,m,m);
+cr = rand(Ty,n,m);
+cc = cr+im*rand(Ty,n,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
-as, = schur(ar)
-bs,  = schur(br)
-acs, = schur(ac)
-bcs, = schur(bc)
+as, = schur(ar);
+bs,  = schur(br);
+acs, = schur(ac);
+bcs, = schur(bc);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 
@@ -233,18 +221,6 @@ y = copy(cr); @time sylvds!(as,bs,y,adjB=true)
 
 y = copy(cr); @time sylvds!(as,bs,y,adjA=true,adjB=true)
 @test norm(as'*y*bs'+y-cr)/norm(y) < reltol
-
-y = copy(cc); @time sylvds!(as,bs,y)
-@test norm(as*y*bs+y-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvds!(as,bs,y,adjA=true)
-@test norm(as'*y*bs+y-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvds!(as,bs,y,adjB=true)
-@test norm(as*y*bs'+y-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvds!(as,bs,y,adjA=true,adjB=true)
-@test norm(as'*y*bs'+y-cc)/norm(y) < reltol
 
 y = copy(cc); @time sylvds!(acs,bcs,y)
 @test norm(acs*y*bcs+y-cc)/norm(y) < reltol
@@ -266,16 +242,17 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = ar+im*rand(Ty,n,n)
-br = rand(Ty,m,m)
-bc = br+im*rand(Ty,m,m)
-cr = rand(Ty,n,m)
-cc = cr+im*rand(Ty,n,m)
-dr = rand(Ty,n,n)
-er = rand(Ty,m,m)
-dc = dr+im*rand(Ty,n,n)
-ec = er+im*rand(Ty,m,m)
+n = 1; m = 2;
+ar = rand(Ty,n,n);
+ac = ar+im*rand(Ty,n,n);
+br = rand(Ty,m,m);
+bc = br+im*rand(Ty,m,m);
+cr = rand(Ty,n,m);
+cc = cr+im*rand(Ty,n,m);
+dr = rand(Ty,n,n);
+er = rand(Ty,m,m);
+dc = dr+im*rand(Ty,n,n);
+ec = er+im*rand(Ty,m,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 @time x = gsylv(ar,br,cr)
@@ -356,20 +333,20 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = ar+im*rand(Ty,n,n)
-br = rand(Ty,m,m)
-bc = br+im*rand(Ty,m,m)
-cr = rand(Ty,n,m)
-cc = cr+im*rand(Ty,n,m)
-dr = rand(Ty,n,n)
-er = rand(Ty,m,m)
-dc = dr+im*rand(Ty,n,n)
-ec = er+im*rand(Ty,m,m)
-as, ds = schur(ar,dr)
-bs, es = schur(br,er)
-acs, dcs = schur(ac,dc)
-bcs, ecs = schur(bc,ec)
+ar = rand(Ty,n,n);
+ac = ar+im*rand(Ty,n,n);
+br = rand(Ty,m,m);
+bc = br+im*rand(Ty,m,m);
+cr = rand(Ty,n,m);
+cc = cr+im*rand(Ty,n,m);
+dr = rand(Ty,n,n);
+er = rand(Ty,m,m);
+dc = dr+im*rand(Ty,n,n);
+ec = er+im*rand(Ty,m,m);
+as, ds = schur(ar,dr);
+bs, es = schur(br,er);
+acs, dcs = schur(ac,dc);
+bcs, ecs = schur(bc,ec);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 y = copy(cr); @time gsylvs!(as,bs,ds,es,y)
@@ -383,18 +360,6 @@ y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjBD=true)
 
 y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjAC=true,adjBD=true)
 @test norm(as'*y*bs'+ds'*y*es'-cr)/norm(y) < reltol
-
-y = copy(cc); @time gsylvs!(as,bs,ds,es,y)
-@test norm(as*y*bs+ds*y*es-cc)/norm(y) < reltol
-
-y = copy(cc); @time gsylvs!(as,bs,ds,es,y,adjAC=true)
-@test norm(as'*y*bs+ds'*y*es-cc)/norm(y) < reltol
-
-y = copy(cc); @time gsylvs!(as,bs,ds,es,y,adjBD=true)
-@test norm(as*y*bs'+ds*y*es'-cc)/norm(y) < reltol
-
-y = copy(cc); @time gsylvs!(as,bs,ds,es,y,adjAC=true,adjBD=true)
-@test norm(as'*y*bs'+ds'*y*es'-cc)/norm(y) < reltol
 
 y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y)
 @test norm(acs*y*bcs+dcs*y*ecs-cc)/norm(y) < reltol
@@ -613,20 +578,10 @@ x = copy(cr); y = copy(fr);
 @test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
       norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
 
-x = copy(cc); y = copy(fc);
-@time x, y =  sylvsyss!(as, bs, x, ds, es, y)
-@test norm(as*x+y*bs-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(ds*x+y*es-fc)/max(norm(x),norm(y)) < reltol
-
 x = copy(cr); y = copy(fr);
 @time x, y =  dsylvsyss!(as, bs, x, ds, es, y)
 @test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
       norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
-
-x = copy(cc); y = copy(fc);
-@time x, y =  dsylvsyss!(as, bs, x, ds, es, y)
-@test norm(as'*x+ds'*y-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(x*bs'+y*es'-fc)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
 @time x, y =  sylvsyss!(acs, bcs, x, dcs, ecs, y)

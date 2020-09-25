@@ -20,6 +20,34 @@ reltol = eps(float(100f0))
 a = 1f0-2f0im; b = 2f0; @time x = lyapc(a,b)
 @test abs(a*x+x*a'+b) < reltol
 
+try
+  x = lyapc(zeros(1,1),ones(1,1))
+  @test false
+catch
+  @test true
+end  
+
+try
+  x = lyapc([0 1;  -1 0 ],ones(2,2))
+  @test false
+catch
+  @test true
+end  
+
+try
+  x = lyapc([1 1;  0 -1],ones(2,2))
+  @test false
+catch
+  @test true
+end  
+
+try
+  x = lyapc([1 1 1 1;  -1 1 0 1; 0 0 -1 1; 0 0 -1 -1],ones(4,4))
+  @test false
+catch
+  @test true
+end  
+
 for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
@@ -74,7 +102,33 @@ reltol = eps(float(100f0))
 a = 1f0-2f0im; ee = 3f0im; b = 2f0; @time x = lyapc(a,ee,b)
 @test abs(a*x*ee'+ee*x*a'+b) < reltol
 
+try
+  x = lyapc(zeros(1,1),ones(1,1),ones(1,1))
+  @test false
+catch
+  @test true
+end  
 
+try
+  x = lyapc([0 1;  -1 0 ],[1 0; 0 1],ones(2,2))
+  @test false
+catch
+  @test true
+end  
+
+try
+  x = lyapc([1 1;  0 -1],[1 0; 0 1],ones(2,2))
+  @test false
+catch
+  @test true
+end  
+
+try
+  x = lyapc([1 1 1 1;  -1 1 0 1; 0 0 -1 1; 0 0 -1 -1],Matrix{Float64}(I,4,4), ones(4,4))
+  @test false
+catch
+  @test true
+end  
 
 for Ty in (Float64, Float32)
 

@@ -19,6 +19,35 @@ reltol = eps(float(100f0))
 a = 1f0-2f0im; b = 2f0; @time x = lyapd(a,b)
 @test abs(a*x*a'-x+b)  < reltol
 
+try
+   x = lyapd(ones(1,1),ones(1,1))
+   @test false
+ catch
+   @test true
+ end  
+
+ try
+   x = lyapd([0 1;  -1 0 ],ones(2,2))
+   @test false
+ catch
+   @test true
+ end  
+ 
+  try
+   x = lyapd([0.5 1;  0 2],ones(2,2))
+   @test false
+ catch
+   @test true
+ end  
+ 
+ try
+   x = lyapd([1 1 1 1;  -1 1 0 1; 0 0 0.5 0.5; 0 0 -0.5 0.5],ones(4,4))
+   @test false
+ catch
+   @test true
+ end  
+ 
+
 for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
@@ -75,6 +104,33 @@ reltol = eps(float(100))
 ac = -2+im; ec = 4+im; b = 2; @time x = lyapd(ac,ec,b)
 @test abs(ac*x*ac'-ec*x*ec'+b) < reltol
 
+try
+   x = lyapd(ones(1,1),ones(1,1),ones(1,1))
+   @test false
+catch
+   @test true
+end  
+
+try
+   x = lyapd([0 2;  -2 0 ],[2 0; 0 2],ones(2,2))
+   @test false
+catch
+   @test true
+end  
+ 
+try
+   x = lyapd([2 1;  0 2],[2 0; 0 2],ones(2,2))
+   @test false
+catch
+   @test true
+end  
+ 
+try
+   x = lyapd(2*[1 1 1 1;  -1 1 0 1; 0 0 0.5 0.5; 0 0 -0.5 0.5],2*Matrix{Float64}(I,4,4),ones(4,4))
+   @test false
+catch
+   @test true
+end  
 
 for Ty in (Float64, Float32)
 
@@ -113,8 +169,6 @@ try
 catch
    @test true
 end
-
-@test norm(α*x*α'-ec*x*ec'+qc)/norm(x)/norm(ec) < reltol
 
 α = 2+3im; β = (1+im);
 @time x = lyapd(α*I,β*I,qc);
