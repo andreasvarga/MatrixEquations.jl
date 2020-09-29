@@ -1073,7 +1073,7 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
 
    ONE = one(T1)
 
-   # determine the structure of the real Schur form
+   # determine the structure of the real Schur forms in A and B
    ba, p = sfstruct(A)
 
    Xw = Matrix{T1}(undef,4,4)

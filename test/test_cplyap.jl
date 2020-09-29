@@ -4,6 +4,8 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
+
+
 @testset "Testing positive continuous Lyapunov equation solvers" begin
 
 n = 30
@@ -161,17 +163,17 @@ E = [1. 1.; 0. 1.]
 R = [1. 1.; 0. 1.]
 reltol = eps(float(100))
 
-
-U, scale, β, α = plyap2(A, R, adj = true, disc = false)
-X = U'*U; @test norm(A'*X+X*A+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = false)
+X = U'*U; @test norm(A'*X+X*A+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = plyap2(A, R, adj = false, disc = false)
-X = U*U'; @test norm(A*X+X*A'+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = false, disc = false)
+X = U*U'; @test norm(A*X+X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
-                norm(U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
-
+                norm(U*α - R)/max(1,norm(R)) < reltol
 
 U, scale, β, α = pglyap2(A, E, R, adj = true, disc = false)
 X = U'*U; @test norm(A'*X*E+E'*X*A+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
@@ -188,16 +190,17 @@ E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
 R = [1. 1.; 0. 1.]; R = convert(Matrix{Float32},R)
 reltol = eps(100f0)
 
-U, scale, β, α = plyap2(A, R, adj = true, disc = false)
-X = U'*U; @test norm(A'*X+X*A+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = false)
+X = U'*U; @test norm(A'*X+X*A+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = plyap2(A, R, adj = false, disc = false)
-X = U*U'; @test norm(A*X+X*A'+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = false, disc = false)
+X = U*U'; @test norm(A*X+X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
-                norm(U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
-
+                norm(U*α - R)/max(1,norm(R)) < reltol
 
 U, scale, β, α = pglyap2(A, E, R, adj = true, disc = false)
 X = U'*U; @test norm(A'*X*E+E'*X*A+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&

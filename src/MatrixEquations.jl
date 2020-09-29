@@ -15,8 +15,8 @@ using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!, safemin
 
 export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu
 export lanv2, ladiv, lag2, lacn2!
-export lyapc, lyapd, lyapcs!, lyapds!, lyapc2, lyapcsylv2, lyapds1!
-export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2, pglyap2
+export lyapc, lyapd, lyapcs!, lyapds! 
+export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2!, pglyap2 
 export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!

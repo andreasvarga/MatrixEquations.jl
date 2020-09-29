@@ -10,7 +10,7 @@ using Test
 # only double precision tests are performed
 
 #for (Ty,n,p,m) in ((Float64, 30, 10, 10), (Float32, 5, 3, 3))
-for (Ty,n,p,m) in ((Float64, 30, 10, 10),  (Float64, 5, 1, 1))
+for (Ty,n,p,m) in ((Float64, 30, 10, 10),  (Float64, 5, 3, 1))
 
 Random.seed!(21235)
 

@@ -11,11 +11,11 @@ Ty = Float64
 
 @testset "Discrete Lyapunov equations" begin
 
-reltol = eps(float(100))
+reltol = eps(float(1000))
 a = -2+im; b = 2; @time x = lyapd(a,b)
 @test abs(a*x*a'-x+b) < reltol
 
-reltol = eps(float(100f0))
+reltol = eps(float(1000f0))
 a = 1f0-2f0im; b = 2f0; @time x = lyapd(a,b)
 @test abs(a*x*a'-x+b)  < reltol
 
@@ -55,7 +55,7 @@ ac = rand(Ty,n,n)+im*rand(Ty,n,n)
 c = rand(Ty,n,n)+im*rand(Ty,n,n)
 qc = c'*c
 Qr = real(qc)
-Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+Ty == Float64 ? reltol = eps(float(10000)) : reltol = eps(10000*n*one(Ty))
 
 @time x = lyapd(ac,qc);
 @test norm(ac*x*ac'-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
@@ -100,7 +100,7 @@ end
 
 @testset "Discrete generalized Lyapunov equations" begin
 
-reltol = eps(float(100))
+reltol = eps(float(10000))
 ac = -2+im; ec = 4+im; b = 2; @time x = lyapd(ac,ec,b)
 @test abs(ac*x*ac'-ec*x*ec'+b) < reltol
 
@@ -142,7 +142,7 @@ ec = er+im*rand(Ty,n,n)
 c = rand(Ty,n,n)+im*rand(Ty,n,n)
 qc = c'*c
 Qr = real(qc)
-Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 
 @time x = lyapd(ac,ec,qc);
 @test norm(ac*x*ac'-ec*x*ec'+qc)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
@@ -256,7 +256,7 @@ acs, ecs = schur(ac,ec);
 c = rand(Ty,n,n)+im*rand(Ty,n,n);
 qc = c'*c;
 Qr = real(qc);
-Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 
 x = copy(Qr)
 @time lyapds!(as,x);

@@ -1047,37 +1047,18 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
  
-   T = eltype(A)
-   ZERO = zero(T)
-   ONE = one(T)
+   ONE = one(T1)
    TWO = 2*ONE
-   EPS = eps(ONE)*TWO
-   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
-   small = SMLNUM*n*n / EPS
+   small = safemin(T1)*n*n
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the real Schur form
-   ba = fill(1,n)
-   p = 1
-   if n > 1
-      d = [diag(A,-1);zeros(1)]
-      i = 1
-      p = 0
-      while i <= n
-         p += 1
-         if d[i] != 0
-            ba[p] = 2
-            i += 1
-         end
-         i += 1
-      end
-   end
+   ba, p = sfstruct(A)
 
-   Wr = Array{eltype(A),2}(undef,n,2)
-   Wu = Array{eltype(A),2}(undef,n,2)
-   Wy = Array{eltype(A),2}(undef,n,2)
-   Wz = Array{eltype(A),2}(undef,n,2)
+   Wr = Matrix{T1}(undef,n,2)
+   Wu = similar(Wr)
+   Wz = similar(Wr)
    if adj
       """
       The (L,L)th block of X is determined starting from
@@ -1101,8 +1082,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
-             R[l,l], scale, β, α = plyap2(A[l,l], R[l,l], adj = true)
-             scale == ONE || error("Singular Lyapunov equation")
+             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = true)
           end
           if ll < p
              j += dl
@@ -1112,19 +1092,21 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              # z = rbar'*α + s'*u11'
              rbar = view(Wr,ir1,1:dl)
              ubar = view(Wu,ir1,1:dl)
-             y = view(Wy,ir1,1:dl)
-             #z = view(Wz,ir1,1:dl)
-             rbar = R[l,j1]'
-             z = rbar*α + A[l,j1]'*R[l,l]'
+             # y = view(Wy,ir1,1:dl)
+             z = view(Wz,ir1,1:dl)
+             # rbar = R[l,j1]'
+             transpose!(rbar,view(R,l,j1))
+             # z = rbar*α + A[l,j1]'*R[l,l]'
+             mul!(z,rbar,α)
+             mul!(z,transpose(view(A,l,j1)),transpose(view(R,l,l)),ONE,ONE)
              # Solve S1'*ubar+ubar*β + z = 0
-             S1 = view(A,j1,j1)
-             ubar, scale = LAPACK.trsyl!('T','N', S1, β, z)
-             rmul!(ubar, -inv(scale))
-             R[l,j1] = ubar'
+             ubar, scale = LAPACK.trsyl!('T','N', view(A,j1,j1), β, copy(z))
+             scale == ONE || error("Singular Lyapunov equation")
+             transpose!(view(R,l,j1),-ubar)
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             y = rbar - ubar * α'
-             RR = view(R,j1,j1)
-             qrupdate!(RR, y)
+             # y = rbar - ubar * α'
+             mul!(rbar,ubar,transpose(α),ONE,ONE)
+             qrupdate!(view(R,j1,j1), rbar)
           end
       end
    else
@@ -1150,9 +1132,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
-             U, scale, β, α = plyap2(A[l,l], R[l,l], adj = false)
-             scale == ONE || error("Singular Lyapunov equation")
-             R[l,l] = UpperTriangular(U)
+             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = false)
           end
           if ll > 1
              j -= dl
@@ -1163,36 +1143,46 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              # z = rbar*α' + s*u11
              rbar = view(Wr,j1,1:dl)
              ubar = view(Wu,j1,1:dl)
-             y = view(Wy,j1,1:dl)
+             # y = view(Wy,j1,1:dl)
              z = view(Wz,j1,1:dl)
-             rbar = R[j1,l]
-             z = rbar*α' + A[j1,l]*R[l,l]
+             # rbar = R[j1,l]
+             copyto!(rbar,view(R,j1,l))
+             # z = rbar*α' + A[j1,l]*R[l,l]
+             mul!(z,rbar,transpose(α))
+             mul!(z,view(A,j1,l),view(R,l,l),ONE,ONE)
              # Solve S1*ubar+ubar*β' + z = 0
-             S1 = view(A,j1,j1)
-             ubar, scale = LAPACK.trsyl!('N','T', S1, β, z)
-             rmul!(ubar, -inv(scale))
-             R[j1,l] = ubar
+             ubar, scale = LAPACK.trsyl!('N','T', view(A,j1,j1), β, copy(z))
+             scale == ONE || error("Singular Lyapunov equation")
+             copyto!(view(R,j1,l),-ubar)
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
-             y = rbar - ubar*α
-             RR = view(R,j1,j1)
-             rqupdate!(RR, y)
+             # y = rbar - ubar*α
+             mul!(rbar,ubar,α,ONE,ONE)
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end
+   return R
 end
 function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
-   T = real(eltype(A))
+   T = real(T1)
    ONE = one(T)
    ZERO = zero(T)
    TWO = 2*ONE
-   EPS = eps(ONE)*2
-   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
-   small = SMLNUM*n*n / EPS
+   small = safemin(T)*n*n
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
+
+   # ONE = one(T)
+   # ZERO = zero(T)
+   # TWO = 2*ONE
+   # EPS = eps(ONE)*2
+   # T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
+   # small = SMLNUM*n*n / EPS
+   # BIGNUM = ONE / small
+   # SMIN = eps(maximum(abs.(A)))
 
    Wr = Array{eltype(A),2}(undef,n,1)
    Wu = Array{eltype(A),2}(undef,n,1)
@@ -1233,11 +1223,12 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              # Solve S1'*ubar+ubar*β + z = 0
              S1 = view(A,j1,j1)
              ubar, scale = LAPACK.trsyl!('C','N', S1, β, z)
-             rmul!(ubar, -inv(scale))
+             scale == ONE || error("Singular Lyapunov equation")
+             #rmul!(ubar, -inv(scale))
              #ubar = -(LowerTriangular(S1'+β[1,1]*I))\z
-             R[l,j1] = ubar'
+             R[l,j1] = -ubar'
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             y = conj(rbar - ubar * α')
+             y = conj(rbar + ubar * α')
              RR = view(R,j1,j1)
              qrupdate!(RR, y)
           end
@@ -1277,11 +1268,12 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              # Solve S1*ubar+ubar*β' + z = 0
              S1 = view(A,j1,j1)
              ubar, scale = LAPACK.trsyl!('N','C', S1, β, z)
-             rmul!(ubar, -inv(scale))
+             scale == ONE || error("Singular Lyapunov equation")
+             # rmul!(ubar, -inv(scale))
              #ubar = -(UpperTriangular(S1+β[1,1]'*I))\z
-             R[j1,l] = ubar
+             R[j1,l] = -ubar
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
-             y = rbar - ubar*α
+             y = rbar + ubar*α
              RR = view(R,j1,j1)
              rqupdate!(RR, y)
           end
@@ -1318,7 +1310,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
 
    # determine the structure of the generalized real Schur form
    ba = fill(1,n)
-   p = 1
+   a = 1
    if n > 1
       d = [diag(A,-1);zeros(1)]
       i = 1
@@ -1581,37 +1573,20 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
-   T = eltype(A)
-   ZERO = zero(T)
-   ONE = one(T)
+   ONE = one(T1)
    TWO = 2*ONE
-   EPS = eps(ONE)*TWO
-   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
-   small = SMLNUM*n*n / EPS
+   small = safemin(T1)*n*n
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the real Schur form
-   ba = fill(1,n)
-   p = 1
-   if n > 1
-      d = [diag(A,-1);zeros(1)]
-      i = 1
-      p = 0
-      while i <= n
-         p += 1
-         if d[i] != 0
-            ba[p] = 2
-            i += 1
-         end
-         i += 1
-      end
-   end
+   ba, p = sfstruct(A)
 
-   Wr = Array{eltype(A),2}(undef,n,2)
-   Wu = Array{eltype(A),2}(undef,n,2)
-   Wy = Array{eltype(A),2}(undef,n,2)
-   Wz = Array{eltype(A),2}(undef,n,2)
+   Wr = Matrix{T1}(undef,n,2)
+   Wu = similar(Wr)
+   Wv = similar(Wr)
+   Wy = similar(Wr)
+   Wz = similar(Wr)
    if adj
       """
       The (L,L)th block of X is determined starting from
@@ -1635,9 +1610,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
-             u11, scale, β, α = plyap2(A[l,l], R[l,l], adj = true, disc = true)
-             scale == ONE || error("Singular Lyapunov equation")
-             R[l,l] = UpperTriangular(u11)
+             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = true, disc = true)
           end
           if ll < p
              j += dl
@@ -1646,31 +1619,43 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              rbar = view(Wr,ir1,1:dl)
              ubar = view(Wu,ir1,1:dl)
              y = view(Wy,ir1,1:dl)
-             #z = view(Wz,ir1,1:dl)
+             v = view(Wv,j1,1:dl)
+             z = view(Wz,ir1,1:dl)
              # Form the right-hand side of (10.16)
              # z = rbar*α + s'*u11*β
-             rbar = R[l,j1]'
-             v = (R[l,l]*A[l,j1])'
+             # rbar = R[l,j1]'
+             transpose!(rbar,view(R,l,j1))
+             # v = (R[l,l]*A[l,j1])'
+             mul!(v,transpose(view(A,l,j1)),transpose(view(R,l,l)))
              #z = rbar*α + A[l,j1]'*R[l,l]*β
+             rbar = view(Wr,ir1,1:dl)
+             ubar = view(Wu,ir1,1:dl)
              z = rbar*α + v*β
+             # mul!(z,rbar,α)
+             # mul!(z,v,β,ONE,ONE)
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
-             #ubar = sylvds!(S1, -β, z, adjA = true, adjB = false)
-             R[l,j1] = ubar'
+             #ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
+             ubar = sylvds!(S1, -β, z, adjA = true, adjB = false)
+             #R[l,j1] = ubar'
+             transpose!(view(R,l,j1),ubar)
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             v += (ubar'*S1)'
+             #v += (ubar'*S1)'
+             mul!(v,transpose(S1),ubar,ONE,ONE)
              if dl == 1
                 y = rbar*β - v*α
+                #mul!(y,v,α)
+                #mul!(y,rbar,β,ONE,-ONE)
              else
-                F = qr([α; β])
-                vy = [rbar v]*F.Q
-                y = vy[:,dl+1:end]
+               #  F = qr([α; β])
+               #  vy = [rbar v]*F.Q
+               #  y = vy[:,dl+1:end]
+                y =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
                 # alternative formula of Varga
                 #y = rbar - (A[l,j1]'*R[l,l]'+S1'*ubar+ubar)*inv(I+β')*α'
              end
-             RR = view(R,j1,j1)
-             qrupdate!(RR, y)
+             #RR = view(R,j1,j1)
+             qrupdate!(view(R,j1,j1), y)
           end
       end
    else
@@ -1696,9 +1681,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              R[j,j] = R[j,j]/α
              β = A[l,l]
           else
-             u11, scale, β, α = plyap2(A[l,l], R[l,l], adj = false, disc = true)
-             scale == ONE || error("Singular Lyapunov equation")
-             R[l,l] = UpperTriangular(u11)
+             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = false, disc = true)
           end
           if ll > 1
              j -= dl
@@ -1711,49 +1694,52 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              ubar = view(Wu,j1,1:dl)
              y = view(Wy,j1,1:dl)
              z = view(Wz,j1,1:dl)
+             v = view(Wv,j1,1:dl)
              rbar = R[j1,l]
-             v = A[j1,l]*R[l,l]
+             # copyto!(rbar,view(R,j1,l))
+             # v = A[j1,l]*R[l,l]
+             mul!(v,view(A,j1,l),view(R,l,l))
              #z = rbar*α + A[j1,l]*R[l,l]*β'
              z = rbar*α' + v*β'
+             # mul!(z,rbar,transpose(α))
+             # mul!(z,v,transpose(β),ONE,ONE)
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             #ubar = sylvds!(S1, -β, z, adjA = false, adjB = true)
-             ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
+             ubar = sylvds!(S1, -β, z, adjA = false, adjB = true)
+             # ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
              R[j1,l] = ubar
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              v += S1*ubar
              if dl == 1
                 y = rbar*β - v*α
              else
-                F = qr([α'; β'])
-                vy = [rbar v]*F.Q
-                y = vy[:,dl+1:end]
+               #  F = qr([α'; β'])
+               #  vy = [rbar v]*F.Q
+               #  y = vy[:,dl+1:end]
+                y =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
              end
-             RR = view(R,j1,j1)
-             rqupdate!(RR, y)
+             #RR = view(R,j1,j1)
+             rqupdate!(view(R,j1,j1), y)
           end
        end
    end
-   return UpperTriangular(R)
+   return R
 end
 function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
-   if LinearAlgebra.checksquare(R) != n
-      throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   end
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
-   T = real(eltype(A))
+   T = real(T1)
    ONE = one(T)
-   EPS = eps(ONE)*2
-   T == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
-   small = SMLNUM*n*n / EPS
+   ZERO = zero(T)
+   small = safemin(T)*n*n
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
-   Wr = Array{eltype(A),2}(undef,n,1)
-   Wu = Array{eltype(A),2}(undef,n,1)
-   Wy = Array{eltype(A),2}(undef,n,1)
-   Wz = Array{eltype(A),2}(undef,n,1)
+   Wr = Matrix{T1}(undef,n,2)
+   Wu = similar(Wr)
+   Wy = similar(Wr)
+   Wz = similar(Wr)
    if adj
       """
       The (L,L)th block of X is determined starting from
@@ -1790,12 +1776,12 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              z = rbar*α + ust'*β
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
+             ubar = sylvds!(S1, -β, z, adjA = true, adjB = false)
+             # ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
              R[l,j1] = ubar'
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
              y = conj(rbar*β' - (ubar'*UpperTriangular(S1)+ust)' * α')
-             RR = view(R,j1,j1)
-             qrupdate!(RR, y)
+             qrupdate!(view(R,j1,j1), y)
           end
       end
    else
@@ -1833,13 +1819,13 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              z = rbar*α' + ust*β'
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
+             ubar = sylvds!(S1, -β, z, adjA = false, adjB = true)
+             # ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
              R[j1,l] = ubar
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              y = rbar*β - (UpperTriangular(S1)*ubar+ust) * α
              #y = rbar - ubar*α
-             RR = view(R,j1,j1)
-             rqupdate!(RR, y)
+             rqupdate!(view(R,j1,j1), y)
           end
        end
    end
@@ -2135,7 +2121,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
    end
 end
 """
-    plyap2(A, R; adj = false, disc = false) -> (U, scale, β, α)
+    plyap2!(A, R; adj = false, disc = false) -> (β, α)
 
 Solve for the Cholesky factor  `U`  of  `X`,
 
@@ -2144,23 +2130,22 @@ Solve for the Cholesky factor  `U`  of  `X`,
 where  `U`  is a two-by-two upper triangular matrix, either the
 continuous-time two-by-two Lyapunov equation
 
-      op(A)*X + X*op(A)' = -scale^2*op(R)*op(R)',
+      op(A)*X + X*op(A)' = -op(R)*op(R)',
 
 when disc = false, or the discrete-time two-by-two Lyapunov equation
 
-      op(A)*X*op(A)' - X = -scale^2*op(R)*op(R)',
+      op(A)*X*op(A)' - X = -op(R)*op(R)',
 
 when `disc = true`, where `op(K) = K` if `adj = false` or `op(K) = K'`
 if `adj = true`,  `A`  is a two-by-two matrix with complex conjugate eigenvalues,
-`R`  is a two-by-two upper triangular matrix, and `scale` is
-an output scale factor, set less than or equal to `1` to avoid overflow in  `X`.
+`R`  is a two-by-two upper triangular matrix.
 The routine also computes two matrices, `β` and `α`, so that
 
-      U*A = β*U  and  U*α = scale^2 *R,  if  adj = false, or
+      U*A = β*U  and  U*α = R,  if  adj = false, or
 
-      β*U = U*A  and  α*U = scale^2 *R,  if  adj = true,
+      β*U = U*A  and  α*U = R,  if  adj = true,
 
-which are used by the general Lyapunov solver.
+which are used by the general Lyapunov solver. The computed `U` is returned in `R`.
 
 In the continuous-time case  `A`  must be stable, so that its
 eigenvalues must have strictly negative real parts.
@@ -2168,17 +2153,12 @@ In the discrete-time case  `A`  must be convergent, that is, its eigenvalues
 must have moduli less than one. These conditions are checked and
 an error message is issued if not fulfilled.
 
-If the Lyapunov equation is (nearly) singular, then perturbed values are
-used to solve the equation. If `disc = false`, this means that
-the matrix `A` has computed eigenvalues with negative real parts,
-it is only just stable in the sense that small perturbations in `A` can make
-one or more of the eigenvalues have a non-negative real part.
-If `disc = true`, this means that while the  matrix `A` has computed eigenvalues
-inside the unit circle, it is nevertheless only just convergent, in
-the sense that small perturbations in `A` can make one or more of the
-eigenvalues lie outside the unit circle.
+If the Lyapunov equation is numerically singular, then small perturbations in `A` can make
+one or more of the eigenvalues have a non-negative real part, if `disc = false`, or 
+can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
+If this situation is detected, an error message is issued.
 """
-function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Float64},Matrix{Float32}}
+function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:BlasReal
    # This function is based on the SLICOT routine SB03OY, which implements the
    # the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
    # for 2-by-2 Lyapunov equations, but directly computing the Cholesky factor
@@ -2188,22 +2168,16 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    #     Numerical solution of the stable, non-negative definite Lyapunov equation.
    #     IMA J. Num. Anal., 2, pp. 303-325, 1982.
 
-   T1 = eltype(A)
-   ZERO = zero(T1)
-   ONE = one(T1)
+   errtext = "Singular Lyapunov equation"
+   ZERO = zero(T)
+   ONE = one(T)
    TWO = 2*ONE
-   FOUR = 4*ONE
-   EPS = eps(ONE)*TWO
-   T1 == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
-   small = SMLNUM*FOUR / EPS
+   small = 2*safemin(T)
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
-   scale = ONE
    noadj = !adj
-   U = similar(R)
-   U[2,1] = ZERO
    β = similar(A)
-   α = similar(R)
+   α = similar(A)
    S11 = A[1,1]
    S12 = A[1,2]
    S21 = A[2,1]
@@ -2216,11 +2190,10 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    else
       E1 >= ZERO && error("A is not stable")
    end
-#     Compute the cos and sine that define  Qhat.  The sine is real.
+   #     Compute the cos and sine that define  Qhat.  The sine is real.
    TEMP1 = S11 - E1
    noadj ? TEMP2 = -E2 : TEMP2 =  E2
    CSQR, CSQI, SNQ = cgivens2( TEMP1, TEMP2, S21, small )
-
    #     beta in (6.9) is given by  beta = E1 + i*E2,  compute  t.
    TEMP1 = CSQR*S12 - SNQ*S11
    TEMP2 = CSQI*S12
@@ -2229,16 +2202,16 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
    T1      = CSQR*TEMP1 - CSQI*TEMP2 + SNQ*TEMPR
    T2      = CSQR*TEMP2 + CSQI*TEMP1 + SNQ*TEMPI
    if noadj
-#                                                         (     -- )
-#        Case op(M) = M.  Note that the modified  R  is  ( p3  p2 ).
-#                                                         ( 0   p1 )
-#
-#        Compute the cos and sine that define  Phat.
-#
+      #                                                        (     -- )
+      #        Case op(M) = M.  Note that the modified  R  is  ( p3  p2 ).
+      #                                                        ( 0   p1 )
+      #
+      #        Compute the cos and sine that define  Phat.
+      #
       TEMP1 =  CSQR*R[2,2] - SNQ*R[1,2]
       TEMP2 = -CSQI*R[2,2]
       CSPR, CSPI, SNP, P1 = cgivens2( TEMP1, TEMP2, -SNQ*R[1,1], small )
-#    Compute p1, p2 and p3 of the relation corresponding to (6.11).
+      #    Compute p1, p2 and p3 of the relation corresponding to (6.11).
       TEMP1 =  CSQR*R[1,2] + SNQ*R[2,2]
       TEMP2 = -CSQI*R[1,2]
       TEMPR   =  CSQR*R[1,1]
@@ -2248,12 +2221,12 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       P3R     =  CSPR*TEMPR   + CSPI*TEMPI   - SNP*TEMP1
       P3I     =  CSPR*TEMPI   - CSPI*TEMPR   - SNP*TEMP2
    else
-#     Case op(M) = M'.
-#     Compute the cos and sine that define  Phat.
+      #     Case op(M) = M'.
+      #     Compute the cos and sine that define  Phat.
       TEMP1 = CSQR*R[1,1] + SNQ*R[1,2]
       TEMP2 = CSQI*R[1,1]
       CSPR, CSPI, SNP, P1 = cgivens2( TEMP1, TEMP2, SNQ*R[2,2], small  )
-#     Compute p1, p2 and p3 of (6.11).
+      #     Compute p1, p2 and p3 of (6.11).
       TEMP1 = CSQR*R[1,2] - SNQ*R[1,1]
       TEMP2 = CSQI*R[1,2]
       TEMPR   = CSQR*R[2,2]
@@ -2263,8 +2236,8 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       P3R     = CSPR*TEMPR   + CSPI*TEMPI   - SNP*TEMP1
       P3I     = CSPI*TEMPR   - CSPR*TEMPI   + SNP*TEMP2
    end
-#  Make  p3  real by multiplying by  conjg ( p3 )/abs( p3 )  to give
-#  p3 := abs( p3 ).
+   #  Make  p3  real by multiplying by  conjg ( p3 )/abs( p3 )  to give
+   #  p3 := abs( p3 ).
    if P3I == ZERO
       P3  = abs( P3R )
       DP1 = copysign( ONE, P3R )
@@ -2274,165 +2247,78 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       DP1 =  P3R/P3
       DP2 = -P3I/P3
    end
-#  Now compute the quantities v1, v2, v3 and y in (6.13) - (6.15),
-#  or (10.23) - (10.25). Care is taken to avoid overflows.
+   #  Now compute the quantities v1, v2, v3 and y in (6.13) - (6.15),
+   #  or (10.23) - (10.25). Care is taken to avoid overflows.
    if disc
       ALPHA = sqrt( abs( ONE - ABSB )*( ONE + ABSB ) )
    else
       ALPHA = sqrt( abs( TWO*E1 ) )
    end
 
-   SCALOC = ONE
    if ALPHA < SMIN
       ALPHA = SMIN
    end
    ABST = abs( P1 )
-   ALPHA < ONE && ABST > ONE && ABST > BIGNUM*ALPHA && (SCALOC = ONE / ABST)
-   if SCALOC != ONE
-      P1  = SCALOC*P1
-      P2R = SCALOC*P2R
-      P2I = SCALOC*P2I
-      P3  = SCALOC*P3
-      scale = SCALOC*scale
-   end
+   ALPHA < ONE && ABST > ONE && ABST > BIGNUM*ALPHA && error("$errtext")
    V1 = P1/ALPHA
 
    if disc
       G1 = (ONE - E1 )*( ONE + E1 ) + E2*E2
       G2 = -TWO*E1*E2
       ABSG =  hypot(G1,G2)
-      SCALOC = ONE
       ABSG < SMIN && (ABSG = SMIN)
       TEMP1 = ALPHA*P2R + V1*( E1*T1 - E2*T2 )
       TEMP2 = ALPHA*P2I + V1*( E1*T2 + E2*T1 )
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
-      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && (SCALOC = ONE / ABST)
-      if SCALOC != ONE
-         V1      = SCALOC*V1
-         TEMP1   = SCALOC*TEMP1
-         TEMP2   = SCALOC*TEMP2
-         P1      = SCALOC*P1
-         P2R     = SCALOC*P2R
-         P2I     = SCALOC*P2I
-         P3      = SCALOC*P3
-         scale   = SCALOC*scale
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && error("$errtext")
       TEMP1 = TEMP1/ABSG
       TEMP2 = TEMP2/ABSG
 
-      SCALOC = ONE
       V2R    = G1*TEMP1 + G2*TEMP2
       V2I    = G1*TEMP2 - G2*TEMP1
       ABST   = max( abs( V2R ), abs( V2I ) )
-      if ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG
-         SCALOC = ONE / ABST
-      end
-      if SCALOC != ONE
-         V1    = SCALOC*V1
-         V2R   = SCALOC*V2R
-         V2I   = SCALOC*V2I
-         P1    = SCALOC*P1
-         P2R   = SCALOC*P2R
-         P2I   = SCALOC*P2I
-         P3    = SCALOC*P3
-         scale = SCALOC*scale
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && error("$errtext")
       V2R = V2R/ABSG
       V2I = V2I/ABSG
 
-      SCALOC  = ONE
       TEMP1 = P1*T1 - TWO*E2*P2I
       TEMP2 = P1*T2 + TWO*E2*P2R
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
-      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG &&
-         (SCALOC = ONE / ABST)
-      if SCALOC != ONE
-         TEMP1 = SCALOC*TEMP1
-         TEMP2 = SCALOC*TEMP2
-         V1    = SCALOC*V1
-         V2R   = SCALOC*V2R
-         V2I   = SCALOC*V2I
-         P3    = SCALOC*P3
-         scale = SCALOC*scale
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && error("$errtext")
       TEMP1 = TEMP1/ABSG
       TEMP2 = TEMP2/ABSG
 
-      SCALOC  = ONE
       YR  = -( G1*TEMP1 + G2*TEMP2 )
       YI  = -( G1*TEMP2 - G2*TEMP1 )
       ABST    = max( abs( YR ), abs( YI ) )
-      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG &&
-         (SCALOC = ONE / ABST)
-      if SCALOC != ONE
-         YR  = SCALOC*YR
-         YI  = SCALOC*YI
-         V1    = SCALOC*V1
-         V2R = SCALOC*V2R
-         V2I = SCALOC*V2I
-         P3    = SCALOC*P3
-         scale = SCALOC*scale
-      end
+      ABSG < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSG && error("$errtext")
       YR = YR/ABSG
       YI = YI/ABSG
    else
-
-      SCALOC = ONE
       ABSB < SMIN && (ABSB = SMIN)
       TEMP1 = ALPHA*P2R + V1*T1
       TEMP2 = ALPHA*P2I + V1*T2
       ABST    = max( abs( TEMP1 ), abs( TEMP2 ) )
-      ABSB < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSB &&
-         (SCALOC = ONE / ABST)
-      if SCALOC != ONE
-         V1      = SCALOC*V1
-         TEMP1   = SCALOC*TEMP1
-         TEMP2   = SCALOC*TEMP2
-         P2R     = SCALOC*P2R
-         P2I     = SCALOC*P2I
-         P3      = SCALOC*P3
-         scale   = SCALOC*scale
-      end
+      ABSB < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSB && error("$errtext")
       TEMP1 = TEMP1/( TWO*ABSB )
       TEMP2 = TEMP2/( TWO*ABSB )
-      SCALOC  = ONE
       V2R     =  -(E1*TEMP1 + E2*TEMP2)
       V2I     =  -(E1*TEMP2 - E2*TEMP1)
       ABST = max( abs( V2R ), abs( V2I ) )
-      ABSB < ONE  &&  ABST > ONE &&  ABST > BIGNUM*ABSB &&
-         (SCALOC = ONE / ABST)
-      if SCALOC != ONE
-         V1    = SCALOC*V1
-         V2R   = SCALOC*V2R
-         V2I   = SCALOC*V2I
-         P2R   = SCALOC*P2R
-         P2I   = SCALOC*P2I
-         P3    = SCALOC*P3
-         scale = SCALOC*scale
-      end
+      ABSB < ONE  &&  ABST > ONE &&  ABST > BIGNUM*ABSB && error("$errtext")
       V2R = V2R/ABSB
       V2I = V2I/ABSB
       YR  = P2R - ALPHA*V2R
       YI  = P2I - ALPHA*V2I
    end
 
-   SCALOC = ONE
    V3     = hypot3(P3,YR,YI)
-   ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA &&
-      (SCALOC = ONE / V3) 
-   if SCALOC != ONE
-      V1    = SCALOC*V1
-      V2R = SCALOC*V2R
-      V2I = SCALOC*V2I
-      V3    = SCALOC*V3
-      P3    = SCALOC*P3
-      scale = SCALOC*scale
-   end
+   ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA && error("$errtext") 
    V3 = V3/ALPHA
 
    if noadj
-#     Case op(M) = M.
-#     Form  X = conjg( Qhat' )*v11.
+      #     Case op(M) = M.
+      #     Form  X = conjg( Qhat' )*v11.
       X11R   =  CSQR*V3
       X11I   =  CSQI*V3
       X21R   =  SNQ*V3
@@ -2441,26 +2327,26 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       X12I   = -CSQR*V2I+CSQI*V2R
       X22R   =  CSQR*V1 + SNQ*V2R
       X22I   = -CSQI*V1 - SNQ*V2I
-#     Obtain u11 from the RQ-factorization of X. The conjugate of
-#     X22 should be taken.
+      #     Obtain u11 from the RQ-factorization of X. The conjugate of
+      #     X22 should be taken.
       X22I = -X22I
       CSTR, CSTI, SNT, TMP = cgivens2( X22R, X22I, X21R, small )
-      U[2,2] = TMP
-      U[1,2] = CSTR*X12R - CSTI*X12I + SNT*X11R
+      U22 = TMP
+      U12 = CSTR*X12R - CSTI*X12I + SNT*X11R
       TEMPR  = CSTR*X11R + CSTI*X11I - SNT*X12R
       TEMPI  = CSTR*X11I - CSTI*X11R - SNT*X12I
       if TEMPI == ZERO
-         U[1,1] = abs( TEMPR )
+         U11 = abs( TEMPR )
          DT1    = copysign( ONE, TEMPR )
          DT2    = ZERO
       else
-         U[1,1] =  hypot(TEMPR,TEMPI)
-         DT1    =  TEMPR/U[1,1]
-         DT2    = -TEMPI/U[1,1]
+         U11 =  hypot(TEMPR,TEMPI)
+         DT1    =  TEMPR/U11
+         DT2    = -TEMPI/U11
       end
    else
-#     Case op(M) = M'.
-#     Now form  X = v11*conjg( Qhat' ).
+      #     Case op(M) = M'.
+      #     Now form  X = v11*conjg( Qhat' ).
       X11R   =  CSQR*V1 - SNQ*V2R
       X11I   = -CSQI*V1 + SNQ*V2I
       X21R   = -SNQ*V3
@@ -2469,24 +2355,24 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       X12I   = -CSQR*V2I + CSQI*V2R
       X22R   =  CSQR*V3
       X22I   =  CSQI*V3
-#     Obtain u11 from the QR-factorization of X.
+      #     Obtain u11 from the QR-factorization of X.
       CSTR, CSTI, SNT, TMP = cgivens2( X11R, X11I, X21R, small  )
-      U[1,1] = TMP
-      U[1,2] = CSTR*X12R + CSTI*X12I + SNT*X22R
+      U11 = TMP
+      U12 = CSTR*X12R + CSTI*X12I + SNT*X22R
       TEMPR  = CSTR*X22R - CSTI*X22I - SNT*X12R
       TEMPI  = CSTR*X22I + CSTI*X22R - SNT*X12I
       if TEMPI == ZERO
-         U[2,2] = abs( TEMPR )
+         U22 = abs( TEMPR )
          DT1    = copysign( ONE, TEMPR )
          DT2    = ZERO
       else
-         U[2,2] =  hypot(TEMPR,TEMPI)
-         DT1    =  TEMPR/U[2,2]
-         DT2    = -TEMPI/U[2,2]
+         U22 =  hypot(TEMPR,TEMPI)
+         DT1    =  TEMPR/U22
+         DT2    = -TEMPI/U22
       end
    end
-#  The computations below are not needed when β and α are not
-#  useful. Compute delta, eta and gamma as in (6.21) or (10.26).
+   #  The computations below are not needed when β and α are not
+   #  useful. Compute delta, eta and gamma as in (6.21) or (10.26).
    if abs( YR ) < small  && abs( YI ) <= small
       DELTA1 = ZERO
       DELTA2 = ZERO
@@ -2506,9 +2392,9 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       end
    end
    if noadj
-#     Case op(M) = M.
-#     Find  X = conjg( That' )*( inv( v11 )*s11hat*v11 ).
-#     ( Defer the scaling.)
+      #     Case op(M) = M.
+      #     Find  X = conjg( That' )*( inv( v11 )*s11hat*v11 ).
+      #     ( Defer the scaling.)
       X11R =  CSTR*E1 + CSTI*E2
       X11I = -CSTR*E2 + CSTI*E1
       X21R =  SNT*E1
@@ -2517,7 +2403,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       X12I = -CSTR*GAMMA2 + CSTI*GAMMA1 - SNT*E2
       X22R =  CSTR*E1 + CSTI*E2 + SNT*GAMMA1
       X22I =  CSTR*E2 - CSTI*E1 - SNT*GAMMA2
-#     Now find  B = X*That. ( Include the scaling here.)
+      #     Now find  B = X*That. ( Include the scaling here.)
       β[1,1] = CSTR*X11R + CSTI*X11I - SNT*X12R
       TEMPR  = CSTR*X21R + CSTI*X21I - SNT*X22R
       TEMPI  = CSTR*X21I - CSTI*X21R - SNT*X22I
@@ -2526,7 +2412,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       TEMPI  = CSTR*X12I + CSTI*X12R + SNT*X11I
       β[1,2] = DT1*TEMPR   + DT2*TEMPI
       β[2,2] = CSTR*X22R - CSTI*X22I + SNT*X21R
-#     Form  X = ( inv( v11 )*p11 )*conjg( Phat' ).
+      #     Form  X = ( inv( v11 )*p11 )*conjg( Phat' ).
       TEMPR  =  DP1*ETA
       TEMPI  = -DP2*ETA
       X11R =  CSPR*TEMPR - CSPI*TEMPI + SNP*DELTA1
@@ -2536,7 +2422,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       X12I = -SNP*TEMPI - CSPR*DELTA2 - CSPI*DELTA1
       X22R =  CSPR*ALPHA
       X22I = -CSPI*ALPHA
-#     Finally form  A = conjg( That' )*X.
+      #     Finally form  A = conjg( That' )*X.
       TEMPR  = CSTR*X11R - CSTI*X11I - SNT*X21R
       TEMPI  = CSTR*X22I + CSTI*X22R
       α[1,1] = DT1*TEMPR   + DT2*TEMPI
@@ -2546,8 +2432,8 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       α[2,1] = ZERO
       α[2,2] = CSTR*X22R + CSTI*X22I + SNT*X12R
    else
-#     Case op(M) = M'.
-#     Find  X = That*( v11*s11hat*inv( v11 ) ). ( Defer the scaling.)
+      #     Case op(M) = M'.
+      #     Find  X = That*( v11*s11hat*inv( v11 ) ). ( Defer the scaling.)
       X11R =  CSTR*E1 + CSTI*E2
       X11I =  CSTR*E2 - CSTI*E1
       X21R = -SNT*E1
@@ -2556,7 +2442,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       X12I = -CSTR*GAMMA2 - CSTI*GAMMA1 - SNT*E2
       X22R =  CSTR*E1 + CSTI*E2 - SNT*GAMMA1
       X22I = -CSTR*E2 + CSTI*E1 + SNT*GAMMA2
-#     Now find  B = X*conjg( That' ). ( Include the scaling here.)
+      #     Now find  B = X*conjg( That' ). ( Include the scaling here.)
       β[1,1] = CSTR*X11R - CSTI*X11I + SNT*X12R
       TEMPR  = CSTR*X21R - CSTI*X21I + SNT*X22R
       TEMPI  = CSTR*X21I + CSTI*X21R + SNT*X22I
@@ -2565,7 +2451,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       TEMPI  = CSTR*X12I - CSTI*X12R - SNT*X11I
       β[1,2] = DT1*TEMPR   + DT2*TEMPI
       β[2,2] = CSTR*X22R + CSTI*X22I - SNT*X21R
-#     Form  X = Phat*( p11*inv( v11 ) ).
+      #     Form  X = Phat*( p11*inv( v11 ) ).
       TEMPR  =  DP1*ETA
       TEMPI  = -DP2*ETA
       X11R =  CSPR*ALPHA
@@ -2575,7 +2461,7 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       X12I = -CSPR*DELTA2 + CSPI*DELTA1 - SNP*TEMPI
       X22R =  CSPR*TEMPR + CSPI*TEMPI + SNP*DELTA1
       X22I =  CSPR*TEMPI - CSPI*TEMPR - SNP*DELTA2
-#     Finally form  A = X*conjg( That' ).
+      #     Finally form  A = X*conjg( That' ).
       α[1,1] = CSTR*X11R - CSTI*X11I + SNT*X12R
       α[2,1] = ZERO
       α[1,2] = CSTR*X12R + CSTI*X12I - SNT*X11R
@@ -2584,12 +2470,10 @@ function plyap2(A::T, R::T; adj = false, disc = false) where T<:Union{Matrix{Flo
       α[2,2] = DT1*TEMPR   + DT2*TEMPI
    end
 
-   if scale != ONE
-      α[1,1] = scale*α[1,1]
-      α[1,2] = scale*α[1,2]
-      α[2,2] = scale*α[2,2]
-   end
-   return U, scale, β, α
+   R[1,1] = U11
+   R[1,2] = U12
+   R[2,2] = U22
+   return β, α
 end
 """
     pglyap2(A, E, R; adj = false, disc = false) -> (U, scale, β, α)

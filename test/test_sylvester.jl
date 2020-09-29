@@ -6,7 +6,7 @@ using Test
 
 @testset "Testing Sylvester equation solvers" begin
 
-n = 30; m = 20; n = 3; m = 2;
+n = 30; m = 20; 
 Ty = Float64
 reltol = sqrt(eps(1.))
 
@@ -16,6 +16,13 @@ reltol = sqrt(eps(1.))
 
 @time x = sylvc(1,2im,3.)
 @test abs(x+x*2*im-3.) < reltol
+
+try 
+   @time x = sylvc(ones(1,1),-ones(1,1),ones(1,1)) 
+   @test false
+catch
+   @test true
+end
 
 for Ty in (Float64, Float32)
 
@@ -130,6 +137,21 @@ end
 
 # discrete Sylvester equations
 @testset "Discrete Sylvester equations" begin
+
+try 
+   @time x = sylvd(ones(1,1),-ones(1,1),ones(1,1)) 
+   @test false
+catch
+   @test true
+end
+
+try 
+   @time x = sylvd([1 -1;1 1],-0.5*[1 -1;1 1],ones(2,2)) 
+   @test false
+catch
+   @test true
+end
+
 
 for Ty in (Float64, Float32)
 

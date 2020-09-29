@@ -110,21 +110,21 @@ catch
 end  
 
 try
-  x = lyapc([0 1;  -1 0 ],[1 0; 0 1],ones(2,2))
+  x = lyapc([0 2;  -2 0 ],[2 0; 0 2],ones(2,2))
   @test false
 catch
   @test true
 end  
 
 try
-  x = lyapc([1 1;  0 -1],[1 0; 0 1],ones(2,2))
+  x = lyapc([2 2;  0 -2],[2 0; 0 2],ones(2,2))
   @test false
 catch
   @test true
 end  
 
 try
-  x = lyapc([1 1 1 1;  -1 1 0 1; 0 0 -1 1; 0 0 -1 -1],Matrix{Float64}(I,4,4), ones(4,4))
+  x = lyapc(2*[1 1 1 1;  -1 1 0 1; 0 0 -1 1; 0 0 -1 -1],2*Matrix{Float64}(I,4,4), ones(4,4))
   @test false
 catch
   @test true

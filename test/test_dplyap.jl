@@ -11,7 +11,6 @@ m = 5
 p = 3
 Ty = Float64
 
-
 @testset "Positive discrete Lyapunov equations" begin
 
 reltol = eps(float(100))
@@ -155,15 +154,18 @@ R = [1. 1.; 0. 1.]
 reltol = eps(float(100))
 
 
-U, scale, β, α = plyap2(A, R, adj = true, disc = true)
-X = U'*U; @test norm(A'*X*A-X+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = true)
+#U, scale, β, α = plyap2(A, R, adj = true, disc = true)
+X = U'*U; @test norm(A'*X*A-X+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = plyap2(A, R, adj = false, disc = true)
-X = U*U'; @test norm(A*X*A'-X+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = false, disc = true)
+X = U*U'; @test norm(A*X*A'-X+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
-                norm(U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(U*α - R)/max(1,norm(R)) < reltol
 
 U, scale, β, α = pglyap2(A, E, R, adj = true, disc = true)
 X = U'*U; @test norm(A'*X*A-E'*X*E+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
@@ -180,15 +182,18 @@ E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
 R = [1. 1.; 0. 1.]; R = convert(Matrix{Float32},R)
 reltol = eps(100f0)
 
-U, scale, β, α = plyap2(A, R, adj = true, disc = true)
-X = U'*U; @test norm(A'*X*A-X+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = true)
+#U, scale, β, α = plyap2(A, R, adj = true, disc = true)
+X = U'*U; @test norm(A'*X*A-X+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = plyap2(A, R, adj = false, disc = true)
-X = U*U'; @test norm(A*X*A'-X+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.plyap2!(A, U, adj = false, disc = true)
+X = U*U'; @test norm(A*X*A'-X+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
-                norm(U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(U*α - R)/max(1,norm(R)) < reltol
 
 U, scale, β, α = pglyap2(A, E, R, adj = true, disc = true)
 X = U'*U; @test norm(A'*X*A-E'*X*E+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
