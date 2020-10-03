@@ -550,7 +550,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvcs!(A::Matrix{T1}, B::Matrix{T1}, C::Matrix{T1}; adjA = false, adjB = false) where  T1<:BlasFloat
+function sylvcs!(A::Matrix{T1}, B::Matrix{T1}, C::Matrix{T1}; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
    """
    This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
    Reference:
@@ -566,7 +566,7 @@ function sylvcs!(A::Matrix{T1}, B::Matrix{T1}, C::Matrix{T1}; adjA = false, adjB
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-@inline function sylvd2!(adjA,adjB,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},B::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function sylvd2!(adjA,adjB,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
@@ -576,66 +576,67 @@ end
    ONE = one(T)
    if na == 1 && nb == 1
       temp = A[1,1]*B[1,1] + ONE
-      iszero(temp) && throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that αβ ≈ -1")
+      iszero(temp) && throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that αβ = -1")
       return rmul!(C,inv(temp))
    end
-   nv = na*nb
-   i1 = 1:nv
+   i1 = 1:na*nb
    R = view(Xw,i1,i1)
    Y = view(Yw,i1)
    Y[:] = C[i1]
    if adjA && !adjB
       if na == 1
          # R12 = 
-         # [ a11*b11-1      a11*b21]
-         # [     a11*b12  a11*b22-1]
+         # [ a11*b11+1      a11*b21]
+         # [     a11*b12  a11*b22+1]
          @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
                          A[1,1]*B[1,2]  A[1,1]*B[2,2]+ONE]
       else
          if nb == 1
             # R21 = 
-            # [ a11*b11-1      a21*b11]
-            # [     a12*b11  a22*b11-1]
+            # [ a11*b11+1      a21*b11]
+            # [     a12*b11  a22*b11+1]
             @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
                             A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE ]
          else
             # R = 
-            # [ a11*b11-1      a21*b11      a11*b21      a21*b21]
-            # [     a12*b11  a22*b11-1      a12*b21      a22*b21]
-            # [     a11*b12      a21*b12  a11*b22-1      a21*b22]
-            # [     a12*b12      a22*b12      a12*b22  a22*b22-1]
+            # [ a11*b11+1      a21*b11      a11*b21      a21*b21]
+            # [     a12*b11  a22*b11+1      a12*b21      a22*b21]
+            # [     a11*b12      a21*b12  a11*b22+1      a21*b22]
+            # [     a12*b12      a22*b12      a12*b22  a22*b22+1]
             @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
             A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE      A[1,2]*B[2,1]      A[2,2]*B[2,1];
             A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+ONE      A[2,1]*B[2,2];
             A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+ONE]
          end
       end
+      #R = kron(transpose(B),A) + I
    elseif !adjA && adjB
       if na == 1
          # R12 =
-         # [ a11*b11-1      a11*b12]
-         # [     a11*b21  a11*b22-1]
+         # [ a11*b11+1      a11*b12]
+         # [     a11*b21  a11*b22+1]
          @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[1,2];
                          A[1,1]*B[2,1]  A[1,1]*B[2,2]+ONE]
       else
          if nb == 1
             # R21 =
-            #    [ a11*b11-1      a12*b11]
-            #    [     a21*b11  a22*b11-1]
+            #    [ a11*b11+1      a12*b11]
+            #    [     a21*b11  a22*b11+1]
             @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1];
                             A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE]
          else
             # R = 
-            # [ a11*b11-1      a12*b11      a11*b12      a12*b12]
-            # [     a21*b11  a22*b11-1      a21*b12      a22*b12]
-            # [     a11*b21      a12*b21  a11*b22-1      a12*b22]
-            # [     a21*b21      a22*b21      a21*b22  a22*b22-1]
+            # [ a11*b11+1      a12*b11      a11*b12      a12*b12]
+            # [     a21*b11  a22*b11+1      a21*b12      a22*b12]
+            # [     a11*b21      a12*b21  a11*b22+1      a12*b22]
+            # [     a21*b21      a22*b21      a21*b22  a22*b22+1]
             @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
             A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE      A[2,1]*B[1,2]      A[2,2]*B[1,2];
             A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+ONE      A[1,2]*B[2,2];
             A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+ONE]
          end
       end
+      #R = kron(transpose(B),transpose(A)) + I
    elseif !adjA && !adjB
       if na == 1
          # R12 = 
@@ -662,6 +663,7 @@ end
             A[2,1]*B[1,2]      A[2,2]*B[1,2]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+ONE]
          end
       end
+      #R = kron(B,A) + I
    else
       if na == 1
          # R12 = 
@@ -687,14 +689,14 @@ end
             A[1,1]*B[2,1]      A[2,1]*B[2,1]  A[1,1]*B[2,2]+ONE      A[2,1]*B[2,2];
             A[1,2]*B[2,1]      A[2,2]*B[2,1]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+ONE]
          end
-      end
+      #R = kron(B,transpose(A)) + I
+   end
    end
    try
-      ldiv!(lu!(R),Y)
+      C = reshape(ldiv!(lu!(R),Y),na,nb)
    catch 
-      throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ ≈ -1")
+      throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
    end
-   C[:,:] = Y
    return C
 end
 """
@@ -709,7 +711,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA = false, adjB = false) where  T1<:BlasReal
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasReal
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -767,8 +769,6 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  y -= A[k,ic]*W[ic,dll]
               end
               C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-            #   Z = (kron(transpose(B[l,l]),A[k,k])+I)\(y[:])
-            #   isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
               i -= dk
           end
           j += dl
@@ -812,8 +812,6 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     y -= A[k,ic]*W[ic,dll]
                  end
                  C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-                 #   Z = (kron(B[l,l],A[k,k])+I)\(y[:])
-               #   isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
                  i -= dk
              end
              j -= dl
@@ -858,8 +856,6 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  y -= A[ic,k]'*W[ic,dll]
               end
               C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-            #   Z = (kron(transpose(B[l,l]),transpose(A[k,k]))+I)\(y[:])
-            #   isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
               i += dk
           end
           j += dl
@@ -903,8 +899,6 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  y -= A[ic,k]'*W[ic,dll]
               end
               C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-            #   Z = (kron(B[l,l],transpose(A[k,k]))+I)\(y[:])
-            #   isfinite(maximum(abs.(Z))) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
               i += dk
           end
           j -= dl
@@ -912,7 +906,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA = false, adjB = false) where  T1<:BlasComplex
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasComplex
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -961,8 +955,6 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               temp = B[l,l]*A[k,k]+ONE
               iszero(temp) && throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
               C[k,l] = y/temp
-            #   Z = y/(B[l,l]*A[k,k]+I)
-            #   isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
              end
       end
    elseif !adjA && adjB
@@ -1001,8 +993,6 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  temp = B[l,l]'*A[k,k]+ONE
                  iszero(temp) && throw("ME:SingularException: A and -B' have common or close reciprocal eigenvalues")
                  C[k,l] = y/temp
-               #   Z = y/(B[l,l]'*A[k,k]+I)
-               #   isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
              end
          end
    elseif adjA && !adjB
@@ -1041,9 +1031,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               temp = B[l,l]*A[k,k]'+ONE
               iszero(temp) && throw("ME:SingularException: A' and -B have common or close reciprocal eigenvalues")
               C[k,l] = y/temp
-            #   Z = y/(B[l,l]*A[k,k]'+I)
-            #   isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
-          end
+         end
       end
    elseif adjA && adjB
       """
@@ -1081,15 +1069,13 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               temp = B[l,l]'*A[k,k]'+ONE
               iszero(temp) && throw("ME:SingularException: A' and -B' have common or close reciprocal eigenvalues")
               C[k,l] = y/temp
-            #   Z = y/(B[l,l]'*A[k,k]'+I)
-            #   isfinite(Z) ? C[k,l] = Z : throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
           end
       end
    end
    return C
 end
 """
-    X = gsylvs!(A,B,C,D,E; adjAC=false, adjBD=false, DBSchur = false)
+    X = gsylvs!(A,B,C,D,E; adjAC=false, adjBD=false, CASchur = false, DBSchur = false)
 
 Solve the generalized Sylvester matrix equation
 
@@ -1110,8 +1096,8 @@ The matrix pair `(B,D)` is in a generalized real or complex Schur form if `DBSch
 or the matrix pair `(D,B)` is in a generalized real or complex Schur form if `DBSchur = true`.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
-function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where 
-                 {T<:BlasReal,T1<:Matrix{T}}
+function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
+                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasReal
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1124,43 +1110,24 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
    m, n = size(E);
    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) || 
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
- 
+   ONE = one(T1)
 
    # determine the structure of the generalized real Schur form of (A,C)
-   ba = fill(1,m,1)
-   pa = 1
-   if m > 1
-      CASchur ? d = [diag(C,-1);zeros(1)] : d = [diag(A,-1);zeros(1)]
-      i = 1
-      pa = 0
-      while i <= m
-         pa += 1
-         if d[i] != 0
-            ba[pa] = 2
-            i += 1
-         end
-         i += 1
-      end
+   if CASchur 
+      ba, pa = sfstruct(C)
+   else
+      ba, pa = sfstruct(A)
    end
-   # determine the structure of the generalized real Schur form of (B,D)
-   bb = fill(1,n,1)
-   pb = 1
-   if n > 1
-      DBSchur ? d = [diag(D,-1);zeros(1)] : d = [diag(B,-1);zeros(1)]
-      i = 1
-      pb = 0
-      while i <= n
-         pb += 1
-         if d[i] != 0
-            bb[pb] = 2
-            i += 1
-         end
-         i += 1
-      end
+   if DBSchur
+      bb, pb = sfstruct(D) 
+   else
+      bb, pb = sfstruct(B)
    end
 
-   WB = fill(zero(eltype(E)),m,2)
-   WD = fill(zero(eltype(E)),m,2)
+   WB = zeros(T1,m,2)
+   WD = zeros(T1,m,2)
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if !adjAC && !adjBD
       """
       The (K,L)th block of X is determined starting from
@@ -1196,22 +1163,29 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
               dkk = 1:dk
               i1 = i-dk+1
               k = i1:i
-              y = E[k,l]
+              #y = E[k,l]
+              y = view(E,k,l)
+              W1 = view(Xw,dkk,dll)
               if kk < pa
                  ir = i+1:m
-                 W1 = A[k,ir]*E[ir,l]
+                 #W1 = A[k,ir]*E[ir,l]
+                 mul!(W1,view(A,k,ir),view(E,ir,l))
                  y -= W1*B[l,l]
-                 W1 = C[k,ir]*E[ir,l]
+                 #W1 = C[k,ir]*E[ir,l]
+                 mul!(W1,view(C,k,ir),view(E,ir,l))
                  y -= W1*D[l,l]
               end
               if ll > 1
                  ic = i1:m
-                 WB[k,dll] = E[k,il1]*B[il1,l]
-                 WD[k,dll] = E[k,il1]*D[il1,l]
-                 y -= (A[k,ic]*WB[ic,dll] + C[k,ic]*WD[ic,dll])
+                 # WB[k,dll] = E[k,il1]*B[il1,l]
+                 mul!(view(WB,k,dll),view(E,k,il1),view(B,il1,l))
+                 # WD[k,dll] = E[k,il1]*D[il1,l]
+                 mul!(view(WD,k,dll),view(E,k,il1),view(D,il1,l))
+                 # y -= (A[k,ic]*WB[ic,dll] + C[k,ic]*WD[ic,dll])
+                 mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
+                 mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
               end
-              Z = (kron(transpose(B[l,l]),A[k,k])+kron(transpose(D[l,l]),C[k,k]))\(y[:])
-              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
+              E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i -= dk
           end
           j += dl
@@ -1250,22 +1224,30 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
                  dkk = 1:dk
                  i1 = i-dk+1
                  k = i1:i
-                 y = E[k,l]
+                 #y = E[k,l]
+                 y = view(E,k,l)
+                 W1 = view(Xw,dkk,dll)
                  if kk < pa
                     ir = i+1:m
-                    W1 = A[k,ir]*E[ir,l]
+                    #W1 = A[k,ir]*E[ir,l]
+                    mul!(W1,view(A,k,ir),view(E,ir,l))
                     y -= W1*B[l,l]'
-                    W2 = C[k,ir]*E[ir,l]
-                    y -= W2*D[l,l]'
+                    #W2 = C[k,ir]*E[ir,l]
+                    mul!(W1,view(C,k,ir),view(E,ir,l))
+                    # y -= W2*D[l,l]'
+                    y -= W1*D[l,l]'
                  end
                  if ll < pb
                     ic = i1:m
-                    WB[k,dll] = E[k,il1]*B[l,il1]'
-                    WD[k,dll] = E[k,il1]*D[l,il1]'
-                    y -= (A[k,ic]*WB[ic,dll]+C[k,ic]*WD[ic,dll])
+                    #WB[k,dll] = E[k,il1]*B[l,il1]'
+                    mul!(view(WB,k,dll),view(E,k,il1),transpose(view(B,l,il1)))
+                    #WD[k,dll] = E[k,il1]*D[l,il1]'
+                    mul!(view(WD,k,dll),view(E,k,il1),transpose(view(D,l,il1)))
+                    #y -= (A[k,ic]*WB[ic,dll]+C[k,ic]*WD[ic,dll])
+                    mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
+                    mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
                  end
-                 Z = (kron(B[l,l],A[k,k])+kron(D[l,l],C[k,k]))\(y[:])
-                 isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
+                 E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
                  i -= dk
              end
              j -= dl
@@ -1305,23 +1287,31 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
               dkk = 1:dk
               i1 = i+dk-1
               k = i:i1
-              y = E[k,l]
+              #y = E[k,l]
+              y = view(E,k,l)
+              W1 = view(Xw,dkk,dll)
               if kk > 1
                  ir = 1:i-1
-                 W1 = A[ir,k]'*E[ir,l]
+                 # W1 = A[ir,k]'*E[ir,l]
+                 mul!(W1,transpose(view(A,ir,k)),view(E,ir,l))
                  y -= W1*B[l,l]
-                 W2 = C[ir,k]'*E[ir,l]
-                 y -= W2*D[l,l]
+               #   W2 = C[ir,k]'*E[ir,l]
+               #   y -= W2*D[l,l]
+                 mul!(W1,transpose(view(C,ir,k)),view(E,ir,l))
+                 y -= W1*D[l,l]
               end
               if ll > 1
                  ic = 1:i1
-                 WB[k,dll] = E[k,il1]*B[il1,l]
-                 y -= A[ic,k]'*WB[ic,dll]
-                 WD[k,dll] = E[k,il1]*D[il1,l]
-                 y -= C[ic,k]'*WD[ic,dll]
+                 #WB[k,dll] = E[k,il1]*B[il1,l]
+                 mul!(view(WB,k,dll),view(E,k,il1),view(B,il1,l))
+                 #y -= A[ic,k]'*WB[ic,dll]
+                 mul!(y,transpose(view(A,ic,k)),view(WB,ic,dll),-ONE,ONE)
+                 #WD[k,dll] = E[k,il1]*D[il1,l]
+                 mul!(view(WD,k,dll),view(E,k,il1),view(D,il1,l))
+                 #y -= C[ic,k]'*WD[ic,dll]
+                 mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              Z = (kron(transpose(B[l,l]),transpose(A[k,k]))+kron(transpose(D[l,l]),transpose(C[k,k])))\(y[:])
-              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
+              E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i += dk
           end
           j += dl
@@ -1360,22 +1350,30 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
               dkk = 1:dk
               i1 = i+dk-1
               k = i:i1
-              y = E[k,l]
+              #y = E[k,l]
+              y = view(E,k,l)
+              W1 = view(Xw,dkk,dll)
               if kk > 1
                  ir = 1:i-1
-                 W1 = A[ir,k]'*E[ir,l]
+                 #W1 = A[ir,k]'*E[ir,l]
+                 mul!(W1,transpose(view(A,ir,k)),view(E,ir,l))
                  y -= W1*B[l,l]'
-                 W2 = C[ir,k]'*E[ir,l]
-                 y -= W2*D[l,l]'
+               #   W2 = C[ir,k]'*E[ir,l]
+               #   y -= W2*D[l,l]'
+                 mul!(W1,transpose(view(C,ir,k)),view(E,ir,l))
+                 y -= W1*D[l,l]'
               end
               if ll < pb
                  ic = 1:i1
-                 WB[k,dll] = E[k,il1]*B[l,il1]'
-                 WD[k,dll] = E[k,il1]*D[l,il1]'
-                 y -= (A[ic,k]'*WB[ic,dll] + C[ic,k]'*WD[ic,dll])
+                 #WB[k,dll] = E[k,il1]*B[l,il1]'
+                 mul!(view(WB,k,dll),view(E,k,il1),transpose(view(B,l,il1)))
+                 #WD[k,dll] = E[k,il1]*D[l,il1]'
+                 mul!(view(WD,k,dll),view(E,k,il1),transpose(view(D,l,il1)))
+                 #y -= (A[ic,k]'*WB[ic,dll] + C[ic,k]'*WD[ic,dll])
+                 mul!(y,transpose(view(A,ic,k)),view(WB,ic,dll),-ONE,ONE)
+                 mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              Z = (kron(B[l,l],transpose(A[k,k]))+kron(D[l,l],transpose(C[k,k])))\(y[:])
-              isfinite(maximum(abs.(Z))) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
+              E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i += dk
           end
           j -= dl
@@ -1383,8 +1381,160 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
    end
    return E
 end
-function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false, CASchur = false, DBSchur = false) where 
-   {T<:BlasComplex,T1<:Matrix{T}}
+@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
+   #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C) 
+   #      A'*X*B + C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + kron(D',C')
+   #      A*X*B' + C*X*D' = E   if adjAC = false and adjBD = true  -> R = kron(B,A)   + kron(D,C)
+   #      A'*X*B' + C'*X*D' = E if adjAC = true and adjBD = true   -> R = kron(B,A')  + kron(D,C')
+   if na == 1 && nb == 1
+      temp = A[1,1]*B[1,1] + C[1,1]*D[1,1] 
+      iszero(temp) && throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
+      return rmul!(E,inv(temp))
+   end
+   i1 = 1:na*nb
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y = E[:]
+   if !adjAC && !adjBD
+      if na == 1
+         # R12 = 
+         # [ a11*b11 + c11*d11, a11*b21 + c11*d21]
+         # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
+         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
+                         A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+      else
+         if nb == 1
+            # R21 = 
+            # [ a11*b11 + c11*d11, a12*b11 + c12*d11]
+            # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
+            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
+                            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+         else
+            # R = 
+            # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b21 + c11*d21, a12*b21 + c12*d21]
+            # [ a21*b11 + c21*d11, a22*b11 + c22*d11, a21*b21 + c21*d21, a22*b21 + c22*d21]
+            # [ a11*b12 + c11*d12, a12*b12 + c12*d12, a11*b22 + c11*d22, a12*b22 + c12*d22]
+            # [ a21*b12 + c21*d12, a22*b12 + c22*d12, a21*b22 + c21*d22, a22*b22 + c22*d22]
+            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]      A[1,1]*B[2,1]      A[1,2]*B[2,1];
+            A[2,1]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]      A[2,2]*B[2,1];
+            A[1,1]*B[1,2]      A[1,2]*B[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2];
+            A[2,1]*B[1,2]      A[2,2]*B[1,2]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1];
+            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
+            A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
+            A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
+         end
+      end
+      #R = kron(transpose(B),A) + kron(transpose(D),C)
+   elseif adjAC && !adjBD
+      if na == 1
+         # R12 = 
+         # [ a11*b11 + c11*d11, a11*b21 + c11*d21]
+         # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
+         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
+                         A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+      else
+         if nb == 1
+            # R21 = 
+            # [ a11*b11 + c11*d11, a21*b11 + c21*d11]
+            # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
+            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
+                            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+         else
+            # R = 
+            # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b21 + c11*d21, a21*b21 + c21*d21]
+            # [ a12*b11 + c12*d11, a22*b11 + c22*d11, a12*b21 + c12*d21, a22*b21 + c22*d21]
+            # [ a11*b12 + c11*d12, a21*b12 + c21*d12, a11*b22 + c11*d22, a21*b22 + c21*d22]
+            # [ a12*b12 + c12*d12, a22*b12 + c22*d12, a12*b22 + c12*d22, a22*b22 + c22*d22]
+            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
+            A[1,2]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
+            A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2];
+            A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1];
+            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
+            A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
+            A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+         end
+      end
+      #R = kron(transpose(B),transpose(A)) + kron(transpose(D),transpose(C))
+   elseif !adjAC && adjBD
+      if na == 1
+         # R12 = 
+         # [ a11*b11 + c11*d11, a11*b12 + c11*d12]
+         # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
+         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
+                         A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+      else
+         if nb == 1
+            # R21 = 
+            # [ a11*b11 + c11*d11, a12*b11 + c12*d11]
+            # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
+            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
+                            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+         else
+            # R = 
+            # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b12 + c11*d12, a12*b12 + c12*d12]
+            # [ a21*b11 + c21*d11, a22*b11 + c22*d11, a21*b12 + c21*d12, a22*b12 + c22*d12]
+            # [ a11*b21 + c11*d21, a12*b21 + c12*d21, a11*b22 + c11*d22, a12*b22 + c12*d22]
+            # [ a21*b21 + c21*d21, a22*b21 + c22*d21, a21*b22 + c21*d22, a22*b22 + c22*d22]
+            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
+            A[2,1]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2];
+            A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
+            A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2];
+            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
+            A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
+            A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+         end
+      end
+      #R = kron(B,A) + kron(D,C)
+   else
+      if na == 1
+         # R12 = 
+         # [ a11*b11 + c11*d11, a11*b12 + c11*d12]
+         # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
+         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
+                         A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+      else
+         if nb == 1
+            # R21 = 
+            # [ a11*b11 + c11*d11, a21*b11 + c21*d11]
+            # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
+            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
+                            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+         else
+            # R = 
+            # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b12 + c11*d12, a21*b12 + c21*d12]
+            # [ a12*b11 + c12*d11, a22*b11 + c22*d11, a12*b12 + c12*d12, a22*b12 + c22*d12]
+            # [ a11*b21 + c11*d21, a21*b21 + c21*d21, a11*b22 + c11*d22, a21*b22 + c21*d22]
+            # [ a12*b21 + c12*d21, a22*b21 + c22*d21, a12*b22 + c12*d22, a22*b22 + c22*d22]
+            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]      A[1,1]*B[1,2]      A[2,1]*B[1,2];
+            A[1,2]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]      A[2,2]*B[1,2];
+            A[1,1]*B[2,1]      A[2,1]*B[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2];
+            A[1,2]*B[2,1]      A[2,2]*B[2,1]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2];
+            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
+            A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
+            A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+         end
+      end
+      #R = kron(B,transpose(A)) + kron(D,transpose(C))
+   end
+   try
+      E = reshape(ldiv!(lu!(R),Y),na,nb)
+   catch 
+      throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
+   end
+   return E
+end
+
+function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
+                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasComplex
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1398,8 +1548,8 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
 
-   WB = zeros(T,m,1)
-   WD = zeros(T,m,1)
+   WB = zeros(T1,m,1)
+   WD = zeros(T1,m,1)
    if !adjAC && !adjBD
       """
       The (K,L)th element of X is determined starting from
@@ -1447,8 +1597,6 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
               temp = B[l,l]*A[k,k]+D[l,l]*C[k,k]
               iszero(temp) && throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
               E[k,l] = y/temp
-            #   Z = y/(B[l,l]*A[k,k]+D[l,l]*C[k,k])
-            #   isfinite(Z) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    elseif !adjAC && adjBD
@@ -1498,8 +1646,6 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
                  temp = B[l,l]'*A[k,k]+D[l,l]'*C[k,k]
                  iszero(temp) && throw("ME:SingularException: A-λC and D'+λB' have common or close eigenvalues")
                  E[k,l] = y/temp
-               #   Z = y/(B[l,l]'*A[k,k]+D[l,l]'*C[k,k])
-               #   isfinite(Z) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
              end
          end
    elseif adjAC && !adjBD
@@ -1549,8 +1695,6 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
               temp = B[l,l]*A[k,k]'+D[l,l]*C[k,k]'
               iszero(temp) && throw("ME:SingularException: A'-λC' and D+λB have common or close eigenvalues")
               E[k,l] = y/temp
-            #   Z = y/(B[l,l]*A[k,k]'+D[l,l]*C[k,k]')
-            #   isfinite(Z) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    elseif adjAC && adjBD
@@ -1600,8 +1744,6 @@ function gsylvs!(A::T1, B::T1, C::T1, D::T1, E::T1; adjAC = false, adjBD = false
               temp = B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]'
               iszero(temp) && throw("ME:SingularException: A'-λC' and D'+λB' have common or close eigenvalues")
               E[k,l] = y/temp
-            #   Z = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
-            #   isfinite(Z) ? E[k,l] = Z : throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    end
@@ -1623,7 +1765,6 @@ _Note:_ This is an enhanced interface to the `LAPACK.tgsyl!` function to also co
 `A`, `B`, `D` and `E` are real matrices and `C` and `F` are complex matrices.
 """
 function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
-   #function sylvsyss!(A::T, B::T, C::T, D::T, E::T, F::T) where {T<:Union{Array{Complex{Float64},2},Array{Complex{Float32},2}}}
    """
    This is a wrapper to the LAPACK.tgsyl! function with `trans = 'N'`.
    """
@@ -1643,12 +1784,14 @@ The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenv
 solution `(X,Y)` is contained in `(C,F)`.
 """
 function dsylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
-   #function dsylvsyss!(A::T, B::T, C::T, D::T, E::T, F::T) where {T<:Union{Array{Complex{Float64},2},Array{Complex{Float32},2}}}
    """
    This is an interface to the LAPACK.tgsyl! function with `trans = 'T' or `trans = 'C'`. 
    """
-   MF = -F
-   E, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, MF)
-   F = MF
+   # MF = -F
+   # E, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, MF)
+   # F = MF
+   # return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
+   F = -F
+   C, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, F)
    return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
 end

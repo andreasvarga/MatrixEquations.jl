@@ -68,9 +68,9 @@ The collection of tools will be extended by adding new functionality, such as ex
 
 ## Release Notes
 
-### Versions 1.2.0 (in preparation)
+### Versions 1.2.0
 
-Minor release targetting sensible speed increase of various lower level solvers by the reduction of allocation burden using preallocation of fixed size small work arrays, explicit forming of small order Kronecker product based coefficient matrices, performing updating operations with the 5-term `mul!` funtion introduced in `Julia 1.3` (compatibility with lower versions ensured using calls to BLAS `gemm!`).  The functionality of lower level solvers has been strictly restricted to the basic real and complex data of types `BlasReal` and `BlasComplex`.
+Minor release targetting sensible, up to 50% speed increase of various lower level solvers by the reduction of allocation burden using preallocation of fixed size small work arrays, explicit forming of small order Kronecker product based coefficient matrices, performing updating operations with the 5-term `mul!` funtion introduced in `Julia 1.3` (compatibility with lower versions ensured using calls to BLAS `gemm!`).  The functionality of lower level solvers has been strictly restricted to the basic real and complex data of types `BlasReal` and `BlasComplex`.
 
 ### Versions 1.1.1-1.1.4
 

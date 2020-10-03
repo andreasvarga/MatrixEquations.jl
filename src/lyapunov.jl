@@ -526,7 +526,7 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
        end
    end
 end
-@inline function lyapc2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
 # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
 #      A'*X + X*A = -C if adj = true  -> R = kron(I,A')+kron(A',I) = (kron(I,A)+kron(A,I))'
 #      A*X + X*A' = -C if adj = false -> R = kron(I,A)+kron(A,I)
@@ -556,7 +556,7 @@ end
    C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
    return C
 end
-@inline function lyapcsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},B::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
 # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
 # encountered in solving continuous Lyapunov equations: 
 #      A'*X + X*B = -C if adj = true  -> R = kron(I,A')+kron(B',I) = (kron(I,A)+kron(B,I))'
@@ -851,7 +851,7 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
       end
    end
 end
-@inline function lyapc2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},E::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
 # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 generalized continuous Lyapunov equations
 # LAPACK generated diagonal structure of E is exploited when possible
 #      A'*X*E + E'*X*A = -C if adj = true  -> R = kron(E',A')+kron(A',E') = (kron(E,A)+kron(A,E))'
@@ -898,7 +898,7 @@ if na == 1
    C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
    return C
 end
-@inline function lyapcsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},E::StridedMatrix{T},B::StridedMatrix{T},F::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
 # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
 # encountered in solving generalized continuous Lyapunov equations:
 #      A'*X*F + E'*X*B = -C if adj = true  -> R = kron(F',A')+kron(B',E') = (kron(F,A)+kron(B,E))'
@@ -1187,7 +1187,7 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
       end
    end
 end
-@inline function lyapd2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
    #      A'*X*A - X = -C if adj = true  -> R = kron(A',A')-I = (kron(A,A)-I)'
    #      A*X*A' - X = -C if adj = false -> R = kron(A,A)-I
@@ -1228,7 +1228,7 @@ end
    C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
    return C
 end
-@inline function lyapdsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},B::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapdsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    #      A'*X*B - X = -C if adj = true  -> R = kron(B',A') - I = (kron(B,A)-I)'
@@ -1540,7 +1540,7 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
       end
    end
 end
-@inline function lyapd2!(adj,C::StridedMatrix{T},na::Int,A::StridedMatrix{T},E::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
    #      A'*X*A - E'*X*E = -C if adj = true  -> R = kron(A',A')-kron(E',E') = (kron(A,A)-kron(E,E))'
    #      A*X*A' - E*X*E' = -C if adj = false -> R = kron(A,A)-kron(E,E)
@@ -1589,7 +1589,7 @@ end
    C[:,:] = [Y[1] Y[2]; Y[2] Y[3]]
    return C
 end
-@inline function lyapdsylv2!(adj,C::StridedMatrix{T},na::Int,nb::Int,A::StridedMatrix{T},E::StridedMatrix{T},B::StridedMatrix{T},F::StridedMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapdsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    #      A'*X*B - E'*X*F = -C if adj = true  -> R = kron(B',A') - kron(F',E') = (kron(B,A)-kron(F,E))'
@@ -1755,6 +1755,14 @@ if VERSION < v"1.3.0"
                            BLAS.gemm!('N', 'T', α, A, parent(adjB),  β, C)
    mul!(C::StridedMatrix{T}, adjA::Transpose{T,<:StridedMatrix{T}}, adjB::Transpose{T,<:StridedMatrix{T}}, α::T, β::T) where {T<:BlasReal} = 
                            BLAS.gemm!('T', 'T', α, parent(adjA), parent(adjB),  β, C)
+   # mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::StridedMatrix{T}, α::T, β::T) where {T<:BlasComplex} = 
+   #                         BLAS.gemm!('N', 'N', α, A, B, β, C)
+   # mul!(C::StridedMatrix{T}, adjA::Adjoint{T,<:StridedMatrix{T}}, B::StridedMatrix{T}, α::T, β::T) where {T<:BlasComplex} = 
+   #                         BLAS.gemm!('C', 'N', α, parent(adjA), B, β, C)
+   # mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, adjB::Adjoint{T,<:StridedMatrix{T}}, α::T, β::T) where {T<:BlasComplex} = 
+   #                         BLAS.gemm!('N', 'C', α, A, parent(adjB),  β, C)
+   # mul!(C::StridedMatrix{T}, adjA::Adjoint{T,<:StridedMatrix{T}}, adjB::Adjoint{T,<:StridedMatrix{T}}, α::T, β::T) where {T<:BlasComplex} = 
+   #                         BLAS.gemm!('C', 'C', α, parent(adjA), parent(adjB),  β, C)
    mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::AbstractMatrix{T}) where {T<:BlasReal} = 
         mul!(C,A,B,one(T),zero(T))
 end

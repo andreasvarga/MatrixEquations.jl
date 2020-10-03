@@ -167,15 +167,17 @@ X = U*U'; @test norm(A*X*A'-X+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
                 norm(U*α - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = true, disc = true)
-X = U'*U; @test norm(A'*X*A-E'*X*E+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = true, disc = true)
+X = U'*U; @test norm(A'*X*A-E'*X*E+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U*E-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U*E/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U*E - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = false, disc = true)
-X = U*U'; @test norm(A*X*A'-E*X*E'+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = true)
+X = U*U'; @test norm(A*X*A'-E*X*E'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
-                norm(E*U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(E*U*α - R)/max(1,norm(R)) < reltol
 
 A = [-1.1 1.; -1. -1.]/10; A = convert(Matrix{Float32},A)
 E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
@@ -184,7 +186,6 @@ reltol = eps(100f0)
 
 U = copy(R)
 β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = true)
-#U, scale, β, α = plyap2(A, R, adj = true, disc = true)
 X = U'*U; @test norm(A'*X*A-X+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
                 norm(α*U - R)/max(1,norm(R)) < reltol
@@ -195,15 +196,17 @@ X = U*U'; @test norm(A*X*A'-X+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
                 norm(U*α - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = true, disc = true)
-X = U'*U; @test norm(A'*X*A-E'*X*E+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = true, disc = true)
+X = U'*U; @test norm(A'*X*A-E'*X*E+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U*E-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U*E/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U*E - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = false, disc = true)
-X = U*U'; @test norm(A*X*A'-E*X*E'+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = true)
+X = U*U'; @test norm(A*X*A'-E*X*E'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
-                norm(E*U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(E*U*α - R)/max(1,norm(R)) < reltol
 
 end
 
@@ -213,16 +216,16 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ar = ar/(one(Ty) + norm(ar))
-as,  = schur(ar)
-ac = rand(Ty,n,n)+im*rand(Ty,n,n)
-ac = ac/(one(Ty) + norm(ac))
-acs,  = schur(ac)
-br = rand(Ty,n,m)
-bc = br+im*rand(Ty,n,m)
-cr = rand(Ty,p,n)
-cc = cr+im*rand(Ty,p,n)
+ar = rand(Ty,n,n);
+ar = ar/(one(Ty) + norm(ar));
+as,  = schur(ar);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+ac = ac/(one(Ty) + norm(ac));
+acs,  = schur(ac);
+br = rand(Ty,n,m);
+bc = br+im*rand(Ty,n,m);
+cr = rand(Ty,p,n);
+cc = cr+im*rand(Ty,p,n);
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 
@@ -244,14 +247,14 @@ x = u*u'; @test norm(acs*x*acs'-x+bc*bc')/norm(x)/norm(acs) < reltol
 @time u = plyaps(acs',cc',disc = true);
 x = u'*u; @test norm(acs'*x*acs-x+cc'*cc)/norm(x)/norm(as) < reltol
 
-R = UpperTriangular(rand(Ty,n,n))
-U = copy(R)
-@time plyapds!(as, U, adj = false)
+R = UpperTriangular(rand(Ty,n,n));
+U = copy(R);
+@time plyapds!(as, U, adj = false);
 X = U*U'; @test norm(as*X*as'-X+R*R')/max(1,norm(X))/norm(as) < reltol
 
-R = UpperTriangular(rand(Ty,n,n))
-U = copy(R)
-@time plyapds!(as,U,adj = true)
+R = UpperTriangular(rand(Ty,n,n));
+U = copy(R);
+@time plyapds!(as,U,adj = true);
 X = U'*U; @test norm(as'*X*as-X+R'*R)/max(1,norm(X))/norm(as) < reltol
 
 R = UpperTriangular(rand(Complex{Ty},n,n))

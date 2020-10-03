@@ -284,3 +284,35 @@ function vec2triu(x::AbstractVector{T}; rowwise = false, her = false) where T
    end
    return Q
 end
+function utnormalize!(U::UpperTriangular{T},adj::Bool) where T 
+   # Normalize an upper traiangular matrix U such that its diagonal elements are non-negative
+   # using diagonal orthogonal or unitary transformations.
+   ZERO = zero(real(T))
+   n = size(U,1)
+   if adj
+      # Make the diagonal elements of U non-negative.
+      if T <: Real
+         for i = 1:n
+            U[i,i] > ZERO || [@inbounds U[i,j] = -U[i,j] for j = i:n]
+         end
+      else
+         for i = 1:n
+             (iszero(imag(U[i,i])) && real(U[i,i]) > ZERO) || 
+                     (tmp = conj(U[i,i])/abs(U[i,i]); [@inbounds U[i,j] *= tmp for j = i:n])
+         end
+      end
+   else
+      # Make the diagonal elements of U non-negative.
+      if T <: Real
+         for j = 1:n
+            U[j,j] > ZERO || [@inbounds U[i,j] = -U[i,j] for i = 1:j]
+         end
+      else
+         for j = 1:n
+             (iszero(imag(U[j,j])) && real(U[j,j]) > ZERO) || 
+                    (tmp = conj(U[j,j])/abs(U[j,j]); [@inbounds U[i,j] *= tmp for i = 1:j])
+         end
+      end
+   end
+   return U
+end

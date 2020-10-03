@@ -4,6 +4,7 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
+
 @testset "Testing Sylvester equation solvers" begin
 
 n = 30; m = 20; 
@@ -90,6 +91,20 @@ end
 end
 
 @testset "Continuous Sylvester equations - Schur form" begin
+
+try 
+   sylvcs!(ones(1,1),-ones(1,1),ones(1,1)) 
+   @test false
+catch
+   @test true
+end
+
+try 
+   sylvcs!([1. -1; 1 1],-[1. -1; 1 1],ones(2,2)) 
+   @test false
+catch
+   @test true
+end
 
 for Ty in (Float64, Float32)
 
@@ -261,6 +276,20 @@ end
 
 # generalized Sylvester equations
 @testset "Generalized Sylvester equations" begin
+try 
+   gsylv(ones(1,1),-ones(1,1),ones(1,1),ones(1,1),ones(1,1)) 
+   @test false
+catch
+   @test true
+end
+
+try 
+   gsylv([1. -1; 1 1],-[1. -1; 1 1],[1. -1; 1 1],[1. -1; 1 1],ones(2,2)) 
+   @test false
+catch
+   @test true
+end
+
 
 for Ty in (Float64, Float32)
 

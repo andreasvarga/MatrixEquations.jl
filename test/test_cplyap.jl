@@ -4,8 +4,6 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
-
-
 @testset "Testing positive continuous Lyapunov equation solvers" begin
 
 n = 30
@@ -160,7 +158,7 @@ end
 
 A = [-1.1 1.; -1. -1.]
 E = [1. 1.; 0. 1.]
-R = [1. 1.; 0. 1.]
+R = UpperTriangular([1. 1.; 0. 1.])
 reltol = eps(float(100))
 
 U = copy(R)
@@ -175,19 +173,21 @@ X = U*U'; @test norm(A*X+X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
                 norm(U*α - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = true, disc = false)
-X = U'*U; @test norm(A'*X*E+E'*X*A+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)                
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = true, disc = false)
+X = U'*U; @test norm(A'*X*E+E'*X*A+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U*E-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U*E/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U*E - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = false, disc = false)
-X = U*U'; @test norm(A*X*E'+E*X*A'+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = false)
+X = U*U'; @test norm(A*X*E'+E*X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
-                norm(E*U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(E*U*α - R)/max(1,norm(R)) < reltol
 
 A = [-1.1 1.; -1. -1.]/10; A = convert(Matrix{Float32},A)
 E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
-R = [1. 1.; 0. 1.]; R = convert(Matrix{Float32},R)
+R = [1. 1.; 0. 1.]; R = UpperTriangular(convert(Matrix{Float32},R))
 reltol = eps(100f0)
 
 U = copy(R)
@@ -202,16 +202,17 @@ X = U*U'; @test norm(A*X+X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
                 norm(U*α - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = true, disc = false)
-X = U'*U; @test norm(A'*X*E+E'*X*A+scale^2*R'*R)/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)                
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = true, disc = false)
+X = U'*U; @test norm(A'*X*E+E'*X*A+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U*E-U*A)/max(1,norm(U))/norm(A) < reltol &&
-                norm(α*U*E/scale - scale*R)/max(1,norm(scale*R)) < reltol
+                norm(α*U*E - R)/max(1,norm(R)) < reltol
 
-U, scale, β, α = pglyap2(A, E, R, adj = false, disc = false)
-X = U*U'; @test norm(A*X*E'+E*X*A'+scale^2*R*R')/max(1,norm(X))/norm(A) < reltol &&
+U = copy(R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = false)
+X = U*U'; @test norm(A*X*E'+E*X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
-                norm(E*U*α/scale - scale*R)/max(1,norm(scale*R)) < reltol
-
+                norm(E*U*α - R)/max(1,norm(R)) < reltol
 end
 
 @testset "Continuous positive Lyapunov equations - Schur form" begin
@@ -239,6 +240,7 @@ x = u*u'; @test norm(as*x+x*as'+ar*ar')/norm(x)/norm(as) < reltol
 @time u = plyaps(as,I,br);
 x = u*u'; @test norm(as*x+x*as'+br*br')/norm(x)/norm(as) < reltol
 
+#test
 @time u = plyaps(as',cr');
 x = u'*u; @test norm(as'*x+x*as+cr'*cr)/norm(x)/norm(as) < reltol
 

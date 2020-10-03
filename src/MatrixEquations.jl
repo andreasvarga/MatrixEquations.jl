@@ -1,5 +1,5 @@
 module MatrixEquations
-# Release V1.0
+# Release V1.2
 
 const BlasFloat = Union{Float64,Float32,ComplexF64,ComplexF32}
 const BlasReal = Union{Float64,Float32}
@@ -11,14 +11,14 @@ import LinearAlgebra: require_one_based_indexing
 
 
 include("lapackutil.jl")
-using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!, safemin
+using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!, safemin, smlnum
 
-export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu
+export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormalize!
 export lanv2, ladiv, lag2, lacn2!
 export lyapc, lyapd, lyapcs!, lyapds! 
-export plyapc, plyaps, plyapcs!, plyapd, plyapds!, plyap2!, pglyap2 
+export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
-export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
+export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!, gsylvs1!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export opnorm1, opnorm1est, oprcondest, opsepest, trmatop

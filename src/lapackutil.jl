@@ -178,8 +178,8 @@ lag2(A::StridedMatrix{BlasReal}, B::StridedMatrix{BlasReal}, SAFMIN::BlasReal)
 #     SMLNUM = (T == Float64) ? reinterpret(Float64, 0x2000000000000000) : reinterpret(Float32, 0x20000000)
 #     return SMLNUM * 2/ eps(T)
 # end
-
-safemin(::Type{T}) where T <: BlasReal = (T == Float64 ? reinterpret(Float64, 0x2000000000000000) : reinterpret(Float32, 0x20000000)) * 2/ eps(T)
+smlnum(::Type{T}) where T <: BlasReal = (T == Float64) ? reinterpret(Float64, 0x2000000000000000) : reinterpret(Float32, 0x20000000)
+safemin(::Type{T}) where T <: BlasReal = smlnum(T) * 2/ eps(T)
 
 for (fn, elty) in ((:dladiv_, :Float64),
                    (:sladiv_, :Float32))
