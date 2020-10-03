@@ -317,8 +317,8 @@ end
 @time y = Tcrsinv'*cr[:]
 @test norm(Tcrs'*y-cr[:])/norm(y[:]) < reltol
 
-@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. 
-@test norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. 
+@test norm(Matrix(Tcr)' ≈ Matrix(transpose(Tcr))) 
+@test norm(Matrix(Tcc)' ≈ Matrix(Tcc'))  
 @test norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol 
 @test norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol 
 @test norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol 
@@ -456,8 +456,8 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
 @test norm(transpose(Tdrs)*y-cr[:])/norm(y[:]) < reltol
 
 
-@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. 
-@test norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. 
+@test norm(Matrix(Tdr)' ≈ Matrix(transpose(Tdr))) 
+@test norm(Matrix(Tdc)' ≈ Matrix(Tdc')) 
 @test norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol 
 @test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
 @test norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol 
@@ -595,8 +595,8 @@ Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
 @time y = transpose(Tdrsinv)*cr[:]
 @test norm(transpose(Tdrs)*y-cr[:])/norm(y[:]) < reltol
 
-@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. 
-@test norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. 
+@test norm(Matrix(Tdr)' ≈ Matrix(transpose(Tdr))) 
+@test norm(Matrix(Tdc)' ≈ Matrix(Tdc'))  
 @test norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol 
 @test norm(Matrix(Tdrsyminv)*Matrix(Tdrsym)-I) < reltol 
 @test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
@@ -883,8 +883,8 @@ Tdcsinv = invsylvsop(acs,bcs, disc = true)
 
 
 x = rand(n*m);
-@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. 
-@test norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. 
+@test norm(Matrix(Tdr)' ≈ Matrix(transpose(Tdr))) 
+@test norm(Matrix(Tdc)' ≈ Matrix(Tdc')) 
 @test norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol 
 @test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
 @test norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol 
@@ -1048,8 +1048,8 @@ try
 @test norm(Tcs'*y[:]-ec[:])/norm(y[:]) < reltol
 
 x = rand(n*m);
-@test norm(Matrix(Tr)'-Matrix(transpose(Tr))) == 0. 
-@test norm(Matrix(Tc)'-Matrix(Tc')) == 0. 
+@test norm(Matrix(Tr)' ≈ Matrix(transpose(Tr)))  
+@test norm(Matrix(Tc)' ≈ Matrix(Tc'))  
 @test norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol 
 @test norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol 
 @test norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol 
