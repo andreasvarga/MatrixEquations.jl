@@ -140,18 +140,18 @@ try
 @time y = transpose(Tcrsinv)*cr[:]
 @test norm(transpose(Tcrs)*y-cr[:])/norm(y[:]) < reltol
 
-@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. &&
-      norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. &&
-      norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol &&
-      norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol &&
-      norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol &&
-      norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol  &&
-      opnorm1est(Π*Tcr-Tcr*Π) < reltol &&
-      opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol &&
-      opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol &&
-      opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr) &&
-      opnorm1(Tcrsinv-invlyapsop(as')') == 0 &&
-      opnorm1(Tcrsinv-invlyapsop(schur(ar))) == 0
+@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. 
+@test norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. 
+@test norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol 
+@test norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol 
+@test norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol 
+@test norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol  
+@test opnorm1est(Π*Tcr-Tcr*Π) < reltol 
+@test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol 
+@test opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol 
+@test opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr) 
+@test opnorm1(Tcrsinv-invlyapsop(as')') == 0 
+@test opnorm1(Tcrsinv-invlyapsop(schur(ar))) == 0
 
 @test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
       sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
@@ -317,19 +317,18 @@ end
 @time y = Tcrsinv'*cr[:]
 @test norm(Tcrs'*y-cr[:])/norm(y[:]) < reltol
 
-
-@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. &&
-      norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. &&
-      norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol &&
-      norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol &&
-      norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol &&
-      norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol &&
-      opnorm1est(Π*Tcr-Tcr*Π) < reltol &&
-      opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) &&
-      opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol*norm(ar)*norm(er) &&
-      opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr) &&
-      opnorm1(Tcrsinv-invlyapsop(as',es')') == 0 &&
-      opnorm1(Tcrsinv-invlyapsop(schur(ar,er))) == 0
+@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. 
+@test norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. 
+@test norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol 
+@test norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol 
+@test norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol 
+@test norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol 
+@test opnorm1est(Π*Tcr-Tcr*Π) < reltol 
+@test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) 
+@test opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol*norm(ar)*norm(er) 
+@test opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr) 
+@test opnorm1(Tcrsinv-invlyapsop(as',es')') == 0 
+@test opnorm1(Tcrsinv-invlyapsop(schur(ar,er))) == 0
 
 @test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
       sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
@@ -457,15 +456,15 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
 @test norm(transpose(Tdrs)*y-cr[:])/norm(y[:]) < reltol
 
 
-@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. &&
-      norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. &&
-      norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol &&
-      norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol &&
-      norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol &&
-      norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol &&
-      opnorm1est(Π*Tdr-Tdr*Π) < reltol &&
-      opnorm1est(Π*Tdrinv-Tdrinv*Π) < reltol &&
-      opnorm1est(Π*Tdrsinv-Tdrsinv*Π) < reltol
+@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. 
+@test norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. 
+@test norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol 
+@test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
+@test norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol 
+@test norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol 
+@test opnorm1est(Π*Tdr-Tdr*Π) < reltol 
+@test opnorm1est(Π*Tdrinv-Tdrinv*Π) < reltol 
+@test opnorm1est(Π*Tdrsinv-Tdrsinv*Π) < reltol
 
 
 @test sc*opnorm1(Tdr) < opnorm1est(Tdr)  &&
@@ -596,17 +595,17 @@ Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
 @time y = transpose(Tdrsinv)*cr[:]
 @test norm(transpose(Tdrs)*y-cr[:])/norm(y[:]) < reltol
 
-@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. &&
-      norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. &&
-      norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol &&
-      norm(Matrix(Tdrsyminv)*Matrix(Tdrsym)-I) < reltol &&
-      norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol &&
-      norm(Matrix(Tdrssyminv)*Matrix(Tdrssym)-I) < reltol &&
-      norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol &&
-      norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol &&
-      opnorm1est(Π*Tdr-Tdr*Π) < reltol &&
-      opnorm1est(Π*Tdrinv-Tdrinv*Π) < reltol &&
-      opnorm1est(Π*Tdrsinv-Tdrsinv*Π) < reltol
+@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. 
+@test norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. 
+@test norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol 
+@test norm(Matrix(Tdrsyminv)*Matrix(Tdrsym)-I) < reltol 
+@test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
+@test norm(Matrix(Tdrssyminv)*Matrix(Tdrssym)-I) < reltol 
+@test norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol 
+@test norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol 
+@test opnorm1est(Π*Tdr-Tdr*Π) < reltol 
+@test opnorm1est(Π*Tdrinv-Tdrinv*Π) < reltol 
+@test opnorm1est(Π*Tdrsinv-Tdrsinv*Π) < reltol
 
 
 @test sc*opnorm1(Tdr) < opnorm1est(Tdr)  &&
@@ -747,14 +746,14 @@ try
 @test norm(Tcc'*y[:]-cc[:])/norm(y[:]) < reltol
 
 x = rand(n*m);
-@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. &&
-      norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. &&
-      norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol &&
-      norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol &&
-      norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol &&
-      norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol &&
-      norm(Tcrsinv'*x-invsylvsop(as',bs')*x) == 0 &&
-      opnorm1(Tcrsinv-invsylvsop(schur(ar),schur(br))) == 0
+@test norm(Matrix(Tcr)'-Matrix(transpose(Tcr))) == 0. 
+@test norm(Matrix(Tcc)'-Matrix(Tcc')) == 0. 
+@test norm(Matrix(Tcrinv)*Matrix(Tcr)-I) < reltol 
+@test norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol 
+@test norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol 
+@test norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol 
+@test norm(Tcrsinv'*x-invsylvsop(as',bs')*x) == 0 
+@test opnorm1(Tcrsinv-invsylvsop(schur(ar),schur(br))) == 0
 
 
 @test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
@@ -884,14 +883,14 @@ Tdcsinv = invsylvsop(acs,bcs, disc = true)
 
 
 x = rand(n*m);
-@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. &&
-      norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. &&
-      norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol &&
-      norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol &&
-      norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol &&
-      norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol &&
-      norm(Tdrsinv'*x-invsylvsop(as',bs', disc = true)*x) == 0 &&
-      opnorm1(Tdrsinv-invsylvsop(schur(ar),schur(br), disc = true)) == 0
+@test norm(Matrix(Tdr)'-Matrix(transpose(Tdr))) == 0. 
+@test norm(Matrix(Tdc)'-Matrix(Tdc')) == 0. 
+@test norm(Matrix(Tdrinv)*Matrix(Tdr)-I) < reltol 
+@test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
+@test norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol 
+@test norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol 
+@test norm(Tdrsinv'*x-invsylvsop(as',bs', disc = true)*x) == 0 
+@test opnorm1(Tdrsinv-invsylvsop(schur(ar),schur(br), disc = true)) == 0
 
 
 
@@ -1049,14 +1048,14 @@ try
 @test norm(Tcs'*y[:]-ec[:])/norm(y[:]) < reltol
 
 x = rand(n*m);
-@test norm(Matrix(Tr)'-Matrix(transpose(Tr))) == 0. &&
-      norm(Matrix(Tc)'-Matrix(Tc')) == 0. &&
-      norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol &&
-      norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol &&
-      norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol &&
-      norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol &&
-      norm(Trsinv'*x-invsylvsop(as',bs', cs',ds')*x) == 0 &&
-      opnorm1(Trsinv-invsylvsop(schur(ar,cr),schur(br,dr))) == 0
+@test norm(Matrix(Tr)'-Matrix(transpose(Tr))) == 0. 
+@test norm(Matrix(Tc)'-Matrix(Tc')) == 0. 
+@test norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol 
+@test norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol 
+@test norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol 
+@test norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol 
+@test norm(Trsinv'*x-invsylvsop(as',bs', cs',ds')*x) == 0 
+@test opnorm1(Trsinv-invsylvsop(schur(ar,cr),schur(br,dr))) == 0
 
 
 @test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
@@ -1178,13 +1177,13 @@ try
 @time xy = Tcsinv'*[er[:];fr[:]]
 @test norm(Tcs'*xy-[er[:];fr[:]])/norm(xy[:]) < reltol
 
-@test norm(Matrix(Tr)'-Matrix(transpose(Tr))) == 0. &&
-      norm(Matrix(Tc)'-Matrix(Tc')) == 0. &&
-      norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol &&
-      norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol &&
-      norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol &&
-      norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol &&
-      opnorm1(Trsinv-invsylvsyssop(schur(ar,cr),schur(br,dr))) == 0
+@test norm(Matrix(Tr)'-Matrix(transpose(Tr))) == 0. 
+@test norm(Matrix(Tc)'-Matrix(Tc')) == 0. 
+@test norm(Matrix(Trinv)*Matrix(Tr)-I) < reltol 
+@test norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol 
+@test norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol 
+@test norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol 
+@test opnorm1(Trsinv-invsylvsyssop(schur(ar,cr),schur(br,dr))) == 0
 
 
 @test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
