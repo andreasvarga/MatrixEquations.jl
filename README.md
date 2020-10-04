@@ -72,4 +72,4 @@ The general solvers of Lyapunov and Sylvester equations rely on a set of special
 
 ## Future plans
 
-The collection of tools will be extended by adding new functionality, such as expert solvers which additionally compute error bounds and condition estimates. Further, performance improvements are planned to be implemented employing more efficient and accurate low dimensional linear system solvers available in LAPACK, using static arrays for manipulation of small order matrices, and exploring block variants of solvers for Lyapunov and Sylvester equations.
+The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Riccati equations, as those arising in game-theoretic optimization problems. Further performance improvements are still possible (e.g., in some positive Lyapunov solvers by employing specially taylored solvers for the underlying particular Sylvester equations) or by employing blocking based variants of solvers for Lyapunov and Sylvester equations.

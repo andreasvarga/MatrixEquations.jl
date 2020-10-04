@@ -41,6 +41,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapc(ar,br);
 x = u*u'; @test norm(ar*x+x*ar'+br*br')/norm(x)/norm(ar) < reltol
 
+@time u = plyapc(ar,0*br);
+x = u*u'; @test norm(ar*x+x*ar') < reltol
+
 @time u = plyapc(ar,brw);
 x = u*u'; @test norm(ar*x+x*ar'+brw*brw')/norm(x)/norm(ar) < reltol
 
@@ -55,6 +58,9 @@ x = u'*u; @test norm(ar'*x+x*ar+crt'*crt)/norm(x)/norm(ar) < reltol
 
 @time u = plyapc(ac,bc);
 x = u*u'; @test norm(ac*x+x*ac'+bc*bc')/norm(x)/norm(ac) < reltol
+
+@time u = plyapc(ac,0*bc);
+x = u*u'; @test norm(ac*x+x*ac') < reltol
 
 @time u = plyapc(ac,bcw);
 x = u*u'; @test norm(ac*x+x*ac'+bcw*bcw')/norm(x)/norm(ac) < reltol
@@ -118,6 +124,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapc(ar,er,br);
 x = u*u'; @test norm(ar*x*er'+er*x*ar'+br*br')/norm(x)/norm(ar) < reltol
 
+@time u = plyapc(ar,er,0*br);
+x = u*u'; @test norm(ar*x*er'+er*x*ar') < reltol
+
 @time u = plyapc(ar,er,brw);
 x = u*u'; @test norm(ar*x*er'+er*x*ar'+brw*brw')/norm(x)/norm(ar) < reltol
 
@@ -129,6 +138,9 @@ x = u'*u; @test norm(ar'*x*er+er'*x*ar+crt'*crt)/norm(x)/norm(ar) < reltol
 
 @time u = plyapc(ac,ec,bc);
 x = u*u'; @test norm(ac*x*ec'+ec*x*ac'+bc*bc')/norm(x)/norm(ac)/norm(ec) < reltol
+
+@time u = plyapc(ac,ec,0*bc);
+x = u*u'; @test norm(ac*x*ec'+ec*x*ac') < reltol
 
 @time u = plyapc(ac,ec,bcw);
 x = u*u'; @test norm(ac*x*ec'+ec*x*ac'+bcw*bcw')/norm(x)/norm(ac)/norm(ec) < reltol
@@ -185,6 +197,13 @@ X = U*U'; @test norm(A*X*E'+E*X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
                 norm(E*U*α - R)/max(1,norm(R)) < reltol
 
+U = copy(0*R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = false)
+X = U*U'; @test norm(A*X*E'+E*X*A')/max(1,norm(X))/norm(A) < reltol &&
+                norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
+                norm(E*U*α - 0*R)/max(1,norm(R)) < reltol
+
+
 A = [-1.1 1.; -1. -1.]/10; A = convert(Matrix{Float32},A)
 E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
 R = [1. 1.; 0. 1.]; R = UpperTriangular(convert(Matrix{Float32},R))
@@ -213,6 +232,13 @@ U = copy(R)
 X = U*U'; @test norm(A*X*E'+E*X*A'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
                 norm(E*U*α - R)/max(1,norm(R)) < reltol
+
+U = copy(0*R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = false)
+X = U*U'; @test norm(A*X*E'+E*X*A')/max(1,norm(X))/norm(A) < reltol &&
+                norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
+                norm(E*U*α)/max(1,norm(R)) < reltol
+
 end
 
 @testset "Continuous positive Lyapunov equations - Schur form" begin
@@ -282,6 +308,12 @@ R = copy(F)
 @time plyapcs!(acs,R,adj = false);
 x = R*R'; @test norm(acs*x+x*acs'+F*F')/norm(x)/norm(acs) < reltol
 
+F = UpperTriangular(rand(Ty,n,n)+im*rand(Ty,n,n))
+R = copy(F)
+@time plyapcs!(acs,I,R,adj = true);
+x = R'*R; @test norm(acs'*x+x*acs+F'*F)/norm(x)/norm(acs) < reltol
+
+
 er = rand(Ty,n,n)
 ar = er*ar
 as, es = schur(ar,er)
@@ -312,6 +344,11 @@ R = copy(F)
 @time plyapcs!(as,es,R,adj = true);
 x = R'*R; @test norm(as'*x*es+es'*x*as+F'*F)/norm(x)/norm(as) < reltol
 
+F = UpperTriangular(rand(Ty,n,n))
+R = copy(0*F)
+@time plyapcs!(as,es,R,adj = true);
+x = R'*R; @test norm(as'*x*es+es'*x*as) < reltol
+
 
 F = UpperTriangular(rand(Ty,n,n))
 R = copy(F)
@@ -322,6 +359,11 @@ F = UpperTriangular(rand(Ty,n,n)+im*rand(Ty,n,n))
 R = copy(F)
 @time plyapcs!(acs,ecs,R,adj = false);
 x = R*R'; @test norm(acs*x*ecs'+ecs*x*acs'+F*F')/norm(x)/norm(acs) < reltol
+
+F = UpperTriangular(rand(Ty,n,n)+im*rand(Ty,n,n))
+R = copy(0*F)
+@time plyapcs!(acs,ecs,R,adj = false);
+x = R*R'; @test norm(acs*x*ecs'+ecs*x*acs') < reltol
 
 F = UpperTriangular(rand(Ty,n,n)+im*rand(Ty,n,n))
 R = copy(F)

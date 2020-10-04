@@ -41,6 +41,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapd(ar,br);
 x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
 
+@time u = plyapd(ar,0*br);
+x = u*u'; @test norm(ar*x*ar'-x) < reltol
+
 @time u = plyapd(ar,brw);
 x = u*u'; @test norm(ar*x*ar'-x+brw*brw')/norm(x)/max(1.,norm(ar)^2) < reltol
 
@@ -55,6 +58,9 @@ x = u'*u; @test norm(ar'*x*ar-x+crt'*crt)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time u = plyapd(ac,bc);
 x = u*u'; @test norm(ac*x*ac'-x+bc*bc')/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time u = plyapd(ac,0*bc);
+x = u*u'; @test norm(ac*x*ac'-x) < reltol
 
 @time u = plyapd(ac,bcw);
 x = u*u'; @test norm(ac*x*ac'-x+bcw*bcw')/norm(x)/max(1.,norm(ac)^2) < reltol
@@ -117,11 +123,17 @@ x = u'*u; @test norm(ar'*x*ar-er'*x*er+crt'*crt)/norm(x)/max(norm(ar)^2,norm(er)
 @time u = plyapd(ar,er,br);
 x = u*u'; @test norm(ar*x*ar'-er*x*er'+br*br')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
+@time u = plyapd(ar,er,0*br);
+x = u*u'; @test norm(ar*x*ar'-er*x*er') < reltol
+
 @time u = plyapd(ar,er,brw);
 x = u*u'; @test norm(ar*x*ar'-er*x*er'+brw*brw')/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
 @time u = plyapd(ac,ec,bc);
 x = u*u'; @test norm(ac*x*ac'-ec*x*ec'+bc*bc')/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time u = plyapd(ac,ec,0*bc);
+x = u*u'; @test norm(ac*x*ac'-ec*x*ec') < reltol
 
 @time u = plyapd(ac,ec,bcw);
 x = u*u'; @test norm(ac*x*ac'-ec*x*ec'+bcw*bcw')/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
@@ -179,6 +191,13 @@ X = U*U'; @test norm(A*X*A'-E*X*E'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
                 norm(E*U*α - R)/max(1,norm(R)) < reltol
 
+U = copy(0*R)
+β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = true)
+X = U*U'; @test norm(A*X*E'+E*X*A')/max(1,norm(X))/norm(A) < reltol &&
+                norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
+                norm(E*U*α)/max(1,norm(R)) < reltol
+
+
 A = [-1.1 1.; -1. -1.]/10; A = convert(Matrix{Float32},A)
 E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
 R = [1. 1.; 0. 1.]; R = convert(Matrix{Float32},R)
@@ -232,6 +251,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyaps(as,br,disc = true);
 x = u*u'; @test norm(as*x*as'-x+br*br')/norm(x)/norm(as) < reltol
 
+@time u = plyaps(as,0*br,disc = true);
+x = u*u'; @test norm(as*x*as'-x) < reltol
+
 @time u = plyaps(as,ar,disc = true);
 x = u*u'; @test norm(as*x*as'-x+ar*ar')/norm(x)/norm(as) < reltol
 
@@ -243,6 +265,9 @@ x = u'*u; @test norm(as'*x*as-x+ar'*ar)/norm(x)/norm(as) < reltol
 
 @time u = plyaps(acs,bc,disc = true);
 x = u*u'; @test norm(acs*x*acs'-x+bc*bc')/norm(x)/norm(acs) < reltol
+
+@time u = plyaps(acs,0*bc,disc = true);
+x = u*u'; @test norm(acs*x*acs'-x) < reltol
 
 @time u = plyaps(acs',cc',disc = true);
 x = u'*u; @test norm(acs'*x*acs-x+cc'*cc)/norm(x)/norm(as) < reltol

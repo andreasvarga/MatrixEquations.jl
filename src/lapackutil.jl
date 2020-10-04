@@ -49,7 +49,7 @@ for (fn, elty, relty) in ((:dtgsyl_, :Float64, :Float64),
             work = Vector{$elty}(undef, 1)
             lwork = 1
             iwork = Vector{BlasInt}(undef,m+n+6)
-            #SUBROUTINE DTGSYL( TRANS, IJOB, M, N, A, LDA, B, LDB, C, LDC, D,
+            # SUBROUTINE DTGSYL( TRANS, IJOB, M, N, A, LDA, B, LDB, C, LDC, D,
             #       LDD, E, LDE, F, LDF, SCALE, DIF, WORK, LWORK,
             #       IWORK, INFO )
             ccall((@blasfunc($fn), liblapack), Cvoid,
@@ -217,10 +217,6 @@ for (fn, elty) in ((:dlacn2_, :Float64),
     @eval begin
         function lacn2!(V::AbstractVector{$elty}, X::AbstractVector{$elty}, ISGN::AbstractVector{BlasInt},
                         EST::$elty, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
-            @assert !has_offset_axes(V, X)
-            chkstride1(V,X)
-            n = length(V)
-            (n != length(X) || n != length(ISGN)) && throw(DimensionMismatch("dimensions of V,  X, and ISIGN must be equal"))
             """
             *       SUBROUTINE DLACN2( N, V, X, ISGN, EST, KASE, ISAVE )
             *
@@ -232,6 +228,10 @@ for (fn, elty) in ((:dlacn2_, :Float64),
             *       INTEGER            ISGN( * ), ISAVE( 3 )
             *       DOUBLE PRECISION   V( * ), X( * )
             """
+            @assert !has_offset_axes(V, X)
+            chkstride1(V,X)
+            n = length(V)
+            (n != length(X) || n != length(ISGN)) && throw(DimensionMismatch("dimensions of V,  X, and ISIGN must be equal"))
             KASE1 = Array{BlasInt,1}(undef,1)
             KASE1[1] = KASE
             EST1 = Vector{$elty}(undef, 1)
@@ -266,10 +266,6 @@ for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
     @eval begin
         function lacn2!(V::AbstractVector{$elty}, X::AbstractVector{$elty},
                         EST::$relty, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
-            @assert !has_offset_axes(V, X)
-            chkstride1(V,X)
-            n = length(V)
-            n == length(X) || throw(DimensionMismatch("dimensions of V and X must be equal"))
             """
             *       SUBROUTINE ZLACN2( N, V, X, EST, KASE, ISAVE )
             *
@@ -281,6 +277,10 @@ for (fn, elty, relty) in ((:zlacn2_, :ComplexF64, :Float64),
             *       INTEGER            ISGN( * ), ISAVE( 3 )
             *       COMPLEX*16         V( * ), X( * )
             """
+            @assert !has_offset_axes(V, X)
+            chkstride1(V,X)
+            n = length(V)
+            n == length(X) || throw(DimensionMismatch("dimensions of V and X must be equal"))
             KASE1 = Array{BlasInt,1}(undef,1)
             KASE1[1] = KASE
             EST1 = Vector{$relty}(undef, 1)
@@ -306,6 +306,6 @@ for the 1-norm of `A`. `V` is a complex work vector and `ISAVE` is a 3-dimension
 integer vector used to save information between the calls.
 Interface to the LAPACK subroutines ZLACN2/CLACN2.
 """
-lacn2!(V::AbstractVector{BlasComplex}, X::AbstractVector{BlasComplex}, EST::Union{Float32,Float64}, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
+lacn2!(V::AbstractVector{BlasComplex}, X::AbstractVector{BlasComplex}, EST::BlasReal, KASE::BlasInt, ISAVE::AbstractVector{BlasInt})
 
 end

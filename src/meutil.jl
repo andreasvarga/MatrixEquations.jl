@@ -297,8 +297,9 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
          end
       else
          for i = 1:n
-             (iszero(imag(U[i,i])) && real(U[i,i]) > ZERO) || 
-                     (tmp = conj(U[i,i])/abs(U[i,i]); [@inbounds U[i,j] *= tmp for j = i:n])
+             d = abs(U[i,i])
+             (!iszero(d) && !(iszero(imag(U[i,i])) && real(U[i,i]) > ZERO)) && 
+                     (tmp = conj(U[i,i])/d; [@inbounds U[i,j] *= tmp for j = i:n])
          end
       end
    else
@@ -309,8 +310,9 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
          end
       else
          for j = 1:n
-             (iszero(imag(U[j,j])) && real(U[j,j]) > ZERO) || 
-                    (tmp = conj(U[j,j])/abs(U[j,j]); [@inbounds U[i,j] *= tmp for i = 1:j])
+             d = abs(U[j,j])
+             (!iszero(d) && (iszero(imag(U[j,j])) && real(U[j,j]) > ZERO)) && 
+                    (tmp = conj(U[j,j])/d; [@inbounds U[i,j] *= tmp for i = 1:j])
          end
       end
    end

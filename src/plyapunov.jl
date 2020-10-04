@@ -925,7 +925,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           TEMP < SMIN && (TEMP  = SMIN)
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
-          α = sign(R[j,j])*TEMP
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
           β = A[l,l]
@@ -967,7 +967,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           TEMP < SMIN && (TEMP  = SMIN)
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
-          α = sign(R[j,j])*TEMP
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
           β = A[l,l]
@@ -1051,7 +1051,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
              TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
-             TEMP = sign(R[j,j])*TEMP
+             iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
              β = A[l,l]/E[j,j]
              α = TEMP/E[j,j]
@@ -1106,7 +1106,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
              TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
-             TEMP = sign(R[j,j])*TEMP
+             iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
              β = A[l,l]/E[j,j]
              α = TEMP/E[j,j]
@@ -1182,7 +1182,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
           TEMP < SMIN && (TEMP = SMIN)
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
-          TEMP = sign(R[j,j])*TEMP
+          iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
           R[j,j] = R[j,j]/TEMP
           l = j:j
           β = A[l,l]/E[j,j]
@@ -1233,7 +1233,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
           TEMP < SMIN && (TEMP = SMIN)
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
-          TEMP = sign(R[j,j])*TEMP
+          iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
           R[j,j] = R[j,j]/TEMP
           l = j:j
           β = A[l,l]/E[j,j]
@@ -1469,7 +1469,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
              error("Singular Lyapunov equation")
-          α = sign(R[j,j])*TEMP
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
           β = A[l,l]
@@ -1512,7 +1512,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
              error("Singular Lyapunov equation")
-          α = sign(R[j,j])*TEMP
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
           R[j,j] = R[j,j]/α
           l = j:j
           β = A[l,l]
@@ -1604,9 +1604,8 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular generalized discrete Lyapunov equation")
-             TEMP = sign(R[j,j])*TEMP
+             iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
-             l = j:j
              β = A[l,l]/E[j,j]
              α = TEMP/E[j,j]
           else
@@ -1663,7 +1662,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular generalized discrete Lyapunov equation")
-             TEMP = sign(R[j,j])*TEMP
+             iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
              l = j:j
              β = A[l,l]/E[j,j]
@@ -1743,7 +1742,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
              error("Singular generalized discrete Lyapunov equation")
-          TEMP = sign(R[j,j])*TEMP
+          iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
           R[j,j] = R[j,j]/TEMP
           l = j:j
           β = A[l,l]/E[j,j]
@@ -1786,7 +1785,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           DR = abs( R[j,j] )
           TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
             error("Singular generalized discrete Lyapunov equation")
-          TEMP = sign(R[j,j])*TEMP
+          iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
           R[j,j] = R[j,j]/TEMP
           l = j:j
           β = A[l,l]/E[j,j]
@@ -1954,9 +1953,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       ALPHA = sqrt( abs( TWO*E1 ) )
    end
 
-   if ALPHA < SMIN
-      ALPHA = SMIN
-   end
+   ALPHA < SMIN && (ALPHA = SMIN)
    ABST = abs( P1 )
    ALPHA < ONE && ABST > ONE && ABST > BIGNUM*ALPHA && error("$errtext")
    V1 = P1/ALPHA
@@ -2368,7 +2365,6 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       # Continuous-time equation.
 
       # Step I:  Compute U[1,1]. Set U[2,1] = 0.
-
       V = -TWO*( AR[1,1]*ER[1,1] + AI[1,1]*EI[1,1] )
       V <= ZERO && error("The eigenvalues of the pencil A - λE  are not in the open right half plane")
       V = sqrt( V )
@@ -2661,8 +2657,8 @@ This function is based on the SLICOT routine SB03OV.
 """
 @inline function cgivens2(ar, ai, b, small)
    d = max(abs(ar), abs(ai), abs(b))
-   ZERO = 0.0
-   ONE = 1.0
+   ZERO = zero(d)
+   ONE = one(d)
    if d < small
       cr = ONE
       ci = ZERO
@@ -2687,7 +2683,7 @@ Based on the LAPACK function DLAPY3.
    YABS = abs( Y )
    ZABS = abs( Z )
    W = max( XABS, YABS, ZABS )
-   R = W*sqrt( ( XABS / W )^2+( YABS / W )^2+ ( ZABS / W )^2 )
+   iszero(W) ? (return zero(W)) : (return W*sqrt( ( XABS / W )^2+( YABS / W )^2+ ( ZABS / W )^2 ))
 end
 """
     cgivensc2(xr, xi, yr, yi, small) -> (cr, ci, sr, si, d)
@@ -2714,8 +2710,8 @@ This function is based on the SLICOT routine SG03BY.
 """
 @inline function cgivensc2(xr, xi, yr, yi, small)
    d = max(abs(xr), abs(xi), abs(yr), abs(yi))
-   ZERO = 0.0
-   ONE = 1.0
+   ZERO = zero(d)
+   ONE = one(d)
    if d < small
       cr = ONE
       ci = ZERO
@@ -2743,5 +2739,5 @@ Based on the LAPACK function DLAPY3.
    ZABS = abs( Z )
    TABS = abs( T )
    W = max( XABS, YABS, ZABS, TABS )
-   R = W*sqrt( ( XABS / W )^2+( YABS / W )^2+ ( ZABS / W )^2+ ( TABS / W )^2  )
+   iszero(W) ? (return zero(W)) : (return W*sqrt( ( XABS / W )^2+( YABS / W )^2+ ( ZABS / W )^2+ ( TABS / W )^2  ))
 end
