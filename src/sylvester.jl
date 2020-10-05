@@ -1113,16 +1113,8 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    ONE = one(T1)
 
    # determine the structure of the generalized real Schur form of (A,C)
-   if CASchur 
-      ba, pa = sfstruct(C)
-   else
-      ba, pa = sfstruct(A)
-   end
-   if DBSchur
-      bb, pb = sfstruct(D) 
-   else
-      bb, pb = sfstruct(B)
-   end
+   CASchur ? ((ba, pa) = sfstruct(C)) : ((ba, pa) = sfstruct(A))
+   DBSchur ? ((bb, pb) = sfstruct(D)) : ((bb, pb) = sfstruct(B)) 
 
    WB = zeros(T1,m,2)
    WD = zeros(T1,m,2)

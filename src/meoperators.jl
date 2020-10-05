@@ -16,9 +16,6 @@ function trmatop(n::Int,m::Int)
     X = reshape(x, m, n)
     return adjoint(X)[:]
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   m == n ? sym = true : sym = false
   return LinearOperator{Int}(n * m, n * m, sym, sym, prod, tprod, ctprod)
 end
@@ -108,9 +105,6 @@ function lyapop(A; disc = false, her = false)
       end
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   her ? N = Int(n*(n+1)/2) : N = n*n
   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
@@ -193,9 +187,6 @@ function lyapop(A, E; disc = false, her = false)
       end
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   her ? N = Int(n*(n+1)/2) : N = n*n
   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
@@ -288,9 +279,6 @@ function invlyapop(A; disc = false, her = false)
        findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
      end
    end
-   F1 = typeof(prod)
-   F2 = typeof(tprod)
-   F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
    return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
@@ -385,9 +373,6 @@ function invlyapop(A, E; disc = false, her = false)
        findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
      end
    end
-   F1 = typeof(prod)
-   F2 = typeof(tprod)
-   F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
    return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
@@ -408,34 +393,20 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapsop(A; disc = false, her = false)
+function invlyapsop(A::Matrix{T}; disc = false, her = false) where T <: BlasFloat
    n = LinearAlgebra.checksquare(A)
-   T = eltype(A)
-   T <: BlasFloat || (T = promote_type(Float64,T))
-   eltype(A) == T || (A = convert(Matrix{T},A))
  
    # check A is in Schur form
    isschur(A) || error("The matrix A must be in Schur form")
-   cmplx = T<:Complex
    function prod(x)
-     T1 = promote_type(T, eltype(x))
-     if T != T1
-        if cmplx
-           A = convert(Matrix{T1},A)
-        else
-           T1r = real(T1)
-           if T1r != T
-              A = convert(Matrix{T1r},A)
-           end
-        end
-     end
+     T == eltype(x) || (x = convert(Vector{T},x))
      try
        if her
-         Y = vec2triu(convert(Vector{T1}, -x),her = true)
+         Y = vec2triu(-x, her = true)
          disc ? lyapds!(A,Y) : lyapcs!(A,Y)
          return triu2vec(Y)
        else
-         Y = reshape(convert(Vector{T1}, -x), n, n)
+         Y = reshape(-x, n, n)
          if disc
             sylvds!(-A,A,Y,adjB = true)
             return Y[:]
@@ -450,24 +421,14 @@ function invlyapsop(A; disc = false, her = false)
      end
    end
    function tprod(x)
-     T1 = promote_type(T, eltype(x))
-     if T != T1
-        if cmplx
-           A = convert(Matrix{T1},A)
-        else
-           T1r = real(T1)
-           if T1r != T
-              A = convert(Matrix{T1r},A)
-           end
-        end
-     end
-     try
+    T == eltype(x) || (x = convert(Vector{T},x))
+    try
       if her
-        Y = vec2triu(convert(Vector{T1}, -x),her = true)
+        Y = vec2triu(-x, her = true)
         disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
         return triu2vec(Y)
       else
-        Y = reshape(convert(Vector{T1}, -x), n, n)
+        Y = reshape(-x, n, n)
         if disc
            sylvds!(-A,A,Y,adjA = true)
            return Y[:]
@@ -486,24 +447,14 @@ function invlyapsop(A; disc = false, her = false)
      end
    end
    function ctprod(x)
-     T1 = promote_type(T, eltype(x))
-     if T != T1
-       if cmplx
-          A = convert(Matrix{T1},A)
-       else
-          T1r = real(T1)
-          if T1r != T
-             A = convert(Matrix{T1r},A)
-          end
-       end
-     end
-     try
+    T == eltype(x) || (x = convert(Vector{T},x))
+    try
       if her
-        Y = vec2triu(convert(Vector{T1}, -x),her = true)
+        Y = vec2triu(-x, her = true)
         disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
         return triu2vec(Y)
       else
-        Y = reshape(convert(Vector{T1}, -x), n, n)
+        Y = reshape(-x, n, n)
         if disc
            sylvds!(-A,A,Y,adjA = true)
            return Y[:]
@@ -521,9 +472,6 @@ function invlyapsop(A; disc = false, her = false)
       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
    end
-   F1 = typeof(prod)
-   F2 = typeof(tprod)
-   F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
    return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
@@ -546,41 +494,24 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapsop(A, E; disc = false, her = false)
+function invlyapsop(A::Matrix{T}, E::Matrix{T}; disc = false, her = false) where T <: BlasFloat
    n = LinearAlgebra.checksquare(A)
    n == LinearAlgebra.checksquare(E) ||
      throw(DimensionMismatch("E must be a square matrix of dimension $n"))
    (isa(A,Adjoint) || isa(E,Adjoint)) &&
      error("No calls with adjoint matrices are supported")
-   T = promote_type(eltype(A), eltype(E))
-   T <: BlasFloat || (T = promote_type(Float64,T))
-   eltype(A) == T || (A = convert(Matrix{T},A))
-   eltype(E) == T || (E = convert(Matrix{T},E))
-   cmplx = T<:Complex
 
    # check (A,E) is in generalized Schur form
    isschur(A,E) || error("The matrix pair (A,E) must be in generalized Schur form")
    function prod(x)
-     T1 = promote_type(T, eltype(x))
-     if T != T1
-       if cmplx
-         A = convert(Matrix{T1},A)
-         E = convert(Matrix{T1},E)
-       else
-         T1r = real(T1)
-         if T1r != T
-            A = convert(Matrix{T1r},A)
-            E = convert(Matrix{T1},E)
-         end
-       end
-     end
+     T == eltype(x) || (x = convert(Vector{T},x))
      try
        if her
-         Y = vec2triu(convert(Vector{T1}, -x),her = true)
+         Y = vec2triu(-x, her = true)
          disc ? lyapds!(A,E,Y) : lyapcs!(A,E,Y)
          return triu2vec(Y)
        else
-         Y = copy(reshape(convert(Vector{T1}, x), n, n))
+         Y = copy(reshape(x, n, n))
          disc ? gsylvs!(A,A,-E,E,Y,adjBD = true) :
                 gsylvs!(A,E,E,A,Y,adjBD = true,DBSchur = true)
          return Y[:]
@@ -591,29 +522,17 @@ function invlyapsop(A, E; disc = false, her = false)
      end
    end
    function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    if T != T1
-      if cmplx
-         A = convert(Matrix{T1},A)
-         E = convert(Matrix{T1},E)
-      else
-         T1r = real(T1)
-         if T1r != T
-            A = convert(Matrix{T1r},A)
-            E = convert(Matrix{T1},E)
-         end
-      end
-    end
-    try
+     T == eltype(x) || (x = convert(Vector{T},x))
+     try
        if her
-         Y = vec2triu(convert(Vector{T1}, -x),her = true)
-         disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
-         return triu2vec(Y)
+          Y = vec2triu(-x, her = true)
+          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
+          return triu2vec(Y)
        else
-         Y = copy(reshape(convert(Vector{T1}, x), n, n))
-         disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
-                gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
-         return Y[:]
+          Y = copy(reshape(x, n, n))
+          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
+                 gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
+          return Y[:]
        end
      catch err
        findfirst("SingularException",string(err)) === nothing &&
@@ -621,38 +540,23 @@ function invlyapsop(A, E; disc = false, her = false)
      end
    end
    function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    if T != T1
-      if cmplx
-         A = convert(Matrix{T1},A)
-         E = convert(Matrix{T1},E)
-      else
-         T1r = real(T1)
-         if T1r != T
-            A = convert(Matrix{T1r},A)
-            E = convert(Matrix{T1},E)
-         end
-      end
-    end
-    try
+     T == eltype(x) || (x = convert(Vector{T},x))
+     try
        if her
-         Y = vec2triu(convert(Vector{T1}, -x),her = true)
-         disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
-         return triu2vec(Y)
+          Y = vec2triu(-x, her = true)
+          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
+          return triu2vec(Y)
        else
-         Y = copy(reshape(convert(Vector{T1}, x), n, n))
-         disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
-                gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
-         return Y[:]
+          Y = copy(reshape(x, n, n))
+          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
+                 gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
+          return Y[:]
        end
      catch err
        findfirst("SingularException",string(err)) === nothing &&
        findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
      end
    end
-   F1 = typeof(prod)
-   F2 = typeof(tprod)
-   F3 = typeof(ctprod)
    her ? N = Int(n*(n+1)/2) : N = n*n
    return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
@@ -686,9 +590,6 @@ function sylvop(A, B; disc = false)
     disc ? Y = A'*X*B' + X : Y = A'*X + X*B'
     return Y[:]
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
@@ -743,9 +644,6 @@ function invsylvop(A, B; disc = false)
       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
@@ -754,20 +652,10 @@ end
 Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
 or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices in Schur forms.
 """
-function invsylvsop(A, B; disc = false)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = promote_type(eltype(A), eltype(B))
-  T <: BlasFloat || (T = promote_type(Float64,T))
+function invsylvsop(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc = false) where T <: BlasFloat
+  m, n = LinearAlgebra.checksquare(A, B)
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
-  if eltype(A) != T
-    adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A)
-  end 
-  if eltype(B) != T
-    adjB ? B = convert(Matrix{T},B.parent)' :  B = convert(Matrix{T},B) 
-  end 
-  cmplx = T<:Complex
   if adjA
      isschur(A.parent) || error("A must be in Schur form")
   else
@@ -779,20 +667,8 @@ function invsylvsop(A, B; disc = false)
      isschur(B) || error("B must be in Schur form")
   end
   function prod(x)
-    T1 = promote_type(T, eltype(x))
-    C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T != T1
-      if cmplx
-         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-      else
-        T1r = real(T1)
-        if T1r != T
-          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    C = copy(reshape(x, m, n))
     try
        if disc
           if !adjA & !adjB
@@ -822,20 +698,8 @@ function invsylvsop(A, B; disc = false)
     end
   end
   function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T != T1
-      if cmplx
-         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-      else
-        T1r = real(T1)
-        if T1r != T
-          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    C = copy(reshape(x, m, n))
     try
        if disc
           if !adjA & !adjB
@@ -865,20 +729,8 @@ function invsylvsop(A, B; disc = false)
     end
   end
   function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    C = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T != T1
-      if cmplx
-         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-      else
-        T1r = real(T1)
-        if T1r != T
-          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    C = copy(reshape(x, m, n))
     try
        if disc
           if !adjA & !adjB
@@ -907,9 +759,6 @@ function invsylvsop(A, B; disc = false)
        findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 invsylvsop(A :: Schur, B :: Schur; disc = false) = invsylvsop(A.T,B.T,disc = disc)
@@ -939,9 +788,6 @@ function sylvop(A, B, C, D)
     X = reshape(convert(Vector{T1}, x), m, n)
     return (A' * X * B' + C' * X * D' )[:]
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
@@ -983,9 +829,6 @@ function invsylvop(A, B, C, D)
        findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 """
@@ -995,28 +838,17 @@ Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`
 with the pairs `(A,C)` and `(B,D)` in generalized Schur forms. If `DBSchur = true`,
 the pair `(D,B)` is in generalized Schur form.
 """
-function invsylvsop(A, B, C, D; DBSchur = false)
+function invsylvsop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}; DBSchur = false) where T <: BlasFloat
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-  T <: BlasFloat || (T = promote_type(Float64,T))
   adjA = isa(A,Adjoint)
   adjB = isa(B,Adjoint)
   adjC = isa(C,Adjoint)
   adjD = isa(D,Adjoint)
   adjA == adjC || error("Only calls with pairs (A,C) or (A',C') are allowed")
   adjB == adjD || error("Only calls with pairs (B,D) or (B',D') are allowed")
-  eltype(A) == T || 
-    (adjA ? A = convert(Matrix{T},A.parent)'  : A = convert(Matrix{T},A))
-  eltype(B) == T || 
-    (adjB ? B = convert(Matrix{T},B.parent)'  : B = convert(Matrix{T},B))
-  eltype(C) == T ||
-    (adjC ? C = convert(Matrix{T},C.parent)'  : C = convert(Matrix{T},C))
-  eltype(D) == T ||
-    (adjD ? D = convert(Matrix{T},D.parent)' :  D = convert(Matrix{T},D))
-  cmplx = T<:Complex
   adjAC = adjA & adjC
   if adjAC
      isschur(A.parent,C.parent) || 
@@ -1042,24 +874,8 @@ function invsylvsop(A, B, C, D; DBSchur = false)
      end
   end
   function prod(x)
-    T1 = promote_type(T, eltype(x))
-    Y = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T != T1
-      if cmplx
-         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-         adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
-         adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
-      else
-         T1r = real(T1)
-         if T1r != T
-            adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-            adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-            adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
-            adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
-         end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    Y = copy(reshape(x, m, n))
     try
        if !adjAC & !adjBD
           gsylvs!(A, B, C, D, Y, adjAC = false, adjBD = false, DBSchur = DBSchur)
@@ -1076,24 +892,8 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     end
   end
   function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    Y = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T != T1
-      if cmplx
-         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-         adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
-         adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
-         else
-        T1r = real(T1)
-        if T1r != T
-          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-          adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
-          adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    Y = copy(reshape(x, m, n))
     try
        if !adjAC & !adjBD
           gsylvs!(A, B, C, D, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
@@ -1110,24 +910,8 @@ function invsylvsop(A, B, C, D; DBSchur = false)
     end
   end
   function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    Y = copy(reshape(convert(Vector{T1}, x), m, n))
-    if T != T1
-      if cmplx
-         adjA ? A = convert(Matrix{T1},A.parent)' : A = convert(Matrix{T1},A) 
-         adjB ? B = convert(Matrix{T1},B.parent)' : B = convert(Matrix{T1},B) 
-         adjC ? C = convert(Matrix{T1},C.parent)' : C = convert(Matrix{T1},C) 
-         adjD ? D = convert(Matrix{T1},D.parent)' : D = convert(Matrix{T1},D) 
-         else
-        T1r = real(T1)
-        if T1r != T
-          adjA ? A = convert(Matrix{T1r},A.parent)' : A = convert(Matrix{T1r},A) 
-          adjB ? B = convert(Matrix{T1r},B.parent)' : B = convert(Matrix{T1r},B) 
-          adjC ? C = convert(Matrix{T1r},C.parent)' : C = convert(Matrix{T1r},C) 
-          adjD ? D = convert(Matrix{T1r},D.parent)' : D = convert(Matrix{T1r},D) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    Y = copy(reshape(x, m, n))
     try
        if !adjAC & !adjBD
           gsylvs!(A, B, C, D, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
@@ -1143,9 +927,6 @@ function invsylvsop(A, B, C, D; DBSchur = false)
        findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
 end
 invsylvsop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsop(AC.S,BD.S,AC.T,BD.T)
@@ -1181,9 +962,6 @@ function sylvsysop(A, B, C, D)
     Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
     return [A' * X + C' * Y  X * B' + Y * D'][:]
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 """
@@ -1232,9 +1010,6 @@ function invsylvsysop(A, B, C, D)
        findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 """
@@ -1243,45 +1018,22 @@ end
 Define MINV, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD)`,
 with the pairs `(A,C)` and `(B,D)` in generalized Schur forms.
 """
-function invsylvsyssop(A, B, C, D)
+function invsylvsyssop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where T <: BlasFloat
   m = LinearAlgebra.checksquare(A)
   n = LinearAlgebra.checksquare(B)
   [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  T = promote_type(eltype(A),eltype(B),eltype(C),eltype(D))
-  T <: BlasFloat || (T = promote_type(Float64,T))
-  cmplx = T<:Complex
   if isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)
      error("Only calls with (A, B, C, D) without adjoints are allowed")
   end
-  eltype(A) == T || (A = convert(Matrix{T},A))
-  eltype(B) == T || (B = convert(Matrix{T},B))
-  eltype(C) == T || (C = convert(Matrix{T},C))
-  eltype(D) == T || (D = convert(Matrix{T},D))
   isschur(A,C) || error("The pair (A,C) must be in generalized Schur form")
   isschur(B,D) || error("The pair (B,D) must be in generalized Schur form")
-  cmplx ? TA = 'C' : TA = 'T'
+  T <: Complex ? TA = 'C' : TA = 'T'
   mn = m*n
   function prod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    if T != T1
-      if cmplx
-         A = convert(Matrix{T1},A) 
-         B = convert(Matrix{T1},B) 
-         C = convert(Matrix{T1},C) 
-         D = convert(Matrix{T1},D) 
-      else
-        T1r = real(T1)
-        if T1r != T
-         A = convert(Matrix{T1r},A) 
-         B = convert(Matrix{T1r},B) 
-         C = convert(Matrix{T1r},C) 
-         D = convert(Matrix{T1r},D) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    E = reshape(x[1:mn], m, n)
+    F = reshape(x[mn+1:2*mn], m, n)
     try
       X, Y = sylvsyss!(A,B,E,C,D,F) 
       return [X Y][:]
@@ -1290,25 +1042,9 @@ function invsylvsyssop(A, B, C, D)
     end
   end
   function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    if T != T1
-      if cmplx
-         A = convert(Matrix{T1},A) 
-         B = convert(Matrix{T1},B) 
-         C = convert(Matrix{T1},C) 
-         D = convert(Matrix{T1},D) 
-      else
-        T1r = real(T1)
-        if T1r != T
-         A = convert(Matrix{T1r},A) 
-         B = convert(Matrix{T1r},B) 
-         C = convert(Matrix{T1r},C) 
-         D = convert(Matrix{T1r},D) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    E = reshape(x[1:mn], m, n)
+    F = reshape(x[mn+1:2*mn], m, n)
     try
       X, Y = dsylvsyss!(A,B,E,C,D,F) 
       return [X Y][:]
@@ -1317,25 +1053,9 @@ function invsylvsyssop(A, B, C, D)
     end
   end
   function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    if T != T1
-      if cmplx
-         A = convert(Matrix{T1},A) 
-         B = convert(Matrix{T1},B) 
-         C = convert(Matrix{T1},C) 
-         D = convert(Matrix{T1},D) 
-      else
-        T1r = real(T1)
-        if T1r != T
-         A = convert(Matrix{T1r},A) 
-         B = convert(Matrix{T1r},B) 
-         C = convert(Matrix{T1r},C) 
-         D = convert(Matrix{T1r},D) 
-        end
-      end
-    end
+    T == eltype(x) || (x = convert(Vector{T},x))
+    E = reshape(x[1:mn], m, n)
+    F = reshape(x[mn+1:2*mn], m, n)
     try
       X, Y = dsylvsyss!(A,B,E,C,D,F) 
       return [X Y][:]
@@ -1343,9 +1063,6 @@ function invsylvsyssop(A, B, C, D)
       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
   end
-  F1 = typeof(prod)
-  F2 = typeof(tprod)
-  F3 = typeof(ctprod)
   return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
 end
 invsylvsyssop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsyssop(AC.S,BD.S,AC.T,BD.T)

@@ -129,6 +129,8 @@ try
 catch
     @test true
 end
+
+
 end
 
 
@@ -258,6 +260,9 @@ g = 2; q = 3. *I; r = 1;
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f-g*x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f-g*x))))/norm(clseig)  < rtol
 
+ar1 = rand(Ty,2,2); br1 = rand(Ty,2,2); gr1 = 0*I; r1 = [1.e5 0; 0 1.e-5]; q1 = 0*I; sr1 = zeros(Ty,2,2);
+@time x, clseig, f, z = arec(ar1,br1,gr1,r1,q1,sr1)
+@test norm(ar1'*x+x*ar1-x*gr1*x-(x*br1+sr1)*inv(r1)*(br1'*x+sr1')+q1)/max(1,norm(x)) < rtol
 
 end
 

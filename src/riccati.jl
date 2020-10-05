@@ -253,13 +253,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
    TR = real(T)
    epsm = eps(TR)
    eltype(A) == T || (A = convert(Matrix{T},A))
-   if eltype(B) != T
-      if typeof(B) <: AbstractVector
-         B = convert(Vector{T},B)
-      else
-         B = convert(Matrix{T},B)
-      end
-   end
+   eltype(B) == T || (typeof(B) <: AbstractVector ? B = convert(Vector{T},B) : B = convert(Matrix{T},B))
    if typeof(G) <: AbstractArray
        (LinearAlgebra.checksquare(G) == n && ishermitian(G)) ||
           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
@@ -295,9 +289,8 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
    Da = abs.(D)
    minDa, = findmin(Da)
    maxDa, = findmax(Da)
-   if minDa <= epsm*maxDa
-      error("R must be non-singular")
-   elseif minDa > sqrt(epsm)*maxDa && maxDa > 100*eps(max(opnorm(A,1),opnorm(G,1),opnorm(Q,1)))
+   minDa <= epsm*maxDa && error("R must be non-singular")
+   if minDa > sqrt(epsm)*maxDa && maxDa > 100*eps(max(opnorm(A,1),opnorm(G,1),opnorm(Q,1)))
       #Dinv = diagm(0 => 1 ./ D)
       Dinv = Diagonal(1 ./ D)
       Bu = B*SR.Z
@@ -387,14 +380,10 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
        Et = LinearAlgebra.LAPACK.getrf!(copy(E))
        LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
     end
-    """
-    Method:  A stable/anti-stable deflating subspace Z1 = [Z11; Z21] of the pencil
-
-         L -s P := [  A  -G ]  - s [ E  0  ]
-                   [ -Q  -A']      [ 0  E' ]
-   
-    is determined and the solution X is computed as X = Z21*inv(E*Z11).
-    """
+    #  Method:  A stable/anti-stable deflating subspace Z1 = [Z11; Z21] of the pencil
+    #       L -s P := [  A  -G ]  - s [ E  0  ]
+    #                 [ -Q  -A']      [ 0  E' ]   
+    #  is determined and the solution X is computed as X = Z21*inv(E*Z11).
     L = [ A -G; -Q -A']
     P = [ E zeros(T,n,n); zeros(T,n,n) E']
     LPS = schur(L,P)
@@ -580,17 +569,12 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
        Et = LinearAlgebra.LAPACK.getrf!(copy(E))
        LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
     end
-    """
-    Method:  A stable/ant-stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
-
-                 [  A  -G    B ]      [ E  0  0 ]
-        L -s P = [ -Q  -A'  -S ]  - s [ 0  E' 0 ]
-                 [  S'  B'   R ]      [ 0  0  0 ]
-
-   is determined and the solution X and feedback F are computed as
-
-            X = Z21*inv(E*Z11),   F = -Z31*inv(Z11).
-    """
+    #  Method:  A stable/ant-stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
+    #               [  A  -G    B ]      [ E  0  0 ]
+    #      L -s P = [ -Q  -A'  -S ]  - s [ 0  E' 0 ]
+    #               [  S'  B'   R ]      [ 0  0  0 ]
+    # is determined and the solution X and feedback F are computed as
+    #          X = Z21*inv(E*Z11),   F = -Z31*inv(Z11).
 
     #deflate m simple infinite eigenvalues
     n2 = n+n;
@@ -794,12 +778,8 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     else
        LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        eident = isequal(E,I)
-       if eident
-          E = I
-       else
-          T = promote_type(T,eltype(E))
-       end
-    end
+       eident ? E = I : T = promote_type(T,eltype(E))
+     end
     if typeof(R) <: AbstractArray
        (LinearAlgebra.checksquare(R) == m && ishermitian(R)) ||
          throw(DimensionMismatch("R must be a symmetric/hermitian matrix of dimension $m"))
@@ -833,18 +813,12 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
     end
-
-    """
-    Method:  A stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
-
-                     [  A   0    B ]      [ E  0  0 ]
-            L -z P = [ -Q   E'  -S ]  - z [ 0  A' 0 ]
-                     [ S'   0    R ]      [ 0 -B' 0 ]
-
-    is computed and the solution X and feedback F are computed as
-
-            X = Z21*inv(E*Z11),   F = Z31*inv(Z11).
-    """
+    #  Method:  A stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
+    #                   [  A   0    B ]      [ E  0  0 ]
+    #          L -z P = [ -Q   E'  -S ]  - z [ 0  A' 0 ]
+    #                   [ S'   0    R ]      [ 0 -B' 0 ]
+    #  is computed and the solution X and feedback F are computed as
+    #          X = Z21*inv(E*Z11),   F = Z31*inv(Z11).
     n2 = n+n;
     F = qr([A'; -B'])
     L2 = F.Q'*[-Q  E' -S; copy(S') zeros(T,m,n) R]
@@ -865,9 +839,8 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     as ? PLS = schur(L1[iric,iric],P1[iric,iric]) : PLS = schur(P1[iric,iric],L1[iric,iric]) 
     select = abs.(PLS.α) .> abs.(PLS.β)
 
-    if n != length(filter(y-> y == true,select))
-       error("The extended simplectic pencil is not dichotomic")
-    end
+    n == length(filter(y-> y == true,select)) || error("The extended simplectic pencil is not dichotomic")
+    
     ordschur!(PLS, select)
     z[:,i1]= z[:,iric]*PLS.Z[:,i1];
 

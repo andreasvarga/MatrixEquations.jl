@@ -290,6 +290,13 @@ catch
    @test true
 end
 
+try 
+   gsylv([0 -1; 1 0],[1. 0;0 1]',[1 0; 0 1],-[0 -1; 1 0]',ones(2,2))
+   @test false
+catch
+   @test true
+end
+
 
 for Ty in (Float64, Float32)
 

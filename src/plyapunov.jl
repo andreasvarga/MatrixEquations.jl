@@ -2505,13 +2505,9 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       else
          W = ( BR[2,2]/T )^2 + ( BR[1,2]/T )^2 + ( BI[1,2]/T )^2 -
              ( XR/T )^2 - ( XI/T )^2 + ( YR/T )^2 + ( YI/T )^2
-         if W < ZERO
-            #  this condition usually does not occur -> we simply set W = 0
-            #  and thus U22 = 0
-            W = ZERO
-         else
-            W = T*sqrt( W )
-         end
+         #  the condition below usually does not occur -> we simply set W = 0
+         #  and thus U22 = 0
+         W < ZERO ? W = ZERO : W = T*sqrt( W )
       end
       T = TWO*W*SMLNUM
       T > V && error("$errtext")

@@ -63,21 +63,30 @@ Tccssyminv = invlyapsop(acs,her=true);
 
 
 try
-   T = invlyapsop(convert(Matrix{Float32},as));
+   #T1 = invlyapsop(convert(Matrix{Float32},as))
+   T = invlyapsop(as);
    T*rand(n*n);
    transpose(T)*rand(n*n);
    adjoint(T)*rand(n*n);
-   T = invlyapsop(convert(Matrix{Complex{Float32}},acs));
-    T*rand(n*n);
-    T*complex(rand(n*n));
-    transpose(T)*rand(n*n);
-    transpose(T)*complex(rand(n*n));
-    adjoint(T)*rand(n*n);
-    adjoint(T)*complex(rand(n*n));
-    @test true
- catch
-    @test false
- end 
+   T*rand(Float32,n*n);
+   transpose(T)*rand(Float32,n*n);
+   adjoint(T)*rand(Float32,n*n);
+   T*ones(Int,n*n);
+   transpose(T)*ones(Int,n*n);
+   adjoint(T)*ones(Int,n*n);
+   T*ones(Rational{Int},n*n);
+   # T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs));
+   T = invlyapsop(acs);
+   T*rand(n*n);
+   T*complex(rand(n*n));
+   transpose(T)*rand(n*n);
+   transpose(T)*complex(rand(n*n));
+   adjoint(T)*rand(n*n);
+   adjoint(T)*complex(rand(n*n));
+   @test true
+catch
+   @test false
+end 
  
 
 @time x = Tcrinv*cr[:];
@@ -109,6 +118,26 @@ try
 
 @time x = transpose(Tcrsinv)*cr[:]
 @test norm(transpose(Tcrs)*x-cr[:])/norm(x[:]) < reltol
+
+try 
+  x = Tcrsinv*cc[:]   
+  @test false
+catch
+  @test true
+end 
+try 
+  x = transpose(Tcrsinv)*cc[:]   
+  @test false
+catch
+  @test true
+end   
+try 
+  x = Tcrsinv'*cc[:]   
+  @test false
+catch
+  @test true
+end 
+
 
 @time x = Tcrssyminv*triu2vec(cr);
 @test norm(Tcrssym*x-triu2vec(cr))/norm(x[:]) < reltol
@@ -214,6 +243,8 @@ Tccssym = lyapop(acs,ecs,her=true);
 Tccssyminv = invlyapsop(acs,ecs,her=true);
 Π = trmatop(size(ar))
 
+@test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) 
+
 
 @test check_ctranspose(Tcr) &&
       check_ctranspose(Tcrinv) &&
@@ -234,12 +265,19 @@ Tccssyminv = invlyapsop(acs,ecs,her=true);
 
 
 try
-   T = invlyapsop(triu(as),ecs);
-   T = invlyapsop(acs,es);
-   T = invlyapsop(convert(Matrix{Complex{Float32}},acs),ecs);
+   #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),ecs);
+   T = invlyapsop(acs,ecs);
    T*rand(n*n);
-   T*complex(rand(n*n));
-   T = invlyapsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
+   transpose(T)*rand(n*n);
+   adjoint(T)*rand(n*n);
+   T*rand(Float32,n*n);
+   transpose(T)*rand(Float32,n*n);
+   adjoint(T)*rand(Float32,n*n);
+   T*ones(Int,n*n);
+   transpose(T)*ones(Int,n*n);
+   adjoint(T)*ones(Int,n*n);
+   #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
+   T = invlyapsop(acs,ecs);
    T*rand(n*n);
    T*complex(rand(n*n));
    transpose(T)*rand(n*n);
@@ -397,6 +435,31 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
       check_ctranspose(Tdcs) &&
       check_ctranspose(Tdcsinv) 
 
+try
+   #T1 = invlyapsop(convert(Matrix{Float32},as))
+   T = invlyapsop(as,disc=true);
+   T*rand(n*n);
+   transpose(T)*rand(n*n);
+   adjoint(T)*rand(n*n);
+   T*rand(Float32,n*n);
+   transpose(T)*rand(Float32,n*n);
+   adjoint(T)*rand(Float32,n*n);
+   T*ones(Int,n*n);
+   transpose(T)*ones(Int,n*n);
+   adjoint(T)*ones(Int,n*n);
+   # T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs));
+   T = invlyapsop(acs,disc=true);
+    T*rand(n*n);
+    T*complex(rand(n*n));
+    transpose(T)*rand(n*n);
+    transpose(T)*complex(rand(n*n));
+    adjoint(T)*rand(n*n);
+    adjoint(T)*complex(rand(n*n));
+    @test true
+catch
+    @test false
+end 
+
 
 @time x = Tdrinv*cr[:];
 @test norm(Tdr*x-cr[:])/norm(x[:]) < reltol
@@ -537,6 +600,31 @@ Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
       check_ctranspose(Tdcs) &&
       check_ctranspose(Tdcsinv) 
 
+try
+   #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),ecs);
+   T = invlyapsop(acs,ecs,disc = true);
+   T*rand(n*n);
+   transpose(T)*rand(n*n);
+   adjoint(T)*rand(n*n);
+   T*rand(Float32,n*n);
+   transpose(T)*rand(Float32,n*n);
+   adjoint(T)*rand(Float32,n*n);
+   T*ones(Int,n*n);
+   transpose(T)*ones(Int,n*n);
+   adjoint(T)*ones(Int,n*n);
+   #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
+   T = invlyapsop(acs,ecs,disc = true);
+   T*rand(n*n);
+   T*complex(rand(n*n));
+   transpose(T)*rand(n*n);
+   transpose(T)*complex(rand(n*n));
+   T'*rand(n*n);
+   T'*complex(rand(n*n));
+   @test true
+catch
+   @test false
+end 
+
 
 @time x = Tdrinv*cr[:];
 @test norm(Tdr*x-cr[:])/norm(x[:]) < reltol
@@ -674,11 +762,17 @@ Tccsinv = invsylvsop(acs,bcs)
 
 
 try
-    T = invsylvsop(triu(as),bcs);
-    T = invsylvsop(acs,triu(bs));
+    T = invsylvsop(as,bs);
     T*rand(n*m);
-    T*complex(rand(n*m));
-    T = invsylvsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs));
+    transpose(T)*rand(n*m);
+    adjoint(T)*rand(n*m);
+    T*rand(Float32,n*m);
+    transpose(T)*rand(Float32,n*m);
+    adjoint(T)*rand(Float32,n*m);
+    T*ones(Int,n*m);
+    transpose(T)*ones(Int,n*m);
+    adjoint(T)*ones(Int,n*m);
+    T = invsylvsop(acs,bcs);
     T*rand(n*m);
     T*complex(rand(n*m));
     transpose(T)*rand(n*m);
@@ -686,9 +780,9 @@ try
     T'*rand(n*m);
     T'*complex(rand(n*m));
     @test true
- catch
+catch
     @test false
- end 
+end 
  
 @time x = Tcrinv*cr[:]
 @test norm(Tcr*x[:]-cr[:])/norm(x[:]) < reltol
@@ -814,6 +908,28 @@ Tdcsinv = invsylvsop(acs,bcs, disc = true)
       check_ctranspose(Tdcs) &&
       check_ctranspose(Tdcsinv) 
 
+try
+    T = invsylvsop(as,bs,disc = true);
+    T*rand(n*m);
+    transpose(T)*rand(n*m);
+    adjoint(T)*rand(n*m);
+    T*rand(Float32,n*m);
+    transpose(T)*rand(Float32,n*m);
+    adjoint(T)*rand(Float32,n*m);
+    T*ones(Int,n*m);
+    transpose(T)*ones(Int,n*m);
+    adjoint(T)*ones(Int,n*m);
+    T = invsylvsop(acs,bcs,disc = true);
+    T*rand(n*m);
+    T*complex(rand(n*m));
+    transpose(T)*rand(n*m);
+    transpose(T)*complex(rand(n*m));
+    T'*rand(n*m);
+    T'*complex(rand(n*m));
+    @test true
+catch
+    @test false
+end 
 
 @time x = Tdrinv*cr[:]
 @test norm(Tdr*x[:]-cr[:])/norm(x[:]) < reltol
@@ -953,12 +1069,17 @@ Tcsinv = invsylvsop(acs, bcs, ccs, dcs)
 
 
 try
-    T = invsylvsop(triu(as),triu(bs),ccs,dcs);
-    T = invsylvsop(acs,bcs,cs,ds);
+    T = invsylvsop(as,bs,cs,ds);
     T*rand(n*m);
-    T*complex(rand(n*m));
-    T = invsylvsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs),
-                   convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},dcs));
+    transpose(T)*rand(n*m);
+    adjoint(T)*rand(n*m);
+    T*rand(Float32,n*m);
+    transpose(T)*rand(Float32,n*m);
+    adjoint(T)*rand(Float32,n*m);
+    T*ones(Int,n*m);
+    transpose(T)*ones(Int,n*m);
+    adjoint(T)*ones(Int,n*m);
+    T = invsylvsop(acs,bcs,ccs,dcs);
     T*rand(n*m);
     T*complex(rand(n*m));
     transpose(T)*rand(n*m);
@@ -1124,12 +1245,17 @@ Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
 
 
 try
-    T = invsylvsyssop(triu(as),triu(bs),ccs,dcs);
-    T = invsylvsyssop(acs,bcs,cs,ds);
+    T = invsylvsyssop(as,bs,cs,ds);
     T*rand(2n*m);
-    T*complex(rand(2n*m));
-    T = invsylvsyssop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},bcs),
-                   convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},dcs));
+    transpose(T)*rand(2n*m);
+    adjoint(T)*rand(2n*m);
+    T*rand(Float32,2n*m);
+    transpose(T)*rand(Float32,2n*m);
+    adjoint(T)*rand(Float32,2n*m);
+    T*ones(Int,2n*m);
+    transpose(T)*ones(Int,2n*m);
+    adjoint(T)*ones(Int,2n*m);
+    T = invsylvsyssop(acs,bcs,ccs,dcs);
     T*rand(2n*m);
     T*complex(rand(2n*m));
     transpose(T)*rand(2n*m);
