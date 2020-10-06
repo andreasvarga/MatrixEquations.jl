@@ -348,9 +348,8 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
                as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A)))))) 
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(G), eltype(Q) )
-    if E == I
-       eident = true
-    else
+    eident = (E == I)
+    if !eident
        LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        eident = isequal(E,I)
        eident ? (E = I) : (T = promote_type(T,eltype(E)))
@@ -520,9 +519,8 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
     n == nb || throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
-    if E == I
-       eident = true
-    else
+    eident = (E == I)
+    if !eident
        LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
        eident = isequal(E,I)
        eident ? (E = I) : (T = promote_type(T,eltype(E)))
