@@ -1023,9 +1023,8 @@ function invsylvsyssop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMa
   n = LinearAlgebra.checksquare(B)
   [m; n] == LinearAlgebra.checksquare(C,D) ||
      throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  if isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)
+  (isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)) &&
      error("Only calls with (A, B, C, D) without adjoints are allowed")
-  end
   isschur(A,C) || error("The pair (A,C) must be in generalized Schur form")
   isschur(B,D) || error("The pair (B,D) must be in generalized Schur form")
   T <: Complex ? TA = 'C' : TA = 'T'

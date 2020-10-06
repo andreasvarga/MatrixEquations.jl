@@ -292,23 +292,15 @@ function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstract
     if adjAC
        AS, CS, Z1, Q1 = schur(A.parent,C.parent)
     else
-       if adjA
-          A = copy(A)
-       end
-       if adjC
-          C = copy(C)
-       end
+       adjA && (A = copy(A))
+       adjC && (C = copy(C))
        AS, CS, Q1, Z1 = schur(A,C)
     end
     if adjBD
        BS, DS, Z2, Q2 = schur(B.parent,D.parent)
     else
-      if adjB
-          B = copy(B)
-      end
-      if adjD
-          D = copy(D)
-      end
+       adjB && (B = copy(B))
+       adjD && (D = copy(D))
        BS, DS, Q2, Z2 = schur(B,D)
     end
     Y = adjoint(Q1) * (E*Z2)
@@ -413,18 +405,11 @@ function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstra
     eltype(E) == T2 || (E = convert(Matrix{T2},E))
     eltype(F) == T2 || (F = convert(Matrix{T2},F))
 
-    if isa(A,Adjoint)
-      A = copy(A)
-    end
-    if isa(B,Adjoint)
-      B = copy(B)
-    end
-    if isa(D,Adjoint)
-      D = copy(D)
-    end
-    if isa(E,Adjoint)
-      E = copy(E)
-    end
+    isa(A,Adjoint) && (A = copy(A))
+    isa(B,Adjoint) && (B = copy(B))
+    isa(D,Adjoint) && (D = copy(D))
+    isa(E,Adjoint) && (E = copy(E))
+    
     AS, DS, Q1, Z1 = schur(A,D)
     BS, ES, Q2, Z2 = schur(B,E)
 
@@ -730,20 +715,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if !adjA && !adjB
-      """
-      The (K,L)th block of X is determined starting from
-      bottom-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-left corner column by column by
 
-                 A(K,K)*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L)
+      #            A(K,K)*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L)
 
-      where
-                             M
-                 R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
-                           J=K+1
-                             M             L-1
-                            SUM { A(K,J) * SUM [X(J,I)*B(I,L)] }.
-                            J=K            I=1
-      """
+      # where
+      #                        M
+      #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
+      #                      J=K+1
+      #                        M             L-1
+      #                       SUM { A(K,J) * SUM [X(J,I)*B(I,L)] }.
+      #                       J=K            I=1
+      # """
       j = 1
       for ll = 1:pb
           dl = bb[ll]
@@ -774,20 +759,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
           j += dl
       end
    elseif !adjA && adjB
-         """
-         The (K,L)th block of X is determined starting from
-         bottom-right corner column by column by
+         # """
+         # The (K,L)th block of X is determined starting from
+         # bottom-right corner column by column by
 
-                     A(K,K)*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
+         #             A(K,K)*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
 
-         where
-                                M
-                    R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
-                              J=K+1
-                                M              N
-                               SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] }.
-                               J=K           I=L+1
-         """
+         # where
+         #                        M
+         #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
+         #                      J=K+1
+         #                        M              N
+         #                       SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] }.
+         #                       J=K           I=L+1
+         # """
          j = n
          for ll = pb:-1:1
              dl = bb[ll]
@@ -817,20 +802,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
              j -= dl
          end
    elseif adjA && !adjB
-      """
-      The (K,L)th block of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from the
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L),
+      # A(K,K)'*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L),
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
-                            J=1
-                             K              L-1
-                            SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] }.
-                            J=1             I=1
-      """
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
+      #                       J=1
+      #                        K              L-1
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] }.
+      #                       J=1             I=1
+      # """
       j = 1
       for ll = 1:pb
           dl = bb[ll]
@@ -861,20 +846,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
           j += dl
       end
    elseif adjA && adjB
-      """
-      The (K,L)th block of X is determined starting from the
-      lower-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from the
+      # lower-left corner column by column by
 
-                 A(K,K)'*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
+      #            A(K,K)'*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
-                            J=1
-                             K               N
-                            SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }.
-                            J=1            I=L+1
-      """
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
+      #                       J=1
+      #                        K               N
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }.
+      #                       J=1            I=L+1
+      # """
       j = n
       for ll = pb:-1:1
           dl = bb[ll]
@@ -920,20 +905,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    W = zeros(T1,m,1)
    ONE = one(T1)
    if !adjA && !adjB
-      """
-      The (K,L)th element of X is determined starting from
-      bottom-left corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from
+      # bottom-left corner column by column by
 
-                 A(K,K)*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L)
+      #            A(K,K)*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L)
 
-      where
-                             M
-                 R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
-                           J=K+1
-                             M             L-1
-                            SUM { A(K,J) * SUM [X(J,I)*B(I,L)] }.
-                            J=K            I=1
-      """
+      # where
+      #                        M
+      #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
+      #                      J=K+1
+      #                        M             L-1
+      #                       SUM { A(K,J) * SUM [X(J,I)*B(I,L)] }.
+      #                       J=K            I=1
+      # """
       for l = 1:n
           il1 = 1:l-1
           ll = l:l
@@ -958,20 +943,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
              end
       end
    elseif !adjA && adjB
-         """
-         The (K,L)th element of X is determined starting from
-         bottom-right corner column by column by
+         # """
+         # The (K,L)th element of X is determined starting from
+         # bottom-right corner column by column by
 
-                  A(K,K)*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
+         #          A(K,K)*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
 
-         where
-                                M
-                    R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
-                              J=K+1
-                                M              N
-                               SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] }.
-                               J=K           I=L+1
-         """
+         # where
+         #                        M
+         #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
+         #                      J=K+1
+         #                        M              N
+         #                       SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] }.
+         #                       J=K           I=L+1
+         # """
          for l = n:-1:1
              ll = l:l
              il1 = l+1:n
@@ -996,20 +981,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
              end
          end
    elseif adjA && !adjB
-      """
-      The (K,L)th element of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from the
+      # upper-left corner column by column by
 
-               A(K,K)'*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L),
+      #          A(K,K)'*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L),
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
-                            J=1
-                             K              L-1
-                            SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] }.
-                            J=1             I=1
-      """
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
+      #                       J=1
+      #                        K              L-1
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] }.
+      #                       J=1             I=1
+      # """
       for l = 1:n
           ll = l:l
           il1 = 1:l-1
@@ -1034,20 +1019,20 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
          end
       end
    elseif adjA && adjB
-      """
-      The (K,L)th element of X is determined starting from the
-      upper-right corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from the
+      # upper-right corner column by column by
 
-              A(K,K)'*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
+      #         A(K,K)'*X(K,L)*B(L,L)' + X(K,L) = C(K,L) - R(K,L)
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
-                            J=1
-                             K               N
-                            SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }.
-                            J=1            I=L+1
-      """
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
+      #                       J=1
+      #                        K               N
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }.
+      #                       J=1            I=L+1
+      # """
       for l = n:-1:1
           ll = l:l
           il1 = l+1:n
@@ -1121,27 +1106,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if !adjAC && !adjBD
-      """
-      The (K,L)th block of X is determined starting from
-      bottom-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-left corner column by column by
 
-            A(K,K)*X(K,L)*B(L,L) + C(K,K)*X(K,L)*D(L,L) = E(K,L) - R(K,L)
+      #       A(K,K)*X(K,L)*B(L,L) + C(K,K)*X(K,L)*D(L,L) = E(K,L) - R(K,L)
 
-      where
-                             M
-                 R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
-                           J=K+1
-                             M             L-1
-                            SUM { A(K,J) * SUM [X(J,I)*B(I,L)] } +
-                            J=K            I=1
+      # where
+      #                        M
+      #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
+      #                      J=K+1
+      #                        M             L-1
+      #                       SUM { A(K,J) * SUM [X(J,I)*B(I,L)] } +
+      #                       J=K            I=1
 
-                             M
-                          { SUM [C(K,J)*X(J,L)] } * D(L,L) +
-                           J=K+1
-                             M             L-1
-                            SUM { C(K,J) * SUM [X(J,I)*D(I,L)] }.
-                            J=K            I=1
-      """
+      #                        M
+      #                     { SUM [C(K,J)*X(J,L)] } * D(L,L) +
+      #                      J=K+1
+      #                        M             L-1
+      #                       SUM { C(K,J) * SUM [X(J,I)*D(I,L)] }.
+      #                       J=K            I=1
+      # """
       j = 1
       for ll = 1:pb
           dl = bb[ll]
@@ -1183,27 +1168,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
           j += dl
       end
    elseif !adjAC && adjBD
-         """
-          The (K,L)th block of X is determined starting from
-          bottom-right corner column by column by
+         # """
+         #  The (K,L)th block of X is determined starting from
+         #  bottom-right corner column by column by
 
-               A(K,K)*X(K,L)*B(L,L)' + C(K,K)*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
+         #       A(K,K)*X(K,L)*B(L,L)' + C(K,K)*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
 
-          where
-                                M
-                    R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
-                              J=K+1
-                                M              N
-                               SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] } +
-                               J=K           I=L+1
+         #  where
+         #                        M
+         #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
+         #                      J=K+1
+         #                        M              N
+         #                       SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] } +
+         #                       J=K           I=L+1
 
-                               M
-                            { SUM [C(K,J)*X(J,L)] } * D(L,L)' +
-                             J=K+1
-                               M              N
-                              SUM { C(K,J) * SUM [X(J,I)*D(L,I)'] }.
-                              J=K           I=L+1
-         """
+         #                       M
+         #                    { SUM [C(K,J)*X(J,L)] } * D(L,L)' +
+         #                     J=K+1
+         #                       M              N
+         #                      SUM { C(K,J) * SUM [X(J,I)*D(L,I)'] }.
+         #                      J=K           I=L+1
+         # """
          j = n
          for ll = pb:-1:1
              dl = bb[ll]
@@ -1245,27 +1230,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
              j -= dl
          end
    elseif adjAC && !adjBD
-      """
-      The (K,L)th block of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from the
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L)*B(L,L) + C(K,K)'*X(K,L)*D(L,L) = E(K,L) - R(K,L),
+      # A(K,K)'*X(K,L)*B(L,L) + C(K,K)'*X(K,L)*D(L,L) = E(K,L) - R(K,L),
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
-                            J=1
-                             K              L-1
-                            SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] } +
-                            J=1             I=1
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
+      #                       J=1
+      #                        K              L-1
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] } +
+      #                       J=1             I=1
 
-                            K-1
-                          { SUM [C(J,K)'*X(J,L)] } * D(L,L) +
-                            J=1
-                             K              L-1
-                            SUM C(J,K)' * { SUM [X(J,I)*D(I,L)] }.
-                            J=1             I=1
-      """
+      #                       K-1
+      #                     { SUM [C(J,K)'*X(J,L)] } * D(L,L) +
+      #                       J=1
+      #                        K              L-1
+      #                       SUM C(J,K)' * { SUM [X(J,I)*D(I,L)] }.
+      #                       J=1             I=1
+      # """
       j = 1
       for ll = 1:pb
           dl = bb[ll]
@@ -1309,27 +1294,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
           j += dl
       end
    elseif adjAC && adjBD
-      """
-      The (K,L)th block of X is determined starting from
-      upper-right corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # upper-right corner column by column by
 
-                 A(K,K)'*X(K,L)*B(L,L)' + C(K,K)'*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
+      #            A(K,K)'*X(K,L)*B(L,L)' + C(K,K)'*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
-                            J=1
-                             K               N
-                            SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }+
-                            J=1            I=L+1
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
+      #                       J=1
+      #                        K               N
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }+
+      #                       J=1            I=L+1
 
-                            K-1
-                          { SUM [C(J,K)'*X(J,L)] } * D(L,L)' +
-                            J=1
-                             K               N
-                            SUM C(J,K)' * { SUM [X(J,I)*D(L,I)'] }.
-                            J=1            I=L+1
-      """
+      #                       K-1
+      #                     { SUM [C(J,K)'*X(J,L)] } * D(L,L)' +
+      #                       J=1
+      #                        K               N
+      #                       SUM C(J,K)' * { SUM [X(J,I)*D(L,I)'] }.
+      #                       J=1            I=L+1
+      # """
       j = n
       for ll = pb:-1:1
           dl = bb[ll]
@@ -1543,27 +1528,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    WB = zeros(T1,m,1)
    WD = zeros(T1,m,1)
    if !adjAC && !adjBD
-      """
-      The (K,L)th element of X is determined starting from
-      bottom-left corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from
+      # bottom-left corner column by column by
 
-            A(K,K)*X(K,L)*B(L,L) +C(K,K)*X(K,L)*D(L,L) = E(K,L) - R(K,L)
+      #       A(K,K)*X(K,L)*B(L,L) +C(K,K)*X(K,L)*D(L,L) = E(K,L) - R(K,L)
 
-      where
-                             M
-                 R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
-                           J=K+1
-                             M             L-1
-                            SUM { A(K,J) * SUM [X(J,I)*B(I,L)] } +
-                            J=K            I=1
+      # where
+      #                        M
+      #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L) +
+      #                      J=K+1
+      #                        M             L-1
+      #                       SUM { A(K,J) * SUM [X(J,I)*B(I,L)] } +
+      #                       J=K            I=1
 
-                            M
-                         { SUM [C(K,J)*X(J,L)] } * D(L,L) +
-                          J=K+1
-                            M             L-1
-                           SUM { C(K,J) * SUM [X(J,I)*D(I,L)] } +
-                           J=K            I=1
-      """
+      #                       M
+      #                    { SUM [C(K,J)*X(J,L)] } * D(L,L) +
+      #                     J=K+1
+      #                       M             L-1
+      #                      SUM { C(K,J) * SUM [X(J,I)*D(I,L)] } +
+      #                      J=K            I=1
+      # """
       for l = 1:n
           il1 = 1:l-1
           ll = l:l
@@ -1592,27 +1577,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
           end
       end
    elseif !adjAC && adjBD
-         """
-          The (K,L)th element of X is determined starting from
-          bottom-right corner column by column by
+         # """
+         #  The (K,L)th element of X is determined starting from
+         #  bottom-right corner column by column by
 
-               A(K,K)*X(K,L)*B(L,L)' + C(K,K)*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
+         #       A(K,K)*X(K,L)*B(L,L)' + C(K,K)*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
 
-          where
-                                M
-                    R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
-                              J=K+1
-                                M              N
-                               SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] } +
-                               J=K           I=L+1
+         #  where
+         #                        M
+         #            R(K,L) = { SUM [A(K,J)*X(J,L)] } * B(L,L)' +
+         #                      J=K+1
+         #                        M              N
+         #                       SUM { A(K,J) * SUM [X(J,I)*B(L,I)'] } +
+         #                       J=K           I=L+1
 
-                               M
-                            { SUM [C(K,J)*X(J,L)] } * D(L,L)' +
-                             J=K+1
-                               M              N
-                              SUM { C(K,J) * SUM [X(J,I)*D(L,I)'] }.
-                              J=K           I=L+1
-         """
+         #                       M
+         #                    { SUM [C(K,J)*X(J,L)] } * D(L,L)' +
+         #                     J=K+1
+         #                       M              N
+         #                      SUM { C(K,J) * SUM [X(J,I)*D(L,I)'] }.
+         #                      J=K           I=L+1
+         # """
          for l = n:-1:1
              ll = l:l
              il1 = l+1:n
@@ -1641,27 +1626,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
              end
          end
    elseif adjAC && !adjBD
-      """
-      The (K,L)th element of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from the
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L)*B(L,L) + C(K,K)'*X(K,L)*D(L,L) = E(K,L) - R(K,L),
+      # A(K,K)'*X(K,L)*B(L,L) + C(K,K)'*X(K,L)*D(L,L) = E(K,L) - R(K,L),
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
-                            J=1
-                             K              L-1
-                            SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] } +
-                            J=1             I=1
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L) +
+      #                       J=1
+      #                        K              L-1
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(I,L)] } +
+      #                       J=1             I=1
 
-                            K-1
-                          { SUM [C(J,K)'*X(J,L)] } * D(L,L) +
-                            J=1
-                             K              L-1
-                            SUM C(J,K)' * { SUM [X(J,I)*D(I,L)] }.
-                            J=1             I=1
-      """
+      #                       K-1
+      #                     { SUM [C(J,K)'*X(J,L)] } * D(L,L) +
+      #                       J=1
+      #                        K              L-1
+      #                       SUM C(J,K)' * { SUM [X(J,I)*D(I,L)] }.
+      #                       J=1             I=1
+      # """
       for l = 1:n
           ll = l:l
           il1 = 1:l-1
@@ -1690,27 +1675,27 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
           end
       end
    elseif adjAC && adjBD
-      """
-      The (K,L)th element of X is determined starting from
-      upper-rght corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from
+      # upper-rght corner column by column by
 
-            A(K,K)'*X(K,L)*B(L,L)' + C(K,K)'*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
+      #       A(K,K)'*X(K,L)*B(L,L)' + C(K,K)'*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
 
-      where
-                            K-1
-                 R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
-                            J=1
-                             K               N
-                            SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }+
-                            J=1            I=L+1
+      # where
+      #                       K-1
+      #            R(K,L) = { SUM [A(J,K)'*X(J,L)] } * B(L,L)' +
+      #                       J=1
+      #                        K               N
+      #                       SUM A(J,K)' * { SUM [X(J,I)*B(L,I)'] }+
+      #                       J=1            I=L+1
 
-                            K-1
-                          { SUM [C(J,K)'*X(J,L)] } * D(L,L)' +
-                            J=1
-                             K               N
-                            SUM C(J,K)' * { SUM [X(J,I)*D(L,I)'] }.
-                            J=1            I=L+1
-      """
+      #                       K-1
+      #                     { SUM [C(J,K)'*X(J,L)] } * D(L,L)' +
+      #                       J=1
+      #                        K               N
+      #                       SUM C(J,K)' * { SUM [X(J,I)*D(L,I)'] }.
+      #                       J=1            I=L+1
+      # """
       for l = n:-1:1
           ll = l:l
           il1 = l+1:n

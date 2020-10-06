@@ -1057,6 +1057,12 @@ Tc = sylvop(ac, bc, cc, dc)
 Tcinv = invsylvop(ac, bc, cc, dc)
 Tcs = sylvop(acs, bcs, ccs, dcs)
 Tcsinv = invsylvsop(acs, bcs, ccs, dcs)
+try
+   invsylvsop(as, dr', cs, br', DBSchur=true) 
+   @test false
+catch
+   @test true
+end     
 
 @test check_ctranspose(Tr) &&
       check_ctranspose(Trinv) &&

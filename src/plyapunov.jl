@@ -789,13 +789,9 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    Wu = similar(Wr)
    Wz = similar(Wr)
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
       j = 1
       for ll = 1:p
           dl = ba[ll]
@@ -840,13 +836,9 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      bottom-right corner column by column by
-
-      A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #        A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
       j = n
       for ll = p:-1:1
           dl = ba[ll]
@@ -911,13 +903,9 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    Wy = similar(Wr)
    Wz = similar(Wr)
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
       for j = 1:n
           λ = real(A[j,j])
           λ >= ZERO && error("A is not stable")
@@ -953,13 +941,9 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      bottom-right corner column by column by
-
-      A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #       A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
       for j = n:-1:1
           λ = real(A[j,j])
           λ >= ZERO && error("A is not stable")
@@ -1033,13 +1017,9 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
    Wz = similar(Wr)
    η = [ ONE ZERO; small ONE]
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L)*E(L,L) + E(L,L)'*X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L)*E(L,L) + E(L,L)'*X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
       j = 1
       for ll = 1:p
           dl = ba[ll]
@@ -1088,13 +1068,9 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      bottom-right corner column by column by
-
-      A(L,L)*X(L,L)*E(L,L)' + E(L,L)*X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #      A(L,L)*X(L,L)*E(L,L)' + E(L,L)*X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
       j = n
       for ll = p:-1:1
           dl = ba[ll]
@@ -1168,13 +1144,9 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
    Wz = similar(Wr)
    η  = complex(fill(ONE,(1,1)))
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner row by row by
-
-      A(L,L)'*X(L,L)*E(L,L) + E(L,L)'*X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner row by row by
+      #       A(L,L)'*X(L,L)*E(L,L) + E(L,L)'*X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
       for j = 1:n
           δ = -TWO*real(A[j,j]'*E[j,j])
           δ <= ZERO && error("A-λE has unstable eigenvalues")
@@ -1219,13 +1191,9 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
       end
       return R
    else
-      """
-      The (L,L)th block of X is determined starting from
-      bottom-right corner column by column by
-
-      A(L,L)*X(L,L)*E(L,L)' + E(L,L)*X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #      A(L,L)*X(L,L)*E(L,L)' + E(L,L)*X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
       for j = n:-1:1
           δ = -TWO*real(A[j,j]'*E[j,j])
           δ <= ZERO && error("A-λE has unstable eigenvalues")
@@ -1299,12 +1267,9 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    Wy = similar(Wr)
    Wz = similar(Wr)
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L)*A(L,L) - X(L,L) = -R(L,L)'*R(L,L),
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #    A(L,L)'*X(L,L)*A(L,L) - X(L,L) = -R(L,L)'*R(L,L),
       j = 1
       for ll = 1:p
           dl = ba[ll]
@@ -1370,12 +1335,9 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)*X(L,L)*A(L,L)' - X(L,L) = -R(L,L)*R(L,L)',
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #      A(L,L)*X(L,L)*A(L,L)' - X(L,L) = -R(L,L)*R(L,L)',
       j = n
       for ll = p:-1:1
           dl = ba[ll]
@@ -1454,13 +1416,9 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    Wy = similar(Wr)
    Wz = similar(Wr)
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L)*A(L,L) - X(L,L) = -R(L,L)'*R(L,L),
-
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #     A(L,L)'*X(L,L)*A(L,L) - X(L,L) = -R(L,L)'*R(L,L),
       for j = 1:n
           λ = abs(A[j,j])
           λ >= ONE && error("A is not convergent")
@@ -1498,12 +1456,9 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)*X(L,L)*A(L,L)' - X(L,L) = -R(L,L)*R(L,L)',
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #     A(L,L)*X(L,L)*A(L,L)' - X(L,L) = -R(L,L)*R(L,L)',
       for j = n:-1:1
           λ = abs(A[j,j])
           λ >= ONE && error("A is not convergent")
@@ -1586,12 +1541,9 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
    Wy = similar(Wr)
    Wz = similar(Wr)
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L)*A(L,L) - E(L,L)'*X(L,L)*E(L,L) = -R(L,L)'*R(L,L),
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #     A(L,L)'*X(L,L)*A(L,L) - E(L,L)'*X(L,L)*E(L,L) = -R(L,L)'*R(L,L),
       j = 1
       for ll = 1:p
           dl = ba[ll]
@@ -1645,12 +1597,9 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)*X(L,L)*A(L,L)' - E(L,L)*X(L,L)*E(L,L)' = -R(L,L)*R(L,L)',
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #     A(L,L)*X(L,L)*A(L,L)' - E(L,L)*X(L,L)*E(L,L)' = -R(L,L)*R(L,L)',
       j = n
       for ll = p:-1:1
           dl = ba[ll]
@@ -1728,13 +1677,9 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
    Wz = similar(Wr)
    η  = complex(fill(-ONE,(1,1)))
    if adj
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)'*X(L,L)*A(L,L) - E(L,L)'*X(L,L)*E(L,L) = -R(L,L)'*R(L,L),
-
-      """
+     # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #      A(L,L)'*X(L,L)*A(L,L) - E(L,L)'*X(L,L)*E(L,L) = -R(L,L)'*R(L,L),
       for j = 1:n
           abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
           TEMP = sqrt( real((E[j,j]' - A[j,j]')*(E[j,j] + A[j,j])) )
@@ -1772,12 +1717,9 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           end
       end
    else
-      """
-      The (L,L)th block of X is determined starting from
-      upper-left corner column by column by
-
-      A(L,L)*X(L,L)*A(L,L)' - E(L,L)*X(L,L)*E(L,L)' = -R(L,L)*R(L,L)',
-      """
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #     A(L,L)*X(L,L)*A(L,L)' - E(L,L)*X(L,L)*E(L,L)' = -R(L,L)*R(L,L)',
       for j = n:-1:1
           abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
           TEMP = sqrt( real((E[j,j]' - A[j,j]')*(E[j,j] + A[j,j])) )

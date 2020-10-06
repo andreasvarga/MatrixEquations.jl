@@ -432,17 +432,17 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if adj
-      """
-      The (K,L)th block of X is determined starting from
-      upper-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L) + X(K,L)*A(L,L) = -C(K,L) - R(K,L),
+      # A(K,K)'*X(K,L) + X(K,L)*A(L,L) = -C(K,L) - R(K,L),
 
-      where
-               K-1                    L-1
-      R(K,L) = SUM [A(I,K)'*X(I,L)] + SUM [X(K,J)*A(J,L)].
-               I=1                    J=1
-      """
+      # where
+      #          K-1                    L-1
+      # R(K,L) = SUM [A(I,K)'*X(I,L)] + SUM [X(K,J)*A(J,L)].
+      #          I=1                    J=1
+      # """
       j = 1
       for ll = 1:p
           dl = ba[ll]
@@ -478,17 +478,17 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
           end
        end
    else
-      """
-      The (K,L)th block of X is determined starting from
-      bottom-right corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-right corner column by column by
 
-      A(K,K)*X(K,L) + X(K,L)*A(L,L)' = -C(K,L) - R(K,L),
+      # A(K,K)*X(K,L) + X(K,L)*A(L,L)' = -C(K,L) - R(K,L),
 
-      where
-                N                     N
-      R(K,L) = SUM [A(K,I)*X(I,L)] + SUM [X(K,J)*A(L,J)'].
-              I=K+1                 J=L+1
-      """
+      # where
+      #           N                     N
+      # R(K,L) = SUM [A(K,I)*X(I,L)] + SUM [X(K,J)*A(L,J)'].
+      #         I=K+1                 J=L+1
+      # """
       j = n
       for ll = p:-1:1
           dl = ba[ll]
@@ -616,17 +616,17 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComple
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
 
    if adj
-      """
-      The (K,L)th element of X is determined starting from
-      upper-left corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L) + X(K,L)*A(L,L) = -C(K,L) - R(K,L),
+      # A(K,K)'*X(K,L) + X(K,L)*A(L,L) = -C(K,L) - R(K,L),
 
-      where
-               K-1                    L-1
-      R(K,L) = SUM [A(I,K)'*X(I,L)] + SUM [X(K,J)*A(J,L)].
-               I=1                    J=1
-      """
+      # where
+      #          K-1                    L-1
+      # R(K,L) = SUM [A(I,K)'*X(I,L)] + SUM [X(K,J)*A(J,L)].
+      #          I=1                    J=1
+      # """
       for l = 1:n
           for k = l:n
               y = C[k,l]
@@ -650,17 +650,17 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComple
            end
       end
    else
-      """
-      The (K,L)th element of X is determined starting from
-      bottom-right corner column by column by
+      # """
+      # The (K,L)th element of X is determined starting from
+      # bottom-right corner column by column by
 
-      A(K,K)*X(K,L) + X(K,L)*A(L,L)' = -C(K,L) - R(K,L),
+      # A(K,K)*X(K,L) + X(K,L)*A(L,L)' = -C(K,L) - R(K,L),
 
-      where
-                N                     N
-      R(K,L) = SUM [A(K,I)*X(I,L)] + SUM [X(K,J)*A(L,J)'].
-              I=K+1                 J=L+1
-      """
+      # where
+      #           N                     N
+      # R(K,L) = SUM [A(K,I)*X(I,L)] + SUM [X(K,J)*A(L,J)'].
+      #         I=K+1                 J=L+1
+      # """
       for l = n:-1:1
           for k = l:-1:1
               y = C[k,l]
@@ -715,29 +715,29 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if adj
-      """
-      The (K,L)th block of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from the
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L)*E(L,L) + E(K,K)'*X(K,L)*A(L,L) = -C(K,L) - R(K,L),
+      # A(K,K)'*X(K,L)*E(L,L) + E(K,K)'*X(K,L)*A(L,L) = -C(K,L) - R(K,L),
 
-      where
-                K           L-1
-      R(K,L) = SUM {A(I,K)'*SUM [X(I,J)*E(J,L)]} +
-               I=1          J=1
+      # where
+      #           K           L-1
+      # R(K,L) = SUM {A(I,K)'*SUM [X(I,J)*E(J,L)]} +
+      #          I=1          J=1
 
-                K           L-1
-               SUM {E(I,K)'*SUM [X(I,J)*A(J,L)]} +
-               I=1          J=1
+      #           K           L-1
+      #          SUM {E(I,K)'*SUM [X(I,J)*A(J,L)]} +
+      #          I=1          J=1
 
-               K-1
-              {SUM [A(I,K)'*X(I,L)]}*E(L,L) +
-               I=1
+      #          K-1
+      #         {SUM [A(I,K)'*X(I,L)]}*E(L,L) +
+      #          I=1
 
-               K-1
-              {SUM [E(I,K)'*X(I,L)]}*A(L,L).
-               I=1
-      """
+      #          K-1
+      #         {SUM [E(I,K)'*X(I,L)]}*A(L,L).
+      #          I=1
+      # """
       i = 1
       for kk = 1:p
           dk = ba[kk]
@@ -781,30 +781,30 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
           i += dk
       end
    else
-      """
-      The (K,L)th block of X is determined starting from
-      bottom-right corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-right corner column by column by
 
-      A(K,K)*X(K,L)*E(L,L)' + E(K,K)*X(K,L)*A(L,L)' = -C(K,L) - R(K,L),
+      # A(K,K)*X(K,L)*E(L,L)' + E(K,K)*X(K,L)*A(L,L)' = -C(K,L) - R(K,L),
 
-      where
+      # where
 
-                N            N
-      R(K,L) = SUM {A(K,I)* SUM [X(I,J)*E(L,J)']} +
-               I=K         J=L+1
+      #           N            N
+      # R(K,L) = SUM {A(K,I)* SUM [X(I,J)*E(L,J)']} +
+      #          I=K         J=L+1
 
-                N            N
-               SUM {E(K,I)* SUM [X(I,J)*A(L,J)']} +
-               I=K         J=L+1
+      #           N            N
+      #          SUM {E(K,I)* SUM [X(I,J)*A(L,J)']} +
+      #          I=K         J=L+1
 
-                  N
-               { SUM [A(K,J)*X(J,L)]}*E(L,L)' +
-                J=K+1
+      #             N
+      #          { SUM [A(K,J)*X(J,L)]}*E(L,L)' +
+      #           J=K+1
 
-                  N
-               { SUM [E(K,J)*X(J,L)]}*A(L,L)'
-                J=K+1
-      """
+      #             N
+      #          { SUM [E(K,J)*X(J,L)]}*A(L,L)'
+      #           J=K+1
+      # """
       j = n
       for ll = p:-1:1
         dl = ba[ll]
@@ -1079,21 +1079,21 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if adj
-      """
-      The (K,L)th block of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from the
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L)*A(L,L) - X(K,L) = -C(K,L) - R(K,L),
+      # A(K,K)'*X(K,L)*A(L,L) - X(K,L) = -C(K,L) - R(K,L),
 
-      where
-                K           L-1
-      R(K,L) = SUM {A(I,K)'*SUM [X(I,J)*A(J,L)]} +
-               I=1          J=1
+      # where
+      #           K           L-1
+      # R(K,L) = SUM {A(I,K)'*SUM [X(I,J)*A(J,L)]} +
+      #          I=1          J=1
 
-                K-1
-               {SUM [A(I,K)'*X(I,L)]}*A(L,L).
-                I=1
-      """
+      #           K-1
+      #          {SUM [A(I,K)'*X(I,L)]}*A(L,L).
+      #           I=1
+      # """
       i = 1
       for kk = 1:p
           dk = ba[kk]
@@ -1131,22 +1131,22 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
           i += dk
       end
    else
-      """
-      The (K,L)th block of X is determined starting from
-      bottom-right corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-right corner column by column by
 
-      A(K,K)*X(K,L)*A(L,L)' - X(K,L) = -C(K,L) - R(K,L),
+      # A(K,K)*X(K,L)*A(L,L)' - X(K,L) = -C(K,L) - R(K,L),
 
-      where
+      # where
 
-                N            N
-      R(K,L) = SUM {A(K,I)* SUM [X(I,J)*A(L,J)']} +
-               I=K         J=L+1
+      #           N            N
+      # R(K,L) = SUM {A(K,I)* SUM [X(I,J)*A(L,J)']} +
+      #          I=K         J=L+1
 
-                  N
-               { SUM [A(K,J)*X(J,L)]}*A(L,L)'
-                J=K+1
-      """
+      #             N
+      #          { SUM [A(K,J)*X(J,L)]}*A(L,L)'
+      #           J=K+1
+      # """
       j = n
       for ll = p:-1:1
           dl = ba[ll]
@@ -1398,29 +1398,29 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if adj
-      """
-      The (K,L)th block of X is determined starting from the
-      upper-left corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from the
+      # upper-left corner column by column by
 
-      A(K,K)'*X(K,L)*A(L,L) - E(K,K)'*X(K,L)*E(L,L) = -C(K,L) - R(K,L),
+      # A(K,K)'*X(K,L)*A(L,L) - E(K,K)'*X(K,L)*E(L,L) = -C(K,L) - R(K,L),
 
-      where
-                K           L-1
-      R(K,L) = SUM {A(I,K)'*SUM [X(I,J)*A(J,L)]} -
-               I=1          J=1
+      # where
+      #           K           L-1
+      # R(K,L) = SUM {A(I,K)'*SUM [X(I,J)*A(J,L)]} -
+      #          I=1          J=1
 
-                K           L-1
-               SUM {E(I,K)'*SUM [X(I,J)*E(J,L)]} +
-               I=1          J=1
+      #           K           L-1
+      #          SUM {E(I,K)'*SUM [X(I,J)*E(J,L)]} +
+      #          I=1          J=1
 
-                K-1
-               {SUM [A(I,K)'*X(I,L)]}*A(L,L) -
-                I=1
+      #           K-1
+      #          {SUM [A(I,K)'*X(I,L)]}*A(L,L) -
+      #           I=1
 
-                K-1
-               {SUM [E(I,K)'*X(I,L)]}*E(L,L).
-                I=1
-      """
+      #           K-1
+      #          {SUM [E(I,K)'*X(I,L)]}*E(L,L).
+      #           I=1
+      # """
       i = 1
       for kk = 1:p
           dk = ba[kk]
@@ -1467,30 +1467,30 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
           i += dk
       end
    else
-      """
-      The (K,L)th block of X is determined starting from
-      bottom-right corner column by column by
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-right corner column by column by
 
-      A(K,K)*X(K,L)*A(L,L)' - E(K,K)*X(K,L)*E(L,L)' = -C(K,L) - R(K,L),
+      # A(K,K)*X(K,L)*A(L,L)' - E(K,K)*X(K,L)*E(L,L)' = -C(K,L) - R(K,L),
 
-      where
+      # where
 
-                N            N
-      R(K,L) = SUM {A(K,I)* SUM [X(I,J)*A(L,J)']} -
-               I=K         J=L+1
+      #           N            N
+      # R(K,L) = SUM {A(K,I)* SUM [X(I,J)*A(L,J)']} -
+      #          I=K         J=L+1
 
-                N            N
-               SUM {E(K,I)* SUM [X(I,J)*E(L,J)']} +
-               I=K         J=L+1
+      #           N            N
+      #          SUM {E(K,I)* SUM [X(I,J)*E(L,J)']} +
+      #          I=K         J=L+1
 
-                  N
-               { SUM [A(K,J)*X(J,L)]}*A(L,L)' -
-                J=K+1
+      #             N
+      #          { SUM [A(K,J)*X(J,L)]}*A(L,L)' -
+      #           J=K+1
 
-                  N
-               { SUM [E(K,J)*X(J,L)]}*E(L,L)'
-                J=K+1
-      """
+      #             N
+      #          { SUM [E(K,J)*X(J,L)]}*E(L,L)'
+      #           J=K+1
+      # """
       j = n
       for ll = p:-1:1
         dl = ba[ll]
