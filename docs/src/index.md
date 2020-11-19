@@ -68,7 +68,12 @@ The collection of tools can be extended by adding new functionality, such as exp
 
 ## Release Notes
 
-### Versions 1.2.0
+### Version 1.2.1
+
+Patch release to address fallback issues to ensure compatibility to versions prior 1.3 of Julia,
+some enhancements of the 2x2 positive generalized Lyapunov equation solver, explicit handling of null dimension case in Riccati solvers.
+
+### Version 1.2.0
 
 Minor release targeting sensible (up to 50%) speed increase of various lower level solvers for Lyapunov and Sylvester equations. This goal has been achieved by the reduction of allocation burden using preallocation of small size work arrays, explicit forming of small order Kronecker product based coefficient matrices, performing updating operations with the 5-term `mul!` function introduced in `Julia 1.3` (compatibility with prior Julia versions ensured using calls to BLAS `gemm!`).  The functionality of lower level solvers has been strictly restricted to the basic real and complex data of types `BlasReal` and `BlasComplex`.
 

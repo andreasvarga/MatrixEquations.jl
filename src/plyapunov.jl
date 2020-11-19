@@ -2161,6 +2161,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    # This function is based on the SLICOT routine SG03BX, which implements the
    # generalization of the method due to Hammarling ([1], section 6) for Lyapunov
    # equations of order 2. A more detailed description is given in [2].
+   # The 2x2 matrix is allowed to be a full matrix.
 
    # [1] Hammarling S. J.
    #     Numerical solution of the stable, non-negative definite Lyapunov equation.
@@ -2215,11 +2216,20 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       RR[1,1] = RR[2,2]
       RR[2,2] = V
    end
-   scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(AA,EE,small)
+   if iszero(EE[2,1])
+      # handle the case when EE is upper triangular (required by lag2)
+      scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(AA,EE,small)
+   else
+      # handle the case when EE is full
+      E1 = copy(EE)
+      G, E1[1,1] = givens(E1[1,1],E1[2,1],1,2)
+      lmul!(G,view(E1,:,2)); E1[2,1] = ZERO
+      scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(lmul!(G,copy(AA)),E1,small)
+   end
    LAMI == ZERO && error("The pair (A,E) has real generalized eigenvalues")
-   # Compute right orthogonal transformation matrix Q.
+   # Compute right orthogonal transformation matrix Q (modified to cope with nonzero E[2,1])
    @inbounds CR, CI, SR, SI, L =  cgivensc2( scale1*AA[1,1] - EE[1,1]*LAMR,
-                                   -EE[1,1]*LAMI, scale1*AA[2,1], ZERO, small )
+                                   -EE[1,1]*LAMI, scale1*AA[2,1] - EE[2,1]*LAMR, -EE[2,1]*LAMI, small )
    QR = [ CR SR; -SR CR ]
    QI = [ -CI  -SI; -SI CI ]
    #  A := Q * A

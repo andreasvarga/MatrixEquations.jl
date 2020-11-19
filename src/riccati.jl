@@ -88,6 +88,8 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     eltype(G) == T || (typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I)
     eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
     
+    n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0) )
+    
     S = schur([A  -G; -Q  -copy(A')])
     
     as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
@@ -282,6 +284,9 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
          S = convert(Matrix{T},S)
       end
    end
+
+   n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0), zeros(T,m,0) )
+    
    S0flag = iszero(S)
    typeof(R) <: UniformScaling && (R = Matrix{T}(R,m,m))
    SR = schur(R)
@@ -375,6 +380,9 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     eident || eltype(E) == T || (E = convert(Matrix{T},E))
     eltype(G) == T || (typeof(G) <: AbstractMatrix ? G = convert(Matrix{T},G) : G = convert(T,G.λ)*I)
     eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
+    
+    n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0) )
+    
     if !eident
        Et = LinearAlgebra.LAPACK.getrf!(copy(E))
        LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
@@ -562,11 +570,11 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
     eltype(R) == T || (typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I)
     eltype(S) == T || (typeof(S) <: AbstractVector ? S = convert(Vector{T},S) : S = convert(Matrix{T},S))
+    
+    n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0), zeros(T,m,0) )
+    
     cond(R)*epsm < 1 || error("R must be non-singular")
-    if !eident
-       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
-       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
-    end
+
     #  Method:  A stable/ant-stable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
     #               [  A  -G    B ]      [ E  0  0 ]
     #      L -s P = [ -Q  -A'  -S ]  - s [ 0  E' 0 ]
@@ -611,7 +619,7 @@ end
 
 
 """
-    ared(A, B, R, Q, S; as = false, rtol::Real = n) -> (X, EVALS, F, Z)
+    ared(A, B, R, Q, S; as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
 anti-stabilizing solution (if `as = true`) of the discrete-time algebraic Riccati equation
@@ -685,7 +693,7 @@ function ared(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,Un
     gared(A, I, B, R, Q, S; as = as, rtol = rtol)
 end
 """
-    gared(A, E, B, R, Q, S; as = false, rtol::Real = n) -> (X, EVALS, F, Z)
+    gared(A, E, B, R, Q, S; as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or 
 anti-stabilizing solution (if `as = true`) of the generalized discrete-time
@@ -807,6 +815,9 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
     eltype(R) == T || (typeof(R) <: AbstractMatrix ? R = convert(Matrix{T},R) : R = convert(T,R.λ)*I)
     eltype(S) == T || (typeof(S) <: AbstractVector ? S = convert(Vector{T},S) : S = convert(Matrix{T},S))
+    
+    n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0), zeros(T,m,0) )
+    
     if !eident
       Et = LinearAlgebra.LAPACK.getrf!(copy(E))
       LinearAlgebra.LAPACK.gecon!('1',Et[1],opnorm(E,1))  < epsm && error("E must be non-singular")
