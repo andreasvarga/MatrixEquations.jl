@@ -191,6 +191,13 @@ X = U*U'; @test norm(A*X*A'-E*X*E'+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(A*U-E*U*β)/max(1,norm(U))/norm(A) < reltol &&
                 norm(E*U*α - R)/max(1,norm(R)) < reltol
 
+U = copy(R)
+Q = qr(rand(2,2)).Q; A1 = Q*A; E1 = Q*E;
+β, α = MatrixEquations.pglyap2!(A1, E1, U, adj = false, disc = true)
+X = U*U'; @test norm(A1*X*A1'-E1*X*E1'+R*R')/max(1,norm(X))/norm(A) < reltol &&
+                norm(A1*U-E1*U*β)/max(1,norm(U))/norm(A) < reltol &&
+                norm(E1*U*α - R)/max(1,norm(R)) < reltol
+
 U = copy(0*R)
 β, α = MatrixEquations.pglyap2!(A, E, U, adj = false, disc = true)
 X = U*U'; @test norm(A*X*E'+E*X*A')/max(1,norm(X))/norm(A) < reltol &&
