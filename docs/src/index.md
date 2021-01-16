@@ -64,7 +64,7 @@ The general solvers of Lyapunov and Sylvester equations rely on a set of special
 
 ## Future plans
 
-The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Riccati equations, as those arising in game-theoretic optimization problems. Further performance improvements are still possible (e.g., in some positive Lyapunov solvers by employing specially taylored solvers for the underlying particular Sylvester equations) or by employing blocking based variants of solvers for Lyapunov and Sylvester equations.
+The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Riccati equations, as those arising in game-theoretic optimization problems. Further performance improvements are still possible by employing blocking based variants of solvers for Lyapunov and Sylvester equations.
 
 ## [Release Notes](https://github.com/andreasvarga/MatrixEquations.jl/blob/master/ReleaseNotes.md)
 
