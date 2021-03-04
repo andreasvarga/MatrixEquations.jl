@@ -851,7 +851,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     n == length(filter(y-> y == true,select)) || error("The extended simplectic pencil is not dichotomic")
     
     ordschur!(PLS, select)
-    z[:,i1]= z[:,iric]*PLS.Z[:,i1];
+    z[:,i1]= z[:,iric]*PLS.Z[:,i1]
 
     F = _LUwithRicTest(z[i1,i1],rtol)
     if eident
