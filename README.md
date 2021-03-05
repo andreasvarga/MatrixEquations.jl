@@ -14,7 +14,7 @@ Julia 1.2 and higher.
 
 ## How to Install
 
-````JULIA
+````Julia
 pkg> add MatrixEquations
 pkg> test MatrixEquations
 ````
