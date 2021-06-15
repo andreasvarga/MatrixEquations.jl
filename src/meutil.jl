@@ -58,20 +58,6 @@ function sfstruct(A)
    return resize!(ba,p), p
    #return ba[1:p], p
 end
-function sfstruct1(A)
-   # determine the indicies of the diagonal 1x1 or 2x2 blocks of Schur form matrix
-   n = size(A,1)
-   bi = Vector{UnitRange{Int}}(undef, n) # indices of each block 
-   p = 0
-   i = 1
-   while i < n
-      p += 1
-      iszero(A[i+1,i]) ? (bi[p] = i:i; i += 1) : (bi[p] = i:i+1; i += 2)
-   end
-   i == n && (p += 1; bi[p] = i:i)
-   return resize!(bi,p), p
-end
-
 """
     utqu!(Q,U) -> Q
 
