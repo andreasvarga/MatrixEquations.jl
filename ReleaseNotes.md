@@ -1,5 +1,10 @@
 # Release Notes
 
+## Version 1.4
+
+This is a minor release intended to increase the speed of solvers for Lyapunov equations and minimize the memory allocation burden. The achieved spectacular performance improvements can be illustrated in the case of function `lyapd`, where for an 500-th order example, the performance determined executing `@btime lyap(a,q);` 
+was improved from `449.960 ms (734641 allocations: 600.41 MiB)` to `240.251 ms (27 allocations: 11.60 MiB)` (i.e., a 2 times reduction of execution speed and about 50 (*fifty*) times reduction of the allocated memory). 
+
 ## Version 1.3
 
 This is a minor release solely intended to update the package to perform CI with Github Actions instead Travis-CI.

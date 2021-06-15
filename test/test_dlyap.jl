@@ -4,6 +4,7 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
+
 @testset "Testing discrete Lyapunov equation solvers" begin
 
 n = 10
@@ -27,7 +28,7 @@ try
  end  
 
  try
-   x = lyapd([0 1;  -1 0 ],ones(2,2))
+   x = lyapd([0 1;  -1 0 ],ones(2,2))  
    @test false
  catch
    @test true
@@ -41,7 +42,7 @@ try
  end  
  
  try
-   x = lyapd([1 1 1 1;  -1 1 0 1; 0 0 0.5 0.5; 0 0 -0.5 0.5],ones(4,4))
+   x = lyapd([1 1 1 1;  -1 1 0 1; 0 0 0.5 0.5; 0 0 -0.5 0.5],ones(4,4)) 
    @test false
  catch
    @test true

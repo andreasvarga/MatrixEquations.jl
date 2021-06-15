@@ -55,8 +55,23 @@ function sfstruct(A)
       iszero(A[i+1,i]) ? (i += 1) : (ba[p] = 2; i += 2)
    end
    i == n && (p += 1)
-   return ba[1:p], p
+   return resize!(ba,p), p
+   #return ba[1:p], p
 end
+function sfstruct1(A)
+   # determine the indicies of the diagonal 1x1 or 2x2 blocks of Schur form matrix
+   n = size(A,1)
+   bi = Vector{UnitRange{Int}}(undef, n) # indices of each block 
+   p = 0
+   i = 1
+   while i < n
+      p += 1
+      iszero(A[i+1,i]) ? (bi[p] = i:i; i += 1) : (bi[p] = i:i+1; i += 2)
+   end
+   i == n && (p += 1; bi[p] = i:i)
+   return resize!(bi,p), p
+end
+
 """
     utqu!(Q,U) -> Q
 
@@ -81,20 +96,22 @@ function utqu!(Q,U)
    end
 
 
-   idiag = diagind(Q)
-   Q[idiag] = Q[idiag]/2
+   Qd = view(Q,diagind(Q))
+   rmul!(Qd,one(T)/2)
    if isa(U,Adjoint)
-      tmp = U.parent*(UpperTriangular(Q)*U)
+      mul!(Q, U.parent*UpperTriangular(Q), U) 
    else
-      tmp = Adjoint(U)*(UpperTriangular(Q)*U)
+      mul!(Q, Adjoint(U), UpperTriangular(Q)*U)
    end
    #Q = tmp+tmp'
-   for j = 1:n
-      Q[j,j] = tmp[j,j]+tmp[j,j]'
-      for i = j+1:n
-         Q[i,j] = tmp[i,j]+tmp[j,i]'
-         Q[j,i] = Q[i,j]'
-      end
+   @inbounds  begin
+      for j = 1:n
+       Q[j,j] += Q[j,j]'
+       for i = j+1:n
+           Q[i,j] += Q[j,i]'
+           Q[j,i] = Q[i,j]'
+       end
+   end
    end
    return Q
 end
@@ -121,26 +138,24 @@ function utqu(Q,U)
       return U'*Q*U
    end
 
-   t = triu(Q)
-   idiag = diagind(Q)
-   t[idiag] = t[idiag]/2
+   t = UpperTriangular(Q)-Diagonal(Q[diagind(Q)]./2)
+   X = similar(Q,m,m)
    if adj
-      t = U.parent*(UpperTriangular(t)*U)
+      mul!(X, U.parent*t, U) 
    else
-      t = Adjoint(U)*(UpperTriangular(t)*U)
+      mul!(X, Adjoint(U), t*U)
    end
-   #X = t+t'
-   X = similar(t)
+   @inbounds  begin
    for j = 1:m
-      X[j,j] = t[j,j]+t[j,j]'
-      for i = j+1:m
-         X[i,j] = t[i,j]+t[j,i]'
-         X[j,i] = X[i,j]'
+       X[j,j] += X[j,j]'
+       for i = j+1:m
+           X[i,j] += X[j,i]'
+           X[j,i] = X[i,j]'
       end
+   end
    end
    return X
 end
-
 """
     qrupdate!(R, Y) -> R
 
@@ -318,3 +333,58 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
    end
    return U
 end
+@inline function luslv!(A::AbstractMatrix{T}, B::AbstractVector{T}) where T
+   #
+   #  fail = luslv!(A,B)
+   # 
+   # This function is a speed-oriented implementation of a Gaussion-elimination based
+   # solver of small order linear equations of the form A*X = B. The computed solution X 
+   # overwrites the vector B, while the resulting A contains in its upper triangular part, 
+   # the upper triangular factor U of its LU decomposition. 
+   # The diagnostic output parameter fail, of type Bool, is set to false in the case 
+   # of normal return or is set to true if the exact singularity of A is detected 
+   # or if the resulting B has non-finite components.
+   #
+   n = length(B) 
+   @inbounds begin
+         for k = 1:n
+            # find index max
+            kp = k
+            if k < n
+                amax = abs(A[k, k])
+                for i = k+1:n
+                    absi = abs(A[i,k])
+                    if absi > amax
+                        kp = i
+                        amax = absi
+                    end
+                end
+            end
+            iszero(A[kp,k]) && return true
+            if k != kp
+               # Interchange
+               for i = 1:n
+                   tmp = A[k,i]
+                   A[k,i] = A[kp,i]
+                   A[kp,i] = tmp
+               end
+               tmp = B[k]
+               B[k] = B[kp]
+               B[kp] = tmp
+            end
+            # Scale first column
+            Akkinv = inv(A[k,k])
+            i1 = k+1:n
+            Ak = view(A,i1,k)
+            rmul!(Ak,Akkinv)
+            # Update the rest of A and B
+            for j = k+1:n
+                axpy!(-A[k,j],Ak,view(A,i1,j))
+            end
+            axpy!(-B[k],Ak,view(B,i1))
+         end
+         ldiv!(UpperTriangular(A), B)
+         return any(!isfinite, B)
+   end
+end
+
