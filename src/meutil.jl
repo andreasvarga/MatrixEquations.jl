@@ -139,7 +139,7 @@ function utqu(Q,U)
    end
 
    t = UpperTriangular(Q)-Diagonal(Q[diagind(Q)]./2)
-   X = similar(Q,m,m)
+   X = similar(Q, T, m, m)
    if adj
       mul!(X, U.parent*t, U) 
    else
