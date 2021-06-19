@@ -83,20 +83,13 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
       RB, QB = schur(B)
    end
 
-   realcase = eltype(A) <: AbstractFloat
-   if adjA
-      RA, QA = schur(A.parent)
-   else
-      RA, QA = schur(A)
-   end
-   if adjB
-      RB, QB = schur(B.parent)
-   else
-      RB, QB = schur(B)
-   end
-   D = adjoint(QA) * (C*QB)
-   Y = sylvcs!(RA, RB, D, adjA = adjA, adjB = adjB)
-   QA*(Y * adjoint(QB))
+   Y = QA' * C * QB
+
+   sylvcs!(RA, RB, Y, adjA = adjA, adjB = adjB)
+
+   mul!(Y, QA, Y*QB')
+
+   return Y
 end
 # solve X(B+α) = C or (α+β)X = C
 sylvc(A::Union{Real,Complex,UniformScaling},B::Union{AbstractMatrix,UniformScaling},C::AbstractMatrix) = C/(A*I+B)
@@ -190,9 +183,14 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    else
       RB, QB = schur(B)
    end
-   D = adjoint(QA) * (C*QB)
-   Y = sylvds!(RA, RB, D, adjA = adjA, adjB = adjB)
-   QA*(Y * adjoint(QB))
+
+   Y = QA' * C * QB
+
+   sylvds!(RA, RB, Y, adjA = adjA, adjB = adjB)
+
+   mul!(Y, QA, Y*QB')
+
+   return Y
 end
 # solve X(αB+I) = C or X(αβ+1) = C
 sylvd(A::Union{Real,Complex,UniformScaling},B::Union{AbstractMatrix,UniformScaling},C::AbstractMatrix) = C/(A*B+I)
@@ -303,9 +301,14 @@ function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstract
        adjD && (D = copy(D))
        BS, DS, Q2, Z2 = schur(B,D)
     end
-    Y = adjoint(Q1) * (E*Z2)
+
+    Y = Q1' * E *Z2
+
     gsylvs!(AS, BS, CS, DS, Y, adjAC = adjAC, adjBD = adjBD)
-    Z1*(Y * adjoint(Q2))
+
+    mul!(Y, Z1, Y*Q2')
+
+   return Y
 end
 # solve AXB = C
 gsylv(A::Union{AbstractMatrix,UniformScaling,Real,Complex},B::Union{AbstractMatrix,UniformScaling,Real,Complex},E::AbstractMatrix) = (A\E)/B
@@ -551,7 +554,7 @@ function sylvcs!(A::Matrix{T1}, B::Matrix{T1}, C::Matrix{T1}; adjA::Bool = false
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-@inline function sylvd2!(adjA,adjB,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::AbstractVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
@@ -561,37 +564,70 @@ end
    ONE = one(T)
    if na == 1 && nb == 1
       temp = A[1,1]*B[1,1] + ONE
-      iszero(temp) && throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that αβ = -1")
-      return rmul!(C,inv(temp))
+      rmul!(C,inv(temp))
+      any(!isfinite, C) && throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that αβ = -1")
+      return C
    end
    i1 = 1:na*nb
    R = view(Xw,i1,i1)
    Y = view(Yw,i1)
-   Y[:] = C[i1]
    if adjA && !adjB
+      #b = @allocated begin
       if na == 1
          # R12 = 
          # [ a11*b11+1      a11*b21]
          # [     a11*b12  a11*b22+1]
-         @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
-                         A[1,1]*B[1,2]  A[1,1]*B[2,2]+ONE]
+         # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
+         #                 A[1,1]*B[1,2]  A[1,1]*B[2,2]+ONE]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+         @inbounds  R[1,2] = A[1,1]*B[2,1]
+         @inbounds  R[2,1] = A[1,1]*B[1,2]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11+1      a21*b11]
             # [     a12*b11  a22*b11+1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
-                            A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE ]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
+            #                 A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE ]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[2,1]*B[1,1]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R = 
             # [ a11*b11+1      a21*b11      a11*b21      a21*b21]
             # [     a12*b11  a22*b11+1      a12*b21      a22*b21]
             # [     a11*b12      a21*b12  a11*b22+1      a21*b22]
             # [     a12*b12      a22*b12      a12*b22  a22*b22+1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
-            A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE      A[1,2]*B[2,1]      A[2,2]*B[2,1];
-            A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+ONE      A[2,1]*B[2,2];
-            A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
+            # A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE      A[1,2]*B[2,1]      A[2,2]*B[2,1];
+            # A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+ONE      A[2,1]*B[2,2];
+            # A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[2,1]*B[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[2,1]
+            @inbounds  R[1,4] = A[2,1]*B[2,1]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  R[2,3] = A[1,2]*B[2,1]
+            @inbounds  R[2,4] = A[2,2]*B[2,1]
+            @inbounds  R[3,1] = A[1,1]*B[1,2]
+            @inbounds  R[3,2] = A[2,1]*B[1,2]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+ONE
+            @inbounds  R[3,4] = A[2,1]*B[2,2]
+            @inbounds  R[4,1] = A[1,2]*B[1,2]
+            @inbounds  R[4,2] = A[2,2]*B[1,2]
+            @inbounds  R[4,3] = A[1,2]*B[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
       end
       #R = kron(transpose(B),A) + I
@@ -600,25 +636,57 @@ end
          # R12 =
          # [ a11*b11+1      a11*b12]
          # [     a11*b21  a11*b22+1]
-         @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[1,2];
-                         A[1,1]*B[2,1]  A[1,1]*B[2,2]+ONE]
+         # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[1,2];
+         #                 A[1,1]*B[2,1]  A[1,1]*B[2,2]+ONE]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+         @inbounds  R[1,2] = A[1,1]*B[1,2]
+         @inbounds  R[2,1] = A[1,1]*B[2,1]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 =
             #    [ a11*b11+1      a12*b11]
             #    [     a21*b11  a22*b11+1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1];
-                            A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1];
+            #                 A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[1,2]*B[1,1]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R = 
             # [ a11*b11+1      a12*b11      a11*b12      a12*b12]
             # [     a21*b11  a22*b11+1      a21*b12      a22*b12]
             # [     a11*b21      a12*b21  a11*b22+1      a12*b22]
             # [     a21*b21      a22*b21      a21*b22  a22*b22+1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
-            A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE      A[2,1]*B[1,2]      A[2,2]*B[1,2];
-            A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+ONE      A[1,2]*B[2,2];
-            A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
+            # A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE      A[2,1]*B[1,2]      A[2,2]*B[1,2];
+            # A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+ONE      A[1,2]*B[2,2];
+            # A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[1,2]*B[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[1,2]
+            @inbounds  R[1,4] = A[1,2]*B[1,2]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  R[2,3] = A[2,1]*B[1,2]
+            @inbounds  R[2,4] = A[2,2]*B[1,2]
+            @inbounds  R[3,1] = A[1,1]*B[2,1]
+            @inbounds  R[3,2] = A[1,2]*B[2,1]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+ONE
+            @inbounds  R[3,4] = A[1,2]*B[2,2]
+            @inbounds  R[4,1] = A[2,1]*B[2,1]
+            @inbounds  R[4,2] = A[2,2]*B[2,1]
+            @inbounds  R[4,3] = A[2,1]*B[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
       end
       #R = kron(transpose(B),transpose(A)) + I
@@ -627,25 +695,57 @@ end
          # R12 = 
          # [ a11*b11 + 1,     a11*b21]
          # [     a11*b12, a11*b22 + 1]
-         @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
-                         A[1,1]*B[1,2]  A[1,1]*B[2,2]+ONE]
+         # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
+         #                 A[1,1]*B[1,2]  A[1,1]*B[2,2]+ONE]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+         @inbounds  R[1,2] = A[1,1]*B[2,1]
+         @inbounds  R[2,1] = A[1,1]*B[1,2]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11 + 1,     a12*b11]
             # [     a21*b11, a22*b11 + 1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1];
-                            A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1];
+            #                 A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[1,2]*B[1,1]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R = 
             # [ a11*b11 + 1,     a12*b11,     a11*b21,     a12*b21]
             # [     a21*b11, a22*b11 + 1,     a21*b21,     a22*b21]
             # [     a11*b12,     a12*b12, a11*b22 + 1,     a12*b22]
             # [     a21*b12,     a22*b12,     a21*b22, a22*b22 + 1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1]      A[1,1]*B[2,1]      A[1,2]*B[2,1];
-            A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE      A[2,1]*B[2,1]      A[2,2]*B[2,1];
-            A[1,1]*B[1,2]      A[1,2]*B[1,2]  A[1,1]*B[2,2]+ONE      A[1,2]*B[2,2];
-            A[2,1]*B[1,2]      A[2,2]*B[1,2]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1]      A[1,1]*B[2,1]      A[1,2]*B[2,1];
+            # A[2,1]*B[1,1]  A[2,2]*B[1,1]+ONE      A[2,1]*B[2,1]      A[2,2]*B[2,1];
+            # A[1,1]*B[1,2]      A[1,2]*B[1,2]  A[1,1]*B[2,2]+ONE      A[1,2]*B[2,2];
+            # A[2,1]*B[1,2]      A[2,2]*B[1,2]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[1,2]*B[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[2,1]
+            @inbounds  R[1,4] = A[1,2]*B[2,1]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  R[2,3] = A[2,1]*B[2,1]
+            @inbounds  R[2,4] = A[2,2]*B[2,1]
+            @inbounds  R[3,1] = A[1,1]*B[1,2]
+            @inbounds  R[3,2] = A[1,2]*B[1,2]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+ONE
+            @inbounds  R[3,4] = A[1,2]*B[2,2]
+            @inbounds  R[4,1] = A[2,1]*B[1,2]
+            @inbounds  R[4,2] = A[2,2]*B[1,2]
+            @inbounds  R[4,3] = A[2,1]*B[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
       end
       #R = kron(B,A) + I
@@ -654,34 +754,63 @@ end
          # R12 = 
          # [ a11*b11 + 1,     a11*b12]
          # [     a11*b21, a11*b22 + 1]
-         @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[1,2];
-                         A[1,1]*B[2,1]  A[1,1]*B[2,2]+ONE]
+         # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[1,2];
+         #                 A[1,1]*B[2,1]  A[1,1]*B[2,2]+ONE]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+         @inbounds  R[1,2] = A[1,1]*B[1,2]
+         @inbounds  R[2,1] = A[1,1]*B[2,1]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11 + 1,     a21*b11]
             # [     a12*b11, a22*b11 + 1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
-                            A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
+            #                 A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[2,1]*B[1,1]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R =
             # [ a11*b11 + 1,     a21*b11,     a11*b12,     a21*b12]
             # [     a12*b11, a22*b11 + 1,     a12*b12,     a22*b12]
             # [     a11*b21,     a21*b21, a11*b22 + 1,     a21*b22]
             # [     a12*b21,     a22*b21,     a12*b22, a22*b22 + 1]
-            @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1]      A[1,1]*B[1,2]      A[2,1]*B[1,2];
-            A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE      A[1,2]*B[1,2]      A[2,2]*B[1,2];
-            A[1,1]*B[2,1]      A[2,1]*B[2,1]  A[1,1]*B[2,2]+ONE      A[2,1]*B[2,2];
-            A[1,2]*B[2,1]      A[2,2]*B[2,1]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1]      A[1,1]*B[1,2]      A[2,1]*B[1,2];
+            # A[1,2]*B[1,1]  A[2,2]*B[1,1]+ONE      A[1,2]*B[1,2]      A[2,2]*B[1,2];
+            # A[1,1]*B[2,1]      A[2,1]*B[2,1]  A[1,1]*B[2,2]+ONE      A[2,1]*B[2,2];
+            # A[1,2]*B[2,1]      A[2,2]*B[2,1]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+ONE]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+ONE
+            @inbounds  R[1,2] = A[2,1]*B[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[1,2]
+            @inbounds  R[1,4] = A[2,1]*B[1,2]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
+            @inbounds  R[2,3] = A[1,2]*B[1,2]
+            @inbounds  R[2,4] = A[2,2]*B[1,2]
+            @inbounds  R[3,1] = A[1,1]*B[2,1]
+            @inbounds  R[3,2] = A[2,1]*B[2,1]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+ONE
+            @inbounds  R[3,4] = A[2,1]*B[2,2]
+            @inbounds  R[4,1] = A[1,2]*B[2,1]
+            @inbounds  R[4,2] = A[2,2]*B[2,1]
+            @inbounds  R[4,3] = A[1,2]*B[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
-      #R = kron(B,transpose(A)) + I
+         #R = kron(B,transpose(A)) + I
+      end
    end
-   end
-   try
-      C = reshape(ldiv!(lu!(R),Y),na,nb)
-   catch 
-      throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
-   end
+   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+   C[:,:] = Y
    return C
 end
 """
@@ -706,12 +835,16 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
-   
+   ONE = one(T1)
+  
    # determine the structure of the real Schur form of A
    ba, pa = sfstruct(A)
    bb, pb = sfstruct(B)
 
    W = zeros(T1,m,2)
+   G = Matrix{T1}(undef,2,2)
+   WA = Matrix{T1}(undef,2,2)
+
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if !adjA && !adjB
@@ -742,19 +875,23 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               dkk = 1:dk
               i1 = i-dk+1
               k = i1:i
-              y = C[k,l]
+              Ckl = view(C,k,l)
+              y = view(G,1:dk,1:dl)
+              copyto!(y,Ckl)
               if kk < pa
                  ir = i+1:m
-                 W1 = A[k,ir]*C[ir,l]
-                 y -= W1*B[l,l]
+                 W1 = view(WA,dkk,dll)
+                 mul!(W1,view(A,k,ir),view(C,ir,l))
+                 mul!(y,W1,view(B,l,l),-ONE,ONE)
               end
               if ll > 1
                  ic = i1:m
-                 W[k,dll] = C[k,il1]*B[il1,l]
-                 y -= A[k,ic]*W[ic,dll]
+                 mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
+                 mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
               end
-              C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-              i -= dk
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              copyto!(Ckl,y)
+           i -= dk
           end
           j += dl
       end
@@ -785,18 +922,22 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  dkk = 1:dk
                  i1 = i-dk+1
                  k = i1:i
-                 y = C[k,l]
+                 Ckl = view(C,k,l)
+                 y = view(G,1:dk,1:dl)
+                 copyto!(y,Ckl)
                  if kk < pa
                     ir = i+1:m
-                    W1 = A[k,ir]*C[ir,l]
-                    y -= W1*B[l,l]'
+                    W1 = view(WA,dkk,dll)
+                    mul!(W1,view(A,k,ir),view(C,ir,l))
+                    mul!(y,W1,adjoint(view(B,l,l)),-ONE,ONE)
                  end
                  if ll < pb
                     ic = i1:m
-                    W[k,dll] = C[k,il1]*B[l,il1]'
-                    y -= A[k,ic]*W[ic,dll]
+                    mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
+                    mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
                  end
-                 C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+                 copyto!(Ckl,y)
                  i -= dk
              end
              j -= dl
@@ -829,19 +970,23 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               dkk = 1:dk
               i1 = i+dk-1
               k = i:i1
-              y = C[k,l]
+              Ckl = view(C,k,l)
+              y = view(G,1:dk,1:dl)
+              copyto!(y,Ckl)
               if kk > 1
                  ir = 1:i-1
-                 W1 = A[ir,k]'*C[ir,l]
-                 y -= W1*B[l,l]
+                 W1 = view(WA,dkk,dll)
+                 mul!(W1,adjoint(view(A,ir,k)),view(C,ir,l))
+                 mul!(y,W1,view(B,l,l),-ONE,ONE)
               end
               if ll > 1
                  ic = 1:i1
-                 W[k,dll] = C[k,il1]*B[il1,l]
-                 y -= A[ic,k]'*W[ic,dll]
+                 mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
+                 mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-              i += dk
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              copyto!(Ckl,y)
+           i += dk
           end
           j += dl
       end
@@ -872,19 +1017,23 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               dkk = 1:dk
               i1 = i+dk-1
               k = i:i1
-              y = C[k,l]
+              Ckl = view(C,k,l)
+              y = view(G,1:dk,1:dl)
+              copyto!(y,Ckl)
               if kk > 1
                  ir = 1:i-1
-                 W1 = A[ir,k]'*C[ir,l]
-                 y -= W1*B[l,l]'
+                 W1 = view(WA,dkk,dll)
+                 mul!(W1,adjoint(view(A,ir,k)),view(C,ir,l))
+                 mul!(y,W1,adjoint(view(B,l,l)),-ONE,ONE)
               end
               if ll < pb
                  ic = 1:i1
-                 W[k,dll] = C[k,il1]*B[l,il1]'
-                 y -= A[ic,k]'*W[ic,dll]
+                 mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
+                 mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              C[k,l] = sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
-              i += dk
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              copyto!(Ckl,y)
+           i += dk
           end
           j -= dl
       end
@@ -902,8 +1051,9 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
   
-   W = zeros(T1,m,1)
+   W = zeros(T1,m)
    ONE = one(T1)
+   ZERO = zero(T1)
    if !adjA && !adjB
       # """
       # The (K,L)th element of X is determined starting from
@@ -921,25 +1071,27 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       # """
       for l = 1:n
           il1 = 1:l-1
-          ll = l:l
           for k = m:-1:1
               y = C[k,l]
-              kk = k:k
               if k < m
-                 ir = k+1:m
-                 W1 = A[kk,ir]*C[ir,ll]
-                 y -= W1[1]*B[l,l]
+                 ta = ZERO
+                 for ir = k+1:m
+                     ta += A[k,ir]*C[ir,l]
+                 end
+                 y -= ta*B[l,l]
               end
               if l > 1
-                 ic = k:m
-                 Z = C[kk,il1]*B[il1,ll]
-                 W[k,1] = Z[1]
-                 TA = A[kk,ic]*W[ic,1]
-                 y -= TA[1]
+                 tz = ZERO
+                 for ir = il1
+                     tz += C[k,ir]*B[ir,l]
+                 end
+                 W[k] = tz
+                 for ic = k:m
+                     y -= A[k,ic]*W[ic]
+                 end
               end
-              temp = B[l,l]*A[k,k]+ONE
-              iszero(temp) && throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
-              C[k,l] = y/temp
+              C[k,l] = y/(B[l,l]*A[k,k]+ONE)
+              isfinite(C[k,l]) || throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
              end
       end
    elseif !adjA && adjB
@@ -958,26 +1110,28 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
          #                       J=K           I=L+1
          # """
          for l = n:-1:1
-             ll = l:l
              il1 = l+1:n
              for k = m:-1:1
-                 kk = k:k
                  y = C[k,l]
                  if k < m
-                    ir = k+1:m
-                    W1 = A[kk,ir]*C[ir,ll]
-                    y -= W1[1]*B[l,l]'
+                    ta = ZERO
+                    for ir = k+1:m
+                       ta += A[k,ir]*C[ir,l]
+                    end
+                    y -= ta*B[l,l]'
                  end
                  if l < n
-                    ic = k:m
-                    Z = C[kk,il1]*B[ll,il1]'
-                    W[k,1] = Z[1]
-                    TA = A[kk,ic]*W[ic,1]
-                    y -= TA[1]
+                    tz = ZERO
+                    for ir = il1
+                        tz += C[k,ir]*B[l,ir]'
+                    end
+                    W[k] = tz
+                    for ic = k:m
+                        y -= A[k,ic]*W[ic]
+                    end
                  end
-                 temp = B[l,l]'*A[k,k]+ONE
-                 iszero(temp) && throw("ME:SingularException: A and -B' have common or close reciprocal eigenvalues")
-                 C[k,l] = y/temp
+                 C[k,l] = y/(B[l,l]'*A[k,k]+ONE)
+                 isfinite(C[k,l]) || throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
              end
          end
    elseif adjA && !adjB
@@ -996,26 +1150,29 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       #                       J=1             I=1
       # """
       for l = 1:n
-          ll = l:l
           il1 = 1:l-1
           for k = 1:m
-              kk = k:k
               y = C[k,l]
               if k > 1
-                 ir = 1:k-1
-                 W1 = A[ir,kk]'*C[ir,ll]
-                 y -= W1[1]*B[l,l]
+                 ta = ZERO
+                 for ir = 1:k-1
+                     ta += A[ir,k]'*C[ir,l]
+                 end
+                 y -= ta*B[l,l]
               end
               if l > 1
                  ic = 1:m
-                 Z = C[kk,il1]*B[il1,ll]
-                 W[k,1] = Z[1]
-                 TA = A[ic,kk]'*W[ic,1]
-                 y -= TA[1]
+                 tz = ZERO
+                 for ir = il1
+                     tz += C[k,ir]*B[ir,l]
+                 end
+                 W[k] = tz
+                 for ic = 1:m
+                     y -= A[ic,k]'*W[ic]
+                 end
               end
-              temp = B[l,l]*A[k,k]'+ONE
-              iszero(temp) && throw("ME:SingularException: A' and -B have common or close reciprocal eigenvalues")
-              C[k,l] = y/temp
+              C[k,l] = y/(B[l,l]*A[k,k]'+ONE)
+              isfinite(C[k,l]) || throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
          end
       end
    elseif adjA && adjB
@@ -1034,26 +1191,29 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       #                       J=1            I=L+1
       # """
       for l = n:-1:1
-          ll = l:l
           il1 = l+1:n
           for k = 1:m
-              kk = k:k
               y = C[k,l]
               if k > 1
-                 ir = 1:k-1
-                 W1 = A[ir,kk]'*C[ir,ll]
-                 y -= W1[1]*B[l,l]'
+                 ta = ZERO
+                 for ir = 1:k-1
+                     ta += A[ir,k]'*C[ir,l]
+                 end
+                 y -= ta*B[l,l]'
               end
               if l < n
                  ic = 1:m
-                 Z = C[kk,il1]*B[ll,il1]'
-                 W[k,1] = Z[1]
-                 TA = A[ic,kk]'*W[ic,1]
-                 y -= TA[1]
+                 tz = ZERO
+                 for ir = il1
+                     tz += C[k,ir]*B[l,ir]'
+                 end
+                 W[k] = tz
+                 for ic = 1:m
+                     y -= A[ic,k]'*W[ic]
+                 end
               end
-              temp = B[l,l]'*A[k,k]'+ONE
-              iszero(temp) && throw("ME:SingularException: A' and -B' have common or close reciprocal eigenvalues")
-              C[k,l] = y/temp
+              C[k,l] = y/(B[l,l]'*A[k,k]'+ONE)
+              isfinite(C[k,l]) || throw("ME:SingularException: A and -B have common or close reciprocal eigenvalues")
           end
       end
    end
@@ -1140,17 +1300,18 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               dkk = 1:dk
               i1 = i-dk+1
               k = i1:i
-              #y = E[k,l]
               y = view(E,k,l)
               W1 = view(Xw,dkk,dll)
               if kk < pa
                  ir = i+1:m
                  #W1 = A[k,ir]*E[ir,l]
                  mul!(W1,view(A,k,ir),view(E,ir,l))
-                 y -= W1*B[l,l]
+                 #y -= W1*B[l,l]
+                 mul!(y,W1,view(B,l,l),-ONE,ONE)
                  #W1 = C[k,ir]*E[ir,l]
                  mul!(W1,view(C,k,ir),view(E,ir,l))
-                 y -= W1*D[l,l]
+                 #y -= W1*D[l,l]
+                 mul!(y,W1,view(D,l,l),-ONE,ONE)
               end
               if ll > 1
                  ic = i1:m
@@ -1162,7 +1323,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
                  mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
               end
-              E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i -= dk
           end
           j += dl
@@ -1201,19 +1362,19 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  dkk = 1:dk
                  i1 = i-dk+1
                  k = i1:i
-                 #y = E[k,l]
                  y = view(E,k,l)
                  W1 = view(Xw,dkk,dll)
                  if kk < pa
                     ir = i+1:m
                     #W1 = A[k,ir]*E[ir,l]
                     mul!(W1,view(A,k,ir),view(E,ir,l))
-                    y -= W1*B[l,l]'
+                    #y -= W1*B[l,l]'
+                    mul!(y,W1,transpose(view(B,l,l)),-ONE,ONE)
                     #W2 = C[k,ir]*E[ir,l]
                     mul!(W1,view(C,k,ir),view(E,ir,l))
-                    # y -= W2*D[l,l]'
-                    y -= W1*D[l,l]'
-                 end
+                    # y -= W1*D[l,l]'
+                    mul!(y,W1,transpose(view(D,l,l)),-ONE,ONE)
+                  end
                  if ll < pb
                     ic = i1:m
                     #WB[k,dll] = E[k,il1]*B[l,il1]'
@@ -1224,7 +1385,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
                     mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
                  end
-                 E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
                  i -= dk
              end
              j -= dl
@@ -1264,18 +1425,17 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               dkk = 1:dk
               i1 = i+dk-1
               k = i:i1
-              #y = E[k,l]
               y = view(E,k,l)
               W1 = view(Xw,dkk,dll)
               if kk > 1
                  ir = 1:i-1
                  # W1 = A[ir,k]'*E[ir,l]
                  mul!(W1,transpose(view(A,ir,k)),view(E,ir,l))
-                 y -= W1*B[l,l]
-               #   W2 = C[ir,k]'*E[ir,l]
-               #   y -= W2*D[l,l]
+                 #y -= W1*B[l,l]
+                 mul!(y,W1,view(B,l,l),-ONE,ONE)
                  mul!(W1,transpose(view(C,ir,k)),view(E,ir,l))
-                 y -= W1*D[l,l]
+                 #y -= W1*D[l,l]
+                 mul!(y,W1,view(D,l,l),-ONE,ONE)
               end
               if ll > 1
                  ic = 1:i1
@@ -1288,7 +1448,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  #y -= C[ic,k]'*WD[ic,dll]
                  mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i += dk
           end
           j += dl
@@ -1327,19 +1487,20 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               dkk = 1:dk
               i1 = i+dk-1
               k = i:i1
-              #y = E[k,l]
               y = view(E,k,l)
               W1 = view(Xw,dkk,dll)
               if kk > 1
                  ir = 1:i-1
                  #W1 = A[ir,k]'*E[ir,l]
                  mul!(W1,transpose(view(A,ir,k)),view(E,ir,l))
-                 y -= W1*B[l,l]'
-               #   W2 = C[ir,k]'*E[ir,l]
+                 #y -= W1*B[l,l]'
+                 mul!(y,W1,transpose(view(B,l,l)),-ONE,ONE)
+                 #   W2 = C[ir,k]'*E[ir,l]
                #   y -= W2*D[l,l]'
                  mul!(W1,transpose(view(C,ir,k)),view(E,ir,l))
-                 y -= W1*D[l,l]'
-              end
+                 #y -= W1*D[l,l]'
+                 mul!(y,W1,transpose(view(D,l,l)),-ONE,ONE)
+               end
               if ll < pb
                  ic = 1:i1
                  #WB[k,dll] = E[k,il1]*B[l,il1]'
@@ -1350,7 +1511,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,transpose(view(A,ic,k)),view(WB,ic,dll),-ONE,ONE)
                  mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              E[k,l] = gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i += dk
           end
           j -= dl
@@ -1366,42 +1527,74 @@ end
    #      A'*X*B' + C'*X*D' = E if adjAC = true and adjBD = true   -> R = kron(B,A')  + kron(D,C')
    if na == 1 && nb == 1
       temp = A[1,1]*B[1,1] + C[1,1]*D[1,1] 
-      iszero(temp) && throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
-      return rmul!(E,inv(temp))
+      rmul!(E,inv(temp))
+      any(!isfinite, E) &&  throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
+      return E
    end
    i1 = 1:na*nb
    R = view(Xw,i1,i1)
    Y = view(Yw,i1)
-   Y = E[:]
    if !adjAC && !adjBD
       if na == 1
          # R12 = 
          # [ a11*b11 + c11*d11, a11*b21 + c11*d21]
          # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
-         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
-                         A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
+         #                 A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+         @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+         @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         @inbounds  Y[1] = E[1,1]
+         @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
-            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
-                            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
+            #                 A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
          else
             # R = 
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b21 + c11*d21, a12*b21 + c12*d21]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11, a21*b21 + c21*d21, a22*b21 + c22*d21]
             # [ a11*b12 + c11*d12, a12*b12 + c12*d12, a11*b22 + c11*d22, a12*b22 + c12*d22]
             # [ a21*b12 + c21*d12, a22*b12 + c22*d12, a21*b22 + c21*d22, a22*b22 + c22*d22]
-            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]      A[1,1]*B[2,1]      A[1,2]*B[2,1];
-            A[2,1]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]      A[2,2]*B[2,1];
-            A[1,1]*B[1,2]      A[1,2]*B[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2];
-            A[2,1]*B[1,2]      A[2,2]*B[1,2]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1];
-            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
-            A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
-            A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
+            # (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]      A[1,1]*B[2,1]      A[1,2]*B[2,1];
+            # A[2,1]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]      A[2,2]*B[2,1];
+            # A[1,1]*B[1,2]      A[1,2]*B[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2];
+            # A[2,1]*B[1,2]      A[2,2]*B[1,2]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1];
+            # A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
+            # A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
+            # A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[1,4] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  R[2,3] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+            @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+            @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[3,2] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+            @inbounds  R[4,1] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+            @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+            @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
+            @inbounds  Y[3] = E[1,2]
+            @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(transpose(B),A) + kron(transpose(D),C)
@@ -1410,30 +1603,62 @@ end
          # R12 = 
          # [ a11*b11 + c11*d11, a11*b21 + c11*d21]
          # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
-         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
-                         A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
+         #                 A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+         @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+         @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         @inbounds  Y[1] = E[1,1]
+         @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
-            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
-                            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
+            #                 A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
          else
             # R = 
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b21 + c11*d21, a21*b21 + c21*d21]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11, a12*b21 + c12*d21, a22*b21 + c22*d21]
             # [ a11*b12 + c11*d12, a21*b12 + c21*d12, a11*b22 + c11*d22, a21*b22 + c21*d22]
             # [ a12*b12 + c12*d12, a22*b12 + c22*d12, a12*b22 + c12*d22, a22*b22 + c22*d22]
-            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
-            A[1,2]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
-            A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2];
-            A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1];
-            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
-            A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
-            A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            # (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
+            # A[1,2]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
+            # A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2];
+            # A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1];
+            # A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
+            # A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
+            # A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[1,4] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  R[2,3] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+            @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+            @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[3,2] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+            @inbounds  R[4,1] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+            @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+            @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
+            @inbounds  Y[3] = E[1,2]
+            @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(transpose(B),transpose(A)) + kron(transpose(D),transpose(C))
@@ -1442,30 +1667,62 @@ end
          # R12 = 
          # [ a11*b11 + c11*d11, a11*b12 + c11*d12]
          # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
-         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
-                         A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
+         #                 A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+         @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+         @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         @inbounds  Y[1] = E[1,1]
+         @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
-            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
-                            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
+            #                 A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
          else
             # R = 
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b12 + c11*d12, a12*b12 + c12*d12]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11, a21*b12 + c21*d12, a22*b12 + c22*d12]
             # [ a11*b21 + c11*d21, a12*b21 + c12*d21, a11*b22 + c11*d22, a12*b22 + c12*d22]
             # [ a21*b21 + c21*d21, a22*b21 + c22*d21, a21*b22 + c21*d22, a22*b22 + c22*d22]
-            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
-            A[2,1]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2];
-            A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
-            A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2];
-            A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
-            A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
-            A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            # (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
+            # A[2,1]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2];
+            # A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
+            # A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2];
+            # A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
+            # A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
+            # A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[1,4] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  R[2,3] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+            @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+            @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[3,2] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+            @inbounds  R[4,1] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+            @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+            @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
+            @inbounds  Y[3] = E[1,2]
+            @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(B,A) + kron(D,C)
@@ -1474,39 +1731,68 @@ end
          # R12 = 
          # [ a11*b11 + c11*d11, a11*b12 + c11*d12]
          # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
-         @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
-                         A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
+         #                 A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
+         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+         @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+         @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         @inbounds  Y[1] = E[1,1]
+         @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 = 
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
-            @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
-                            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
+            #                 A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
          else
             # R = 
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b12 + c11*d12, a21*b12 + c21*d12]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11, a12*b12 + c12*d12, a22*b12 + c22*d12]
             # [ a11*b21 + c11*d21, a21*b21 + c21*d21, a11*b22 + c11*d22, a21*b22 + c21*d22]
             # [ a12*b21 + c12*d21, a22*b21 + c22*d21, a12*b22 + c12*d22, a22*b22 + c22*d22]
-            (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]      A[1,1]*B[1,2]      A[2,1]*B[1,2];
-            A[1,2]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]      A[2,2]*B[1,2];
-            A[1,1]*B[2,1]      A[2,1]*B[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2];
-            A[1,2]*B[2,1]      A[2,2]*B[2,1]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
-            (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2];
-            A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
-            A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
-            A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            # (iszero(C[2,1]) && iszero(D[2,1]) && iszero(C[1,2]) && iszero(D[1,2])) ?
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]      A[1,1]*B[1,2]      A[2,1]*B[1,2];
+            # A[1,2]*B[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]      A[2,2]*B[1,2];
+            # A[1,1]*B[2,1]      A[2,1]*B[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2];
+            # A[1,2]*B[2,1]      A[2,2]*B[2,1]      A[1,2]*B[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) :
+            # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2];
+            # A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
+            # A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
+            # A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+            @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[1,4] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            @inbounds  R[2,3] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+            @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+            @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[3,2] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+            @inbounds  R[4,1] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+            @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+            @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            @inbounds  Y[1] = E[1,1]
+            @inbounds  Y[2] = E[2,1]
+            @inbounds  Y[3] = E[1,2]
+            @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(B,transpose(A)) + kron(D,transpose(C))
    end
-   try
-      E = reshape(ldiv!(lu!(R),Y),na,nb)
-   catch 
-      throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
-   end
+   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+   E[:,:] = Y
    return E
 end
 
@@ -1525,8 +1811,9 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
 
-   WB = zeros(T1,m,1)
-   WD = zeros(T1,m,1)
+   WB = zeros(T1,m)
+   WD = zeros(T1,m)
+   ZERO = zero(T1)
    if !adjAC && !adjBD
       # """
       # The (K,L)th element of X is determined starting from
@@ -1551,29 +1838,32 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       # """
       for l = 1:n
           il1 = 1:l-1
-          ll = l:l
           for k = m:-1:1
               y = E[k,l]
-              kk = k:k
               if k < m
-                 ir = k+1:m
-                 W1 = A[kk,ir]*E[ir,ll]
-                 W2 = C[kk,ir]*E[ir,ll]
-                 y -= (W1[1]*B[l,l]+W2[1]*D[l,l])
+                 ta = ZERO
+                 tc = ZERO
+                 for ir = k+1:m
+                     ta += A[k,ir]*E[ir,l]
+                     tc += C[k,ir]*E[ir,l]
+                 end
+                 y -= (ta*B[l,l]+tc*D[l,l])
               end
               if l > 1
-                 ic = k:m
-                 ZB = E[kk,il1]*B[il1,ll]
-                 ZD = E[kk,il1]*D[il1,ll]
-                 WB[k,1] = ZB[1]
-                 WD[k,1] = ZD[1]
-                 TB = A[kk,ic]*WB[ic,1]
-                 TD = C[kk,ic]*WD[ic,1]
-                 y -= (TB[1]+TD[1])
+                 ta = ZERO
+                 tc = ZERO
+                 for ir = il1
+                     ta += E[k,ir]*B[ir,l]
+                     tc += E[k,ir]*D[ir,l]
+                 end
+                 WB[k] = ta
+                 WD[k] = tc
+                 for ic = k:m
+                     y -= (A[k,ic]*WB[ic]+C[k,ic]*WD[ic])
+                 end
               end
-              temp = B[l,l]*A[k,k]+D[l,l]*C[k,k]
-              iszero(temp) && throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
-              E[k,l] = y/temp
+              E[k,l] = y/(B[l,l]*A[k,k]+D[l,l]*C[k,k])
+              isfinite(E[k,l]) || throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
    elseif !adjAC && adjBD
@@ -1599,30 +1889,33 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
          #                      J=K           I=L+1
          # """
          for l = n:-1:1
-             ll = l:l
              il1 = l+1:n
              for k = m:-1:1
-                 kk = k:k
                  y = E[k,l]
                  if k < m
-                    ir = k+1:m
-                    W1 = A[kk,ir]*E[ir,ll]
-                    W2 = C[kk,ir]*E[ir,ll]
-                    y -= (W1[1]*B[l,l]'+W2[1]*D[l,l]')
+                    ta = ZERO
+                    tc = ZERO
+                    for ir = k+1:m
+                        ta += A[k,ir]*E[ir,l]
+                        tc += C[k,ir]*E[ir,l]
+                    end
+                    y -= (ta*B[l,l]'+tc*D[l,l]')
                  end
                  if l < n
-                    ic = k:m
-                    ZB = E[kk,il1]*B[ll,il1]'
-                    ZD = E[kk,il1]*D[ll,il1]'
-                    WB[k,1] = ZB[1]
-                    WD[k,1] = ZD[1]
-                    TB = A[kk,ic]*WB[ic,1]
-                    TD = C[kk,ic]*WD[ic,1]
-                    y -= (TB[1]+TD[1])
+                    ta = ZERO
+                    tc = ZERO
+                    for ir = il1
+                        ta += E[k,ir]*B[l,ir]'
+                        tc += E[k,ir]*D[l,ir]'
+                    end
+                    WB[k] = ta
+                    WD[k] = tc
+                    for ic = k:m
+                        y -= (A[k,ic]*WB[ic]+C[k,ic]*WD[ic])
+                    end
                  end
-                 temp = B[l,l]'*A[k,k]+D[l,l]'*C[k,k]
-                 iszero(temp) && throw("ME:SingularException: A-λC and D'+λB' have common or close eigenvalues")
-                 E[k,l] = y/temp
+                 E[k,l] = y/(B[l,l]'*A[k,k]+D[l,l]'*C[k,k])
+                 isfinite(E[k,l]) || throw("ME:SingularException: A-λC and D'+λB' have common or close eigenvalues")
              end
          end
    elseif adjAC && !adjBD
@@ -1648,30 +1941,33 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       #                       J=1             I=1
       # """
       for l = 1:n
-          ll = l:l
           il1 = 1:l-1
           for k = 1:m
-              kk = k:k
               y = E[k,l]
               if k > 1
-                 ir = 1:k-1
-                 W1 = A[ir,kk]'*E[ir,ll]
-                 W2 = C[ir,kk]'*E[ir,ll]
-                 y -= (W1[1]*B[l,l] + W2[1]*D[l,l])
+                 ta = ZERO
+                 tc = ZERO
+                 for ir = 1:k-1
+                     ta += A[ir,k]'*E[ir,l]
+                     tc += C[ir,k]'*E[ir,l]
+                 end
+                 y -= (ta*B[l,l]+tc*D[l,l])
               end
               if l > 1
-                 ic = 1:m
-                 ZB = E[kk,il1]*B[il1,ll]
-                 ZD = E[kk,il1]*D[il1,ll]
-                 WB[k,1] = ZB[1]
-                 WD[k,1] = ZD[1]
-                 TB = A[ic,kk]'*WB[ic,1]
-                 TD = C[ic,kk]'*WD[ic,1]
-                 y -= (TB[1]+TD[1])
+                 ta = ZERO
+                 tc = ZERO
+                 for ir = il1
+                     ta += E[k,ir]*B[ir,l]
+                     tc += E[k,ir]*D[ir,l]
+                 end
+                 WB[k] = ta
+                 WD[k] = tc
+                 for ic = 1:m
+                     y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
+                 end
               end
-              temp = B[l,l]*A[k,k]'+D[l,l]*C[k,k]'
-              iszero(temp) && throw("ME:SingularException: A'-λC' and D+λB have common or close eigenvalues")
-              E[k,l] = y/temp
+              E[k,l] = y/(B[l,l]*A[k,k]'+D[l,l]*C[k,k]')
+              isfinite(E[k,l]) || throw("ME:SingularException: A'-λC' and D+λB have common or close eigenvalues")
           end
       end
    elseif adjAC && adjBD
@@ -1697,30 +1993,34 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       #                       J=1            I=L+1
       # """
       for l = n:-1:1
-          ll = l:l
           il1 = l+1:n
           for k = 1:m
-              kk = k:k
               y = E[k,l]
               if k > 1
-                 ir = 1:k-1
-                 W1 = A[ir,kk]'*E[ir,ll]
-                 W2 = C[ir,kk]'*E[ir,ll]
-                 y -= (W1[1]*B[l,l]'+W2[1]*D[l,l]')
+                 ta = ZERO
+                 tc = ZERO
+                 for ir = 1:k-1
+                     ta += A[ir,k]'*E[ir,l]
+                     tc += C[ir,k]'*E[ir,l]
+                 end
+                 y -= (ta*B[l,l]'+tc*D[l,l]')
               end
               if l < n
                  ic = 1:m
-                 ZB = E[kk,il1]*B[ll,il1]'
-                 ZD = E[kk,il1]*D[ll,il1]'
-                 WB[k,1] = ZB[1]
-                 WD[k,1] = ZD[1]
-                 TB = A[ic,kk]'*WB[ic,1]
-                 TD = C[ic,kk]'*WD[ic,1]
-                 y -= (TB[1]+TD[1])
+                 ta = ZERO
+                 tc = ZERO
+                 for ir = il1
+                     ta += E[k,ir]*B[l,ir]'
+                     tc += E[k,ir]*D[l,ir]'
+                 end
+                 WB[k] = ta
+                 WD[k] = tc
+                 for ic = 1:m
+                     y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
+                 end
               end
-              temp = B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]'
-              iszero(temp) && throw("ME:SingularException: A'-λC' and D'+λB' have common or close eigenvalues")
-              E[k,l] = y/temp
+              E[k,l] = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
+              isfinite(E[k,l]) || throw("ME:SingularException: A'-λC' and D'+λB' have common or close eigenvalues")
           end
       end
    end

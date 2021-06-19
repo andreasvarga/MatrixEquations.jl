@@ -44,7 +44,7 @@ The current version of the package includes the following functions:
 
  **Solution of algebraic  Riccati equations**
 
-* **arec**  Solution of the continuous Riccati equations `AX+XA'-XRX+Q = 0` and
+* **arec**  Solution of the continuous Riccati equations `A'X+XA-XRX+Q = 0` and
  `A'X+XA-(XB+S)R^(-1)(B'X+S')+Q = 0`.
 * **garec** Solution of the generalized continuous Riccati equation
  `A'XE+E'XA-(A'XB+S)R^(-1)(B'XA+S')+Q = 0`.

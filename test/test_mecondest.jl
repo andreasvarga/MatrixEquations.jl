@@ -1064,10 +1064,11 @@ catch
    @test true
 end     
 
-@test check_ctranspose(Tr) &&
-      check_ctranspose(Trinv) &&
+   
+@test check_ctranspose(Tr) &&   
+      check_ctranspose(Trinv) &&  # fails
       check_ctranspose(Trs) &&
-      check_ctranspose(Trsinv) &&
+      check_ctranspose(Trsinv) && # fails
       check_ctranspose(Tc) &&
       check_ctranspose(Tcinv) &&
       check_ctranspose(Tcs) &&

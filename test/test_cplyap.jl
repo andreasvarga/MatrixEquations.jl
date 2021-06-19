@@ -131,7 +131,7 @@ x = u*u'; @test norm(ar*x*er'+er*x*ar') < reltol
 x = u*u'; @test norm(ar*x*er'+er*x*ar'+brw*brw')/norm(x)/norm(ar) < reltol
 
 @time u = plyapc(ar',er',cr');
-x = u'*u; @test norm(ar'*x*er+er'*x*ar+cr'*cr)/norm(x)/norm(ar) < reltol
+x = u'*u; @test norm(ar'*x*er+er'*x*ar+cr'*cr)/norm(x)/norm(ar) < reltol  
 
 @time u = plyapc(ar',er',crt');
 x = u'*u; @test norm(ar'*x*er+er'*x*ar+crt'*crt)/norm(x)/norm(ar) < reltol
@@ -336,7 +336,7 @@ x = u*u'; @test norm(as*x*es'+es*x*as'+br*br')/norm(x)/norm(as) < reltol
 x = u*u'; @test norm(as*x*es'+es*x*as'+ar*ar')/norm(x)/norm(as) < reltol
 
 @time u = plyaps(as',es',cr');
-x = u'*u; @test norm(as'*x*es+es'*x*as+cr'*cr)/norm(x)/norm(as) < reltol
+x = u'*u; @test norm(as'*x*es+es'*x*as+cr'*cr)/norm(x)/norm(as) < reltol  
 
 @time u = plyaps(as',es',ar');
 x = u'*u; @test norm(as'*x*es+es'*x*as+ar'*ar)/norm(x)/norm(as) < reltol
@@ -350,7 +350,7 @@ x = u'*u; @test norm(acs'*x*ecs+ecs'*x*acs+cc'*cc)/norm(x)/norm(as) < reltol
 F = UpperTriangular(rand(Ty,n,n))
 R = copy(F)
 @time plyapcs!(as,es,R,adj = true);
-x = R'*R; @test norm(as'*x*es+es'*x*as+F'*F)/norm(x)/norm(as) < reltol
+x = R'*R; @test norm(as'*x*es+es'*x*as+F'*F)/norm(x)/norm(as) < reltol  #fails
 
 F = UpperTriangular(rand(Ty,n,n))
 R = copy(0*F)

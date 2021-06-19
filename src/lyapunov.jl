@@ -713,12 +713,9 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComple
               for ia = l:k-1
                   y += A[ia,k]'*C[ia,l]
               end
-              temp = A[k,k]'+A[l,l]
-              iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
-              C[k,l] = -y/temp
-              if k != l
-                 C[l,k] = C[k,l]'
-              end
+              C[k,l] = -y/(A[k,k]'+A[l,l])
+              isfinite(C[k,l]) || throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+              k == l ? (C[k,k] = real(C[k,k])) : (C[l,k] = C[k,l]')
            end
            for jr = l+1:n
                for ir = jr:n
@@ -747,12 +744,9 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComple
               for ia = k+1:l
                  y += A[k,ia]*C[ia,l]
               end
-              temp = A[k,k]+A[l,l]'
-              iszero(temp) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
-              C[k,l] = -y/temp
-              if k != l
-                 C[l,k] = C[k,l]'
-               end
+              C[k,l] = -y/(A[k,k]+A[l,l]')
+              isfinite(C[k,l]) || throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+              k == l ? (C[k,k] = real(C[k,k])) : (C[l,k] = C[k,l]')
            end
            for jr = 1:l-1
                for ir = 1:jr
@@ -1178,9 +1172,8 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                    y += C[ic,k]'*E[ic,l] + W[ic]'*A[ic,l]
                 end
             end
-            temp = A[k,k]'*E[l,l]+E[k,k]'*A[l,l]
-            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
-            C[k,l] = -y/temp
+            C[k,l] = -y/(A[k,k]'*E[l,l]+E[k,k]'*A[l,l])
+            isfinite(C[k,l]) || throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
             k == l && (C[k,k] = real(C[k,k]))
             if l < k
                C[l,k] += C[k,l]'*A[k,k]
@@ -1199,16 +1192,15 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                C[k,l] = C[k,l+1]*A[l,l+1]'
                W[k] = C[k,l+1]*E[l,l+1]'
                for ir = l+2:n
-                  C[k,l] += C[k,ir]*A[l,ir]'
-                  W[k] += C[k,ir]*E[l,ir]'
+                   C[k,l] += C[k,ir]*A[l,ir]'
+                   W[k] += C[k,ir]*E[l,ir]'
                end
                for ic = k:n
                    y += (E[k,ic]*C[ic,l] + A[k,ic]*W[ic])'
                end
             end
-            temp = A[k,k]'*E[l,l]+E[k,k]'*A[l,l]
-            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
-            C[l,k] = -y/temp
+            C[l,k] = -y/(A[k,k]'*E[l,l]+E[k,k]'*A[l,l])
+            isfinite(C[l,k]) ||  throw("ME:SingularException: A-λE has eigenvalues α and β such that α+β ≈ 0")
             k == l && (C[k,k] = real(C[k,k]))
             if k > l
                C[k,l] += (A[l,l]*C[l,k])'
@@ -1284,7 +1276,7 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
                  ic = 1:j1
                  #y += C[ic,k]'*A[ic,l]
                  mul!(y,transpose(view(C,ic,k)),view(A,ic,l),ONE,ONE)
-              end
+               end
               if kk == ll 
                  lyapd2!(adj,y,dk,view(A,k,k),Xw,Yw)
                  copyto!(Ckl,y)
@@ -1886,7 +1878,6 @@ end
    i1 = 1:na*nb
    R = view(Xw,i1,i1)
    Y = view(Yw,i1)
-   #Y[:] = -C[i1]
    if adj
       if na == 1
          # R12t = 
@@ -2042,9 +2033,8 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                    y += C[ic,k]'*A[ic,l] - W[ic]'*E[ic,l]
                 end
             end
-            temp = E[k,k]'*E[l,l]-A[k,k]'*A[l,l]
-            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
-            C[k,l] = y/temp  
+            C[k,l] = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
+            isfinite(C[k,l]) || throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
             k == l && (C[k,k] = real(C[k,k]))
             if l < k
                C[l,k] += C[k,l]'*A[k,k]
@@ -2070,9 +2060,8 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                    y += (A[k,ic]*C[ic,l] - E[k,ic]*W[ic])'
                end
             end
-            temp = E[k,k]'*E[l,l]-A[k,k]'*A[l,l]
-            iszero(temp) && throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
-            C[l,k] = y/temp  
+            C[l,k] = y/(E[k,k]'*E[l,l]-A[k,k]'*A[l,l])
+            isfinite(C[l,k]) || throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
             k == l && (C[k,k] = real(C[k,k]))
             if k > l
                C[k,l] += (A[l,l]*C[l,k])'

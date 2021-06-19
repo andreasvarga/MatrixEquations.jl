@@ -4,13 +4,11 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
-
 @testset "Testing Sylvester equation solvers" begin
 
 n = 30; m = 20; 
 Ty = Float64
 reltol = sqrt(eps(1.))
-
 
 #  continuous Sylvester equations
 @testset "Continuous Sylvester equations" begin
