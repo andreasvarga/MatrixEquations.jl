@@ -298,7 +298,6 @@ end
 
 for Ty in (Float64, Float32)
 
-n = 1; m = 2;
 ar = rand(Ty,n,n);
 ac = ar+im*rand(Ty,n,n);
 br = rand(Ty,m,m);
