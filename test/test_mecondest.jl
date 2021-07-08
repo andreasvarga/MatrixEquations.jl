@@ -54,6 +54,8 @@ Tccsyminv = invlyapop(ac,her=true);
 Tccssym = lyapop(acs,her=true);
 Tccssyminv = invlyapop(acs,her=true);
 Π = trmatop(n); 
+@test issymmetric(Π) && ishermitian(Π)
+@test size(Tcr) == size(Tcr') == size(Tcrinv)
 
 @test check_ctranspose(Tcr) &&
       check_ctranspose(Tcrinv) &&
@@ -94,6 +96,8 @@ try
    transpose(T)*complex(rand(n*n));
    adjoint(T)*rand(n*n);
    adjoint(T)*complex(rand(n*n));
+   lyapop(schur(ar))
+   lyapop(2)
    @test true
 catch
    @test false
@@ -252,6 +256,7 @@ Tccsyminv = invlyapop(ac,ec,her=true);
 Tccssym = lyapop(acs,ecs,her=true);
 Tccssyminv = invlyapop(acs,ecs,her=true);
 Π = trmatop(size(ar))
+@test size(Tcr) == size(Tcr') == size(Tcrinv)
 
 @test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) 
 
@@ -294,6 +299,9 @@ try
    transpose(T)*complex(rand(n*n));
    T'*rand(n*n);
    T'*complex(rand(n*n));
+   lyapop(schur(ar,er))
+   lyapop(2,3)
+   lyapop(rand(Int,2,2),rand(2,2))
    @test true
 catch
    @test false
@@ -765,6 +773,8 @@ Tccinv = invsylvop(ac,bc)
 Tccs = sylvop(acs, bcs)
 Tccsinv = invsylvop(acs,bcs)
 
+@test size(Tcr) == size(Tcr')
+
 @test check_ctranspose(Tcr) &&
       check_ctranspose(Tcrinv) &&
       check_ctranspose(Tcrs) &&
@@ -793,6 +803,11 @@ try
     transpose(T)*complex(rand(n*m));
     T'*rand(n*m);
     T'*complex(rand(n*m));
+    sylvop(schur(rand(3,3)),schur(rand(3,3)))
+    sylvop(1,im)
+    invsylvop(1,im)
+    sylvop(rand(Int,2,2),rand(2,2))
+    invsylvop(rand(Int,2,2),rand(2,2))
     @test true
 catch
     @test false
@@ -1079,7 +1094,7 @@ Tc = sylvop(ac, bc, cc, dc)
 Tcinv = invsylvop(ac, bc, cc, dc)
 Tcs = sylvop(acs, bcs, ccs, dcs)
 Tcsinv = invsylvop(acs, bcs, ccs, dcs)
-
+@test size(Tr) == size(Tr') == size(Trinv') 
    
 @test check_ctranspose(Tr) &&   
       check_ctranspose(Trinv) &&  
@@ -1109,6 +1124,8 @@ try
     transpose(T)*complex(rand(n*m));
     T'*rand(n*m);
     T'*complex(rand(n*m));
+    sylvop(ar,complex(br),cr,dr);
+    invsylvop(ar,complex(br),cr,dr);
     @test true
  catch
     @test false
@@ -1256,6 +1273,7 @@ Tc = sylvsysop(ac, bc, cc, dc)
 Tcinv = invsylvsysop(ac, bc, cc, dc)
 Tcs = sylvsysop(acs, bcs, ccs, dcs)
 Tcsinv = invsylvsysop(acs, bcs, ccs, dcs)
+@test size(Tr) == size(Tr') == size(Trinv') 
 
 
 @test check_ctranspose(Tr) &&
@@ -1286,6 +1304,8 @@ try
     transpose(T)*complex(rand(2n*m));
     T'*rand(2n*m);
     T'*complex(rand(2n*m));
+    sylvsysop(ar,complex(br),cr,dr);
+    invsylvsysop(ar,complex(br),cr,dr);
     @test true
  catch
     @test false

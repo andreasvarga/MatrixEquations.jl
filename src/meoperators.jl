@@ -762,17 +762,6 @@ function LinearAlgebra.mul!(y::AbstractVector, LT::Union{LinearMaps.TransposeMap
    mul!(V, Y, LT.lmap.D', 1, 1) 
    return y
 end 
-function Base.Matrix{T}(A::Union{LinearMaps.TransposeMap{T, SylvesterSystemMap{T}},LinearMaps.AdjointMap{T, SylvesterSystemMap{T}}}) where {T}
-   M, N = size(A)
-   mat = Matrix{T}(undef, (M, N))
-   v = fill(zero(T), N)
-   @inbounds for i in 1:N
-       v[i] = one(T)
-       mul!(view(mat, :, i), A, v)
-       v[i] = zero(T)
-   end
-   return mat
-end
 struct InverseSylvesterSystemMap{T} <: MatrixEquationsMaps{T}
    A::AbstractMatrix
    B::AbstractMatrix
