@@ -2,12 +2,13 @@
 """
     X = lyapc(A, C)
 
-Compute `X`, the symmetric or hermitian solution of the continuous Lyapunov equation
+Compute `X`, the solution of the continuous Lyapunov equation
 
       AX + XA' + C = 0,
 
-where `A` is a square real or complex matrix and `C` is a symmetric or hermitian
-matrix. `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+where `A` is a square real or complex matrix and `C` is a square matrix. 
+`A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
 The following particular cases are also adressed:
 
@@ -51,10 +52,11 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    Comm. ACM, 15:820–826, 1972.
    """
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
+   LinearAlgebra.checksquare(C) == n ||
+      throw(DimensionMismatch("C must be a square matrix of dimension $n"))
 
    adj = isa(A,Adjoint)
+   her = ishermitian(C)
 
    T2 = promote_type(eltype(A), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -69,10 +71,17 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    end
 
    #X = Q'*C*Q
-   X = utqu(C,Q)
-   lyapcs!(AS, X, adj = adj)
-   #X <- Q*X*Q'
-   utqu!(X,Q')
+   if her 
+      X = utqu(C,Q) 
+      lyapcs!(AS, X, adj = adj)
+      #X <- Q*X*Q'
+      utqu!(X,Q')
+      return X
+   else
+      X = Q' * C * Q
+      adj ? (sylvcs!(AS, AS, X, adjA = true)) : (sylvcs!(AS, AS, X, adjB = true))
+      return rmul!(Q * X * Q',-1)
+   end
 end
 # (α+α')X  + C = 0
 lyapc(A::UniformScaling, C::AbstractMatrix) = -C/(A+A')
@@ -82,13 +91,13 @@ lyapc(A::Union{Real,Complex}, C::Union{Real,Complex})  = real(A) == 0 ? throw(Si
 """
     X = lyapc(A, E, C)
 
-Compute `X`, the symmetric or hermitian solution of the
-generalized continuous Lyapunov equation
+Compute `X`, the solution of the generalized continuous Lyapunov equation
 
      AXE' + EXA' + C = 0,
 
-where `A` and `E` are square real or complex matrices and `C` is a symmetric or
-hermitian matrix. The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+where `A` and `E` are square real or complex matrices and `C` is a square matrix. 
+The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian. 
 
 The following particular cases are also adressed:
 
@@ -146,8 +155,8 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
+   LinearAlgebra.checksquare(C) == n ||
+      throw(DimensionMismatch("C must be a square matrix of dimension $n"))
    isequal(E,I) && size(E,1) == n && (return lyapc(A, C))
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
 
@@ -162,6 +171,7 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    end
 
    adj = adjA & adjE
+   her = ishermitian(C)
 
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -172,22 +182,21 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
    if adj
-      as, es, q, z = schur(A.parent,E.parent)
+      as, es, z, q = schur(A.parent,E.parent)
    else
       as, es, q, z = schur(A,E)
    end
-   if adj
-      #x = z'*C*z
-      x = utqu(C,z)
-      lyapcs!(as,es,x,adj = true)
-      #x = q*x*q'
-      utqu!(x,q')
-   else
+   if her
       #x = q'*C*q
       x = utqu(C,q)
-      lyapcs!(as,es,x)
+      lyapcs!(as,es,x, adj = adj)
       #x = z*x*z'
-      utqu!(x,z')
+      utqu!(x,z')  
+      return x 
+   else
+      x = q' * C * q
+      adj ? (gsylvs!(as,es,es,as,x,adjAC = true,DBSchur = true)) : (gsylvs!(as,es,es,as,x,adjBD = true,DBSchur = true))
+      return rmul!(z*x*z', -1)
    end
 end
 # Aβ'X + XA'β + C = 0
@@ -205,13 +214,14 @@ lyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, C::Union{Real,Complex}) = 
 """
     X = lyapd(A, C)
 
-Compute `X`, the symmetric or hermitian solution
-of the discrete Lyapunov equation
+Compute `X`, the solution of the discrete Lyapunov equation
 
        AXA' - X + C = 0,
 
-where `A` is a square real or complex matrix and `C` is a symmetric or hermitian
-matrix. `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+where `A` is a square real or complex matrix and `C` is a square matrix. 
+`A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
+
 The following particular cases are also adressed:
 
     X = lyapd(α*I,C)  or  X = lyapd(α,C)
@@ -255,10 +265,11 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
    International Journal of Control, 25:745-753, 1977.
    """
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-       throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
+   LinearAlgebra.checksquare(C) == n ||
+       throw(DimensionMismatch("C must be a square matrix of dimension $n"))
 
    adj = isa(A,Adjoint)
+   her = ishermitian(C)
 
    T2 = promote_type(eltype(A), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -272,10 +283,18 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
       AS, Q = schur(A)
    end
    #X = Q'*C*Q
-   X = utqu(C,Q)
-   lyapds!(AS, X, adj = adj)
-   #X <- Q*X*Q'
-   utqu!(X,Q')
+   if her 
+      X = utqu(C,Q)
+      lyapds!(AS, X, adj = adj)
+      #X <- Q*X*Q'
+      utqu!(X,Q')
+      return X
+   else
+      #X = rmul!( Q' * C * Q, -1)
+      X = Q' * C * Q     
+      adj ? (sylvds!(-AS, AS, X, adjA = true)) : (sylvds!(-AS, AS, X, adjB = true))
+      return Q * X * Q'
+   end
 end
 # (αα'-1)X + C = 0
 lyapd(A::UniformScaling, C::AbstractMatrix) = (I-A'*A)\C
@@ -285,14 +304,14 @@ lyapd(A::Union{Real,Complex}, C::Union{Real,Complex}) = A*A' == 1 ? throw(Singul
 """
     X = lyapd(A, E, C)
 
-Compute `X`, the symmetric or hermitian solution
-of the generalized discrete Lyapunov equation
+Compute `X`, the solution of the generalized discrete Lyapunov equation
 
          AXA' - EXE' + C = 0,
 
-where `A` and `E` are square real or complex matrices and `C` is a symmetric
-or hermitian matrix. The pencil `A-λE` must not have two eigenvalues `α` and `β`
-such that `αβ = 1`.
+where `A` and `E` are square real or complex matrices and `C` is a square matrix.
+The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian. 
+
 The following particular cases are also adressed:
 
     X = lyapd(A,β*I,C)  or  X = lyapd(A,β,C)
@@ -349,8 +368,8 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
-      throw(DimensionMismatch("C must be a symmetric/hermitian matrix of dimension $n"))
+   LinearAlgebra.checksquare(C) == n ||
+      throw(DimensionMismatch("C must be a square matrix of dimension $n"))
    isequal(E,I) && size(E,1) == n && (return lyapd(A, C))
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
  
@@ -365,6 +384,7 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    end
 
    adj = adjA & adjE
+   her = ishermitian(C)
 
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -375,22 +395,21 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    # Reduce (A,E) to generalized Schur form and transform C
    # (as,es) = (q'*A*z, q'*E*z)
    if adj
-      as, es, q, z = schur(A.parent,E.parent)
+      as, es, z, q = schur(A.parent,E.parent)
    else
       as, es, q, z = schur(A,E)
    end
-   if adj
-      #x = z'*C*z
-      x = utqu(C,z)
-      lyapds!(as,es,x,adj = true)
-      #x = q*x*q'
-      utqu!(x,q')
-   else
+   if her
       #x = q'*C*q
       x = utqu(C,q)
-      lyapds!(as,es,x)
+      lyapds!(as,es,x, adj = adj)
       #x = z*x*z'
-      utqu!(x,z')
+      utqu!(x,z')  
+      return x 
+   else
+      x = q' * C * q
+      gsylvs!(as, as, -es, es, x, adjAC = adj, adjBD = !adj)
+      return rmul!(z*x*z', -1)
    end
 end
 # AXA' - Xββ' + C = 0

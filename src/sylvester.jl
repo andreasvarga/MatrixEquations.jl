@@ -538,7 +538,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvcs!(A::Matrix{T1}, B::Matrix{T1}, C::Matrix{T1}; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
    """
    This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
    Reference:
@@ -549,6 +549,7 @@ function sylvcs!(A::Matrix{T1}, B::Matrix{T1}, C::Matrix{T1}; adjA::Bool = false
       trans = T1 <: Complex ? 'C' : 'T'
       C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
       rmul!(C, inv(scale))
+      return C[:,:]
    catch err
       findfirst("LAPACKException(1)",string(err)) === nothing ? rethrow() : 
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")

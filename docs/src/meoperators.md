@@ -5,7 +5,6 @@
 ```@docs
 lyapop
 invlyapop
-invlyapsop
 ```
 
 ## Sylvester Operators
@@ -13,7 +12,6 @@ invlyapsop
 ```@docs
 sylvop
 invsylvop
-invsylvsop
 ```
 
 ## Sylvester System Operators
@@ -21,7 +19,6 @@ invsylvsop
 ```@docs
 sylvsysop
 invsylvsysop
-invsylvsyssop
 ```
 
 ## Matrix Transposition Operator

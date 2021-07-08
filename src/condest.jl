@@ -24,9 +24,8 @@ julia> opnorm1(invlyapop(A))
 3.7666666666666706
 ```
 """
-function opnorm1(op::AbstractLinearOperator)
+function opnorm1(op::LinearMaps.LinearMap{T}) where T
   (m, n) = size(op)
-  T = eltype(op)
   Tnorm = real(T)
   Tsum = promote_type(Float64, Tnorm)
   nrm::Tsum = 0
@@ -67,7 +66,7 @@ julia> opnorm1est(invlyapop(A))
 3.76666666666667
 ```
 """
-function opnorm1est(op::AbstractLinearOperator)
+function opnorm1est(op::LinearMaps.LinearMap) 
   m, n = size(op)
   m == n || throw(DimensionMismatch("The operator op must be square"))
   T = promote_type(Float64,eltype(op))
@@ -142,7 +141,7 @@ julia> 1/opnorm1(invlyapop(A))
 0.26548672566371656
 ```
 """
-function opsepest(opinv::AbstractLinearOperator; exact = false)
+function opsepest(opinv::LinearMaps.LinearMap; exact = false)
    T = promote_type(Float64,eltype(opinv))
    TR = real(T)
    TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
@@ -186,6 +185,19 @@ julia> 1/opnorm1(lyapop(A))/opnorm1(invlyapop(A))
 0.008849557522123885 
 ```
 """
-function oprcondest(op:: LinearOperator, opinv::LinearOperator; exact = false)
+function oprcondest(op::LinearMaps.LinearMap, opinv::LinearMaps.LinearMap; exact = false)
    return opsepest(op, exact = exact)*opsepest(opinv, exact = exact)
+end
+"""
+    rcond = oprcondest(op; exact = false)
+
+Compute `rcond`, an estimation of the `1`-norm reciprocal condition number
+of a linear operator `op`, where `op` is one of the defined Lyapunov or Sylvester operators. 
+The estimate is computed as
+``\\text{rcond} = 1 / (\\|op\\|_1\\|inv(op)\\|_1)``, using estimates of the `1`-norm, if `exact = false`, or
+computed exact values of the `1`-norm, if `exact = true`.
+The `exact = true` option is not recommended for large order operators.
+"""
+function oprcondest(op::MatrixEquationsMaps{T}; kwargs...) where T
+    oprcondest(op, inv(op); kwargs...)
 end

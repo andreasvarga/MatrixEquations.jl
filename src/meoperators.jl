@@ -1,32 +1,45 @@
+abstract type MatrixEquationsMaps{T} <: LinearMaps.LinearMap{T} end
 """
     M = trmatop(n, m) 
 
 Define the transposition operator `M: X -> X'` for all `n x m` matrices.
 """
-function trmatop(n::Int,m::Int)
-  function prod(x)
-    X = reshape(x, n, m)
-    return adjoint(X)[:]
-  end
-  function tprod(x)
-    X = reshape(x, m, n)
-    return adjoint(X)[:]
-  end
-  function ctprod(x)
-    X = reshape(x, m, n)
-    return adjoint(X)[:]
-  end
-  m == n ? sym = true : sym = false
-  return LinearOperator{Int}(n * m, n * m, sym, sym, prod, tprod, ctprod)
+struct trmatop{Int} <: LinearMaps.LinearMap{Int}
+    size::Dims{2}
+    function trmatop(dims::Dims{2}) where {T}
+        all(≥(0), dims) || throw(ArgumentError("dims must be non-negative"))
+        return new{Int}(dims)
+    end
+    function trmatop(m::Int,n::Int) where {T}
+      (m ≥(0) & n ≥(0))  || throw(ArgumentError("dimensions must be non-negative"))
+      return new{Int}((m,n))
+    end
 end
 trmatop(n::Int) = trmatop(n,n)
-trmatop(dims::Tuple{Int,Int}) = trmatop(dims[1],dims[2])
+Base.size(A::trmatop) = (prod(A.size),prod(A.size))
+LinearAlgebra.issymmetric(A::trmatop) = A.size[1] == A.size[2]
+LinearAlgebra.ishermitian(A::trmatop) = A.size[1] == A.size[2]
+function LinearAlgebra.mul!(y::AbstractVector, A::trmatop, x::AbstractVector)
+    X = reshape(x, A.size...)
+    LinearMaps.check_dim_mul(y, A, x)
+    y[:] = adjoint(X)[:]
+    return y[:]
+end
 """
     M = trmatop(A) 
 
 Define the transposition operator `M: X -> X'` of all matrices of the size of `A`.
 """
 trmatop(A) = trmatop(size(A))
+struct LyapunovMap{T} <: MatrixEquationsMaps{T}
+  A::AbstractMatrix
+  disc::Bool
+  her::Bool
+  function LyapunovMap(A::AbstractMatrix{T}; disc = false, her = false) where {T}
+      LinearAlgebra.checksquare(A)
+      return new{T}(A, disc, her)
+  end
+end
 """
     L = lyapop(A; disc = false, her = false) 
 
@@ -43,70 +56,101 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapop(A; disc = false, her = false)
-  n = LinearAlgebra.checksquare(A)
-  T = eltype(A)
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    if her
-      X = vec2triu(convert(Vector{T1}, x),her = true)
-      if disc
-        return triu2vec(utqu(X,A') - X)
-      else
-        Y = A * X
-        return triu2vec(Y + Y')
-      end
-    else
-      X = reshape(convert(Vector{T1}, x), n, n)
-      if disc
-        Y = A*X*A' - X
-      else
-        Y = A*X + X*A'
-      end
-      return Y[:]
-    end
+function lyapop(A::AbstractMatrix{T}; disc = false, her = false) where T
+    LyapunovMap(A; disc = disc, her = her)
+end
+lyapop(A::Schur{T,Matrix{T}}; kwargs...) where T = LyapunovMap(A.T; kwargs...)
+lyapop(A::Number; kwargs...) = LyapunovMap(A*ones(eltype(A),1,1); kwargs...) 
+function Base.size(L::LyapunovMap)
+    n = size(L.A,1)
+    N = L.her ? Int(n*(n+1)/2) : n*n
+    return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: LyapunovMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::LyapunovMap{T}, x::AbstractVector) where T
+  n = size(L.A,1)
+  T1 = promote_type(T, eltype(x))
+  if L.her
+     T == T1 ?  X = vec2triu(x, her = true) :  X = vec2triu(convert(Vector{T1}, x), her = true)
+     if L.disc
+        # (y .= triu2vec(utqu(X,L.A') - X))
+        muldsym!(y, L.A, X)
+     else
+        mulcsym!(y, L.A, X)
+     end
+     return y
+   else
+     T == T1 ? X = reshape(x, n, n) : X = reshape(convert(Vector{T1}, x), n, n)
+     if L.disc
+        # (y .= (L.A*X*L.A' - X)[:])
+        Y = reshape(y, (n, n))  
+        Y .= X 
+        temp = similar(Y, (n, n))
+        mul!(temp, X, L.A')
+        mul!(Y, L.A, temp, 1, -1)
+        return y
+     else
+        # (y[:] = (L.A*X + X*L.A')[:])
+        Y = reshape(y, (n, n))   
+        mul!(Y, X, L.A')
+        mul!(Y, L.A, X, 1, 1)
+        return y
+     end
   end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    if her
-      X = vec2triu(convert(Vector{T1}, x),her = true)
-      if disc
-        return triu2vec(utqu(X,A) - X)
-      else
-        Y = X * A
-        return triu2vec(Y + adjoint(Y))
+end 
+function  mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix) 
+   # A*X + X*A'
+   n = size(A,1)
+   ZERO = zero(eltype(y))
+   @inbounds  begin
+      k = 1
+      for j = 1:n
+          for i = 1:j
+             temp = ZERO
+             for l = 1:n
+                 temp += A[i,l]*X[l,j] + X[i,l]*conj(A[j,l])
+             end
+             y[k] = temp
+             k += 1
+          end
       end
-    else
-      X = reshape(convert(Vector{T1}, x), n, n)
-      if disc
-         Y = adjoint(A)*X*A - X
-       else
-         Y = adjoint(A)*X + X*A
-       end
-       return Y[:]
-    end
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    if her
-      X = vec2triu(convert(Vector{T1}, x),her = true)
-      if disc
-        return triu2vec(utqu(X,A) - X)
-      else
-        Y = X * A
-        return triu2vec(Y + Y')
+   end
+   return y
+end
+function  muldsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix) 
+   # A*X*A' - X
+   n = size(A,1)
+   # t = triu(X)-diag(X)/2
+   t = UpperTriangular(X)-Diagonal(X[diagind(X)]./2)
+   Y = similar(X, n, n)
+   # Y = A*t*A'
+   mul!(Y, A*t, A') 
+   # Y + Y' - X
+   @inbounds  begin
+      k = 1
+      for j = 1:n
+         for i = 1:j
+             y[k] = Y[i,j] + conj(Y[j,i]) - X[i,j]
+             k += 1
+          end
       end
-    else
-      X = reshape(convert(Vector{T1}, x), n, n)
-      if disc
-        return (A'*X*A - X )[:]
-      else
-        return (A'*X + X*A)[:]
-      end
-    end
-  end
-  her ? N = Int(n*(n+1)/2) : N = n*n
-  return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
+   end
+   return y
+end
+
+LinearAlgebra.adjoint(L::LyapunovMap{T}) where T = lyapop(L.A'; disc = L.disc, her = L.her)
+LinearAlgebra.transpose(L::LyapunovMap{T}) where T = lyapop(L.A'; disc = L.disc, her = L.her)
+struct GeneralizedLyapunovMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   E::AbstractMatrix
+   disc::Bool
+   her::Bool
+   function GeneralizedLyapunovMap(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc = false, her = false) where {T}
+       n = LinearAlgebra.checksquare(A)
+       n == LinearAlgebra.checksquare(E) ||
+            throw(DimensionMismatch("E must be a square matrix of dimension $n"))
+       return new{T}(A, E, disc, her)
+   end
 end
 """
     L = lyapop(A, E; disc = false, her = false) 
@@ -124,71 +168,119 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapop(A, E; disc = false, her = false)
-  n = LinearAlgebra.checksquare(A)
-  n == LinearAlgebra.checksquare(E) ||
-       throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-  T = promote_type(eltype(A), eltype(E))
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    if her
-      X = vec2triu(convert(Vector{T1}, x),her = true)
-      if disc
-        return triu2vec(utqu(X,A') - utqu(X,E'))
+function lyapop(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc = false, her = false) where T
+    GeneralizedLyapunovMap(A, E; disc = disc, her = her)
+end
+lyapop(F::GeneralizedSchur{T,Matrix{T}}; kwargs...) where T = GeneralizedLyapunovMap(F.S, F.T; kwargs...)
+function lyapop(A::Number, E::Number; kwargs...)
+    T = promote_type(eltype(A),eltype(E))
+    GeneralizedLyapunovMap(A*ones(T,1,1), E*ones(T,1,1); kwargs...)
+end
+function lyapop(A::AbstractMatrix{T1}, E::AbstractMatrix{T2}; kwargs...) where {T1,T2}
+   T = promote_type(eltype(A),eltype(E)) 
+   GeneralizedLyapunovMap(convert(Matrix{T},A), convert(Matrix{T},E); kwargs...)
+end
+function Base.size(L::GeneralizedLyapunovMap)
+     n = size(L.A,1)
+     N = L.her ? Int(n*(n+1)/2) : n*n
+     return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: GeneralizedLyapunovMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T}, x::AbstractVector) where T
+   n = size(L.A,1)
+   T1 = promote_type(T, eltype(x))
+   if L.her
+      T == T1 ?  X = vec2triu(x, her = true) :  X = vec2triu(convert(Vector{T1}, x), her = true)
+      if L.disc
+         # (y .= triu2vec(utqu(X,L.A') - utqu(X,L.E')))
+         muldsym!(y, L.A, L.E, X)
       else
-        Y = A * X * E'
-        return triu2vec(Y + Y')
+         mulcsym!(y, L.A, L.E, X) 
       end
+      return y
     else
-      X = reshape(convert(Vector{T1}, x), n, n)
-      if disc
-        Y = A*X*A' - E*X*E'
+      T == T1 ? X = reshape(x, n, n) : X = reshape(convert(Vector{T1}, x), n, n)
+      if L.disc
+         # (y .= (L.A*X*L.A' - L.E*X*L.E')[:])
+         Y = reshape(y, (n, n))  
+         #Y .= X 
+         temp = similar(Y, (n, n))
+         mul!(temp, X, L.A')
+         mul!(Y, L.A, temp)
+         mul!(temp, X, L.E')
+         mul!(Y, L.E, temp, -1, 1)
+         return y
       else
-        Y = A*X*E' + E*X*A'
+         # (y[:] = (L.A*X*L.E' + L.E*X*L.A')[:])
+         Y = reshape(y, (n, n))   
+         temp = similar(Y, (n, n))
+         mul!(temp, L.E, X)
+         mul!(Y, temp, L.A')
+         mul!(temp, X, L.E')
+         mul!(Y, L.A, temp, 1, 1)
+         return y
       end
-      return Y[:]
-    end
+   end
+end 
+function  mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix) 
+   # AXE' + EXA' 
+   n = size(A,1)
+   Y = similar(X, n, n) 
+   ZERO = zero(eltype(y))
+   # Y = XE' 
+   mul!(Y, X, E')
+   # AY + Y'A' 
+   @inbounds  begin
+      k = 1
+      for j = 1:n
+          for i = 1:j
+             temp = ZERO
+             for l = 1:n
+                 temp += A[i,l]*Y[l,j] + conj(Y[l,i]*A[j,l])
+             end
+             y[k] = temp
+             k += 1
+          end
+      end
+   end
+   return y
+end
+function  muldsym!(y::AbstractVector,A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix) 
+   # AXA' - EXE' 
+   n = size(A,1)
+   # t = triu(X)-diag(X)/2
+   t = UpperTriangular(X)-Diagonal(X[diagind(X)]./2)
+   Y = similar(X, n, n)
+   # Y = A*t*A' - E*t*E'
+   mul!(Y, A*t, A') 
+   mul!(Y, E*t, E', -1, 1)
+   # Y + Y' 
+   @inbounds  begin
+      k = 1
+      for j = 1:n
+         for i = 1:j
+             y[k] = Y[i,j]+conj(Y[j,i])
+             k += 1
+          end
+      end
+   end
+   return y
+end
+LinearAlgebra.adjoint(L::GeneralizedLyapunovMap{T}) where T = lyapop(L.A', L.E'; disc = L.disc, her = L.her)
+LinearAlgebra.transpose(L::GeneralizedLyapunovMap{T}) where T = lyapop(L.A', L.E'; disc = L.disc, her = L.her)
+
+struct InverseLyapunovMap{T} <: MatrixEquationsMaps{T}
+  A::AbstractMatrix
+  disc::Bool
+  her::Bool
+  adj::Bool
+  sf::Bool
+  function InverseLyapunovMap(A::AbstractMatrix{T}; disc = false, her = false) where {T}
+      LinearAlgebra.checksquare(A)
+      adj = isa(A,Adjoint)
+      schur_flag = adj ? isschur(A.parent) : isschur(A)
+      return new{T}(adj ? A.parent : A, disc, her, adj, schur_flag)
   end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    if her
-      X = vec2triu(convert(Vector{T1}, x),her = true)
-      if disc
-        return triu2vec(utqu(X,A) - utqu(X,E))
-      else
-        Y = E' * X * A
-        return triu2vec(Y + Y')
-      end
-    else
-      X = reshape(convert(Vector{T1}, x), n, n)
-      if disc
-        return (A'*X*A - E'*X*E )[:]
-      else
-        return (A'*X*E + E'*X*A)[:]
-      end
-    end
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    if her
-      X = vec2triu(convert(Vector{T1}, x),her = true)
-      if disc
-        return triu2vec(utqu(X,A) - utqu(X,E))
-      else
-        Y = E' * X * A
-        return triu2vec(Y + Y')
-      end
-    else
-      X = reshape(convert(Vector{T1}, x), n, n)
-      if disc
-        return (A'*X*A - E'*X*E )[:]
-      else
-        return (A'*X*E + E'*X*A)[:]
-      end
-    end
-  end
-  her ? N = Int(n*(n+1)/2) : N = n*n
-  return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
 """
     LINV = invlyapop(A; disc = false, her = false) 
@@ -207,80 +299,78 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapop(A; disc = false, her = false)
-   n = LinearAlgebra.checksquare(A)
-   T = eltype(A)
-   function prod(x)
-     T1 = promote_type(T, eltype(x))
-     try
-       if her
-         Y = vec2triu(convert(Vector{T1}, x),her = true)
-         if disc
-            return triu2vec(lyapd(A,-Y))
-         else
-             return triu2vec(lyapc(A,-Y))
-         end
+function invlyapop(A::AbstractMatrix{T}; disc = false, her = false) where T
+    InverseLyapunovMap(A; disc = disc, her = her)
+end
+invlyapop(A::Schur{T,Matrix{T}}; kwargs...) where T = InverseLyapunovMap(A.T; kwargs...)
+function Base.size(L::InverseLyapunovMap)
+    n = size(L.A,1)
+    N = L.her ? Int(n*(n+1)/2) : n*n
+    return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: InverseLyapunovMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::InverseLyapunovMap{T}, x::AbstractVector) where T
+  n = size(L.A,1)
+  T1 = promote_type(T, eltype(x))
+  y = try
+    if L.sf
+       if L.her
+          T1 == eltype(x) ? Y = vec2triu(-x, her = true) : Y = vec2triu(-convert(Vector{T1},x), her = true)
+          L.disc ? lyapds!(L.A, Y; adj = L.adj) : lyapcs!(L.A, Y; adj = L.adj)
+          y .= triu2vec(Y)
        else
-         Y = reshape(convert(Vector{T1}, x), n, n)
-         if disc
-           return sylvd(-A,A',-Y)[:]
-         else
-           return sylvc(A,A',Y)[:]
+          if L.disc
+            T1 == eltype(x) ? Y = reshape(-x, n, n) : Y = reshape(convert(Vector{T1}, -x), n, n)
+            L.adj ? sylvds!(-L.A, L.A, Y, adjA = true) : sylvds!(-L.A, L.A, Y, adjB = true)
+          else
+            T1 == eltype(x) ? Y = copy(reshape(x, n, n)) : Y = reshape(convert(Vector{T1}, x), n, n)
+           L.adj ? (sylvcs!(L.A, L.A, Y, adjA = true)) : (sylvcs!(L.A, L.A, Y, adjB = true))
+          end
+          y .= Y[:]
+       end
+    else
+       if L.her
+          T1 == eltype(x) ? Y = vec2triu(-x, her = true) : Y = vec2triu(-convert(Vector{T1},x), her = true)
+          if L.disc
+             L.adj ? (y .= triu2vec(lyapd(L.A',Y))) : (y .= triu2vec(lyapd(L.A,Y)))
+          else
+             L.adj ? (y .= triu2vec(lyapc(L.A',Y))) : (y .= triu2vec(lyapc(L.A,Y)))
+          end
+       else
+          T1 == eltype(x) ? Y = reshape(-x, n, n) : Y = reshape(convert(Vector{T1}, -x), n, n)
+          if L.disc
+             L.adj ? (y .= lyapd(L.A',Y)[:]) : (y .= lyapd(L.A,Y)[:])
+          else
+             L.adj ? (y .= lyapc(L.A',Y)[:]) : (y .= lyapc(L.A,Y)[:])
          end
        end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function tprod(x)
-    T1 = promote_type(T, eltype(x))
-     try
-       if her
-         Y = vec2triu(convert(Vector{T1}, x),her = true)
-         if disc
-           return triu2vec(lyapd(A',-Y))
-         else
-           return triu2vec(lyapc(A',-Y))
-         end
-       else
-         Y = reshape(convert(Vector{T1}, x), n, n)
-         if disc
-           return sylvd(-A',A,-Y)[:]
-         else
-            return sylvc(A',A,Y)[:]
-         end
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-     try
-       if her
-         Y = vec2triu(convert(Vector{T1}, x),her = true)
-         if disc
-           return triu2vec(lyapd(A',-Y))
-         else
-           return triu2vec(lyapc(A',-Y))
-         end
-       else
-         Y = reshape(convert(Vector{T1}, x), n, n)
-         if disc
-           return sylvd(-A',A,-Y)[:]
-         else
-           return sylvc(A',A,Y)[:]
-         end
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
+    end
+  catch err
+    findfirst("SingularException",string(err)) === nothing &&
+    findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
+  end
+  return y
+end
+LinearAlgebra.adjoint(L::InverseLyapunovMap{T}) where T = invlyapop(L.adj ? L.A : L.A'; disc = L.disc, her = L.her)
+function LinearAlgebra.transpose(L::InverseLyapunovMap{T}) where T
+    invlyapop(L.adj ? L.A : L.A'; disc = L.disc, her = L.her)
+end
+LinearAlgebra.inv(L::LyapunovMap{T}) where T = invlyapop(L.A; disc = L.disc, her = L.her)
+LinearAlgebra.inv(L::InverseLyapunovMap{T}) where T = lyapop(L.A; disc = L.disc, her = L.her)
+
+struct InverseGeneralizedLyapunovMap{T} <: MatrixEquationsMaps{T}
+  A::AbstractMatrix
+  E::AbstractMatrix
+  disc::Bool
+  her::Bool
+  adj::Bool
+  sf::Bool
+  function InverseGeneralizedLyapunovMap(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc = false, her = false) where {T}
+      LinearAlgebra.checksquare(A)
+      adj = isa(A,Adjoint) && isa(E,Adjoint)
+      schur_flag = adj ? isschur(A.parent, A.parent) : isschur(A, E)
+      return new{T}(adj ? A.parent : A, adj ? E.parent : E, disc, her, adj, schur_flag)
+  end
 end
 """
     LINV = invlyapop(A, E; disc = false, her = false) 
@@ -299,769 +389,468 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapop(A, E; disc = false, her = false)
-   n = LinearAlgebra.checksquare(A)
-   n == LinearAlgebra.checksquare(E) || 
-       throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-   T = promote_type(eltype(A), eltype(E))
-   function prod(x)
-    T1 = promote_type(T, eltype(x))
-     try
-       if her
-         Y = vec2triu(convert(Vector{T1}, x),her = true)
-         if disc
-            return triu2vec(lyapd(A,E,-Y))
-         else
-            return triu2vec(lyapc(A,E,-Y))
-         end
-       else
-         Y = reshape(convert(Vector{T1}, x), n, n)
-         if disc
-           return gsylv(-A,A',E,E',-Y)[:]
-         else
-           return gsylv(A,E',E,A',Y)[:]
-         end
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function tprod(x)
-    T1 = promote_type(T, eltype(x))
-     try
-       if her
-         Y = vec2triu(convert(Vector{T1}, x),her = true)
-         if disc
-            return triu2vec(lyapd(A',E',-Y))
-         else
-            return triu2vec(lyapc(A',E',-Y))
-         end
-       else
-         Y = reshape(convert(Vector{T1}, x), n, n)
-         if disc
-            return gsylv(-A',A,E',E,-Y)[:]
-         else
-            return gsylv(A',E,E',A,Y)[:]
-         end
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-     try
-       if her
-         Y = vec2triu(convert(Vector{T1}, x),her = true)
-         if disc
-           return triu2vec(lyapd(A',E',-Y))
-         else
-           return triu2vec(lyapc(A',E',-Y))
-         end
-       else
-         Y = reshape(convert(Vector{T1}, x), n, n)
-         if disc
-           return gsylv(-A',A,E',E,-Y)[:]
-         else
-           return gsylv(A',E,E',A,Y)[:]
-         end
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
+function invlyapop(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc = false, her = false) where T
+    InverseGeneralizedLyapunovMap(A, E; disc = disc, her = her)
 end
-"""
-    LINV = invlyapsop(A; disc = false, her = false) 
-
-Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AX+XA'` for `disc = false`
-or the inverse of the discrete Lyapunov operator `L:X -> AXA'-X` for `disc = true`, where
-`A` is an `n x n` matrix in Schur form.
-If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
-into general square matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
-``n^2 \\times n^2``.
-If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
-into symmetric/Hermitian matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
-``n(n+1)/2 \\times n(n+1)/2``.
-For the definitions of the Lyapunov operators see:
-
-M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
-operators. Linear Algebra and its Applications 312:35–71, 2000.
-"""
-function invlyapsop(A::Matrix{T}; disc = false, her = false) where T <: BlasFloat
-   n = LinearAlgebra.checksquare(A)
- 
-   # check A is in Schur form
-   isschur(A) || error("The matrix A must be in Schur form")
-   function prod(x)
-     T == eltype(x) || (x = convert(Vector{T},x))
-     try
-       if her
-         Y = vec2triu(-x, her = true)
-         disc ? lyapds!(A,Y) : lyapcs!(A,Y)
-         return triu2vec(Y)
+invlyapop(F::GeneralizedSchur{T,Matrix{T}}; kwargs...) where T = InverseGeneralizedLyapunovMap(F.S, F.T; kwargs...)
+function invlyapop(A::AbstractMatrix{T1}, E::AbstractMatrix{T2}; kwargs...) where {T1,T2}
+    T = promote_type(eltype(A),eltype(E)) 
+    invlyapop(convert(Matrix{T},A), convert(Matrix{T},E); kwargs...)
+end
+function Base.size(L::InverseGeneralizedLyapunovMap)
+    n = size(L.A,1)
+    N = L.her ? Int(n*(n+1)/2) : n*n
+    return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: InverseGeneralizedLyapunovMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::InverseGeneralizedLyapunovMap{T}, x::AbstractVector) where T
+  n = size(L.A,1)
+  T1 = promote_type(T, eltype(x))
+  y = try
+    if L.sf
+       if L.her
+          T1 == eltype(x) ? Y = vec2triu(-x, her = true) : Y = vec2triu(-convert(Vector{T1},x), her = true)
+          L.disc ? lyapds!(L.A, L.E, Y; adj = L.adj) : lyapcs!(L.A, L.E, Y; adj = L.adj)
+          y .= triu2vec(Y)
        else
-         Y = reshape(-x, n, n)
-         if disc
-            sylvds!(-A,A,Y,adjB = true)
-            return Y[:]
+         T1 == eltype(x) ? Y = copy(reshape(x, n, n)) : Y = copy(reshape(convert(Vector{T1},x), n, n)) 
+         if L.disc
+            L.adj ? gsylvs!(L.A, L.A, -L.E, L.E, Y, adjAC = true) : gsylvs!(L.A, L.A, -L.E, L.E, Y, adjBD = true)
          else
-            sylvcs!(A,A,Y,adjB = true)
-            return -Y[:]
+            L.adj ? (gsylvs!(L.A,L.E,L.E,L.A,Y,adjAC = true,DBSchur = true)) : (gsylvs!(L.A,L.E,L.E,L.A,Y,adjBD = true,DBSchur = true))
          end
+         y .= Y[:]
        end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function tprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    try
-      if her
-        Y = vec2triu(-x, her = true)
-        disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
-        return triu2vec(Y)
-      else
-        Y = reshape(-x, n, n)
-        if disc
-           sylvds!(-A,A,Y,adjA = true)
-           return Y[:]
-        else
-           sylvcs!(A,A,Y,adjA = true)
-         #   realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
-         #   realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
-         #   Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
-         #   rmul!(Y, inv(-scale))
-            return -Y[:]
-        end
+    else
+       if L.her
+          T1 == eltype(x) ? Y = vec2triu(-x, her = true) : Y = vec2triu(-convert(Vector{T1}, x), her = true) 
+          if L.disc
+             L.adj ? (y .= triu2vec(lyapd(L.A', L.E', Y))) : (y .= triu2vec(lyapd(L.A, L.E, Y)))
+          else
+             L.adj ? (y .= triu2vec(lyapc(L.A', L.E', Y))) : (y .= triu2vec(lyapc(L.A, L.E, Y)))
+          end
+       else
+          T1 == eltype(x) ? Y = reshape(-x, n, n) : Y = reshape(-convert(Vector{T1}, x), n, n)
+          if L.disc
+             # L.adj ? (y .= gsylv(-L.A',L.A,L.E',L.E,Y)[:]) : (y .= gsylv(-L.A,L.A',L.E,L.E',Y)[:])
+             L.adj ? (y .= lyapd(L.A', L.E', Y)[:]) : (y .= lyapd(L.A, L.E, Y)[:])
+          else
+             # L.adj ? (y .= gsylv(L.A',L.E,L.E',L.A,Y)[:]) : (y .= gsylv(L.A,L.E',L.E,L.A',Y)[:])
+             L.adj ? (y .= lyapc(L.A', L.E', Y)[:]) : (y .= lyapc(L.A, L.E, Y)[:])
+          end
+          return y
        end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function ctprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    try
-      if her
-        Y = vec2triu(-x, her = true)
-        disc ? lyapds!(A,Y,adj = true) : lyapcs!(A,Y,adj = true)
-        return triu2vec(Y)
-      else
-        Y = reshape(-x, n, n)
-        if disc
-           sylvds!(-A,A,Y,adjA = true)
-           return Y[:]
-        else
-           sylvcs!(A,A,Y,adjA = true)
-         #   realcase = eltype(A) <: AbstractFloat && eltype(Y) <: AbstractFloat
-         #   realcase ? (TA,TB) = ('T','N') : (TA,TB) = ('C','N')
-         #   Y, scale = LAPACK.trsyl!(TA, TB, A, A, Y)
-         #   rmul!(Y, inv(-scale))
-           return -Y[:]
-        end
-      end
-    catch err
-      findfirst("SingularException",string(err)) === nothing &&
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
     end
-   end
-   her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
+  catch err
+    findfirst("SingularException",string(err)) === nothing &&
+    findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
+  end
+  return y
 end
-invlyapsop(A :: Schur; disc = false, her = false) = invlyapsop(A.T,disc = disc,her = her)
-invlyapsop(A :: Adjoint; disc = false, her = false) = invlyapsop(A.parent,disc = disc,her = her)'
-"""
-    LINV = invlyapsop(A, E; disc = false, her = false) 
+LinearAlgebra.adjoint(L::InverseGeneralizedLyapunovMap{T}) where T = invlyapop(L.adj ? L.A : L.A', L.adj ? L.E : L.E'; disc = L.disc, her = L.her)
+LinearAlgebra.transpose(L::InverseGeneralizedLyapunovMap{T}) where T = invlyapop(L.adj ? L.A : L.A', L.adj ? L.E : L.E'; disc = L.disc, her = L.her)
+LinearAlgebra.inv(L::GeneralizedLyapunovMap{T}) where T = invlyapop(L.A, L.E; disc = L.disc, her = L.her)
+LinearAlgebra.inv(L::InverseGeneralizedLyapunovMap{T}) where T = lyapop(L.A, L.E; disc = L.disc, her = L.her)
 
-Define `LINV`, the inverse of the continuous Lyapunov operator `L:X -> AXE'+EXA'` for `disc = false`
-or the inverse of the discrete Lyapunov operator `L:X -> AXA'-EXE'` for `disc = true`, where
-`(A,E)` is a pair of `n x n` matrices in generalized Schur form.
-If `her = false` the inverse Lyapunov operator `LINV:Y -> X` maps general square matrices `Y`
-into general square matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
-``n^2 \\times n^2``.
-If `her = true` the inverse Lyapunov operator `LINV:Y -> X` maps symmetric/Hermitian matrices `Y`
-into symmetric/Hermitian matrices `X`, and the associated matrix `M = Matrix(LINV)` is 
-``n(n+1)/2 \\times n(n+1)/2``.
-For the definitions of the Lyapunov operators see:
-
-M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
-operators. Linear Algebra and its Applications 312:35–71, 2000.
-"""
-function invlyapsop(A::Matrix{T}, E::Matrix{T}; disc = false, her = false) where T <: BlasFloat
-   n = LinearAlgebra.checksquare(A)
-   n == LinearAlgebra.checksquare(E) ||
-     throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-   (isa(A,Adjoint) || isa(E,Adjoint)) &&
-     error("No calls with adjoint matrices are supported")
-
-   # check (A,E) is in generalized Schur form
-   isschur(A,E) || error("The matrix pair (A,E) must be in generalized Schur form")
-   function prod(x)
-     T == eltype(x) || (x = convert(Vector{T},x))
-     try
-       if her
-         Y = vec2triu(-x, her = true)
-         disc ? lyapds!(A,E,Y) : lyapcs!(A,E,Y)
-         return triu2vec(Y)
-       else
-         Y = copy(reshape(x, n, n))
-         disc ? gsylvs!(A,A,-E,E,Y,adjBD = true) :
-                gsylvs!(A,E,E,A,Y,adjBD = true,DBSchur = true)
-         return Y[:]
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
+struct SylvesterMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   B::AbstractMatrix
+   disc::Bool
+   function SylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc = false) where {T}
+      LinearAlgebra.checksquare(A, B)
+      return new{T}(A, B, disc)
    end
-   function tprod(x)
-     T == eltype(x) || (x = convert(Vector{T},x))
-     try
-       if her
-          Y = vec2triu(-x, her = true)
-          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
-          return triu2vec(Y)
-       else
-          Y = copy(reshape(x, n, n))
-          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
-                 gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
-          return Y[:]
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   function ctprod(x)
-     T == eltype(x) || (x = convert(Vector{T},x))
-     try
-       if her
-          Y = vec2triu(-x, her = true)
-          disc ? lyapds!(A,E,Y,adj = true) : lyapcs!(A,E,Y,adj = true)
-          return triu2vec(Y)
-       else
-          Y = copy(reshape(x, n, n))
-          disc ? gsylvs!(A,A,-E,E,Y,adjAC = true) :
-                 gsylvs!(A,E,E,A,Y,adjAC = true,DBSchur = true)
-          return Y[:]
-       end
-     catch err
-       findfirst("SingularException",string(err)) === nothing &&
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-     end
-   end
-   her ? N = Int(n*(n+1)/2) : N = n*n
-   return LinearOperator{T}(N, N, false, false, prod, tprod, ctprod)
 end
-invlyapsop(AE :: GeneralizedSchur; disc = false, her = false) = invlyapsop(AE.S, AE.T, disc = disc, her = her)
-invlyapsop(A :: Adjoint, E :: Adjoint; disc = false, her = false) = invlyapsop(A.parent,E.parent,disc = disc,her = her)'
 """
     M = sylvop(A, B; disc = false) 
 
 Define the continuous Sylvester operator `M: X -> AX+XB` if `disc = false`
 or the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices.
 """
-function sylvop(A, B; disc = false)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = promote_type(eltype(A), eltype(B))
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x), m, n)
-    disc ? Y = A * X * B + X : Y = A * X + X * B
-    return Y[:]
-  end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x), m, n)
-    disc ? Y = adjoint(A)*X*adjoint(B) + X : Y = adjoint(A)*X + X*adjoint(B)
-    return Y[:]
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x), m, n)
-    disc ? Y = A'*X*B' + X : Y = A'*X + X*B'
-    return Y[:]
-  end
-  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
+function sylvop(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc = false) where T
+    SylvesterMap(A, B; disc = disc)
+end
+sylvop(A::Schur{T,Matrix{T}}, B::Schur{T,Matrix{T}}; kwargs...) where T = SylvesterMap(A.T, B.T; kwargs...)
+function sylvop(A::Number, B::Number; kwargs...)
+   T = promote_type(eltype(A),eltype(B))
+   SylvesterMap(A*ones(T,1,1), B*ones(T,1,1); kwargs...)
+end
+function sylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}; kwargs...) where {T1,T2}
+   T = promote_type(eltype(A),eltype(B)) 
+   SylvesterMap(convert(Matrix{T},A), convert(Matrix{T},B); kwargs...)
+end
+function Base.size(L::SylvesterMap)
+   N = size(L.A,1)*size(L.B,1)
+   return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: SylvesterMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::SylvesterMap{T}, x::AbstractVector) where T
+   m = size(L.A,1)
+   n = size(L.B,1)
+   T1 = promote_type(T, eltype(x))
+   T == T1 ? X = reshape(x, m, n) : X = reshape(convert(Vector{T1}, x), m, n)
+   Y = reshape(y, (m, n))  
+   if L.disc
+      # Y = A * X * B + X
+      Y .= X
+      temp = similar(Y, (m, n))
+      mul!(temp, L.A, X) 
+      mul!(Y, temp, L.B, 1, 1) 
+   else
+      # Y = A * X + X * B
+      mul!(Y, L.A, X) 
+      mul!(Y, X, L.B, 1, 1) 
+   end
+   return y
+end 
+LinearAlgebra.adjoint(L::SylvesterMap{T}) where T = SylvesterMap(L.A', L.B'; disc = L.disc)
+LinearAlgebra.transpose(L::SylvesterMap{T}) where T = SylvesterMap(L.A', L.B'; disc = L.disc)
+struct InverseSylvesterMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   B::AbstractMatrix
+   disc::Bool
+   adjA::Bool
+   adjB::Bool
+   sf::Bool
+   function InverseSylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc = false) where {T}
+      LinearAlgebra.checksquare(A, B)
+      adjA = isa(A,Adjoint)
+      adjB = isa(B,Adjoint)
+      schur_flag = (adjA ? isschur(A.parent) : isschur(A)) && (adjB ? isschur(B.parent) : isschur(B)) 
+      return new{T}(adjA ? A.parent : A, adjB ? B.parent : B, disc, adjA, adjB, schur_flag)
+   end
 end
 """
     MINV = invsylvop(A, B; disc = false) 
 
-Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
+Define `MINV`, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
 or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices.
 """
-function invsylvop(A, B; disc = false)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = promote_type(eltype(A), eltype(B))
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    C = reshape(convert(Vector{T1}, x), m, n)
-    try
-      if disc
-        return sylvd(A,B,C)[:]
+function invsylvop(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc = false) where T
+    InverseSylvesterMap(A, B; disc = disc)
+end
+invsylvop(A::Schur{T,Matrix{T}}, B::Schur{T,Matrix{T}}; kwargs...) where T = InverseSylvesterMap(A.T, B.T; kwargs...)
+function invsylvop(A::Number, B::Number; kwargs...)
+   T = promote_type(eltype(A),eltype(B))
+   InverseSylvesterMap(A*ones(T,1,1), B*ones(T,1,1); kwargs...)
+end
+function invsylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}; kwargs...) where {T1,T2}
+   T = promote_type(eltype(A),eltype(B)) 
+   InverseSylvesterMap(convert(Matrix{T},A), convert(Matrix{T},B); kwargs...)
+end
+function Base.size(L::InverseSylvesterMap)
+   m = size(L.A,1)
+   N = size(L.A,1)*size(L.B,1)
+   return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: InverseSylvesterMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::InverseSylvesterMap{T}, x::AbstractVector) where T
+   m = size(L.A,1)
+   n = size(L.B,1)
+   T1 = promote_type(T, eltype(x))
+   y = try
+      if L.sf
+         eltype(x) == T1 ? Y = reshape(copy(x), m, n) : Y = reshape(convert(Vector{T1}, x), m, n)
+         if L.disc
+            sylvds!(L.A, L.B, Y, adjA = L.adjA, adjB = L.adjB)
+         else
+            sylvcs!(L.A, L.B, Y, adjA = L.adjA, adjB = L.adjB)
+         end
+         y .= Y[:]
       else
-        return sylvc(A,B,C)[:]
+         eltype(x) == T1 ? Y = reshape(x, m, n) : Y = reshape(convert(Vector{T1}, x), m, n)
+         if L.disc
+            y .= sylvd(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, Y)[:]
+         else
+            y .= sylvc(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, Y)[:]
+         end
       end
-    catch err
-      findfirst("SingularException",string(err)) === nothing &&
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    C = reshape(convert(Vector{T1}, x), m, n)
-    try
-      if disc
-        return sylvd(A',B',C)[:]
-      else
-        return sylvc(A',B',C)[:]
-     end
-    catch err
-      findfirst("SingularException",string(err)) === nothing &&
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    C = reshape(convert(Vector{T1}, x), m, n)
-    try
-      if disc
-        return sylvd(A',B',C)[:]
-      else
-        return sylvc(A',B',C)[:]
-     end
-    catch err
-      findfirst("SingularException",string(err)) === nothing &&
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
-end
-"""
-    MINV = invsylvsop(A, B; disc = false) 
-
-Define MINV, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
-or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices in Schur forms.
-"""
-function invsylvsop(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc = false) where T <: BlasFloat
-  m, n = LinearAlgebra.checksquare(A, B)
-  adjA = isa(A,Adjoint)
-  adjB = isa(B,Adjoint)
-  if adjA
-     isschur(A.parent) || error("A must be in Schur form")
-  else
-     isschur(A) || error("A must be in Schur form")
-  end
-  if adjB
-     isschur(B.parent) || error("B must be in Schur form")
-  else
-     isschur(B) || error("B must be in Schur form")
-  end
-  function prod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    C = copy(reshape(x, m, n))
-    try
-       if disc
-          if !adjA & !adjB
-             sylvds!(A, B, C, adjA = false, adjB = false)
-          elseif !adjA & adjB
-             sylvds!(A, B.parent, C, adjA = false, adjB = true)
-          elseif adjA & !adjB
-             sylvds!(A.parent, B, C, adjA = true, adjB = false)
-          else
-             sylvds!(A.parent, B.parent, C, adjA = true, adjB = true)
-          end
-          return C[:]
-       else
-         if !adjA & !adjB
-            sylvcs!(A, B, C, adjA = false, adjB = false)
-         elseif !adjA & adjB
-            sylvcs!(A, B.parent, C, adjA = false, adjB = true)
-         elseif adjA & !adjB
-            sylvcs!(A.parent, B, C, adjA = true, adjB = false)
-         else
-            sylvcs!(A.parent, B.parent, C, adjA = true, adjB = true)
-         end
-         return C[:]
-       end
-    catch err
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function tprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    C = copy(reshape(x, m, n))
-    try
-       if disc
-          if !adjA & !adjB
-             sylvds!(A, B, C, adjA = true, adjB = true)
-          elseif !adjA & adjB
-             sylvds!(A, B.parent, C, adjA = true, adjB = false)
-          elseif adjA & !adjB
-             sylvds!(A.parent, B, C, adjA = false, adjB = true)
-          else
-             sylvds!(A.parent, B.parent, C, adjA = false, adjB = false)
-          end
-          return C[:]
-       else
-         if !adjA & !adjB
-            sylvcs!(A, B, C, adjA = true, adjB = true)
-         elseif !adjA & adjB
-            sylvcs!(A, B.parent, C, adjA = true, adjB = false)
-         elseif adjA & !adjB
-            sylvcs!(A.parent, B, C, adjA = false, adjB = true)
-         else
-            sylvcs!(A.parent, B.parent, C, adjA = false, adjB = false)
-         end
-         return C[:]
-       end
-    catch err
+   catch err
+       findfirst("SingularException",string(err)) === nothing &&
        findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function ctprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    C = copy(reshape(x, m, n))
-    try
-       if disc
-          if !adjA & !adjB
-             sylvds!(A, B, C, adjA = true, adjB = true)
-          elseif !adjA & adjB
-             sylvds!(A, B.parent, C, adjA = true, adjB = false)
-          elseif adjA & !adjB
-             sylvds!(A.parent, B, C, adjA = false, adjB = true)
-          else
-             sylvds!(A.parent, B.parent, C, adjA = false, adjB = false)
-          end
-          return C[:]
-       else
-         if !adjA & !adjB
-            sylvcs!(A, B, C, adjA = true, adjB = true)
-         elseif !adjA & adjB
-            sylvcs!(A, B.parent, C, adjA = true, adjB = false)
-         elseif adjA & !adjB
-            sylvcs!(A.parent, B, C, adjA = false, adjB = true)
-         else
-            sylvcs!(A.parent, B.parent, C, adjA = false, adjB = false)
-         end
-         return C[:]
-       end
-    catch err
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
+   end
+   return y
+end 
+LinearAlgebra.adjoint(L::InverseSylvesterMap{T}) where T = InverseSylvesterMap(L.adjA ? L.A : L.A', L.adjB ? L.B : L.B'; disc = L.disc)
+LinearAlgebra.transpose(L::InverseSylvesterMap{T}) where T = InverseSylvesterMap(L.adjA ? L.A : L.A', L.adjB ? L.B : L.B'; disc = L.disc)
+LinearAlgebra.inv(L::SylvesterMap{T}) where T = InverseSylvesterMap(L.A, L.B; disc = L.disc)
+LinearAlgebra.inv(L::InverseSylvesterMap{T}) where T = SylvesterMap(L.A, L.B; disc = L.disc)
+struct GeneralizedSylvesterMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   B::AbstractMatrix
+   C::AbstractMatrix
+   D::AbstractMatrix
+   function GeneralizedSylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+      m, n = LinearAlgebra.checksquare(A, B)
+      [m; n] == LinearAlgebra.checksquare(C,D) ||
+             throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      return new{T}(A, B, C, D)
+   end
 end
-invsylvsop(A :: Schur, B :: Schur; disc = false) = invsylvsop(A.T,B.T,disc = disc)
 """
     M = sylvop(A, B, C, D) 
 
 Define the generalized Sylvester operator `M: X -> AXB+CXD`, where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function sylvop(A, B, C, D)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  [m; n] == LinearAlgebra.checksquare(C,D) ||
-     throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x), m, n)
-    return (A * X * B + C * X * D)[:]
-  end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x), m, n)
-    return (adjoint(A) * X * adjoint(B) + adjoint(C) * X * adjoint(D) )[:]
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x), m, n)
-    return (A' * X * B' + C' * X * D' )[:]
-  end
-  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
+function sylvop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where T
+    GeneralizedSylvesterMap(A, B, C, D)
 end
+function sylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
+   T = promote_type(T1, T2, T3, T4) 
+   GeneralizedSylvesterMap(convert(Matrix{T},A), convert(Matrix{T},B), convert(Matrix{T},C), convert(Matrix{T},D))
+end
+function Base.size(L::GeneralizedSylvesterMap)
+   N = size(L.A,1)*size(L.B,1)
+   return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: GeneralizedSylvesterMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::GeneralizedSylvesterMap{T}, x::AbstractVector) where T
+   m = size(L.A,1)
+   n = size(L.B,1)
+   T1 = promote_type(T, eltype(x))
+   eltype(x) == T1 ? X = reshape(x, m, n) : X = reshape(convert(Vector{T1}, x), m, n)
+   Y = reshape(y, (m, n))  
+   # Y = A * X * B + C * X * D
+   temp = similar(Y, (m, n))
+   mul!(temp, L.A, X) 
+   mul!(Y, temp, L.B, 1, 0) 
+   mul!(temp, L.C, X) 
+   mul!(Y, temp, L.D, 1, 1) 
+   return y
+end 
+LinearAlgebra.adjoint(L::GeneralizedSylvesterMap{T}) where T = 
+   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
+LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T = 
+   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
+
+
+struct InverseGeneralizedSylvesterMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   B::AbstractMatrix
+   C::AbstractMatrix
+   D::AbstractMatrix
+   adjAC::Bool
+   adjBD::Bool
+   sf::Bool
+   BDSchur::Bool
+   DBSchur::Bool
+   function InverseGeneralizedSylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+      m, n = LinearAlgebra.checksquare(A, B)
+      [m; n] == LinearAlgebra.checksquare(C,D) ||
+             throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      adjAC = isa(A,Adjoint) && isa(C,Adjoint) 
+      adjBD = isa(B,Adjoint) && isa(D,Adjoint) 
+      ACSchur = (adjAC ? isschur(A.parent,C.parent) : isschur(A,C))
+      BDSchur = (adjBD ? isschur(B.parent,D.parent) : isschur(B,D))
+      DBSchur = (adjBD ? isschur(D.parent,B.parent) : isschur(D,B))
+      schur_flag = ACSchur && (BDSchur || DBSchur) 
+      return new{T}(adjAC ? A.parent : A, adjBD ? B.parent : B, adjAC ? C.parent : C, adjBD ? D.parent : D, adjAC, adjBD, schur_flag, BDSchur, DBSchur)
+   end
+end
+
 """
     MINV = invsylvop(A, B, C, D) 
 
-Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`, 
+Define `MINV`, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`, 
 where (A,C) and (B,D) a pairs of square matrices.
 """
-function invsylvop(A, B, C, D)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  [m; n] == LinearAlgebra.checksquare(C,D) ||
-     throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x), m, n)
-    try
-       return gsylv(A,B,C,D,E)[:]
-    catch err
-      findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function tprod(x)
+function invsylvop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where T
+   InverseGeneralizedSylvesterMap(A, B, C, D)
+end
+function invsylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
+   T = promote_type(T1, T2, T3, T4) 
+   InverseGeneralizedSylvesterMap(convert(Matrix{T},A), convert(Matrix{T},B), convert(Matrix{T},C), convert(Matrix{T},D))
+end
+function Base.size(L::InverseGeneralizedSylvesterMap)
+   N = size(L.A,1)*size(L.B,1)
+   return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: InverseGeneralizedSylvesterMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::InverseGeneralizedSylvesterMap{T}, x::AbstractVector) where T
+   m = size(L.A,1)
+   n = size(L.B,1)
    T1 = promote_type(T, eltype(x))
-   E = reshape(convert(Vector{T1}, x), m, n)
-    try
-       return gsylv(A',B',C',D',E)[:]
-    catch err
-      findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x), m, n)
-    try
-       return gsylv(A',B',C',D',E)[:]
-    catch err
-       findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
-end
-"""
-    MINV = invsylvsop(A, B, C, D; DBSchur = false) 
-
-Define MINV, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`,
-with the pairs `(A,C)` and `(B,D)` in generalized Schur forms. If `DBSchur = true`,
-the pair `(D,B)` is in generalized Schur form.
-"""
-function invsylvsop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}; DBSchur = false) where T <: BlasFloat
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  [m; n] == LinearAlgebra.checksquare(C,D) ||
-     throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  adjA = isa(A,Adjoint)
-  adjB = isa(B,Adjoint)
-  adjC = isa(C,Adjoint)
-  adjD = isa(D,Adjoint)
-  adjA == adjC || error("Only calls with pairs (A,C) or (A',C') are allowed")
-  adjB == adjD || error("Only calls with pairs (B,D) or (B',D') are allowed")
-  adjAC = adjA & adjC
-  if adjAC
-     isschur(A.parent,C.parent) || 
-         error("The pair (A,C) must be in generalized Schur form")
-  else
-     isschur(A,C) ||
-        error("The pair (A,C) must be in generalized Schur form")
-  end
-  adjBD = adjB & adjD
-  if adjBD
-     if DBSchur
-       isschur(D.parent, B.parent) ||
-           error("The pair (D,B) must be in generalized Schur form")
+   y = try
+      if L.sf
+         eltype(x) == T1 ? Y = reshape(copy(x), m, n) : Y = reshape(convert(Vector{T1}, x), m, n)
+         gsylvs!(L.A, L.B, L.C, L.D, Y, adjAC = L.adjAC, adjBD = L.adjBD, DBSchur = L.DBSchur && !L.BDSchur)
+         y .= Y[:]
       else
-        isschur(B.parent, D.parent) ||
-            error("The pair (B,D) must be in generalized Schur form")
-     end
-  else
-     if DBSchur
-        isschur(D,B) || error("The pair (D,B) must be in generalized Schur form")
-     else
-        isschur(B,D) || error("The pair (B,D) must be in generalized Schur form")
-     end
-  end
-  function prod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    Y = copy(reshape(x, m, n))
-    try
-       if !adjAC & !adjBD
-          gsylvs!(A, B, C, D, Y, adjAC = false, adjBD = false, DBSchur = DBSchur)
-       elseif !adjAC & adjBD
-          gsylvs!(A, B.parent, C, D.parent, Y, adjAC = false, adjBD = true, DBSchur = DBSchur)
-       elseif adjAC & !adjBD
-          gsylvs!(A.parent, B, C.parent, D, Y, adjAC = true, adjBD = false, DBSchur = DBSchur)
-       else
-          gsylvs!(A.parent, B.parent, C.parent, D.parent, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
-       end
-       return Y[:]
-    catch err
-       findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function tprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    Y = copy(reshape(x, m, n))
-    try
-       if !adjAC & !adjBD
-          gsylvs!(A, B, C, D, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
-       elseif !adjAC & adjBD
-          gsylvs!(A, B.parent, C, D.parent, Y, adjAC = true, adjBD = false, DBSchur = DBSchur)
-       elseif adjAC & !adjBD
-          gsylvs!(A.parent, B, C.parent, D, Y, adjAC = false, adjBD = true, DBSchur = DBSchur)
-       else
-          gsylvs!(A.parent, B.parent, C.parent, D.parent, Y, adjAC = false, adjBD = false, DBSchur = DBSchur)
-       end
-       return Y[:]
-    catch err
-       findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function ctprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    Y = copy(reshape(x, m, n))
-    try
-       if !adjAC & !adjBD
-          gsylvs!(A, B, C, D, Y, adjAC = true, adjBD = true, DBSchur = DBSchur)
-       elseif !adjAC & adjBD
-          gsylvs!(A, B.parent, C, D.parent, Y, adjAC = true, adjBD = false, DBSchur = DBSchur)
-       elseif adjAC & !adjBD
-          gsylvs!(A.parent, B, C.parent, D, Y, adjAC = false, adjBD = true, DBSchur = DBSchur)
-       else
-          gsylvs!(A.parent, B.parent, C.parent, D.parent, Y, adjAC = false, adjBD = false, DBSchur = DBSchur)
-       end
-       return Y[:]
-    catch err
-       findfirst("SingularException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  return LinearOperator{T}(m * n, n * m, false, false, prod, tprod, ctprod)
-end
-invsylvsop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsop(AC.S,BD.S,AC.T,BD.T)
+         eltype(x) == T1 ? Y = reshape(x, m, n) : Y = reshape(convert(Vector{T1}, x), m, n)
+         y .= gsylv(L.adjAC ? L.A' : L.A, L.adjBD ? L.B' : L.B, 
+                    L.adjAC ? L.C' : L.C, L.adjBD ? L.D' : L.D, Y)[:]
+      end
+   catch err
+       findfirst("SingularException",string(err)) === nothing &&
+       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
+   end
+   return y
+end 
+invsylvop(F::GeneralizedSchur{T,Matrix{T}}, G::GeneralizedSchur{T,Matrix{T}}) where T = invsylvop(F.S, G.S, F.T, G.T)
+LinearAlgebra.adjoint(L::InverseGeneralizedSylvesterMap{T}) where T = 
+      InverseGeneralizedSylvesterMap(L.adjAC ? L.A : L.A', L.adjBD ? L.B : L.B', 
+                                     L.adjAC ? L.C : L.C', L.adjBD ? L.D : L.D')
+LinearAlgebra.transpose(L::InverseGeneralizedSylvesterMap{T}) where T = 
+      InverseGeneralizedSylvesterMap(L.adjAC ? L.A : L.A', L.adjBD ? L.B : L.B', 
+                                     L.adjAC ? L.C : L.C', L.adjBD ? L.D : L.D')
+LinearAlgebra.inv(L::GeneralizedSylvesterMap{T}) where T = 
+      InverseGeneralizedSylvesterMap(L.A, L.B, L.C, L.D)
+LinearAlgebra.inv(L::InverseGeneralizedSylvesterMap{T}) where T = 
+      GeneralizedSylvesterMap(L.A, L.B, L.C, L.D)
 
+struct SylvesterSystemMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   B::AbstractMatrix
+   C::AbstractMatrix
+   D::AbstractMatrix
+   function SylvesterSystemMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+      m, n = LinearAlgebra.checksquare(A, B)
+      [m; n] == LinearAlgebra.checksquare(C,D) ||
+             throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      return new{T}(A, B, C, D)
+   end
+end
 """
     M = sylvsysop(A, B, C, D) 
 
 Define the operator `M: (X,Y) -> (AX+YB, CX+YD )`, 
 where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function sylvsysop(A, B, C, D)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  T = promote_type(eltype(A), eltype(B))
-  [m; n] == LinearAlgebra.checksquare(C,D) ||
-     throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  mn = m*n
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    return ([A * X + Y * B C * X + Y * D])[:]
-  end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    return [adjoint(A) * X + adjoint(C) * Y  X * adjoint(B) + Y * adjoint(D)][:]
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    X = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    Y = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    return [A' * X + C' * Y  X * B' + Y * D'][:]
-  end
-  return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
+function sylvsysop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where T
+    SylvesterSystemMap(A, B, C, D)
+end
+function sylvsysop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
+   T = promote_type(T1, T2, T3, T4) 
+   SylvesterSystemMap(convert(Matrix{T},A), convert(Matrix{T},B), convert(Matrix{T},C), convert(Matrix{T},D))
+end
+function Base.size(L::SylvesterSystemMap)
+   N = size(L.A,1)*size(L.B,1)*2
+   return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: SylvesterSystemMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::SylvesterSystemMap{T}, x::AbstractVector) where T
+   m = size(L.A,1)
+   n = size(L.B,1)
+   mn = m*n
+   T1 = promote_type(T, eltype(x))
+   eltype(x) == T1 ? X = reshape(view(x,1:mn), m, n) : X = reshape(convert(Vector{T1}, view(x,1:m*n)), m, n)
+   eltype(x) == T1 ? Y = reshape(view(x,mn+1:2*mn), m, n) : Y = reshape(convert(Vector{T1}, view(x,mn+1:2*mn)), m, n)
+   U = reshape(view(y,1:m*n), (m, n))  
+   V = reshape(view(y,mn+1:2*mn), (m, n))  
+   # U = A * X + Y * B 
+   # V = C * X + Y * D
+   mul!(U, L.A, X) 
+   mul!(U, Y, L.B, 1, 1) 
+   mul!(V, L.C, X) 
+   mul!(V, Y, L.D, 1, 1) 
+   return y
+end 
+function LinearAlgebra.mul!(y::AbstractVector, LT::Union{LinearMaps.TransposeMap{T, SylvesterSystemMap{T}},LinearMaps.AdjointMap{T, SylvesterSystemMap{T}}}, x::AbstractVector) where T
+   m = size(LT.lmap.A,1)
+   n = size(LT.lmap.B,1)
+   mn = m*n
+   T1 = promote_type(T, eltype(x))
+   eltype(x) == T1 ? X = reshape(view(x,1:mn), m, n) : X = reshape(convert(Vector{T1}, view(x,1:m*n)), m, n)
+   eltype(x) == T1 ? Y = reshape(view(x,mn+1:2*mn), m, n) : X = reshape(convert(Vector{T1}, view(x,mn+1:2*mn)), m, n)
+   U = reshape(view(y,1:m*n), (m, n))  
+   V = reshape(view(y,mn+1:2*mn), (m, n))  
+   # U = A' * X + C' * Y 
+   # V = X * B' + Y * D'
+   mul!(U, LT.lmap.A', X) 
+   mul!(U, LT.lmap.C', Y, 1, 1) 
+   mul!(V, X, LT.lmap.B') 
+   mul!(V, Y, LT.lmap.D', 1, 1) 
+   return y
+end 
+function Base.Matrix{T}(A::Union{LinearMaps.TransposeMap{T, SylvesterSystemMap{T}},LinearMaps.AdjointMap{T, SylvesterSystemMap{T}}}) where {T}
+   M, N = size(A)
+   mat = Matrix{T}(undef, (M, N))
+   v = fill(zero(T), N)
+   @inbounds for i in 1:N
+       v[i] = one(T)
+       mul!(view(mat, :, i), A, v)
+       v[i] = zero(T)
+   end
+   return mat
+end
+struct InverseSylvesterSystemMap{T} <: MatrixEquationsMaps{T}
+   A::AbstractMatrix
+   B::AbstractMatrix
+   C::AbstractMatrix
+   D::AbstractMatrix
+   sf::Bool
+   function InverseSylvesterSystemMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+      m, n = LinearAlgebra.checksquare(A, B)
+      [m; n] == LinearAlgebra.checksquare(C,D) ||
+             throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      schur_flag = isschur(A,C) && isschur(B,D)
+      return new{T}(A, B, C, D, schur_flag)
+   end
 end
 """
     MINV = invsylvsysop(A, B, C, D) 
 
-Define MINV, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD )`, 
+Define `MINV`, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD )`, 
 where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function invsylvsysop(A, B, C, D)
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  [m; n] == LinearAlgebra.checksquare(C,D) ||
-     throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
-  mn = m*n
-  function prod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    try
-       (X,Y) = sylvsys(A,B,E,C,D,F)
-       return [X Y][:]
-    catch err
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function tprod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    try
-       (X,Y) = dsylvsys(A',B',E,C',D',F)[:]
-       return [X Y][:]
-    catch err
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function ctprod(x)
-    T1 = promote_type(T, eltype(x))
-    E = reshape(convert(Vector{T1}, x[1:mn]), m, n)
-    F = reshape(convert(Vector{T1}, x[mn+1:2*mn]), m, n)
-    try
-       (X,Y) = dsylvsys(A',B',E,C',D',F)[:]
-       return [X Y][:]
-    catch err
-       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
+function invsylvsysop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where T
+    InverseSylvesterSystemMap(A, B, C, D)
 end
-"""
-    MINV = invsylvsyssop(A, B, C, D) 
+function invsylvsysop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
+   T = promote_type(T1, T2, T3, T4) 
+   InverseSylvesterSystemMap(convert(Matrix{T},A), convert(Matrix{T},B), convert(Matrix{T},C), convert(Matrix{T},D))
+end
+function Base.size(L::InverseSylvesterSystemMap)
+   N = size(L.A,1)*size(L.B,1)*2
+   return (N,N)
+end
+Base.size(L::Adjoint{<:Any, <: InverseSylvesterSystemMap}) = size(L.parent)
+function LinearAlgebra.mul!(y::AbstractVector, L::InverseSylvesterSystemMap{T}, x::AbstractVector) where T
+   m = size(L.A,1)
+   n = size(L.B,1)
+   T1 = promote_type(T, eltype(x))
+   mn = m*n
+   eltype(x) == T1 ? E = reshape(x[1:mn], m, n) : E = reshape(convert(Vector{T1}, view(x,1:m*n)), m, n)
+   eltype(x) == T1 ? F = reshape(x[mn+1:2*mn], m, n) : F = reshape(convert(Vector{T1}, view(x,mn+1:2*mn)), m, n)
+   X = reshape(view(y,1:m*n), (m, n))  
+   Y = reshape(view(y,mn+1:2*mn), (m, n))  
+   y = try
+      if L.sf
+         X, Y = sylvsyss!(L.A,L.B,E,L.C,L.D,F) 
+         y .= [X Y][:]
+      else
+         X, Y = sylvsys(L.A,L.B,E,L.C,L.D,F)
+         y .= [X Y][:]
+      end
+   catch err
+       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
+   end
+   return y
+end 
+function LinearAlgebra.mul!(y::AbstractVector, L::Union{LinearMaps.TransposeMap{T, InverseSylvesterSystemMap{T}},LinearMaps.AdjointMap{T, InverseSylvesterSystemMap{T}}}, x::AbstractVector) where T
+   m = size(L.lmap.A,1)
+   n = size(L.lmap.B,1)
+   mn = m*n
+   T1 = promote_type(T, eltype(x))
+   mn = m*n
+   eltype(x) == T1 ? E = reshape(x[1:mn], m, n) : E = reshape(convert(Vector{T1}, view(x,1:m*n)), m, n)
+   eltype(x) == T1 ? F = reshape(x[mn+1:2*mn], m, n) : F = reshape(convert(Vector{T1}, view(x,mn+1:2*mn)), m, n)
+   X = reshape(view(y,1:m*n), (m, n))  
+   Y = reshape(view(y,mn+1:2*mn), (m, n))  
+   y = try
+      if L.lmap.sf
+         X, Y = dsylvsyss!(L.lmap.A,L.lmap.B,E,L.lmap.C,L.lmap.D,F) 
+         y .= [X Y][:]
+      else
+         X, Y = dsylvsys(L.lmap.A',L.lmap.B',E,L.lmap.C',L.lmap.D',F)
+         y .= [X Y][:]
+      end
+   catch err
+       findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
+   end
+   return y
+end 
+invsylvsysop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsysop(AC.S, BD.S, AC.T, BD.T)
+LinearAlgebra.inv(L::SylvesterSystemMap{T}) where T = InverseSylvesterSystemMap(L.A, L.B, L.C, L.D)
+LinearAlgebra.inv(L::InverseSylvesterSystemMap{T}) where T = SylvesterSystemMap(L.A, L.B, L.C, L.D)
 
-Define MINV, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD)`,
-with the pairs `(A,C)` and `(B,D)` in generalized Schur forms.
-"""
-function invsylvsyssop(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where T <: BlasFloat
-  m = LinearAlgebra.checksquare(A)
-  n = LinearAlgebra.checksquare(B)
-  [m; n] == LinearAlgebra.checksquare(C,D) ||
-     throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
-  (isa(A,Adjoint) || isa(B,Adjoint) || isa(C,Adjoint)  || isa(D,Adjoint)) &&
-     error("Only calls with (A, B, C, D) without adjoints are allowed")
-  isschur(A,C) || error("The pair (A,C) must be in generalized Schur form")
-  isschur(B,D) || error("The pair (B,D) must be in generalized Schur form")
-  T <: Complex ? TA = 'C' : TA = 'T'
-  mn = m*n
-  function prod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    E = reshape(x[1:mn], m, n)
-    F = reshape(x[mn+1:2*mn], m, n)
-    try
-      X, Y = sylvsyss!(A,B,E,C,D,F) 
-      return [X Y][:]
-    catch err
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function tprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    E = reshape(x[1:mn], m, n)
-    F = reshape(x[mn+1:2*mn], m, n)
-    try
-      X, Y = dsylvsyss!(A,B,E,C,D,F) 
-      return [X Y][:]
-    catch err
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  function ctprod(x)
-    T == eltype(x) || (x = convert(Vector{T},x))
-    E = reshape(x[1:mn], m, n)
-    F = reshape(x[mn+1:2*mn], m, n)
-    try
-      X, Y = dsylvsyss!(A,B,E,C,D,F) 
-      return [X Y][:]
-    catch err
-      findfirst("LAPACKException",string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
-    end
-  end
-  return LinearOperator{T}(2*mn, 2*mn, false, false, prod, tprod, ctprod)
-end
-invsylvsyssop(AC :: GeneralizedSchur, BD :: GeneralizedSchur) = invsylvsyssop(AC.S,BD.S,AC.T,BD.T)

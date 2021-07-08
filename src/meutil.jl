@@ -92,10 +92,10 @@ function utqu!(Q,U)
    #Q = tmp+tmp'
    @inbounds  begin
       for j = 1:n
-       Q[j,j] += Q[j,j]'
+       Q[j,j] += conj(Q[j,j])
        for i = j+1:n
-           Q[i,j] += Q[j,i]'
-           Q[j,i] = Q[i,j]'
+           Q[i,j] += conj(Q[j,i])
+           Q[j,i] = conj(Q[i,j])
        end
    end
    end
@@ -133,10 +133,10 @@ function utqu(Q,U)
    end
    @inbounds  begin
    for j = 1:m
-       X[j,j] += X[j,j]'
+       X[j,j] += conj(X[j,j])
        for i = j+1:m
-           X[i,j] += X[j,i]'
-           X[j,i] = X[i,j]'
+           X[i,j] += conj(X[j,i])
+           X[j,i] = conj(X[i,j])
       end
    end
    end
@@ -279,7 +279,7 @@ function vec2triu(x::AbstractVector{T}; rowwise = false, her = false) where T
    if her
       for j = 1:n
          for i = j+1:n
-            Q[i,j] = Q[j,i]'
+            Q[i,j] = conj(Q[j,i])
          end
       end
    end
@@ -293,9 +293,9 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
    if adj
       # Make the diagonal elements of U non-negative.
       if T <: Real
-         for i = 1:n
-            U[i,i] > ZERO || [@inbounds U[i,j] = -U[i,j] for j = i:n]
-         end
+            for i = 1:n
+               U[i,i] > ZERO || (rmul!(view(U,i,i:n),-1))
+            end
       else
          for i = 1:n
              d = abs(U[i,i])
@@ -307,7 +307,7 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
       # Make the diagonal elements of U non-negative.
       if T <: Real
          for j = 1:n
-            U[j,j] > ZERO || [@inbounds U[i,j] = -U[i,j] for i = 1:j]
+            U[j,j] > ZERO || (rmul!(view(U,1:j,j),-1))
          end
       else
          for j = 1:n

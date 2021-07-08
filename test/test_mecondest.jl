@@ -1,9 +1,20 @@
 module Test_MEcondest
 
 using LinearAlgebra
-using LinearOperators
+using LinearMaps
 using MatrixEquations
 using Test
+
+function check_ctranspose(op::LinearMaps.LinearMap{T}) where {T <: Union{AbstractFloat, Complex}}
+   (m, n) = size(op)
+   x = rand(T,n)
+   y = rand(T,m)
+   yAx = dot(y, op * x)
+   xAty = dot(x, op' * y)
+   ε = eps(real(eltype(op)))
+   return abs(yAx - conj(xAty)) < (abs(yAx) + ε) * ε^(1 / 3)
+end
+    
 
 @testset "Testing Lyapunov and Sylvester operators" begin
 
@@ -27,21 +38,21 @@ acs,  = schur(ac);
 Tcr = lyapop(ar);
 Tcrinv = invlyapop(ar);
 Tcrs = lyapop(as);
-Tcrsinv = invlyapsop(as);
+Tcrsinv = invlyapop(as);
 Tcrsym = lyapop(ar,her=true);
 Tcrsyminv = invlyapop(ar,her=true);
 Tcrssym = lyapop(as,her=true);
-Tcrssyminv = invlyapsop(as,her=true);
+Tcrssyminv = invlyapop(as,her=true);
 
 
 Tcc = lyapop(ac);
 Tccinv = invlyapop(ac);
 Tccs = lyapop(acs);
-Tccsinv = invlyapsop(acs);
+Tccsinv = invlyapop(acs);
 Tccsym = lyapop(ac,her=true);
 Tccsyminv = invlyapop(ac,her=true);
 Tccssym = lyapop(acs,her=true);
-Tccssyminv = invlyapsop(acs,her=true);
+Tccssyminv = invlyapop(acs,her=true);
 Π = trmatop(n); 
 
 @test check_ctranspose(Tcr) &&
@@ -63,8 +74,8 @@ Tccssyminv = invlyapsop(acs,her=true);
 
 
 try
-   #T1 = invlyapsop(convert(Matrix{Float32},as))
-   T = invlyapsop(as);
+   T1 = invlyapop(convert(Matrix{Float32},as))
+   T = invlyapop(as);
    T*rand(n*n);
    transpose(T)*rand(n*n);
    adjoint(T)*rand(n*n);
@@ -75,8 +86,8 @@ try
    transpose(T)*ones(Int,n*n);
    adjoint(T)*ones(Int,n*n);
    T*ones(Rational{Int},n*n);
-   # T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs));
-   T = invlyapsop(acs);
+   T1 = invlyapop(convert(Matrix{Complex{Float32}},acs));
+   T = invlyapop(acs);
    T*rand(n*n);
    T*complex(rand(n*n));
    transpose(T)*rand(n*n);
@@ -110,13 +121,13 @@ end
 @time x = transpose(Tcrsyminv)*triu2vec(cr);
 @test norm(transpose(Tcrsym)*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tcrsinv*cr[:]
+@time x = Tcrsinv*cr[:];
 @test norm(Tcrs*x-cr[:])/norm(x[:]) < reltol
 
-@time x = Tcrsinv*real(cc[:])+im*Tcrsinv*imag(cc[:])
+@time x = Tcrsinv*real(cc[:])+im*(Tcrsinv*imag(cc[:]));
 @test norm(Tcrs*x-cc[:])/norm(x[:]) < reltol
 
-@time x = transpose(Tcrsinv)*cr[:]
+@time x = transpose(Tcrsinv)*cr[:];
 @test norm(transpose(Tcrs)*x-cr[:])/norm(x[:]) < reltol
 
 try 
@@ -145,28 +156,28 @@ end
 @time x = transpose(Tcrssyminv)*triu2vec(cr);
 @test norm(transpose(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tccinv*cc[:]
+@time x = Tccinv*cc[:];
 @test norm(Tcc*x-cc[:])/norm(x[:]) < reltol
 
 @time x = Tccsyminv*triu2vec(cr);
 @test norm(Tccsym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time y = Tccinv'*cc[:]
+@time y = Tccinv'*cc[:];
 @test norm(Tcc'*y-cc[:])/norm(y[:]) < reltol
 
 @time x = Tccsyminv'*triu2vec(cr);
 @test norm(Tccsym'*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tccsinv*cc[:]
+@time x = Tccsinv*cc[:];
 @test norm(Tccs*x-cc[:])/norm(x[:]) < reltol
 
 @time x = Tccssyminv*triu2vec(cr);
 @test norm(Tccssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time y = transpose(Tcrinv)*cr[:]
+@time y = transpose(Tcrinv)*cr[:];
 @test norm(transpose(Tcr)*y-cr[:])/norm(y[:]) < reltol
 
-@time y = transpose(Tcrsinv)*cr[:]
+@time y = transpose(Tcrsinv)*cr[:];
 @test norm(transpose(Tcrs)*y-cr[:])/norm(y[:]) < reltol
 
 @test abs(norm(Matrix(Tcr)'-Matrix(transpose(Tcr)))) < reltol 
@@ -179,8 +190,8 @@ end
 @test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol 
 @test opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol 
 @test opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr) 
-@test opnorm1(Tcrsinv-invlyapsop(as')') == 0 
-@test opnorm1(Tcrsinv-invlyapsop(schur(ar))) == 0
+@test opnorm1(Tcrsinv-invlyapop(as')') == 0  
+@test opnorm1(Tcrsinv-invlyapop(schur(ar))) == 0 
 
 @test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
       sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
@@ -195,16 +206,17 @@ end
 @test sc*oprcondest(Tcr,Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
       sc*oprcondest(Tcrs,Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
       sc*oprcondest(Tcc,Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
-      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
+      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv) &&
+      oprcondest(Tcr) == oprcondest(Tcr,Tcrinv) == oprcondest(Tcrinv) 
 
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
       opsepest(invlyapop([0. 1.; 0. 1.])) == 0. &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.]))) == 0. &&
       opsepest(adjoint(invlyapop([0. 1.; 0. 1.]))) == 0.  &&
-      opsepest(invlyapsop([0. 1.; 0. 1.])) == 0.  &&
-      opsepest(transpose(invlyapsop([0. 1.; 0. 1.]))) == 0.  &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.]))) == 0.
+      opsepest(invlyapop([0. 1.; 0. 1.])) == 0.  &&
+      opsepest(transpose(invlyapop([0. 1.; 0. 1.]))) == 0.  &&
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.]))) == 0.
 
 end
 
@@ -224,23 +236,21 @@ acs, ecs  = schur(ac,ec)
 Tcr = lyapop(ar,er)
 Tcrinv = invlyapop(ar,er)
 Tcrs = lyapop(as,es)
-Tcrsinv = invlyapsop(as,es)
-Tcrs = lyapop(as,es)
-Tcrsinv = invlyapsop(as,es)
+Tcrsinv = invlyapop(as,es)
 Tcrsym = lyapop(ar,er,her=true);
 Tcrsyminv = invlyapop(ar,er,her=true);
 Tcrssym = lyapop(as,es,her=true);
-Tcrssyminv = invlyapsop(as,es,her=true);
+Tcrssyminv = invlyapop(as,es,her=true);
 
 
 Tcc = lyapop(ac,ec)
 Tccinv = invlyapop(ac,ec)
 Tccs = lyapop(acs,ecs)
-Tccsinv = invlyapsop(acs,ecs)
+Tccsinv = invlyapop(acs,ecs)
 Tccsym = lyapop(ac,ec,her=true);
 Tccsyminv = invlyapop(ac,ec,her=true);
 Tccssym = lyapop(acs,ecs,her=true);
-Tccssyminv = invlyapsop(acs,ecs,her=true);
+Tccssyminv = invlyapop(acs,ecs,her=true);
 Π = trmatop(size(ar))
 
 @test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) 
@@ -257,7 +267,7 @@ Tccssyminv = invlyapsop(acs,ecs,her=true);
       check_ctranspose(Tcc) &&
       check_ctranspose(Tccinv) &&
       check_ctranspose(Tccs) &&
-      check_ctranspose(Tccsinv) 
+      check_ctranspose(Tccsinv)  
       #check_ctranspose(Tccsym) &&
       #check_ctranspose(Tccsyminv) &&
       #check_ctranspose(Tccssyminv) &&
@@ -265,8 +275,8 @@ Tccssyminv = invlyapsop(acs,ecs,her=true);
 
 
 try
-   #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),ecs);
-   T = invlyapsop(acs,ecs);
+   T1 = invlyapop(convert(Matrix{Complex{Float32}},acs),ecs);
+   T = invlyapop(acs,ecs);
    T*rand(n*n);
    transpose(T)*rand(n*n);
    adjoint(T)*rand(n*n);
@@ -276,8 +286,8 @@ try
    T*ones(Int,n*n);
    transpose(T)*ones(Int,n*n);
    adjoint(T)*ones(Int,n*n);
-   #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
-   T = invlyapsop(acs,ecs);
+   T1 = invlyapop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
+   T = invlyapop(acs,ecs);
    T*rand(n*n);
    T*complex(rand(n*n));
    transpose(T)*rand(n*n);
@@ -313,13 +323,13 @@ end
 @time x = transpose(Tcrsyminv)*triu2vec(cr);
 @test norm(transpose(Tcrsym)*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = transpose(Tcrsyminv)*triu2vec(cc);
-@test norm(transpose(Tcrsym)*x-triu2vec(cc))/norm(x[:]) < reltol
+@time x = transpose(Tcrsyminv)*triu2vec(cc); 
+@test norm(transpose(Tcrsym)*x-triu2vec(cc))/norm(x[:]) < reltol   
 
-@time x = Tcrsinv*cr[:]
+@time x = Tcrsinv*cr[:];
 @test norm(Tcrs*x-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(Tcrsinv)*cr[:]
+@time x = transpose(Tcrsinv)*cr[:];
 @test norm(transpose(Tcrs)*x-cr[:])/norm(x[:]) < reltol
 
 @time x = Tcrssyminv*triu2vec(cr);
@@ -331,28 +341,28 @@ end
 @time x = adjoint(Tcrssyminv)*triu2vec(cr);
 @test norm(adjoint(Tcrssym)*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tccinv*cc[:]
+@time x = Tccinv*cc[:];
 @test norm(Tcc*x-cc[:])/norm(x[:]) < reltol
 
 @time x = Tccsyminv*triu2vec(cr);
-@test norm(Tccsym*x-triu2vec(cr))/norm(x[:]) < reltol
+@test norm(Tccsym*x-triu2vec(cr))/norm(x[:]) < reltol  
 
-@time y = Tccinv'*cc[:]
+@time y = Tccinv'*cc[:];
 @test norm(Tcc'*y-cc[:])/norm(y[:]) < reltol
 
 @time x = Tccsyminv'*triu2vec(cr);
-@test norm(Tccsym'*x-triu2vec(cr))/norm(x[:]) < reltol
+@test norm(Tccsym'*x-triu2vec(cr))/norm(x[:]) < reltol 
 
-@time x = Tccsinv*cc[:]
+@time x = Tccsinv*cc[:];
 @test norm(Tccs*x-cc[:])/norm(x[:]) < reltol
 
 @time x = Tccssyminv*triu2vec(cr);
-@test norm(Tccssym*x-triu2vec(cr))/norm(x[:]) < reltol
+@test norm(Tccssym*x-triu2vec(cr))/norm(x[:]) < reltol 
 
-@time y = Tcrinv'*cr[:]
+@time y = Tcrinv'*cr[:];
 @test norm(Tcr'*y-cr[:])/norm(y[:]) < reltol
 
-@time y = Tcrsinv'*cr[:]
+@time y = Tcrsinv'*cr[:];
 @test norm(Tcrs'*y-cr[:])/norm(y[:]) < reltol
 
 @test abs(norm(Matrix(Tcr)'-Matrix(transpose(Tcr)))) < reltol
@@ -365,8 +375,8 @@ end
 @test opnorm1est(Π*Tcrinv-Tcrinv*Π) < reltol*norm(ar)*norm(er) 
 @test opnorm1est(Π*Tcrsinv-Tcrsinv*Π) < reltol*norm(ar)*norm(er) 
 @test opnorm(Matrix(Tcr),1) ≈ opnorm1(Tcr) 
-@test opnorm1(Tcrsinv-invlyapsop(as',es')') == 0 
-@test opnorm1(Tcrsinv-invlyapsop(schur(ar,er))) == 0
+@test opnorm1(Tcrsinv-invlyapop(as',es')') == 0 
+@test opnorm1(Tcrsinv-invlyapop(schur(ar,er))) == 0
 
 @test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
       sc*opnorm1(Tcrinv) < opnorm1est(Tcrinv)  &&
@@ -381,16 +391,17 @@ end
 @test sc*oprcondest(Tcr,Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
       sc*oprcondest(Tcrs,Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
       sc*oprcondest(Tcc,Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
-      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
+      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv) &&
+      oprcondest(Tcr) == oprcondest(Tcr,Tcrinv) == oprcondest(Tcrinv) 
 
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
       opsepest(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.])) == 0. &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0. &&
       opsepest(adjoint(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.  &&
-      opsepest(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.])) == 0.  &&
-      opsepest(transpose(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.  &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.
+      opsepest(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.])) == 0.  &&
+      opsepest(transpose(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.  &&
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.]))) == 0.
 
 end
 
@@ -409,21 +420,21 @@ acs,  = schur(ac);
 Tdr = lyapop(ar,disc=true);
 Tdrinv = invlyapop(ar,disc=true);
 Tdrs = lyapop(as,disc=true);
-Tdrsinv = invlyapsop(as,disc=true);
+Tdrsinv = invlyapop(as,disc=true);
 Tdrsym = lyapop(ar,disc=true,her=true);
 Tdrsyminv = invlyapop(ar,disc=true,her=true);
 Tdrssym = lyapop(as,disc=true,her=true);
-Tdrssyminv = invlyapsop(as,disc=true,her=true);
+Tdrssyminv = invlyapop(as,disc=true,her=true);
 
 
 Tdc = lyapop(ac,disc=true);
 Tdcinv = invlyapop(ac,disc=true);
 Tdcs = lyapop(acs,disc=true);
-Tdcsinv = invlyapsop(acs,disc=true);
+Tdcsinv = invlyapop(acs,disc=true);
 Tdcsym = lyapop(ac,disc=true,her=true);
 Tdcsyminv = invlyapop(ac,disc=true,her=true);
 Tdcssym = lyapop(acs,disc=true,her=true);
-Tdcssyminv = invlyapsop(acs,disc=true,her=true);
+Tdcssyminv = invlyapop(acs,disc=true,her=true);
 Π = trmatop(ar)
 
 @test check_ctranspose(Tdr) &&
@@ -436,8 +447,8 @@ Tdcssyminv = invlyapsop(acs,disc=true,her=true);
       check_ctranspose(Tdcsinv) 
 
 try
-   #T1 = invlyapsop(convert(Matrix{Float32},as))
-   T = invlyapsop(as,disc=true);
+   T1 = invlyapop(convert(Matrix{Float32},as))
+   T = invlyapop(as,disc=true);
    T*rand(n*n);
    transpose(T)*rand(n*n);
    adjoint(T)*rand(n*n);
@@ -447,8 +458,8 @@ try
    T*ones(Int,n*n);
    transpose(T)*ones(Int,n*n);
    adjoint(T)*ones(Int,n*n);
-   # T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs));
-   T = invlyapsop(acs,disc=true);
+   T1 = invlyapop(convert(Matrix{Complex{Float32}},acs));
+   T = invlyapop(acs,disc=true);
     T*rand(n*n);
     T*complex(rand(n*n));
     transpose(T)*rand(n*n);
@@ -543,17 +554,18 @@ end
 @test sc*oprcondest(Tdr,Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
       sc*oprcondest(Tdrs,Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
       sc*oprcondest(Tdc,Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
-      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
+      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv) &&
+      oprcondest(Tdr) == oprcondest(Tdr,Tdrinv) == oprcondest(Tdrinv) 
 
 
 @test opsepest(Tdrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*opsepest(Tdrsinv)  &&
       opsepest(invlyapop([0. 1.; 0. 1.],disc=true)) == 0. &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.],disc=true))) == 0. &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],disc=true))) == 0.  &&
-      opsepest(invlyapsop([0. 1.; 0. 1.],disc=true)) == 0.  &&
-      opsepest(transpose(invlyapsop([0. 1.; 0. 1.],disc=true))) == 0.  &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],disc=true))) == 0.
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.],disc=true))) == 0.  &&
+      opsepest(invlyapop([0. 1.; 0. 1.],disc=true)) == 0.  &&
+      opsepest(transpose(invlyapop([0. 1.; 0. 1.],disc=true))) == 0.  &&
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.],disc=true))) == 0.
 
 
 end
@@ -574,7 +586,7 @@ acs, ecs  = schur(ac,ec)
 Tdr = lyapop(ar,er,disc=true)
 Tdrinv = invlyapop(ar,er,disc=true)
 Tdrs = lyapop(as,es,disc=true)
-Tdrsinv = invlyapsop(as,es,disc=true)
+Tdrsinv = invlyapop(as,es,disc=true)
 Tdrsym = lyapop(ar,er,disc=true,her=true);
 Tdrsyminv = invlyapop(ar,er,disc=true,her=true);
 Tdrssym = lyapop(as,es,disc=true,her=true);
@@ -584,11 +596,11 @@ Tdrssyminv = invlyapop(as,es,disc=true,her=true);
 Tdc = lyapop(ac,ec,disc=true)
 Tdcinv = invlyapop(ac,ec,disc=true)
 Tdcs = lyapop(acs,ecs,disc=true)
-Tdcsinv = invlyapsop(acs,ecs,disc=true)
+Tdcsinv = invlyapop(acs,ecs,disc=true)
 Tdcsym = lyapop(ac,ec,disc=true,her=true);
 Tdcsyminv = invlyapop(ac,ec,disc=true,her=true);
 Tdcssym = lyapop(acs,ecs,disc=true,her=true);
-Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
+Tdcssyminv = invlyapop(acs,ecs,disc=true,her=true);
 Π = trmatop(n)
 
 @test check_ctranspose(Tdr) &&
@@ -602,7 +614,7 @@ Tdcssyminv = invlyapsop(acs,ecs,disc=true,her=true);
 
 try
    #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),ecs);
-   T = invlyapsop(acs,ecs,disc = true);
+   T = invlyapop(acs,ecs,disc = true);
    T*rand(n*n);
    transpose(T)*rand(n*n);
    adjoint(T)*rand(n*n);
@@ -613,7 +625,7 @@ try
    transpose(T)*ones(Int,n*n);
    adjoint(T)*ones(Int,n*n);
    #T1 = invlyapsop(convert(Matrix{Complex{Float32}},acs),convert(Matrix{Complex{Float32}},ecs));
-   T = invlyapsop(acs,ecs,disc = true);
+   T = invlyapop(acs,ecs,disc = true);
    T*rand(n*n);
    T*complex(rand(n*n));
    transpose(T)*rand(n*n);
@@ -638,7 +650,7 @@ end
 @time x = Tdrsyminv'*triu2vec(cr);
 @test norm(Tdrsym'*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tdrsinv*cr[:]
+@time x = Tdrsinv*cr[:];
 @test norm(Tdrs*x-cr[:])/norm(x[:]) < reltol
 
 @time x = transpose(Tdrsinv)*cr[:]
@@ -647,8 +659,8 @@ end
 @time x = Tdrssyminv*triu2vec(cr);
 @test norm(Tdrssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time x = Tdrssyminv*triu2vec(cc);
-@test norm(Tdrssym*x-triu2vec(cc))/norm(x[:]) < reltol
+# @time x = Tdrssyminv*triu2vec(cc);
+# @test norm(Tdrssym*x-triu2vec(cc))/norm(x[:]) < reltol
 
 @time x = transpose(Tdrsyminv)*triu2vec(cr);
 @test norm(transpose(Tdrsym)*x-triu2vec(cr))/norm(x[:]) < reltol
@@ -659,13 +671,13 @@ end
 @time x = Tdrssyminv'*triu2vec(cc);
 @test norm(Tdrssym'*x-triu2vec(cc))/norm(x[:]) < reltol
 
-@time x = Tdcinv*cc[:]
+@time x = Tdcinv*cc[:];
 @test norm(Tdc*x-cc[:])/norm(x[:]) < reltol
 
 @time x = Tdcsyminv*triu2vec(cr);
 @test norm(Tdcsym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time y = Tdcinv'*cc[:]
+@time y = Tdcinv'*cc[:];
 @test norm(Tdc'*y-cc[:])/norm(y[:]) < reltol
 
 @time x = Tdcsyminv'*triu2vec(cr);
@@ -677,10 +689,10 @@ end
 @time x = Tdcssyminv*triu2vec(cr);
 @test norm(Tdcssym*x-triu2vec(cr))/norm(x[:]) < reltol
 
-@time y = transpose(Tdrinv)*cr[:]
+@time y = transpose(Tdrinv)*cr[:];
 @test norm(transpose(Tdr)*y-cr[:])/norm(y[:]) < reltol
 
-@time y = transpose(Tdrsinv)*cr[:]
+@time y = transpose(Tdrsinv)*cr[:];
 @test norm(transpose(Tdrs)*y-cr[:])/norm(y[:]) < reltol
 
 @test abs(norm(Matrix(Tdr)'-Matrix(transpose(Tdr)))) < reltol 
@@ -709,17 +721,18 @@ end
 @test sc*oprcondest(Tdr,Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
       sc*oprcondest(Tdrs,Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
       sc*oprcondest(Tdc,Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
-      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv)
+      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv) &&
+      oprcondest(Tdr) == oprcondest(Tdr,Tdrinv) == oprcondest(Tdrinv) 
 
 @test opsepest(Tdrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*opsepest(Tdrsinv)  &&
       opsepest(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true)) == 0. &&
-      opsepest(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true)) == 0.
+      opsepest(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true)) == 0. &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0. &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0.  &&
-      opsepest(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true)) == 0.  &&
-      opsepest(transpose(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0.  &&
-      opsepest(adjoint(invlyapsop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0.
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0.  &&
+      opsepest(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true)) == 0.  &&
+      opsepest(transpose(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0.  &&
+      opsepest(adjoint(invlyapop([0. 1.; 0. 1.],[1. 1.;0. 1.],disc=true))) == 0.
 
 
 end
@@ -729,6 +742,7 @@ end
 #  continuous and discrete Sylvester equations
 @testset "Continuous Sylvester operators" begin
 
+# n = 3; m = 2; 
 ar = rand(n,n)
 br = rand(m,m)
 cr = rand(n,m)
@@ -743,18 +757,18 @@ bcs,  = schur(bc)
 Tcr = sylvop(ar, br)
 Tcrinv = invsylvop(ar,br)
 Tcrs = sylvop(as, bs)
-Tcrsinv = invsylvsop(as,bs)
+Tcrsinv = invsylvop(as,bs)
 
 
 Tcc = sylvop(ac, bc)
 Tccinv = invsylvop(ac,bc)
 Tccs = sylvop(acs, bcs)
-Tccsinv = invsylvsop(acs,bcs)
+Tccsinv = invsylvop(acs,bcs)
 
 @test check_ctranspose(Tcr) &&
       check_ctranspose(Tcrinv) &&
       check_ctranspose(Tcrs) &&
-      check_ctranspose(Tcrsinv) &&
+      check_ctranspose(Tcrsinv) && 
       check_ctranspose(Tcc) &&
       check_ctranspose(Tccinv) &&
       check_ctranspose(Tccs) &&
@@ -762,7 +776,7 @@ Tccsinv = invsylvsop(acs,bcs)
 
 
 try
-    T = invsylvsop(as,bs);
+    T = invsylvop(as,bs);
     T*rand(n*m);
     transpose(T)*rand(n*m);
     adjoint(T)*rand(n*m);
@@ -772,7 +786,7 @@ try
     T*ones(Int,n*m);
     transpose(T)*ones(Int,n*m);
     adjoint(T)*ones(Int,n*m);
-    T = invsylvsop(acs,bcs);
+    T = invsylvop(acs,bcs);
     T*rand(n*m);
     T*complex(rand(n*m));
     transpose(T)*rand(n*m);
@@ -784,59 +798,59 @@ catch
     @test false
 end 
  
-@time x = Tcrinv*cr[:]
+@time x = Tcrinv*cr[:];
 @test norm(Tcr*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = Tcrsinv*cr[:]
+@time x = Tcrsinv*cr[:];
 @test norm(Tcrs*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as,bs)*cr[:]
+@time x = invsylvop(as,bs)*cr[:];
 @test norm(sylvop(as, bs)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as,bs')*cr[:]
+@time x = invsylvop(as,bs')*cr[:];
 @test norm(sylvop(as, bs')*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as',bs)*cr[:]
+@time x = invsylvop(as',bs)*cr[:];
 @test norm(sylvop(as', bs)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as',bs')*cr[:]
+@time x = invsylvop(as',bs')*cr[:];
 @test norm(sylvop(as', bs')*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as,bs))*cr[:]
+@time x = transpose(invsylvop(as,bs))*cr[:];
 @test norm(transpose(sylvop(as, bs))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as,bs'))*cr[:]
+@time x = transpose(invsylvop(as,bs'))*cr[:];
 @test norm(transpose(sylvop(as, bs'))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as',bs))*cr[:]
+@time x = transpose(invsylvop(as',bs))*cr[:];
 @test norm(transpose(sylvop(as', bs))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as',bs'))*cr[:]
+@time x = transpose(invsylvop(as',bs'))*cr[:];
 @test norm(transpose(sylvop(as', bs'))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as,bs))*cr[:]
+@time x = adjoint(invsylvop(as,bs))*cr[:];
 @test norm(adjoint(sylvop(as, bs))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as,bs'))*cr[:]
+@time x = adjoint(invsylvop(as,bs'))*cr[:];
 @test norm(adjoint(sylvop(as, bs'))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as',bs))*cr[:]
+@time x = adjoint(invsylvop(as',bs))*cr[:];
 @test norm(adjoint(sylvop(as', bs))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as',bs'))*cr[:]
+@time x = adjoint(invsylvop(as',bs'))*cr[:];
 @test norm(adjoint(sylvop(as', bs'))*x[:]-cr[:])/norm(x[:]) < reltol
 
 
-@time x = Tccinv*cc[:]
+@time x = Tccinv*cc[:];
 @test norm(Tcc*x[:]-cc[:])/norm(x[:]) < reltol
 
-@time x = Tccsinv*cc[:]
+@time x = Tccsinv*cc[:];
 @test norm(Tccs*x[:]-cc[:])/norm(x[:]) < reltol
 
-@time y = transpose(Tcrinv)*cr[:]
+@time y = transpose(Tcrinv)*cr[:];
 @test norm(transpose(Tcr)*y[:]-cr[:])/norm(y[:]) < reltol
 
-@time y = Tccinv'*cc[:]
+@time y = Tccinv'*cc[:];
 @test norm(Tcc'*y[:]-cc[:])/norm(y[:]) < reltol
 
 x = rand(n*m);
@@ -846,8 +860,8 @@ x = rand(n*m);
 @test norm(Matrix(Tcrsinv)*Matrix(Tcrs)-I) < reltol 
 @test norm(Matrix(Tccinv)*Matrix(Tcc)-I) < reltol 
 @test norm(Matrix(Tccsinv)*Matrix(Tccs)-I) < reltol 
-@test norm(Tcrsinv'*x-invsylvsop(as',bs')*x) == 0 
-@test opnorm1(Tcrsinv-invsylvsop(schur(ar),schur(br))) == 0
+@test norm(Tcrsinv'*x-invsylvop(as',bs')*x) == 0  
+@test opnorm1(Tcrsinv-invsylvop(schur(ar),schur(br))) == 0 
 
 
 @test sc*opnorm1(Tcr) < opnorm1est(Tcr)  &&
@@ -862,16 +876,17 @@ x = rand(n*m);
 @test sc*oprcondest(Tcr,Tcrinv) < 1/opnorm1(Tcr)/opnorm1(Tcrinv)  &&
       sc*oprcondest(Tcrs,Tcrsinv) < 1/opnorm1(Tcrs)/opnorm1(Tcrsinv)  &&
       sc*oprcondest(Tcc,Tccinv) < 1/opnorm1(Tcc)/opnorm1(Tccinv)  &&
-      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv)
+      sc*oprcondest(Tccs,Tccsinv) < 1/opnorm1(Tccs)/opnorm1(Tccsinv) &&
+      oprcondest(Tcr) == oprcondest(Tcr,Tcrinv) == oprcondest(Tcrinv) 
 
 @test opsepest(Tcrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tcrs)))  &&
       minimum(svdvals(Matrix(Tcrs))) <= sqrt(2)*n*opsepest(Tcrsinv)  &&
       opsepest(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.])) == 0. &&
       opsepest(transpose(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
       opsepest(adjoint(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
-      opsepest(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.])) == 0. &&
-      opsepest(transpose(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
-      opsepest(adjoint(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0.
+      opsepest(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.])) == 0. &&
+      opsepest(transpose(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(adjoint(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.]))) == 0.
 
 end
 
@@ -892,12 +907,12 @@ bcs,  = schur(bc)
 Tdr = sylvop(ar, br, disc = true)
 Tdrinv = invsylvop(ar,br, disc = true)
 Tdrs = sylvop(as, bs, disc = true)
-Tdrsinv = invsylvsop(as,bs, disc = true)
+Tdrsinv = invsylvop(as,bs, disc = true)
 
 Tdc = sylvop(ac, bc, disc = true)
 Tdcinv = invsylvop(ac,bc, disc = true)
 Tdcs = sylvop(acs, bcs, disc = true)
-Tdcsinv = invsylvsop(acs,bcs, disc = true)
+Tdcsinv = invsylvop(acs,bcs, disc = true)
 
 @test check_ctranspose(Tdr) &&
       check_ctranspose(Tdrinv) &&
@@ -909,7 +924,7 @@ Tdcsinv = invsylvsop(acs,bcs, disc = true)
       check_ctranspose(Tdcsinv) 
 
 try
-    T = invsylvsop(as,bs,disc = true);
+    T = invsylvop(as,bs,disc = true);
     T*rand(n*m);
     transpose(T)*rand(n*m);
     adjoint(T)*rand(n*m);
@@ -919,7 +934,7 @@ try
     T*ones(Int,n*m);
     transpose(T)*ones(Int,n*m);
     adjoint(T)*ones(Int,n*m);
-    T = invsylvsop(acs,bcs,disc = true);
+    T = invsylvop(acs,bcs,disc = true);
     T*rand(n*m);
     T*complex(rand(n*m));
     transpose(T)*rand(n*m);
@@ -937,40 +952,40 @@ end
 @time x = Tdrsinv*cr[:]
 @test norm(Tdrs*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as,bs, disc = true)*cr[:]
+@time x = invsylvop(as,bs, disc = true)*cr[:]
 @test norm(sylvop(as, bs, disc = true)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as,bs', disc = true)*cr[:]
+@time x = invsylvop(as,bs', disc = true)*cr[:]
 @test norm(sylvop(as, bs', disc = true)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as',bs, disc = true)*cr[:]
+@time x = invsylvop(as',bs, disc = true)*cr[:]
 @test norm(sylvop(as', bs, disc = true)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as',bs', disc = true)*cr[:]
+@time x = invsylvop(as',bs', disc = true)*cr[:]
 @test norm(sylvop(as', bs', disc = true)*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as,bs, disc = true))*cr[:]
+@time x = transpose(invsylvop(as,bs, disc = true))*cr[:]
 @test norm(transpose(sylvop(as, bs, disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as,bs', disc = true))*cr[:]
+@time x = transpose(invsylvop(as,bs', disc = true))*cr[:]
 @test norm(transpose(sylvop(as, bs', disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as',bs, disc = true))*cr[:]
+@time x = transpose(invsylvop(as',bs, disc = true))*cr[:]
 @test norm(transpose(sylvop(as', bs, disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as',bs', disc = true))*cr[:]
+@time x = transpose(invsylvop(as',bs', disc = true))*cr[:]
 @test norm(transpose(sylvop(as', bs', disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as,bs, disc = true))*cr[:]
+@time x = adjoint(invsylvop(as,bs, disc = true))*cr[:]
 @test norm(adjoint(sylvop(as, bs, disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as,bs', disc = true))*cr[:]
+@time x = adjoint(invsylvop(as,bs', disc = true))*cr[:]
 @test norm(adjoint(sylvop(as, bs', disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as',bs, disc = true))*cr[:]
+@time x = adjoint(invsylvop(as',bs, disc = true))*cr[:]
 @test norm(adjoint(sylvop(as', bs, disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as',bs', disc = true))*cr[:]
+@time x = adjoint(invsylvop(as',bs', disc = true))*cr[:]
 @test norm(adjoint(sylvop(as', bs', disc = true))*x[:]-cr[:])/norm(x[:]) < reltol
 
 @time x = Tdcinv*cc[:]
@@ -1005,8 +1020,8 @@ x = rand(n*m);
 @test norm(Matrix(Tdrsinv)*Matrix(Tdrs)-I) < reltol 
 @test norm(Matrix(Tdcinv)*Matrix(Tdc)-I) < reltol 
 @test norm(Matrix(Tdcsinv)*Matrix(Tdcs)-I) < reltol 
-@test norm(Tdrsinv'*x-invsylvsop(as',bs', disc = true)*x) == 0 
-@test opnorm1(Tdrsinv-invsylvsop(schur(ar),schur(br), disc = true)) == 0
+@test norm(Tdrsinv'*x-invsylvop(as',bs', disc = true)*x) == 0 
+@test opnorm1(Tdrsinv-invsylvop(schur(ar),schur(br), disc = true)) == 0
 
 
 
@@ -1019,11 +1034,18 @@ x = rand(n*m);
       sc*opnorm1(Tdcs) < opnorm1est(Tdcs)  &&
       sc*opnorm1(Tdcsinv) < opnorm1est(Tdcsinv)
 
+@test sc*oprcondest(Tdr,Tdrinv) < 1/opnorm1(Tdr)/opnorm1(Tdrinv)  &&
+      sc*oprcondest(Tdrs,Tdrsinv) < 1/opnorm1(Tdrs)/opnorm1(Tdrsinv)  &&
+      sc*oprcondest(Tdc,Tdcinv) < 1/opnorm1(Tdc)/opnorm1(Tdcinv)  &&
+      sc*oprcondest(Tdcs,Tdcsinv) < 1/opnorm1(Tdcs)/opnorm1(Tdcsinv) &&
+      oprcondest(Tdr) == oprcondest(Tdr,Tdrinv) == oprcondest(Tdrinv) 
+
+
 
 @test opsepest(Tdrsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Tdrs)))  &&
       minimum(svdvals(Matrix(Tdrs))) <= sqrt(2)*n*opsepest(Tdrsinv)  &&
       opsepest(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.],disc=true)) == 0. &&
-      opsepest(invsylvsop([0. 1.; 0. 1.],-[0. 1.; 0. 1.],disc=true)) == 0.
+      opsepest(invsylvop([0. 1.; 0. 1.],-[0. 1.; 0. 1.],disc=true)) == 0.
 
 end
 
@@ -1049,26 +1071,20 @@ bcs, dcs = schur(bc,dc)
 Tr = sylvop(ar, br, cr, dr)
 Trinv = invsylvop(ar, br, cr, dr)
 Trs = sylvop(as, bs, cs, ds)
-Trsinv = invsylvsop(as, bs, cs, ds)
+Trsinv = invsylvop(as, bs, cs, ds)
 Trs1 = sylvop(as, ds, cs, bs)
-Trs1inv = invsylvsop(as, ds, cs, bs, DBSchur=true)
+Trs1inv = invsylvop(as, ds, cs, bs)
 
 Tc = sylvop(ac, bc, cc, dc)
 Tcinv = invsylvop(ac, bc, cc, dc)
 Tcs = sylvop(acs, bcs, ccs, dcs)
-Tcsinv = invsylvsop(acs, bcs, ccs, dcs)
-try
-   invsylvsop(as, dr', cs, br', DBSchur=true) 
-   @test false
-catch
-   @test true
-end     
+Tcsinv = invsylvop(acs, bcs, ccs, dcs)
 
    
 @test check_ctranspose(Tr) &&   
-      check_ctranspose(Trinv) &&  # fails
+      check_ctranspose(Trinv) &&  
       check_ctranspose(Trs) &&
-      check_ctranspose(Trsinv) && # fails
+      check_ctranspose(Trsinv) && 
       check_ctranspose(Tc) &&
       check_ctranspose(Tcinv) &&
       check_ctranspose(Tcs) &&
@@ -1076,7 +1092,7 @@ end
 
 
 try
-    T = invsylvsop(as,bs,cs,ds);
+    T = invsylvop(as,bs,cs,ds);
     T*rand(n*m);
     transpose(T)*rand(n*m);
     adjoint(T)*rand(n*m);
@@ -1086,7 +1102,7 @@ try
     T*ones(Int,n*m);
     transpose(T)*ones(Int,n*m);
     adjoint(T)*ones(Int,n*m);
-    T = invsylvsop(acs,bcs,ccs,dcs);
+    T = invsylvop(acs,bcs,ccs,dcs);
     T*rand(n*m);
     T*complex(rand(n*m));
     transpose(T)*rand(n*m);
@@ -1099,8 +1115,8 @@ try
  end 
 
 
-@time x = Trinv*er[:]
-@test norm(Tr*x-er[:])/norm(x[:]) < reltol
+@time x = Trinv*er[:];
+@test norm(Tr*x-er[:])/norm(x[:]) < reltol 
 
 @time x = Trsinv*er[:]
 @test norm(Trs*x[:]-er[:])/norm(x[:]) < reltol
@@ -1108,43 +1124,43 @@ try
 @time x = Trs1inv*er[:]
 @test norm(Trs1*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as, bs, cs, ds)*er[:]
+@time x = invsylvop(as, bs, cs, ds)*er[:]
 @test norm(sylvop(as, bs, cs, ds)*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as', bs, cs', ds)*er[:]
+@time x = invsylvop(as', bs, cs', ds)*er[:]
 @test norm(sylvop(as', bs, cs', ds)*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as, bs', cs, ds')*er[:]
+@time x = invsylvop(as, bs', cs, ds')*er[:]
 @test norm(sylvop(as, bs', cs, ds')*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = invsylvsop(as', bs', cs', ds')*er[:]
+@time x = invsylvop(as', bs', cs', ds')*er[:]
 @test norm(sylvop(as', bs', cs', ds')*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as, bs, cs, ds))*er[:]
+@time x = transpose(invsylvop(as, bs, cs, ds))*er[:]
 @test norm(transpose(sylvop(as, bs, cs, ds))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as, bs, cs, ds))*er[:]
+@time x = transpose(invsylvop(as, bs, cs, ds))*er[:]
 @test norm(transpose(sylvop(as, bs, cs, ds))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as', bs, cs', ds))*er[:]
+@time x = transpose(invsylvop(as', bs, cs', ds))*er[:]
 @test norm(transpose(sylvop(as', bs, cs', ds))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as, bs', cs, ds'))*er[:]
+@time x = transpose(invsylvop(as, bs', cs, ds'))*er[:]
 @test norm(transpose(sylvop(as, bs', cs, ds'))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = transpose(invsylvsop(as', bs', cs', ds'))*er[:]
+@time x = transpose(invsylvop(as', bs', cs', ds'))*er[:]
 @test norm(transpose(sylvop(as', bs', cs', ds'))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as, bs, cs, ds))*er[:]
+@time x = adjoint(invsylvop(as, bs, cs, ds))*er[:]
 @test norm(adjoint(sylvop(as, bs, cs, ds))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as', bs, cs', ds))*er[:]
+@time x = adjoint(invsylvop(as', bs, cs', ds))*er[:]
 @test norm(adjoint(sylvop(as', bs, cs', ds))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as, bs', cs, ds'))*er[:]
+@time x = adjoint(invsylvop(as, bs', cs, ds'))*er[:]
 @test norm(adjoint(sylvop(as, bs', cs, ds'))*x[:]-er[:])/norm(x[:]) < reltol
 
-@time x = adjoint(invsylvsop(as', bs', cs', ds'))*er[:]
+@time x = adjoint(invsylvop(as', bs', cs', ds'))*er[:]
 @test norm(adjoint(sylvop(as', bs', cs', ds'))*x[:]-er[:])/norm(x[:]) < reltol
 
 @time x = Tcinv*ec[:]
@@ -1182,8 +1198,8 @@ x = rand(n*m);
 @test norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol 
 @test norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol 
 @test norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol 
-@test norm(Trsinv'*x-invsylvsop(as',bs', cs',ds')*x) == 0 
-@test opnorm1(Trsinv-invsylvsop(schur(ar,cr),schur(br,dr))) == 0
+@test norm(Trsinv'*x-invsylvop(as',bs', cs',ds')*x) == 0 
+@test opnorm1(Trsinv-invsylvop(schur(ar,cr),schur(br,dr))) == 0
 
 
 @test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
@@ -1198,16 +1214,17 @@ x = rand(n*m);
 @test sc*oprcondest(Tr,Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
       sc*oprcondest(Trs,Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
       sc*oprcondest(Tc,Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
-      sc*oprcondest(Tcs,Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
+      sc*oprcondest(Tcs,Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv) &&
+      oprcondest(Tr) == oprcondest(Tr,Trinv) == oprcondest(Trinv) 
 
 @test opsepest(Trsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Trs)))  &&
       minimum(svdvals(Matrix(Trs))) <= sqrt(2)*n*opsepest(Trsinv)  &&
       opsepest(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0. &&
       opsepest(transpose(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
       opsepest(adjoint(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
-      opsepest(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0. &&
-      opsepest(transpose(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
-      opsepest(adjoint(invsylvsop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. 
+      opsepest(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0. &&
+      opsepest(transpose(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. &&
+      opsepest(adjoint(invsylvop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. 
 
 end
 
@@ -1233,12 +1250,12 @@ bcs, dcs = schur(bc,dc)
 Tr = sylvsysop(ar, br, cr, dr)
 Trinv = invsylvsysop(ar, br, cr, dr)
 Trs = sylvsysop(as, bs, cs, ds)
-Trsinv = invsylvsyssop(as, bs, cs, ds)
+Trsinv = invsylvsysop(as, bs, cs, ds)
 
 Tc = sylvsysop(ac, bc, cc, dc)
 Tcinv = invsylvsysop(ac, bc, cc, dc)
 Tcs = sylvsysop(acs, bcs, ccs, dcs)
-Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
+Tcsinv = invsylvsysop(acs, bcs, ccs, dcs)
 
 
 @test check_ctranspose(Tr) &&
@@ -1252,7 +1269,7 @@ Tcsinv = invsylvsyssop(acs, bcs, ccs, dcs)
 
 
 try
-    T = invsylvsyssop(as,bs,cs,ds);
+    T = invsylvsysop(as,bs,cs,ds);
     T*rand(2n*m);
     transpose(T)*rand(2n*m);
     adjoint(T)*rand(2n*m);
@@ -1262,7 +1279,7 @@ try
     T*ones(Int,2n*m);
     transpose(T)*ones(Int,2n*m);
     adjoint(T)*ones(Int,2n*m);
-    T = invsylvsyssop(acs,bcs,ccs,dcs);
+    T = invsylvsysop(acs,bcs,ccs,dcs);
     T*rand(2n*m);
     T*complex(rand(2n*m));
     transpose(T)*rand(2n*m);
@@ -1316,7 +1333,7 @@ try
 @test norm(Matrix(Trsinv)*Matrix(Trs)-I) < reltol 
 @test norm(Matrix(Tcinv)*Matrix(Tc)-I) < reltol 
 @test norm(Matrix(Tcsinv)*Matrix(Tcs)-I) < reltol 
-@test opnorm1(Trsinv-invsylvsyssop(schur(ar,cr),schur(br,dr))) == 0
+@test opnorm1(Trsinv-invsylvsysop(schur(ar,cr),schur(br,dr))) == 0
 
 
 @test sc*opnorm1(Tr) < opnorm1est(Tr)  &&
@@ -1331,7 +1348,8 @@ try
 @test sc*oprcondest(Tr,Trinv) < 1/opnorm1(Tr)/opnorm1(Trinv)  &&
       sc*oprcondest(Trs,Trsinv) < 1/opnorm1(Trs)/opnorm1(Trsinv)  &&
       sc*oprcondest(Tc,Tcinv) < 1/opnorm1(Tc)/opnorm1(Tcinv)  &&
-      sc*oprcondest(Tcs,Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv)
+      sc*oprcondest(Tcs,Tcsinv) < 1/opnorm1(Tcs)/opnorm1(Tcsinv) &&
+      oprcondest(Tr) == oprcondest(Tr,Trinv) == oprcondest(Trinv) 
 
 
 @test opsepest(Trsinv)/n/sqrt(2) <= minimum(svdvals(Matrix(Trs)))  &&
@@ -1339,9 +1357,9 @@ try
       opsepest(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.   &&
       opsepest(transpose(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
       opsepest(adjoint(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
-      opsepest(invsylvsyssop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.  &&
-      opsepest(transpose(invsylvsyssop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
-      opsepest(adjoint(invsylvsyssop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. 
+      opsepest(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.])) == 0.  &&
+      opsepest(transpose(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0.  &&
+      opsepest(adjoint(invsylvsysop([0. 1.; 0. 1.],[0. 1.; 0. 1.],-[0. 1.; 0. 1.],[0. 1.; 0. 1.]))) == 0. 
 
 
 end
