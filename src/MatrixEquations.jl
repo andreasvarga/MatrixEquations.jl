@@ -6,8 +6,9 @@ const BlasReal = Union{Float64,Float32}
 const BlasComplex = Union{ComplexF64,ComplexF32}
 
 using LinearAlgebra
+using LinearAlgebra: require_one_based_indexing
+import LinearAlgebra: mul!
 using LinearMaps
-import LinearAlgebra: require_one_based_indexing
 
 
 include("lapackutil.jl")

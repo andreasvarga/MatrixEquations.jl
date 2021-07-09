@@ -59,7 +59,7 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
 
    adj = isa(A,Adjoint)
    xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
- 
+
    n = LinearAlgebra.checksquare(A)
    if adj
       nb, mb = size(B)
@@ -120,7 +120,7 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
       U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Q*U*U'*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q,U),tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -217,7 +217,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
- 
+
    ZERO = zero(real(T2))
 
    # Reduce (A,E) to generalized Schur form and transform C
@@ -229,7 +229,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    end
 
    maximum(real(α./β)) >= ZERO && error("A-λE must have only eigenvalues with negative real parts")
- 
+
    if adj
       #U'*U = Z'*B'*B*Z
       tau = similar(Z,min(n,mb))
@@ -266,7 +266,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Z*U*U'*Z'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z,U),tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -337,7 +337,7 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
 
    adj = isa(A,Adjoint)
    xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
- 
+
    n = LinearAlgebra.checksquare(A)
    if adj
       nb, mb = size(B)
@@ -362,7 +362,7 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
       AS, Q, EV = schur(A)
    end
    maximum(abs.(EV)) >= ONE && error("A must have only eigenvalues with moduli less than one")
- 
+
    if adj
       #U'U = Q'*B'*B*Q
       tau = similar(Q,min(n,mb))
@@ -399,7 +399,7 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
       U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Q*U*U'*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q,U),tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -509,7 +509,7 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    end
 
    maximum(abs.(α./β)) >= ONE && error("A-λE must have only eigenvalues with moduli less than one")
- 
+
    if adj
       #U'*U = Z'*B'*B*Z
       tau = similar(Z,min(n,mb))
@@ -546,7 +546,7 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Z*U*U'*Z'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z,U),tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -621,7 +621,7 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
 
    adj = isa(A,Adjoint)
    xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
- 
+
    n = LinearAlgebra.checksquare(A)
    if adj
       nb, mb = size(B)
@@ -742,7 +742,7 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    # [3] Penzl, T.
    #     Numerical solution of generalized Lyapunov equations.
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
- 
+
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyaps(A, B))
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -824,7 +824,7 @@ complex Schur form and `R` is an upper triangular matrix.
 function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
- 
+
    ONE = one(T1)
    ZERO = zero(T1)
    TWO = 2*ONE
@@ -889,7 +889,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              transpose!(view(R,l,j1),rmul!(z,-1))
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
              # y = rbar - ubar * α'
-             mul!(rbar,z,transpose(α),-ONE,ONE)
+             mul!(rbar, z, transpose(α), -ONE, ONE)
              #rbar += ubar * α'
              qrupdate!(view(R,j1,j1), rbar)
          end
@@ -1071,7 +1071,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   
+
    ONE = one(T1)
    ZERO = zero(T1)
    TWO = 2*ONE
@@ -1239,7 +1239,7 @@ end
 function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) && 
+   (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) &&
          (plyapcs!(A, R, adj = adj); return)
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -2035,7 +2035,7 @@ must have moduli less than one. These conditions are checked and
 an error message is issued if not fulfilled.
 
 If the Lyapunov equation is numerically singular, then small perturbations in `A` can make
-one or more of the eigenvalues have a non-negative real part, if `disc = false`, or 
+one or more of the eigenvalues have a non-negative real part, if `disc = false`, or
 can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
 If this situation is detected, an error message is issued.
 """
@@ -2192,7 +2192,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    end
 
    V3     = hypot3(P3,YR,YI)
-   ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA && error("$errtext") 
+   ALPHA < ONE  &&  V3 > ONE && V3 > BIGNUM*ALPHA && error("$errtext")
    V3 = V3/ALPHA
 
    if noadj
@@ -2393,8 +2393,8 @@ real parts, while, in the discrete-time case, the eigenvalues must have
 moduli less than unity. These conditions are checked and
 an error message is issued if not fulfilled.
 
-If the Lyapunov equation is numerically singular, then small perturbations in `A` or `E` 
-can make one or more of the eigenvalues have a non-negative real part, if `disc = false`, or 
+If the Lyapunov equation is numerically singular, then small perturbations in `A` or `E`
+can make one or more of the eigenvalues have a non-negative real part, if `disc = false`, or
 can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
 If this situation is detected, an error message is issued.
 """
@@ -2412,7 +2412,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
 
    errtext = "Singular Lyapunov equation"
- 
+
    ZERO = zero(T1)
    ONE = one(T1)
    TWO = 2*ONE
