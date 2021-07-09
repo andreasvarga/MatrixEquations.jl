@@ -6,7 +6,7 @@ Compute `X`, the solution of the continuous Lyapunov equation
 
       AX + XA' + C = 0,
 
-where `A` is a square real or complex matrix and `C` is a square matrix. 
+where `A` is a square real or complex matrix and `C` is a square matrix.
 `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
@@ -62,7 +62,7 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
- 
+
    # Reduce A to Schur form and transform C
    if adj
       AS, Q = schur(A.parent)
@@ -71,8 +71,8 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    end
 
    #X = Q'*C*Q
-   if her 
-      X = utqu(C,Q) 
+   if her
+      X = utqu(C,Q)
       lyapcs!(AS, X, adj = adj)
       #X <- Q*X*Q'
       utqu!(X,Q')
@@ -95,9 +95,9 @@ Compute `X`, the solution of the generalized continuous Lyapunov equation
 
      AXE' + EXA' + C = 0,
 
-where `A` and `E` are square real or complex matrices and `C` is a square matrix. 
+where `A` and `E` are square real or complex matrices and `C` is a square matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
-The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian. 
+The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
 The following particular cases are also adressed:
 
@@ -191,8 +191,8 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
       x = utqu(C,q)
       lyapcs!(as,es,x, adj = adj)
       #x = z*x*z'
-      utqu!(x,z')  
-      return x 
+      utqu!(x,z')
+      return x
    else
       x = q' * C * q
       adj ? (gsylvs!(as,es,es,as,x,adjAC = true,DBSchur = true)) : (gsylvs!(as,es,es,as,x,adjBD = true,DBSchur = true))
@@ -218,7 +218,7 @@ Compute `X`, the solution of the discrete Lyapunov equation
 
        AXA' - X + C = 0,
 
-where `A` is a square real or complex matrix and `C` is a square matrix. 
+where `A` is a square real or complex matrix and `C` is a square matrix.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
@@ -283,7 +283,7 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
       AS, Q = schur(A)
    end
    #X = Q'*C*Q
-   if her 
+   if her
       X = utqu(C,Q)
       lyapds!(AS, X, adj = adj)
       #X <- Q*X*Q'
@@ -291,7 +291,7 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
       return X
    else
       #X = rmul!( Q' * C * Q, -1)
-      X = Q' * C * Q     
+      X = Q' * C * Q
       adj ? (sylvds!(-AS, AS, X, adjA = true)) : (sylvds!(-AS, AS, X, adjB = true))
       return Q * X * Q'
    end
@@ -310,7 +310,7 @@ Compute `X`, the solution of the generalized discrete Lyapunov equation
 
 where `A` and `E` are square real or complex matrices and `C` is a square matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
-The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian. 
+The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
 The following particular cases are also adressed:
 
@@ -351,7 +351,7 @@ julia> X = lyapd(A, E, C)
 2×2 Array{Float64,2}:
   1.775  -1.225
  -1.225   0.775
- 
+
 julia> A*X*A' - E*X*E' + C
 2×2 Array{Float64,2}:
  -2.22045e-16  -4.44089e-16
@@ -372,7 +372,7 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
       throw(DimensionMismatch("C must be a square matrix of dimension $n"))
    isequal(E,I) && size(E,1) == n && (return lyapd(A, C))
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
- 
+
    adjA = isa(A,Adjoint)
    adjE = isa(E,Adjoint)
    if adjA && !adjE
@@ -404,8 +404,8 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
       x = utqu(C,q)
       lyapds!(as,es,x, adj = adj)
       #x = z*x*z'
-      utqu!(x,z')  
-      return x 
+      utqu!(x,z')
+      return x
    else
       x = q' * C * q
       gsylvs!(as, as, -es, es, x, adjAC = adj, adjBD = !adj)
@@ -476,10 +476,10 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
                  # y += A[ia,k]'*C[ia,l]
                  mul!(y,transpose(view(A,ia,k)),view(C,ia,l),ONE,ONE)
                end
-               if i == j 
+               if i == j
                   lyapc2!(adj,y,dk,view(A,k,k),Xw,Yw)
                else
-                  lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)  
+                  lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)
                   transpose!(view(C,l,k),y)
                end
                i += dk
@@ -526,7 +526,7 @@ function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
               if i == j
                  lyapc2!(adj,y,dk,view(A,k,k),Xw,Yw)
               else
-                 lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)  
+                 lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)
                  transpose!(view(C,l,k),y)
               end
               i -= dk
@@ -549,7 +549,7 @@ function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
 # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
 #      A'*X + X*A = -C if adj = true  -> R = kron(I,A')+kron(A',I) = (kron(I,A)+kron(A,I))'
 #      A*X + X*A' = -C if adj = false -> R = kron(I,A)+kron(A,I)
-   if na == 1 
+   if na == 1
       rmul!(C,inv(-2*A[1,1]))
       any(!isfinite, C) && throw("ME:SingularException: A has eigenvalue(s) ≈ 0")
       return C
@@ -564,10 +564,10 @@ function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    if adj
       # @inbounds R = [ A[1,1]    A[2,1]         0;
       #                 A[1,2]    A[1,1]+A[2,2]  A[2,1];
-      #                 0         A[1,2]         A[2,2] ] 
+      #                 0         A[1,2]         A[2,2] ]
       @inbounds  R[1,1] = A[1,1]
       @inbounds  R[1,2] = A[2,1]
-      @inbounds  R[1,3] = ZERO 
+      @inbounds  R[1,3] = ZERO
       @inbounds  R[2,1] = A[1,2]
       @inbounds  R[2,2] = A[1,1]+A[2,2]
       @inbounds  R[2,3] = A[2,1]
@@ -577,10 +577,10 @@ function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    else
       # @inbounds R = [ A[1,1]    A[1,2]         0;
       #                 A[2,1]    A[1,1]+A[2,2]  A[1,2];
-      #                 0         A[2,1]         A[2,2] ] 
+      #                 0         A[2,1]         A[2,2] ]
       @inbounds  R[1,1] = A[1,1]
       @inbounds  R[1,2] = A[1,2]
-      @inbounds  R[1,3] = ZERO 
+      @inbounds  R[1,3] = ZERO
       @inbounds  R[2,1] = A[2,1]
       @inbounds  R[2,2] = A[1,1]+A[2,2]
       @inbounds  R[2,3] = A[1,2]
@@ -596,8 +596,8 @@ function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    return C
 end
 function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
-# speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
-# encountered in solving continuous Lyapunov equations: 
+# speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
+# encountered in solving continuous Lyapunov equations:
 #      A'*X + X*B = -C if adj = true  -> R = kron(I,A')+kron(B',I) = (kron(I,A)+kron(B,I))'
 #      A*X + X*B' = -C if adj = false -> R = kron(I,A)+kron(B,I)
    if na == 1 && nb == 1
@@ -856,11 +856,11 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                  mul!(y,transpose(view(C,ic,k)),view(E,ic,l),ONE,ONE)
                  mul!(y,transpose(view(W,ic,dkk)),view(A,ic,l),ONE,ONE)
              end
-             if i == j 
-                lyapc2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)  
+             if i == j
+                lyapc2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)
                 copyto!(Ckl,y)
                else
-                lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(E,k,k),view(A,l,l),view(E,l,l),Xw,Yw)  
+                lyapcsylv2!(adj,y,dk,dl,view(A,k,k),view(E,k,k),view(A,l,l),view(E,l,l),Xw,Yw)
                 copyto!(Ckl,y)
              end
              j += dl
@@ -927,11 +927,11 @@ function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                mul!(y,transpose(view(C,ic,l)),transpose(view(E,k,ic)),ONE,ONE)
                mul!(y,transpose(view(W,ic,dll)),transpose(view(A,k,ic)),ONE,ONE)
             end
-            if i == j 
-               lyapc2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+            if i == j
+               lyapc2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)
                copyto!(Clk,y)
             else
-               lyapcsylv2!(adj,y,dl,dk,view(A,l,l),view(E,l,l),view(A,k,k),view(E,k,k),Xw,Yw)  
+               lyapcsylv2!(adj,y,dl,dk,view(A,l,l),view(E,l,l),view(A,k,k),view(E,k,k),Xw,Yw)
                copyto!(Clk,y)
             end
             i -= dk
@@ -958,7 +958,7 @@ end
 # LAPACK generated diagonal structure of E is exploited when possible
 #      A'*X*E + E'*X*A = -C if adj = true  -> R = kron(E',A')+kron(A',E') = (kron(E,A)+kron(A,E))'
 #      A*X*E' + E*X*A' = -C if adj = false -> R = kron(E,A)+kron(A,E)
-   if na == 1 
+   if na == 1
       temp = E[1,1]*A[1,1]
       rmul!(C,inv(-2*temp))
       any(!isfinite, C) &&  throw("ME:SingularException: A-λE has zero or infinite eigenvalue(s)")
@@ -972,20 +972,20 @@ end
    @inbounds  Y[2] = -C[2,1]
    @inbounds  Y[3] = -C[2,2]/2
    if adj
-      # Rt =  
+      # Rt =
       #  [        a11*e11,                   a21*e11,         0
       #  a11*e12 + a12*e11, a11*e22 + a21*e12 + a22*e11,   a21*e22
       #          a12*e12,       a12*e22 + a22*e12, a22*e22]
-      # iszero(E[1,2]) ? 
+      # iszero(E[1,2]) ?
       #    (@inbounds R = [  A[1,1]*E[1,1]             A[2,1]*E[1,1]               0 ;
       #                      A[1,2]*E[1,1]    A[1,1]*E[2,2]+A[2,2]*E[1,1]    A[2,1]*E[2,2];
-      #                           0                   A[1,2]*E[2,2]          A[2,2]*E[2,2]]) : 
+      #                           0                   A[1,2]*E[2,2]          A[2,2]*E[2,2]]) :
       #    (@inbounds R = [  A[1,1]*E[1,1]                    A[2,1]*E[1,1]                              0 ;
       #          A[1,1]*E[1,2]+A[1,2]*E[1,1]    A[1,1]*E[2,2]+A[2,1]*E[1,2]+A[2,2]*E[1,1]    A[2,1]*E[2,2];
-      #          A[1,2]*E[1,2]                    A[1,2]*E[2,2]+A[2,2]*E[1,2]                A[2,2]*E[2,2]] ) 
-      @inbounds  R[1,1] = A[1,1]*E[1,1] 
+      #          A[1,2]*E[1,2]                    A[1,2]*E[2,2]+A[2,2]*E[1,2]                A[2,2]*E[2,2]] )
+      @inbounds  R[1,1] = A[1,1]*E[1,1]
       @inbounds  R[1,2] = A[2,1]*E[1,1]
-      @inbounds  R[1,3] = ZERO 
+      @inbounds  R[1,3] = ZERO
       @inbounds  R[2,1] = A[1,1]*E[1,2]+A[1,2]*E[1,1]
       @inbounds  R[2,2] = A[1,1]*E[2,2]+A[2,1]*E[1,2]+A[2,2]*E[1,1]
       @inbounds  R[2,3] = A[2,1]*E[2,2]
@@ -993,18 +993,18 @@ end
       @inbounds  R[3,2] = A[1,2]*E[2,2]+A[2,2]*E[1,2]
       @inbounds  R[3,3] = A[2,2]*E[2,2]
    else
-      # R =  
+      # R =
       # [ a11*e11,       a11*e12 + a12*e11,         a12*e12
       # a21*e11, a11*e22 + a21*e12 + a22*e11, a12*e22 + a22*e12
       #       0,                   a21*e22,         a22*e22]
-      # iszero(E[1,2]) ? 
+      # iszero(E[1,2]) ?
       #    (@inbounds  R = [  A[1,1]*E[1,1]            A[1,2]*E[1,1]                    0;
       #                       A[2,1]*E[1,1]    A[1,1]*E[2,2]+A[2,2]*E[1,1]     A[1,2]*E[2,2];
       #                             0                  A[2,1]*E[2,2]           A[2,2]*E[2,2]] ) :
       #    (@inbounds  R = [  A[1,1]*E[1,1]    A[1,1]*E[1,2]+A[1,2]*E[1,1]             A[1,2]*E[1,2];
       #           A[2,1]*E[1,1]    A[1,1]*E[2,2]+A[2,1]*E[1,2]+A[2,2]*E[1,1]     A[1,2]*E[2,2]+A[2,2]*E[1,2];
       #                 0                   A[2,1]*E[2,2]                              A[2,2]*E[2,2]] )
-      @inbounds  R[1,1] = A[1,1]*E[1,1] 
+      @inbounds  R[1,1] = A[1,1]*E[1,1]
       @inbounds  R[1,2] = A[1,1]*E[1,2]+A[1,2]*E[1,1]
       @inbounds  R[1,3] = A[1,2]*E[1,2]
       @inbounds  R[2,1] = A[2,1]*E[1,1]
@@ -1022,7 +1022,7 @@ end
    return C
 end
 @inline function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
-# speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
+# speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
 # encountered in solving generalized continuous Lyapunov equations:
 #      A'*X*F + E'*X*B = -C if adj = true  -> R = kron(F',A')+kron(B',E') = (kron(F,A)+kron(B,E))'
 #      A*X*F' + E*X*B' = -C if adj = false -> R = kron(F,A)+kron(B,E)
@@ -1051,9 +1051,9 @@ end
          @inbounds  Y[2] = -C[1,2]
       else
          if nb == 1
-            # R21t = 
+            # R21t =
             # [ a11*f11+b11*e11           a21*f11]
-            # [ a12*f11+b11*e12 a22*f11+b11*e22]                
+            # [ a12*f11+b11*e12 a22*f11+b11*e22]
             # @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           A[2,1]*F[1,1];
             #                 A[1,2]*F[1,1]+B[1,1]*E[1,2] A[2,2]*F[1,1]+B[1,1]*E[2,2] ]
             @inbounds  R[1,1] = A[1,1]*F[1,1]+B[1,1]*E[1,1]
@@ -1063,16 +1063,16 @@ end
             @inbounds  Y[1] = -C[1,1]
             @inbounds  Y[2] = -C[2,1]
          else
-            # Rt = 
+            # Rt =
             # [ a11*f11+b11*e11           a21*f11           b21*e11                 0]
             # [ a12*f11+b11*e12 a22*f11+b11*e22           b21*e12           b21*e22]
             # [ a11*f12+b12*e11           a21*f12 a11*f22+b22*e11           a21*f22]
             # [ a12*f12+b12*e12 a22*f12+b12*e22 a12*f22+b22*e12 a22*f22+b22*e22]
-            # (iszero(E[1,2]) && iszero(F[1,2])) ? 
+            # (iszero(E[1,2]) && iszero(F[1,2])) ?
             #  (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           A[2,1]*F[1,1]           B[2,1]*E[1,1]                 0;
             #                A[1,2]*F[1,1]  A[2,2]*F[1,1]+B[1,1]*E[2,2]           0           B[2,1]*E[2,2];
             #                B[1,2]*E[1,1]        0  A[1,1]*F[2,2]+B[2,2]*E[1,1]           A[2,1]*F[2,2];
-            #                0  B[1,2]*E[2,2] A[1,2]*F[2,2]+B[2,2]*E[1,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]]) : 
+            #                0  B[1,2]*E[2,2] A[1,2]*F[2,2]+B[2,2]*E[1,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]]) :
             #  (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1]           A[2,1]*F[1,1]           B[2,1]*E[1,1]                 0;
             #                A[1,2]*F[1,1]+B[1,1]*E[1,2] A[2,2]*F[1,1]+B[1,1]*E[2,2]           B[2,1]*E[1,2]           B[2,1]*E[2,2];
             #                A[1,1]*F[1,2]+B[1,2]*E[1,1]           A[2,1]*F[1,2] A[1,1]*F[2,2]+B[2,2]*E[1,1]           A[2,1]*F[2,2];
@@ -1082,12 +1082,12 @@ end
             @inbounds  R[1,3] = B[2,1]*E[1,1]
             @inbounds  R[1,4] = ZERO
             @inbounds  R[2,1] = A[1,2]*F[1,1]+B[1,1]*E[1,2]
-            @inbounds  R[2,2] = A[2,2]*F[1,1]+B[1,1]*E[2,2] 
+            @inbounds  R[2,2] = A[2,2]*F[1,1]+B[1,1]*E[2,2]
             @inbounds  R[2,3] = B[2,1]*E[1,2]
             @inbounds  R[2,4] = B[2,1]*E[2,2]
             @inbounds  R[3,1] = A[1,1]*F[1,2]+B[1,2]*E[1,1]
             @inbounds  R[3,2] = A[2,1]*F[1,2]
-            @inbounds  R[3,3] = A[1,1]*F[2,2]+B[2,2]*E[1,1] 
+            @inbounds  R[3,3] = A[1,1]*F[2,2]+B[2,2]*E[1,1]
             @inbounds  R[3,4] = A[2,1]*F[2,2]
             @inbounds  R[4,1] = A[1,2]*F[1,2]+B[1,2]*E[1,2]
             @inbounds  R[4,2] = A[2,2]*F[1,2]+B[1,2]*E[2,2]
@@ -1101,7 +1101,7 @@ end
       end
    else
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*f11+b11*e11 a11*f12+b12*e11]
          # [           b21*e11 a11*f22+b22*e11]
          # @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,1]*F[1,2]+B[1,2]*E[1,1];
@@ -1114,7 +1114,7 @@ end
          @inbounds  Y[2] = -C[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*f11+b11*e11 a12*f11+b11*e12]
             # [           a21*f11 a22*f11+b11*e22]
             # @inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,2]*F[1,1]+B[1,1]*E[1,2];
@@ -1126,16 +1126,16 @@ end
             @inbounds  Y[1] = -C[1,1]
             @inbounds  Y[2] = -C[2,1]
          else
-            # R = 
+            # R =
             # [ a11*f11+b11*e11 a12*f11+b11*e12 a11*f12+b12*e11 a12*f12+b12*e12]
             # [           a21*f11 a22*f11+b11*e22           a21*f12 a22*f12+b12*e22]
             # [           b21*e11           b21*e12 a11*f22+b22*e11 a12*f22+b22*e12]
-            # [                 0           b21*e22           a21*f22 a22*f22+b22*e22]                
-            # (iszero(E[1,2]) && iszero(F[1,2])) ? 
+            # [                 0           b21*e22           a21*f22 a22*f22+b22*e22]
+            # (iszero(E[1,2]) && iszero(F[1,2])) ?
             # (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,2]*F[1,1] B[1,2]*E[1,1] 0;
             #                A[2,1]*F[1,1] A[2,2]*F[1,1]+B[1,1]*E[2,2]           0   B[1,2]*E[2,2];
             #                B[2,1]*E[1,1]           0   A[1,1]*F[2,2]+B[2,2]*E[1,1] A[1,2]*F[2,2];
-            #                0           B[2,1]*E[2,2]           A[2,1]*F[2,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]]) : 
+            #                0           B[2,1]*E[2,2]           A[2,1]*F[2,2] A[2,2]*F[2,2]+B[2,2]*E[2,2]]) :
             # (@inbounds R = [ A[1,1]*F[1,1]+B[1,1]*E[1,1] A[1,2]*F[1,1]+B[1,1]*E[1,2] A[1,1]*F[1,2]+B[1,2]*E[1,1] A[1,2]*F[1,2]+B[1,2]*E[1,2];
             #                A[2,1]*F[1,1] A[2,2]*F[1,1]+B[1,1]*E[2,2]           A[2,1]*F[1,2] A[2,2]*F[1,2]+B[1,2]*E[2,2];
             #                B[2,1]*E[1,1]           B[2,1]*E[1,2] A[1,1]*F[2,2]+B[2,2]*E[1,1] A[1,2]*F[2,2]+B[2,2]*E[1,2];
@@ -1143,9 +1143,9 @@ end
             @inbounds  R[1,1] = A[1,1]*F[1,1]+B[1,1]*E[1,1]
             @inbounds  R[1,2] = A[1,2]*F[1,1]+B[1,1]*E[1,2]
             @inbounds  R[1,3] = A[1,1]*F[1,2]+B[1,2]*E[1,1]
-            @inbounds  R[1,4] = A[1,2]*F[1,2]+B[1,2]*E[1,2] 
+            @inbounds  R[1,4] = A[1,2]*F[1,2]+B[1,2]*E[1,2]
             @inbounds  R[2,1] = A[2,1]*F[1,1]
-            @inbounds  R[2,2] = A[2,2]*F[1,1]+B[1,1]*E[2,2] 
+            @inbounds  R[2,2] = A[2,2]*F[1,1]+B[1,1]*E[2,2]
             @inbounds  R[2,3] = A[2,1]*F[1,2]
             @inbounds  R[2,4] = A[2,2]*F[1,2]+B[1,2]*E[2,2]
             @inbounds  R[3,1] = B[2,1]*E[1,1]
@@ -1296,11 +1296,11 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
                  #y += C[ic,k]'*A[ic,l]
                  mul!(y,transpose(view(C,ic,k)),view(A,ic,l),ONE,ONE)
                end
-              if kk == ll 
+              if kk == ll
                  lyapd2!(adj,y,dk,view(A,k,k),Xw,Yw)
                  copyto!(Ckl,y)
                else
-                 lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)  
+                 lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)
                  copyto!(Ckl,y)
                end
                j += dl
@@ -1352,11 +1352,11 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
                  # y += (A[k,ic]*C[ic,l])'
                  mul!(y,transpose(view(C,ic,l)),transpose(view(A,k,ic)),ONE,ONE)
               end
-              if i == j 
+              if i == j
                  lyapd2!(adj,y,dk,view(A,k,k),Xw,Yw)
                  copyto!(Clk,y)
               else
-                 lyapdsylv2!(adj,y,dl,dk,view(A,l,l),view(A,k,k),Xw,Yw)  
+                 lyapdsylv2!(adj,y,dl,dk,view(A,l,l),view(A,k,k),Xw,Yw)
                  copyto!(Clk,y)
               end
               i -= dk
@@ -1382,7 +1382,7 @@ function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    #      A'*X*A - X = -C if adj = true  -> R = kron(A',A')-I = (kron(A,A)-I)'
    #      A*X*A' - X = -C if adj = false -> R = kron(A,A)-I
    MONE = -one(T)
-   if na == 1 
+   if na == 1
       temp = A[1,1]^2+MONE
       rmul!(C,inv(-temp))
       any(!isfinite, C) && throw("ME:SingularException: A has eigenvalue(s) with moduli ≈ 1")
@@ -1396,13 +1396,13 @@ function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    @inbounds  Y[2] = -C[2,1]
    @inbounds  Y[3] = -C[2,2]
    if adj
-      # Rt = 
+      # Rt =
       # [ a11^2-1              2*a11*a21      a21^2]
       # [   a11*a12  a11*a22+a12*a21-1    a21*a22]
       # [     a12^2              2*a12*a22  a22^2-1]
       # @inbounds R = [ A[1,1]^2+MONE    TWO*A[1,1]*A[2,1]         A[2,1]^2;
       #                 A[1,1]*A[1,2]    A[1,1]*A[2,2]+A[1,2]*A[2,1]+MONE  A[2,1]*A[2,2];
-      #                 A[1,2]^2         TWO*A[1,2]*A[2,2]         A[2,2]^2+MONE ] 
+      #                 A[1,2]^2         TWO*A[1,2]*A[2,2]         A[2,2]^2+MONE ]
       @inbounds  R[1,1] = A[1,1]^2+MONE
       @inbounds  R[1,2] = TWO*A[1,1]*A[2,1]
       @inbounds  R[1,3] = A[2,1]^2
@@ -1413,14 +1413,14 @@ function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
       @inbounds  R[3,2] = TWO*A[1,2]*A[2,2]
       @inbounds  R[3,3] = A[2,2]^2+MONE
    else
-      # R = 
+      # R =
       # [ a11^2-1              2*a11*a12      a12^2]
       # [   a11*a21  a11*a22+a12*a21-1    a12*a22]
       # [     a21^2              2*a21*a22  a22^2-1]
-       
+
       # @inbounds R = [ A[1,1]^2+MONE    TWO*A[1,1]*A[1,2]         A[1,2]^2;
       #                 A[1,1]*A[2,1]    A[1,1]*A[2,2]+A[1,2]*A[2,1]+MONE  A[1,2]*A[2,2];
-      #                 A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2+MONE ] 
+      #                 A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2+MONE ]
       @inbounds  R[1,1] = A[1,1]^2+MONE
       @inbounds  R[1,2] = TWO*A[1,1]*A[1,2]
       @inbounds  R[1,3] = A[1,2]^2
@@ -1439,8 +1439,8 @@ function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    return C
 end
 function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::AbstractVector{T}) where T <:BlasReal
-#    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
-#    # encountered in solving discrete Lyapunov equations: 
+#    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
+#    # encountered in solving discrete Lyapunov equations:
 #    #      A'*X*B - X = -C if adj = true  -> R = kron(B',A') - I = (kron(B,A)-I)'
 #    #      A*X*B' - X = -C if adj = false -> R = kron(B,A)-I
 
@@ -1457,7 +1457,7 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
    if adj
       # @inbounds  R = kron(transpose(B),transpose(A)) - I
       if na == 1
-         # R12t = 
+         # R12t =
          # [ a11*b11-1      a11*b21]
          # [     a11*b12  a11*b22-1]
          # @inbounds R = [ A[1,1]*B[1,1]+MONE      A[1,1]*B[2,1];
@@ -1470,7 +1470,7 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
          @inbounds  Y[2] = -C[1,2]
    else
          if nb == 1
-            # R21t = 
+            # R21t =
             # [ a11*b11-1      a21*b11]
             # [     a12*b11  a22*b11-1]
             # @inbounds R = [ A[1,1]*B[1,1]+MONE      A[2,1]*B[1,1];
@@ -1482,7 +1482,7 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
             @inbounds  Y[1] = -C[1,1]
             @inbounds  Y[2] = -C[2,1]
          else
-            # Rt = 
+            # Rt =
             # [ a11*b11-1      a21*b11      a11*b21      a21*b21]
             # [     a12*b11  a22*b11-1      a12*b21      a22*b21]
             # [     a11*b12      a21*b12  a11*b22-1      a21*b22]
@@ -1541,7 +1541,7 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
             @inbounds  Y[1] = -C[1,1]
             @inbounds  Y[2] = -C[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11-1      a12*b11      a11*b12      a12*b12]
             # [     a21*b11  a22*b11-1      a21*b12      a22*b12]
             # [     a11*b21      a12*b21  a11*b22-1      a12*b22]
@@ -1599,7 +1599,7 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComple
                end
             end
             temp = ONE-A[k,k]'*A[l,l]
-            C[k,l] = y/temp 
+            C[k,l] = y/temp
             isfinite(C[k,l]) || throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
             k == l && (C[k,k] = real(C[k,k]))
             if l < k
@@ -1624,7 +1624,7 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComple
                end
             end
             temp = ONE-A[k,k]'*A[l,l]
-            C[l,k] = y/temp 
+            C[l,k] = y/temp
             isfinite(C[l,k]) || throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
             k == l && (C[k,k] = real(C[k,k]))
             if k > l
@@ -1718,11 +1718,11 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                  mul!(y,transpose(view(C,ic,k)),view(A,ic,l),ONE,ONE)
                  mul!(y,transpose(view(W,ic,dkk)),view(E,ic,l),MONE,ONE)
              end
-             if i == j 
-                lyapd2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+             if i == j
+                lyapd2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)
                 copyto!(Ckl,y)
              else
-                lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(E,k,k),view(A,l,l),view(E,l,l),Xw,Yw)  
+                lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(E,k,k),view(A,l,l),view(E,l,l),Xw,Yw)
                 copyto!(Ckl,y)
              end
              j += dl
@@ -1788,11 +1788,11 @@ function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Mat
                mul!(y,transpose(view(C,ic,l)),transpose(view(A,k,ic)),ONE,ONE)
                mul!(y,transpose(view(W,ic,dll)),transpose(view(E,k,ic)),MONE,ONE)
             end
-            if i == j 
-               lyapd2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)   
+            if i == j
+               lyapd2!(adj,y,dk,view(A,k,k),view(E,k,k),Xw,Yw)
                copyto!(Clk,y)
             else
-               lyapdsylv2!(adj,y,dl,dk,view(A,l,l),view(E,l,l),view(A,k,k),view(E,k,k),Xw,Yw)  
+               lyapdsylv2!(adj,y,dl,dk,view(A,l,l),view(E,l,l),view(A,k,k),view(E,k,k),Xw,Yw)
                copyto!(Clk,y)
             end
             i -= dk
@@ -1819,7 +1819,7 @@ end
    #      A'*X*A - E'*X*E = -C if adj = true  -> R = kron(A',A')-kron(E',E') = (kron(A,A)-kron(E,E))'
    #      A*X*A' - E*X*E' = -C if adj = false -> R = kron(A,A)-kron(E,E)
    MONE = -one(T)
-   if na == 1 
+   if na == 1
       temp = E[1,1]^2-A[1,1]^2
       rmul!(C,inv(temp))
       any(!isfinite, C) &&  throw("ME:SingularException: A-λE has eigenvalue(s) with moduli equal to one")
@@ -1833,20 +1833,20 @@ end
    @inbounds  Y[2] = -C[2,1]
    @inbounds  Y[3] = -C[2,2]
    if adj
-      # Rt = 
+      # Rt =
       # [     a11^2 - e11^2,                   2*a11*a21,         a21^2]
       # [ a11*a12 - e11*e12, a11*a22 + a12*a21 - e11*e22,       a21*a22]
       # [     a12^2 - e12^2,       2*a12*a22 - 2*e12*e22, a22^2 - e22^2]
-      # iszero(E[1,2]) ? 
+      # iszero(E[1,2]) ?
       #    (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*A[1,1]*A[2,1]         A[2,1]^2;
       #                 A[1,1]*A[1,2]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[2,1]*A[2,2];
       #                 A[1,2]^2         TWO*A[1,2]*A[2,2]         A[2,2]^2-E[2,2]^2 ] ) :
          # (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*A[1,1]*A[2,1]         A[2,1]^2;
          #              A[1,1]*A[1,2]-E[1,1]*E[1,2]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[2,1]*A[2,2];
-         #              A[1,2]^2-E[1,2]^2         TWO*(A[1,2]*A[2,2]-E[1,2]*E[2,2])         A[2,2]^2-E[2,2]^2 ]) 
-      @inbounds  R[1,1] = A[1,1]^2-E[1,1]^2 
+         #              A[1,2]^2-E[1,2]^2         TWO*(A[1,2]*A[2,2]-E[1,2]*E[2,2])         A[2,2]^2-E[2,2]^2 ])
+      @inbounds  R[1,1] = A[1,1]^2-E[1,1]^2
       @inbounds  R[1,2] = TWO*A[1,1]*A[2,1]
-      @inbounds  R[1,3] = A[2,1]^2 
+      @inbounds  R[1,3] = A[2,1]^2
       @inbounds  R[2,1] = A[1,1]*A[1,2]-E[1,1]*E[1,2]
       @inbounds  R[2,2] = A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]
       @inbounds  R[2,3] = A[2,1]*A[2,2]
@@ -1854,21 +1854,21 @@ end
       @inbounds  R[3,2] = TWO*(A[1,2]*A[2,2]-E[1,2]*E[2,2])
       @inbounds  R[3,3] = A[2,2]^2-E[2,2]^2
    else
-      # R = 
+      # R =
       # [ a11^2 - e11^2,       2*a11*a12 - 2*e11*e12,     a12^2 - e12^2]
       # [       a11*a21, a11*a22 + a12*a21 - e11*e22, a12*a22 - e12*e22]
       # [         a21^2,                   2*a21*a22,     a22^2 - e22^2]
-      # iszero(E[1,2]) ? 
+      # iszero(E[1,2]) ?
       #    (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*A[1,1]*A[1,2]         A[1,2]^2;
       #                 A[1,1]*A[2,1]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[1,2]*A[2,2];
-      #                 A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2-E[2,2]^2 ] ) : 
-             
+      #                 A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2-E[2,2]^2 ] ) :
+
       #    (@inbounds R = [ A[1,1]^2-E[1,1]^2    TWO*(A[1,1]*A[1,2]-E[1,1]*E[1,2])         A[1,2]^2-E[1,2]^2;
       #                 A[1,1]*A[2,1]    A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]  A[1,2]*A[2,2]-E[1,2]*E[2,2];
       #                 A[2,1]^2         TWO*A[2,1]*A[2,2]         A[2,2]^2-E[2,2]^2 ] )
-      @inbounds  R[1,1] = A[1,1]^2-E[1,1]^2 
+      @inbounds  R[1,1] = A[1,1]^2-E[1,1]^2
       @inbounds  R[1,2] = TWO*(A[1,1]*A[1,2]-E[1,1]*E[1,2])
-      @inbounds  R[1,3] = A[1,2]^2-E[1,2]^2 
+      @inbounds  R[1,3] = A[1,2]^2-E[1,2]^2
       @inbounds  R[2,1] = A[1,1]*A[2,1]
       @inbounds  R[2,2] = A[1,1]*A[2,2]+A[1,2]*A[2,1]-E[1,1]*E[2,2]
       @inbounds  R[2,3] = A[1,2]*A[2,2]-E[1,2]*E[2,2]
@@ -1884,12 +1884,12 @@ end
    return C
 end
 @inline function lyapdsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
-   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
-   # encountered in solving discrete Lyapunov equations: 
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
+   # encountered in solving discrete Lyapunov equations:
    #      A'*X*B - E'*X*F = -C if adj = true  -> R = kron(B',A') - kron(F',E') = (kron(B,A)-kron(F,E))'
    #      A*X*B' - E*X*F' = -C if adj = false -> R = kron(B,A)-kron(F,E)
    if na == 1 && nb == 1
-      temp = E[1,1]*F[1,1] - A[1,1]*B[1,1] 
+      temp = E[1,1]*F[1,1] - A[1,1]*B[1,1]
       rmul!(C,inv(temp))
       any(!isfinite, C) && throw("ME:SingularException: A-λE has eigenvalues α and β such that αβ ≈ 1")
       return C
@@ -1899,9 +1899,9 @@ end
    Y = view(Yw,i1)
    if adj
       if na == 1
-         # R12t = 
+         # R12t =
          # [ a11*b11 - e11*f11,           a11*b21]
-         # [ a11*b12 - e11*f12, a11*b22 - e11*f22]          
+         # [ a11*b12 - e11*f12, a11*b22 - e11*f22]
          # @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,1]*B[2,1];
          #                 A[1,1]*B[1,2]-E[1,1]*F[1,2]  A[1,1]*B[2,2]-E[1,1]*F[2,2]]
          @inbounds  R[1,1] = A[1,1]*B[1,1]-E[1,1]*F[1,1]
@@ -1914,7 +1914,7 @@ end
          if nb == 1
             # R21t =
             # [ a11*b11 - e11*f11,           a21*b11]
-            # [ a12*b11 - e12*f11, a22*b11 - e22*f11]            
+            # [ a12*b11 - e12*f11, a22*b11 - e22*f11]
             # @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[2,1]*B[1,1];
             #                 A[1,2]*B[1,1]-E[1,2]*F[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1] ]
             @inbounds  R[1,1] = A[1,1]*B[1,1]-E[1,1]*F[1,1]
@@ -1924,31 +1924,31 @@ end
             @inbounds  Y[1] = -C[1,1]
             @inbounds  Y[2] = -C[2,1]
          else
-            # Rt = 
+            # Rt =
             # [ a11*b11 - e11*f11,           a21*b11,           a11*b21,           a21*b21]
             # [ a12*b11 - e12*f11, a22*b11 - e22*f11,           a12*b21,           a22*b21]
             # [ a11*b12 - e11*f12,           a21*b12, a11*b22 - e11*f22,           a21*b22]
             # [ a12*b12 - e12*f12, a22*b12 - e22*f12, a12*b22 - e12*f22, a22*b22 - e22*f22]
-            # (iszero(E[1,2]) && iszero(F[1,2])) ?   
+            # (iszero(E[1,2]) && iszero(F[1,2])) ?
             # (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
             # A[1,2]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
             # A[1,1]*B[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[2,1]*B[2,2];
-            # A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]]) : 
+            # A[1,2]*B[1,2]      A[2,2]*B[1,2]      A[1,2]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]]) :
             # (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[2,1]*B[1,1]      A[1,1]*B[2,1]      A[2,1]*B[2,1];
             # A[1,2]*B[1,1]-E[1,1]*F[1,2]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[1,2]*B[2,1]      A[2,2]*B[2,1];
             # A[1,1]*B[1,2]-E[1,1]*F[1,2]      A[2,1]*B[1,2]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[2,1]*B[2,2];
-            # A[1,2]*B[1,2]-E[1,2]*F[1,2]      A[2,2]*B[1,2]-E[2,2]*F[1,2]      A[1,2]*B[2,2]-E[1,2]*F[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]])  
+            # A[1,2]*B[1,2]-E[1,2]*F[1,2]      A[2,2]*B[1,2]-E[2,2]*F[1,2]      A[1,2]*B[2,2]-E[1,2]*F[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]])
             @inbounds  R[1,1] = A[1,1]*B[1,1]-E[1,1]*F[1,1]
             @inbounds  R[1,2] = A[2,1]*B[1,1]
             @inbounds  R[1,3] = A[1,1]*B[2,1]
             @inbounds  R[1,4] = A[2,1]*B[2,1]
             @inbounds  R[2,1] = A[1,2]*B[1,1]-E[1,1]*F[1,2]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]-E[2,2]*F[1,1] 
+            @inbounds  R[2,2] = A[2,2]*B[1,1]-E[2,2]*F[1,1]
             @inbounds  R[2,3] = A[1,2]*B[2,1]
             @inbounds  R[2,4] = A[2,2]*B[2,1]
             @inbounds  R[3,1] = A[1,1]*B[1,2]-E[1,1]*F[1,2]
             @inbounds  R[3,2] = A[2,1]*B[1,2]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]-E[1,1]*F[2,2] 
+            @inbounds  R[3,3] = A[1,1]*B[2,2]-E[1,1]*F[2,2]
             @inbounds  R[3,4] = A[2,1]*B[2,2]
             @inbounds  R[4,1] = A[1,2]*B[1,2]-E[1,2]*F[1,2]
             @inbounds  R[4,2] = A[2,2]*B[1,2]-E[2,2]*F[1,2]
@@ -1962,7 +1962,7 @@ end
       end
    else
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 - e11*f11, a11*b12 - e11*f12]
          # [           a11*b21, a11*b22 - e11*f22]
          # @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,1]*B[1,2]-E[1,1]*F[1,2];
@@ -1975,7 +1975,7 @@ end
          @inbounds  Y[2] = -C[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 - e11*f11, a12*b11 - e12*f11]
             # [           a21*b11, a22*b11 - e22*f11]
             # @inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,2]*B[1,1]-E[1,2]*F[1,1];
@@ -1987,31 +1987,31 @@ end
             @inbounds  Y[1] = -C[1,1]
             @inbounds  Y[2] = -C[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11 - e11*f11, a12*b11 - e12*f11, a11*b12 - e11*f12, a12*b12 - e12*f12]
             # [           a21*b11, a22*b11 - e22*f11,           a21*b12, a22*b12 - e22*f12]
             # [           a11*b21,           a12*b21, a11*b22 - e11*f22, a12*b22 - e12*f22]
             # [           a21*b21,           a22*b21,           a21*b22, a22*b22 - e22*f22]
-            # (iszero(E[1,2]) && iszero(F[1,2])) ?   
+            # (iszero(E[1,2]) && iszero(F[1,2])) ?
             # (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,2]*B[1,1]      A[1,1]*B[1,2]      A[1,2]*B[1,2];
             # A[2,1]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2];
             # A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[1,2]*B[2,2];
-            # A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]]) : 
+            # A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]]) :
             # (@inbounds R = [ A[1,1]*B[1,1]-E[1,1]*F[1,1]      A[1,2]*B[1,1]-E[1,2]*F[1,1]      A[1,1]*B[1,2]-E[1,1]*F[1,2]      A[1,2]*B[1,2]-E[1,2]*F[1,2];
             # A[2,1]*B[1,1]  A[2,2]*B[1,1]-E[2,2]*F[1,1]      A[2,1]*B[1,2]      A[2,2]*B[1,2]-E[2,2]*F[1,2];
             # A[1,1]*B[2,1]      A[1,2]*B[2,1]  A[1,1]*B[2,2]-E[1,1]*F[2,2]      A[1,2]*B[2,2]-E[1,2]*F[2,2];
             # A[2,1]*B[2,1]      A[2,2]*B[2,1]      A[2,1]*B[2,2]  A[2,2]*B[2,2]-E[2,2]*F[2,2]])
             @inbounds  R[1,1] = A[1,1]*B[1,1]-E[1,1]*F[1,1]
             @inbounds  R[1,2] = A[1,2]*B[1,1]-E[1,2]*F[1,1]
-            @inbounds  R[1,3] = A[1,1]*B[1,2]-E[1,1]*F[1,2] 
+            @inbounds  R[1,3] = A[1,1]*B[1,2]-E[1,1]*F[1,2]
             @inbounds  R[1,4] = A[1,2]*B[1,2]-E[1,2]*F[1,2]
             @inbounds  R[2,1] = A[2,1]*B[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]-E[2,2]*F[1,1] 
+            @inbounds  R[2,2] = A[2,2]*B[1,1]-E[2,2]*F[1,1]
             @inbounds  R[2,3] = A[2,1]*B[1,2]
             @inbounds  R[2,4] = A[2,2]*B[1,2]-E[2,2]*F[1,2]
             @inbounds  R[3,1] = A[1,1]*B[2,1]
             @inbounds  R[3,2] = A[1,2]*B[2,1]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]-E[1,1]*F[2,2] 
+            @inbounds  R[3,3] = A[1,1]*B[2,2]-E[1,1]*F[2,2]
             @inbounds  R[3,4] = A[1,2]*B[2,2]-E[1,2]*F[2,2]
             @inbounds  R[4,1] = A[2,1]*B[2,1]
             @inbounds  R[4,2] = A[2,2]*B[2,1]
