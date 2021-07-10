@@ -20,7 +20,7 @@ export lanv2, ladiv, lag2, lacn2!
 export lyapc, lyapd, lyapcs!, lyapds! 
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
-export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!, gsylvs1!
+export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export opnorm1, opnorm1est, oprcondest, opsepest
