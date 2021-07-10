@@ -215,7 +215,7 @@ function mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T}, x::AbstractVector
          mul!(Y, L.A, temp)
          mul!(temp, X, L.E')
          mul!(Y, L.E, temp, -1, 1)
-        return y
+         return y
       else
          # (y[:] = (L.A*X*L.E' + L.E*X*L.A')[:])
          mul!(temp, L.E, X)
