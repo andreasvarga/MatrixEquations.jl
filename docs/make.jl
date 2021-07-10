@@ -27,5 +27,6 @@ makedocs(
 
 deploydocs(
   repo = "github.com/andreasvarga/MatrixEquations.jl.git",
+  push_preview = true,
   target = "build",
   )

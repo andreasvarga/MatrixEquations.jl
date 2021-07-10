@@ -6,8 +6,9 @@ const BlasReal = Union{Float64,Float32}
 const BlasComplex = Union{ComplexF64,ComplexF32}
 
 using LinearAlgebra
+using LinearAlgebra: require_one_based_indexing
+import LinearAlgebra: mul!
 using LinearMaps
-import LinearAlgebra: require_one_based_indexing
 
 
 include("lapackutil.jl")
@@ -19,7 +20,7 @@ export lanv2, ladiv, lag2, lacn2!
 export lyapc, lyapd, lyapcs!, lyapds! 
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
-export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!, gsylvs1!
+export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export opnorm1, opnorm1est, oprcondest, opsepest

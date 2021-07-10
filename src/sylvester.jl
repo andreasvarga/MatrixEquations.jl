@@ -63,13 +63,13 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
 
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
- 
+
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (A = convert(Matrix{T2},A))
    eltype(B) == T2 || (B = convert(Matrix{T2},B))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
- 
+
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if adjA
@@ -144,7 +144,7 @@ julia> C = [-1. -2.; 2. -1.]
 2×2 Array{Float64,2}:
  -1.0  -2.0
   2.0  -1.0
-   
+
 julia> X = sylvd(A, B, C)
 2×2 Array{Float64,2}:
  -2.46667  -2.73333
@@ -260,7 +260,7 @@ julia> X = gsylv(A, B, C, D, E)
 2×2 Array{Float64,2}:
  -0.52094   -0.0275792
  -0.168539   0.314607
- 
+
 julia> A*X*B + C*X*D - E
 2×2 Array{Float64,2}:
  4.44089e-16  8.88178e-16
@@ -412,7 +412,7 @@ function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstra
     isa(B,Adjoint) && (B = copy(B))
     isa(D,Adjoint) && (D = copy(D))
     isa(E,Adjoint) && (E = copy(E))
-    
+
     AS, DS, Q1, Z1 = schur(A,D)
     BS, ES, Q2, Z2 = schur(B,E)
 
@@ -482,7 +482,7 @@ julia> A*X + D*Y - C
 2×2 Array{Float64,2}:
   4.44089e-16  0.0
  -3.55271e-15  1.55431e-15
- 
+
 julia> X*B + Y*E - F
 2×2 Array{Float64,2}:
  -8.88178e-16   0.0
@@ -551,15 +551,15 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       rmul!(C, inv(scale))
       return C[:,:]
    catch err
-      findfirst("LAPACKException(1)",string(err)) === nothing ? rethrow() : 
+      findfirst("LAPACKException(1)",string(err)) === nothing ? rethrow() :
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
 function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::AbstractVector{T}) where T <:BlasReal
-   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
-   # encountered in solving discrete Lyapunov equations: 
-   # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
-   # A'*X*B + X = C  if adjA = true  and adjB = false -> R = kron(B',A') + I 
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
+   # encountered in solving discrete Lyapunov equations:
+   # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I
+   # A'*X*B + X = C  if adjA = true  and adjB = false -> R = kron(B',A') + I
    # A*X*B' + X = C  if adjA = false and adjB = true  -> R = kron(B,A) + I
    # A'*X*B' + X = C if adjA = true  and adjB = true  -> R = kron(B,A') + I
    ONE = one(T)
@@ -575,7 +575,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
    if adjA && !adjB
       #b = @allocated begin
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11+1      a11*b21]
          # [     a11*b12  a11*b22+1]
          # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
@@ -588,7 +588,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
          @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11+1      a21*b11]
             # [     a12*b11  a22*b11+1]
             # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
@@ -600,7 +600,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
             @inbounds  Y[1] = C[1,1]
             @inbounds  Y[2] = C[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11+1      a21*b11      a11*b21      a21*b21]
             # [     a12*b11  a22*b11+1      a12*b21      a22*b21]
             # [     a11*b12      a21*b12  a11*b22+1      a21*b22]
@@ -659,7 +659,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
             @inbounds  Y[1] = C[1,1]
             @inbounds  Y[2] = C[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11+1      a12*b11      a11*b12      a12*b12]
             # [     a21*b11  a22*b11+1      a21*b12      a22*b12]
             # [     a11*b21      a12*b21  a11*b22+1      a12*b22]
@@ -693,7 +693,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
       #R = kron(transpose(B),transpose(A)) + I
    elseif !adjA && !adjB
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 + 1,     a11*b21]
          # [     a11*b12, a11*b22 + 1]
          # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[2,1];
@@ -706,7 +706,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
          @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 + 1,     a12*b11]
             # [     a21*b11, a22*b11 + 1]
             # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,2]*B[1,1];
@@ -718,7 +718,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
             @inbounds  Y[1] = C[1,1]
             @inbounds  Y[2] = C[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11 + 1,     a12*b11,     a11*b21,     a12*b21]
             # [     a21*b11, a22*b11 + 1,     a21*b21,     a22*b21]
             # [     a11*b12,     a12*b12, a11*b22 + 1,     a12*b22]
@@ -752,7 +752,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
       #R = kron(B,A) + I
    else
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 + 1,     a11*b12]
          # [     a11*b21, a11*b22 + 1]
          # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[1,1]*B[1,2];
@@ -765,7 +765,7 @@ function sylvd2!(adjA::Bool,adjB::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::A
          @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 + 1,     a21*b11]
             # [     a12*b11, a22*b11 + 1]
             # @inbounds R = [ A[1,1]*B[1,1]+ONE      A[2,1]*B[1,1];
@@ -837,7 +837,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
    ONE = one(T1)
-  
+
    # determine the structure of the real Schur form of A
    ba, pa = sfstruct(A)
    bb, pb = sfstruct(B)
@@ -890,7 +890,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
                  mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)
               copyto!(Ckl,y)
            i -= dk
           end
@@ -937,7 +937,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
                     mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
                  end
-                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)
                  copyto!(Ckl,y)
                  i -= dk
              end
@@ -985,7 +985,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
                  mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)
               copyto!(Ckl,y)
            i += dk
           end
@@ -1032,7 +1032,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
                  mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)
               copyto!(Ckl,y)
            i += dk
           end
@@ -1051,7 +1051,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
-  
+
    W = zeros(T1,m)
    ONE = one(T1)
    ZERO = zero(T1)
@@ -1242,7 +1242,7 @@ The matrix pair `(B,D)` is in a generalized real or complex Schur form if `DBSch
 or the matrix pair `(D,B)` is in a generalized real or complex Schur form if `DBSchur = true`.
 The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
 """
-function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
+function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1};
                  adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasReal
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
@@ -1254,13 +1254,13 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
        Comm. ACM, 15:820–826, 1972.
    """
    m, n = size(E);
-   [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) || 
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
    ONE = one(T1)
 
    # determine the structure of the generalized real Schur form of (A,C)
    CASchur ? ((ba, pa) = sfstruct(C)) : ((ba, pa) = sfstruct(A))
-   DBSchur ? ((bb, pb) = sfstruct(D)) : ((bb, pb) = sfstruct(B)) 
+   DBSchur ? ((bb, pb) = sfstruct(D)) : ((bb, pb) = sfstruct(B))
 
    WB = zeros(T1,m,2)
    WD = zeros(T1,m,2)
@@ -1324,7 +1324,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
                  mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw)
               i -= dk
           end
           j += dl
@@ -1386,7 +1386,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
                     mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
                  end
-                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw)
                  i -= dk
              end
              j -= dl
@@ -1449,7 +1449,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  #y -= C[ic,k]'*WD[ic,dll]
                  mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw)
               i += dk
           end
           j += dl
@@ -1512,7 +1512,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,transpose(view(A,ic,k)),view(WB,ic,dll),-ONE,ONE)
                  mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw)
               i += dk
           end
           j -= dl
@@ -1521,13 +1521,13 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    return E
 end
 @inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
-   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
-   #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C) 
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations:
+   #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C)
    #      A'*X*B + C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + kron(D',C')
    #      A*X*B' + C*X*D' = E   if adjAC = false and adjBD = true  -> R = kron(B,A)   + kron(D,C)
    #      A'*X*B' + C'*X*D' = E if adjAC = true and adjBD = true   -> R = kron(B,A')  + kron(D,C')
    if na == 1 && nb == 1
-      temp = A[1,1]*B[1,1] + C[1,1]*D[1,1] 
+      temp = A[1,1]*B[1,1] + C[1,1]*D[1,1]
       rmul!(E,inv(temp))
       any(!isfinite, E) &&  throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
       return E
@@ -1537,7 +1537,7 @@ end
    Y = view(Yw,i1)
    if !adjAC && !adjBD
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 + c11*d11, a11*b21 + c11*d21]
          # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
@@ -1550,7 +1550,7 @@ end
          @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
@@ -1562,7 +1562,7 @@ end
             @inbounds  Y[1] = E[1,1]
             @inbounds  Y[2] = E[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b21 + c11*d21, a12*b21 + c12*d21]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11, a21*b21 + c21*d21, a22*b21 + c22*d21]
             # [ a11*b12 + c11*d12, a12*b12 + c12*d12, a11*b22 + c11*d22, a12*b22 + c12*d22]
@@ -1586,7 +1586,7 @@ end
             @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
             @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
             @inbounds  R[3,2] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
             @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
             @inbounds  R[4,1] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
             @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
@@ -1601,7 +1601,7 @@ end
       #R = kron(transpose(B),A) + kron(transpose(D),C)
    elseif adjAC && !adjBD
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 + c11*d11, a11*b21 + c11*d21]
          # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
@@ -1614,7 +1614,7 @@ end
          @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
@@ -1626,7 +1626,7 @@ end
             @inbounds  Y[1] = E[1,1]
             @inbounds  Y[2] = E[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b21 + c11*d21, a21*b21 + c21*d21]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11, a12*b21 + c12*d21, a22*b21 + c22*d21]
             # [ a11*b12 + c11*d12, a21*b12 + c21*d12, a11*b22 + c11*d22, a21*b22 + c21*d22]
@@ -1639,7 +1639,7 @@ end
             # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1];
             # A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
             # A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
-            # A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            # A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
             @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
             @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
             @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
@@ -1650,7 +1650,7 @@ end
             @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
             @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
             @inbounds  R[3,2] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
             @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
             @inbounds  R[4,1] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
             @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
@@ -1665,7 +1665,7 @@ end
       #R = kron(transpose(B),transpose(A)) + kron(transpose(D),transpose(C))
    elseif !adjAC && adjBD
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 + c11*d11, a11*b12 + c11*d12]
          # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
@@ -1678,7 +1678,7 @@ end
          @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
@@ -1690,7 +1690,7 @@ end
             @inbounds  Y[1] = E[1,1]
             @inbounds  Y[2] = E[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b12 + c11*d12, a12*b12 + c12*d12]
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11, a21*b12 + c21*d12, a22*b12 + c22*d12]
             # [ a11*b21 + c11*d21, a12*b21 + c12*d21, a11*b22 + c11*d22, a12*b22 + c12*d22]
@@ -1703,7 +1703,7 @@ end
             # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2];
             # A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
             # A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
-            # A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            # A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
             @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
             @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
             @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
@@ -1714,7 +1714,7 @@ end
             @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
             @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
             @inbounds  R[3,2] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
             @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
             @inbounds  R[4,1] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
             @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
@@ -1729,7 +1729,7 @@ end
       #R = kron(B,A) + kron(D,C)
    else
       if na == 1
-         # R12 = 
+         # R12 =
          # [ a11*b11 + c11*d11, a11*b12 + c11*d12]
          # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
@@ -1742,7 +1742,7 @@ end
          @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
-            # R21 = 
+            # R21 =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
@@ -1754,7 +1754,7 @@ end
             @inbounds  Y[1] = E[1,1]
             @inbounds  Y[2] = E[2,1]
          else
-            # R = 
+            # R =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b12 + c11*d12, a21*b12 + c21*d12]
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11, a12*b12 + c12*d12, a22*b12 + c22*d12]
             # [ a11*b21 + c11*d21, a21*b21 + c21*d21, a11*b22 + c11*d22, a21*b22 + c21*d22]
@@ -1767,7 +1767,7 @@ end
             # (@inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2];
             # A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
             # A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
-            # A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]]) 
+            # A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
             @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
             @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
             @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
@@ -1778,7 +1778,7 @@ end
             @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
             @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
             @inbounds  R[3,2] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2] 
+            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
             @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
             @inbounds  R[4,1] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
             @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
@@ -1797,7 +1797,7 @@ end
    return E
 end
 
-function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
+function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1};
                  adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasComplex
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
@@ -2063,7 +2063,7 @@ solution `(X,Y)` is contained in `(C,F)`.
 """
 function dsylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
    """
-   This is an interface to the LAPACK.tgsyl! function with `trans = 'T' or `trans = 'C'`. 
+   This is an interface to the LAPACK.tgsyl! function with `trans = 'T' or `trans = 'C'`.
    """
    # MF = -F
    # E, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, MF)
