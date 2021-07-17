@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 2.0 (WIP)
+## Version 2.0 
 
 This is a major release whch concludes the efforts to increase the speed of all solvers and minimize the memory allocation burden. The Lyapunov solvers have been functionally extended to cover the case of non-symmmetric/non-hermitian solutions.
 The implementations of linear Lyapunov and Sylvester operators now rely on the `LinearMaps.jl` (instead of `LinearOperators.jl` in previous releases).   

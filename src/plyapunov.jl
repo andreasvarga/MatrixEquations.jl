@@ -1,4 +1,3 @@
-# Positive-definite continuous Lyapunov equations
 """
     U = plyapc(A, B)
 
@@ -75,7 +74,7 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
-   ZERO = zero(real(T2))
+   ZERO = zero(T2)
 
    # Reduce A to Schur form and transform B
    if adj
@@ -84,37 +83,44 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
       AS, Q, EV = schur(A)
    end
 
-   maximum(real(EV)) >= ZERO && error("A must have only eigenvalues with negative real part")
-   
+   maximum(real(EV)) >= 0 && error("A must have only eigenvalues with negative real part")
    if adj
       #U'U = Q'*B'*B*Q
-      u = B.parent*Q
-      tau = similar(u,min(n,mb))
-      u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
-      if mb < n
-         U = UpperTriangular([u; zeros(T2,n-mb,n)])
+      tau = similar(Q,min(n,mb))
+      if mb <= n
+         U = similar(Q,T2,n,n)
+         U1 = view(U,1:mb,:)
+         mul!(U1,B.parent,Q)
+         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         fill!(view(U,mb+1:n,:),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[1:n,:])
+         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
+         U = UpperTriangular(U)
       end
    else
       #UU' = Q'*B*B'*Q
-      u = Q'*B
-      tau = similar(u,min(n,nb))
-      u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
-      if nb < n
-         U = UpperTriangular([zeros(T2,n,n-nb) u])
+      tau = similar(Q,min(n,nb))
+      if nb <= n
+         U = similar(Q,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         mul!(U2,Q',B)
+         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         fill!(view(U,:,1:n-nb),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[:,nb-n+1:end])
+         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         U = UpperTriangular(U)
       end
    end
    plyapcs!(AS, U, adj = adj)
    tau = similar(U,n)
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(U*Q',tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Q*U*U'*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(Q*U,tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q,U),tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -226,33 +232,41 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
  
    if adj
       #U'*U = Z'*B'*B*Z
-      u = B.parent*Z
-      tau = similar(u,min(n,mb))
-      u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
-      if mb < n
-         U = UpperTriangular([u; zeros(T2,n-mb,n)])
+      tau = similar(Z,min(n,mb))
+      if mb <= n
+         U = similar(Z,T2,n,n)
+         U1 = view(U,1:mb,:)
+         mul!(U1,B.parent,Z)
+         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         fill!(view(U,mb+1:n,:),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[1:n,:])
+         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
+         U = UpperTriangular(U)
       end
    else
-      #U*U' = Q'*B*B'*Q
-      u = Q'*B
-      tau = similar(u,min(n,nb))
-      u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
-      if nb < n
-         U = UpperTriangular([zeros(T2,n,n-nb) u])
+      #UU' = Q'*B*B'*Q
+      tau = similar(Q,min(n,nb))
+      if nb <= n
+         U = similar(Q,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         mul!(U2,Q',B)
+         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         fill!(view(U,:,1:n-nb),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[:,nb-n+1:end])
-      end
+         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         U = UpperTriangular(U)
+       end
    end
    plyapcs!(AS, ES, U, adj = adj)
    tau = similar(U,n)
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(U*Q',tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Z*U*U'*Z'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(Z*U,tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z,U),tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -339,6 +353,7 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    ONE = one(real(T2))
+   ZERO = zero(T2)
 
    # Reduce A to Schur form and transform B
    if adj
@@ -350,33 +365,41 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
  
    if adj
       #U'U = Q'*B'*B*Q
-      u = B.parent*Q
-      tau = similar(u,min(n,mb))
-      u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
-      if mb < n
-         U = UpperTriangular([u; zeros(T2,n-mb,n)])
+      tau = similar(Q,min(n,mb))
+      if mb <= n
+         U = similar(Q,T2,n,n)
+         U1 = view(U,1:mb,:)
+         mul!(U1,B.parent,Q)
+         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         fill!(view(U,mb+1:n,:),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[1:n,:])
+         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
+         U = UpperTriangular(U)
       end
    else
       #UU' = Q'*B*B'*Q
-      u = Q'*B
-      tau = similar(u,min(n,nb))
-      u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
-      if nb < n
-         U = UpperTriangular([zeros(T2,n,n-nb) u])
+      tau = similar(Q,min(n,nb))
+      if nb <= n
+         U = similar(Q,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         mul!(U2,Q',B)
+         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         fill!(view(U,:,1:n-nb),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[:,nb-n+1:end])
-      end
+         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         U = UpperTriangular(U)
+       end
    end
    plyapds!(AS, U, adj = adj)
    tau = similar(U,n)
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(U*Q',tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Q*U*U'*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(Q*U,tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q,U),tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -475,6 +498,7 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    ONE = one(real(T2))
+   ZERO = zero(real(T2))
 
    # Reduce (A,E) to generalized Schur form and transform C
    # (AS,ES) = (Q'*A*Z, Q'*E*Z)
@@ -488,33 +512,41 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
  
    if adj
       #U'*U = Z'*B'*B*Z
-      u = B.parent*Z
-      tau = similar(u,min(n,mb))
-      u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
-      if mb < n
-         U = UpperTriangular([u; zeros(T2,n-mb,n)])
+      tau = similar(Z,min(n,mb))
+      if mb <= n
+         U = similar(Z,T2,n,n)
+         U1 = view(U,1:mb,:)
+         mul!(U1,B.parent,Z)
+         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         fill!(view(U,mb+1:n,:),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[1:n,:])
+         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
+         U = UpperTriangular(U)
       end
    else
-      #U*U' = Q'*B*B'*Q
-      u = Q'*B
-      tau = similar(u,min(n,nb))
-      u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
-      if nb < n
-         U = UpperTriangular([zeros(T2,n,n-nb) u])
+      #UU' = Q'*B*B'*Q
+      tau = similar(Q,min(n,nb))
+      if nb <= n
+         U = similar(Q,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         mul!(U2,Q',B)
+         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         fill!(view(U,:,1:n-nb),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[:,nb-n+1:end])
-      end
+         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         U = UpperTriangular(U)
+       end
    end
    plyapds!(AS, ES, U, adj = adj)
    tau = similar(U,n)
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(U*Q',tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
    else
       #X <- Z*U*U'*Z'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(Z*U,tau)[1])
+      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z,U),tau)[1])
    end  
    return utnormalize!(U,adj)
 end
@@ -603,16 +635,21 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
+   ZERO = zero(T2)
 
    if adj
       #U'U = B'*B
-      u = copy(B.parent)
-      tau = similar(u,min(n,mb))
-      u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
-      if mb < n
-         U = UpperTriangular([u; zeros(T2,n-mb,n)])
+      tau = similar(B,min(n,mb))
+      if mb <= n
+         U = similar(B,T2,n,n)
+         U1 = view(U,1:mb,:)
+         copyto!(U1,B.parent)
+         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         fill!(view(U,mb+1:n,:),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[1:n,:])
+         U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
+         U = UpperTriangular(U)
       end
       if disc
          plyapds!(A.parent, U, adj = adj)
@@ -621,13 +658,17 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
       end
    else
       #UU' = B*B'
-      u = copy(B)
-      tau = similar(u,min(n,nb))
-      u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
-      if nb < n
-         U = UpperTriangular([zeros(T2,n,n-nb) u])
+      tau = similar(B,min(n,nb))
+      if nb <= n
+         U = similar(B,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         copyto!(U2,B)
+         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         fill!(view(U,:,1:n-nb),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[:,nb-n+1:end])
+         U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
+         U = UpperTriangular(U)
       end
       if disc
          plyapds!(A, U, adj = adj)
@@ -724,16 +765,21 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
+   ZERO = zero(T2)
 
    if adj
       #U'*U = B'*B
-      u = copy(B.parent)
-      tau = similar(u,min(n,mb))
-      u, tau = LinearAlgebra.LAPACK.geqrf!(u,tau)
-      if mb < n
-         U = UpperTriangular([u; zeros(T2,n-mb,n)])
+      tau = similar(B,min(n,mb))
+      if mb <= n
+         U = similar(B,T2,n,n)
+         U1 = view(U,1:mb,:)
+         copyto!(U1,B.parent)
+         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         fill!(view(U,mb+1:n,:),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[1:n,:])
+         U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
+         U = UpperTriangular(U)
       end
       if disc
          plyapds!(A.parent, E.parent, U, adj = adj)
@@ -742,13 +788,17 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       end
    else
       #U*U' = B*B
-      u = copy(B)
-      tau = similar(u,min(n,nb))
-      u, tau = LinearAlgebra.LAPACK.gerqf!(u,tau)
-      if nb < n
-         U = UpperTriangular([zeros(T2,n,n-nb) u])
+      tau = similar(B,min(n,nb))
+      if nb <= n
+         U = similar(B,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         copyto!(U2,B)
+         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         fill!(view(U,:,1:n-nb),ZERO)
+         U = UpperTriangular(U)
       else
-         U = UpperTriangular(u[:,nb-n+1:end])
+         U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
+         U = UpperTriangular(U)
       end
       if disc
          plyapds!(A, E, U, adj = adj)
@@ -786,8 +836,9 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    ba, p = sfstruct(A)
 
    Wr = Matrix{T1}(undef,n,2)
-   Wu = similar(Wr)
    Wz = similar(Wr)
+   Mα = Matrix{T1}(undef,2,2)
+   Mβ = Matrix{T1}(undef,2,2)
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -803,37 +854,45 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              TEMP < SMIN && (TEMP = SMIN)
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
-             α = copysign( TEMP, R[j,j])
-             R[j,j] = R[j,j]/α
-             β = A[l,l]
+             tα = copysign( TEMP, R[j,j])
+             R[j,j] = R[j,j]/tα
+             Mα[1,1] = tα
+             Mβ[1,1] = A[j,j]
           else
-             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = true)
+             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = true)
           end
           if ll < p
+             dll = 1:dl
+             js = j
              j += dl
              j1 = j:n
              ir1 = 1:n-j+1
+             rbar = view(Wr,ir1,dll)
+             z = view(Wz,ir1,dll)
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              # Form the right-hand side of (6.2)
              # z = rbar'*α + s'*u11'
-             rbar = view(Wr,ir1,1:dl)
-             ubar = view(Wu,ir1,1:dl)
-             # y = view(Wy,ir1,1:dl)
-             z = view(Wz,ir1,1:dl)
              # rbar = R[l,j1]'
              transpose!(rbar,view(R,l,j1))
              # z = rbar*α + A[l,j1]'*R[l,l]'
-             z = rbar*α
-             mul!(z,transpose(view(A,l,j1)),transpose(R[l,l]),ONE,ONE)
+             mul!(z,rbar,α)
+             # mul!(z,transpose(view(A,l,j1)),transpose(R[l,l]),ONE,ONE)
+             # alternative code exploiting lower triangular form of R'
+             k = js+dl-1
+             axpy!(R[k,k],view(A,k,j1),view(z,:,dl))
+             dl == 1 || (axpy!(R[js,js],view(A,js,j1),view(z,:,1)); axpy!(R[js,js+1],view(A,js+1,j1),view(z,:,1)))
+
              # Solve S1'*ubar+ubar*β + z = 0
-             ubar, scale = LAPACK.trsyl!('T','N', view(A,j1,j1), β, copy(z))
+             _, scale = LAPACK.trsyl!('T','N', view(A,j1,j1), β, z)
              scale == ONE || error("Singular Lyapunov equation")
-             transpose!(view(R,l,j1),-ubar)
+             transpose!(view(R,l,j1),rmul!(z,-1))
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
              # y = rbar - ubar * α'
-             #mul!(rbar,ubar,transpose(α),ONE,ONE)
-             rbar += ubar * α'
+             mul!(rbar,z,transpose(α),-ONE,ONE)
+             #rbar += ubar * α'
              qrupdate!(view(R,j1,j1), rbar)
-          end
+         end
       end
    else
       # The (L,L)th block of X is determined starting from
@@ -850,38 +909,46 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              TEMP < SMIN && (TEMP  = SMIN)
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
-             α = copysign( TEMP, R[j,j])
-             R[j,j] = R[j,j]/α
-             β = A[l,l]
+             tα = copysign( TEMP, R[j,j])
+             R[j,j] = R[j,j]/tα
+             Mα[1,1] = tα
+             Mβ[1,1] = A[j,j]
           else
-             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = false)
+             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = false)
           end
           if ll > 1
+             dll = 1:dl
+             js = j
              j -= dl
              j1 = 1:j
              # Form the right-hand side corresponding to the dual of (6.2)
              # S = [ S1  s  ]
              #     [ 0  s11 ]
              # z = rbar*α' + s*u11
-             rbar = view(Wr,j1,1:dl)
-             ubar = view(Wu,j1,1:dl)
-             # y = view(Wy,j1,1:dl)
-             z = view(Wz,j1,1:dl)
+             rbar = view(Wr,j1,dll)
+             z = view(Wz,j1,dll)
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              # rbar = R[j1,l]
              copyto!(rbar,view(R,j1,l))
              # z = rbar*α' + A[j1,l]*R[l,l]
-             z = rbar*α'
+             #z = rbar*α'
+             mul!(z,rbar,transpose(α))
              #mul!(z,view(A,j1,l),view(R,l,l),ONE,ONE)
-             mul!(z,view(A,j1,l),R[l,l],ONE,ONE)
+             #mul!(z,view(A,j1,l),R[l,l],ONE,ONE)
+             # alternative code exploiting upper triangular shape of R
+             k = js-dl+1
+             axpy!(R[k,k],view(A,j1,k),view(z,:,1))
+             dl == 1 || (axpy!(R[js-1,js],view(A,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(A,j1,js),view(z,:,2)))
              # Solve S1*ubar+ubar*β' + z = 0
-             ubar, scale = LAPACK.trsyl!('N','T', view(A,j1,j1), β, copy(z))
+             _, scale = LAPACK.trsyl!('N','T', view(A,j1,j1), β, z)
              scale == ONE || error("Singular Lyapunov equation")
-             copyto!(view(R,j1,l),-ubar)
+             copyto!(view(R,j1,l), rmul!(z,-1))
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              # y = rbar - ubar*α
-             rbar += ubar*α
+             mul!(rbar, z, α, -ONE, ONE)
              rqupdate!(view(R,j1,j1), rbar)
-          end
+         end
        end
    end
    return R
@@ -898,10 +965,8 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
-   Wr = Matrix{T1}(undef,n,1)
-   Wu = similar(Wr)
-   Wy = similar(Wr)
-   Wz = similar(Wr)
+   Wr = Vector{T1}(undef,n)
+   Wz = similar(Wr,n,1)
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -918,26 +983,31 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           l = j:j
           β = A[l,l]
           if j < n
-             j += 1
-             j1 = j:n
-             ir1 = 1:n-j+1
-             # Form the right-hand side of (6.2)
-             # z = rbar'*α + s'*u11'
-             rbar = view(Wr,ir1,1:1)
-             ubar = view(Wu,ir1,1:1)
-             y = view(Wy,ir1,1:1)
-             z = view(Wz,ir1,1:1)
-             rbar = R[l,j1]'
-             #z = rbar*α + A[l,j1]'*R[l,l]
-             z = rbar*α + (R[l,l]'*A[l,j1])'
-             # Solve S1'*ubar+ubar*β + z = 0
-             ubar, scale = LAPACK.trsyl!('C','N', view(A,j1,j1), β, z)
-             scale == ONE || error("Singular Lyapunov equation")
-             #ubar = -(LowerTriangular(S1'+β[1,1]*I))\z
-             R[l,j1] = -ubar'
-             # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             y = conj(rbar + ubar * α')
-             qrupdate!(view(R,j1,j1), y)
+            j += 1
+            j1 = j:n
+            ir1 = 1:n-j+1
+            # Form the right-hand side of (6.2)
+            # z = rbar'*α + s'*u11'
+            rbar = view(Wr,ir1,1:1)
+            z = view(Wz,ir1,1:1)
+            k = j
+            for ii = 1:n-j+1
+               rbar[ii] = R[j-1,k]'
+               z[ii] = rbar[ii]*α + R[j-1,j-1]*A[j-1,k]'
+               k += 1
+            end  
+            # Solve S1'*ubar+ubar*β + z = 0
+            _, scale = LAPACK.trsyl!('C','N', view(A,j1,j1), β, z)
+            scale == ONE || error("Singular Lyapunov equation")
+            k = j
+            for ii = 1:n-j+1
+               R[j-1,k] = -z[ii]'
+               rbar[ii] = conj(rbar[ii] + z[ii] * α')
+               k += 1
+            end
+            # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
+            #y = conj(rbar + ubar * α')
+            qrupdate!(view(R,j1,j1), rbar)
           end
       end
    else
@@ -963,19 +1033,22 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              #     [ 0  s11 ]
              # z = rbar*α' + s*u11
              rbar = view(Wr,j1,1:1)
-             ubar = view(Wu,j1,1:1)
-             y = view(Wy,j1,1:1)
              z = view(Wz,j1,1:1)
-             rbar = R[j1,l]
-             z = rbar*α' + A[j1,l]*R[l,l]
+             for ii = 1:j
+               rbar[ii] = R[ii,j+1]
+               z[ii]= rbar[ii]*α' + A[ii,j+1]*R[j+1,j+1]
+             end
+             #z = rbar*α' + A[j1,l]*R[l,l]
              # Solve S1*ubar+ubar*β' + z = 0
-             ubar, scale = LAPACK.trsyl!('N','C', view(A,j1,j1), β, z)
+             _, scale = LAPACK.trsyl!('N','C', view(A,j1,j1), β, z)
              scale == ONE || error("Singular Lyapunov equation")
-             #ubar = -(UpperTriangular(S1+β[1,1]'*I))\z
-             R[j1,l] = -ubar
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
-             y = rbar + ubar*α
-             rqupdate!(view(R,j1,j1), y)
+             # y = rbar + z*α
+             for ii = 1:j
+                 R[ii,j+1] = -z[ii]
+                 rbar[ii] += z[ii]*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end
@@ -1009,12 +1082,13 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
    # determine the structure of the generalized real Schur form
    ba, p = sfstruct(A)
 
+   WB = Matrix{T1}(undef,n,2)
+   WD = Matrix{T1}(undef,n,2)
    Wr = Matrix{T1}(undef,n,2)
-   Wu = similar(Wr)
-   Wz = similar(Wr)
    Wv = similar(Wr)
-   Wy = similar(Wr)
    Wz = similar(Wr)
+   Mα = Matrix{T1}(undef,2,2)
+   Mβ = Matrix{T1}(undef,2,2)
    η = [ ONE ZERO; small ONE]
    if adj
       # The (L,L)th block of X is determined starting from
@@ -1033,39 +1107,60 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
              iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
-             β = A[l,l]/E[j,j]
-             α = TEMP/E[j,j]
+             Mα[1,1] = TEMP/E[j,j]
+             Mβ[1,1] = A[j,j]/E[j,j]
           else
-             β, α = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true)
+             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true)
           end
-          #j += dl
           if ll < p
+             dll = 1:dl
+             js = j
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              j += dl
              j1 = j:n
              ir1 = 1:n-j+1
              # Form the right-hand side of (6.2)
              # z = rbar'*α + s'*u11'
-             rbar = view(Wr,ir1,1:dl)
-             ubar = view(Wu,ir1,1:dl)
-             v = view(Wv,ir1,1:dl)
-             y = view(Wy,ir1,1:dl)
-             z = view(Wz,ir1,1:dl)
-             rbar = R[l,j1]'
-             v = copy((R[l,l]*E[l,j1])')
+             rbar = view(Wr,ir1,dll)
+             v = view(Wv,ir1,dll)
+             z = view(Wz,ir1,dll)
+             #rbar = R[l,j1]'
+             transpose!(rbar,view(R,l,j1))
              #z = rbar*α + A[l,j1]'*R[l,l]' + E[l,j1]'*R[l,l]'*β
-             z = rbar*α + (R[l,l]*A[l,j1])' + v*β
+             mul!(z, rbar, α)
+             k = js+dl-1
+             # z <- z + A[l,j1]'*R[l,l]' exploiting upper triangular shape of R
+             axpy!(R[k,k],view(A,k,j1),view(z,:,dl))
+             dl == 1 || (axpy!(R[js,js],view(A,js,j1),view(z,:,1)); axpy!(R[js,js+1],view(A,js+1,j1),view(z,:,1)))
+             # v = (R[l,l]*E[l,j1])'  exploiting upper triangular shape of R
+             jj = j
+             for ii = 1:n-j+1
+                 v[ii,dl] = R[k,k]*E[k,jj]
+                 jj += 1
+             end               
+             if dl == 2
+               jj = j
+               for ii = 1:n-j+1
+                   v[ii,1] = R[js,js]*E[js,jj] + R[js,js+1]*E[js+1,jj]
+                   jj += 1
+               end
+             end
+             mul!(z, v, β, 1, 1)
+             rmul!(z,-1)
              # Solve A[j1,j1]'*ubar+E[j1,j1]'*ubar*β + z = 0
              E1 = view(E,j1,j1)
-             ubar = gsylvs!(view(A,j1,j1), view(η,1:dl,1:dl), E1, β, -z; adjAC = true, adjBD = false)
-             R[l,j1] = ubar'
+             gsylvs!(view(A,j1,j1), view(η,dll,dll), E1, β, z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = true, adjBD = false)
+             #R[l,j1] = z'
+             transpose!(view(R,l,j1),z)
              # update the Cholesky factor R2'*R2 <- R2'*R2 + y'*y
              #y = rbar - (E[j1,j1]'*ubar+E[l,j1]'*R[l,l]') * α'
              #y = rbar - (E[j1,j1]'*ubar+v) * α'
-             # mul!(v,transpose(UpperTriangular(E1)),ubar,ONE,ONE) Not working prior Julia 1.3!
-             mul!(v, transpose(E1), ubar, ONE, ONE)
-             y = rbar - v * α'
-             qrupdate!(view(R,j1,j1), y)
-          end
+             mul!(v, transpose(UpperTriangular(E1)), z, ONE, ONE)
+             #rbar -= v * α'
+             mul!(rbar, v, transpose(α), -ONE, ONE)
+             qrupdate!(view(R,j1,j1), rbar)
+         end
       end
    else
       # The (L,L)th block of X is determined starting from
@@ -1084,39 +1179,58 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular generalized Lyapunov equation")
              iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
-             β = A[l,l]/E[j,j]
-             α = TEMP/E[j,j]
+             Mα[1,1] = TEMP/E[j,j]
+             Mβ[1,1] = A[j,j]/E[j,j]
           else
-             β, α = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false)
+             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false)
           end
           if ll > 1
+             dll = 1:dl
+             js = j
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              j -= dl
              j1 = 1:j
              # Form the right-hand side corresponding to the dual of (6.2)
              # S = [ S1  s  ]
              #     [ 0  s11 ]
              # z = rbar*α' + s*u11
-             rbar = view(Wr,j1,1:dl)
-             ubar = view(Wu,j1,1:dl)
-             y = view(Wy,j1,1:dl)
-             v = view(Wv,j1,1:dl)
-             z = view(Wz,j1,1:dl)
-             rbar = R[j1,l]
-             v = E[j1,l]*R[l,l]
-             #z = rbar*α + A[l,j1]'*R[l,l]' + E[l,j1]'*R[l,l]'*β
-             z = rbar*α' + A[j1,l]*R[l,l] + v*β'
+             rbar = view(Wr,j1,dll)
+             v = view(Wv,j1,dll)
+             z = view(Wz,j1,dll)
+             #rbar = R[j1,l]
+             copyto!(rbar,view(R,j1,l))
+             #v = E[j1,l]*R[l,l]  - null allocation code exploiting upper triangular shape of R
+             #mul!(v,view(E,j1,l),view(R,l,l))
+             k = js-dl+1
+             for ii = 1:j
+                 v[ii,1] = R[k,k]*E[ii,k]
+             end               
+             if dl == 2
+               for ii = 1:j
+                   v[ii,2] = R[js-1,js]*E[ii,js-1] + R[js,js]*E[ii,js]
+               end
+             end
+             # z = rbar*α' + A[j1,l]*R[l,l] + v*β'
+             mul!(z, rbar, transpose(α))
+             # null allocation code exploiting upper triangular shape of R
+             axpy!(R[k,k],view(A,j1,k),view(z,:,1))
+             dl == 1 || (axpy!(R[js-1,js],view(A,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(A,j1,js),view(z,:,2)))
+             mul!(z, v, transpose(β), 1, 1)
+             rmul!(z,-1)
              # Solve S1*ubar+ubar*β' + z = 0
              E1 = view(E,j1,j1)
-             ubar = gsylvs!(view(A,j1,j1), view(η,1:dl,1:dl), E1, β, -z; adjAC = false, adjBD = true)
-             #ubar = gsylvs!(A[j1,j1],η,E[j1,j1],β,-z;adjAC=false,adjBD=true)
-             R[j1,l] = ubar
+             gsylvs!(view(A,j1,j1), view(η,dll,dll), E1, β, z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = false, adjBD = true)
+             #R[j1,l] = z
+             copyto!(view(R,j1,l), z)
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
-             # mul!(v,UpperTriangular(E1),ubar,ONE,ONE)  Not working before Julia 1.3!
-             mul!(v,E1,ubar,ONE,ONE)
-             y = rbar - v * α
-             #y = rbar - (E[j1,j1]*ubar+v) * α
-             #y = rbar - ubar*α
-             rqupdate!(view(R,j1,j1), y)
+             #y = rbar - (E[j1,j1]*z+v) * α
+             #v <-v + E[j1,j1]*z
+             #mul!(v,UpperTriangular(E1),z,ONE,ONE)
+             mul!(v, E1, z, ONE, ONE)  # null allocation
+             #y = rbar - v * α
+             mul!(rbar, v, α, -ONE, ONE)
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end
@@ -1138,9 +1252,10 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
    BIGNUM = ONE / small
    SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
 
+   WB = Vector{T1}(undef,n)
+   WD = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
-   Wu = similar(Wr)
-   Wy = similar(Wr)
+   Wv = similar(Wr)
    Wz = similar(Wr)
    η  = complex(fill(ONE,(1,1)))
    if adj
@@ -1169,24 +1284,33 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
              # Form the right-hand side of (11.12)
              # z = rbar'*α + s'*u11'
              rbar = view(Wr,ir1,1:1)
-             ubar = view(Wu,ir1,1:1)
-             y = view(Wy,ir1,1:1)
+             v = view(Wv,ir1,1:1)
              z = view(Wz,ir1,1:1)
-             rbar = R[l,j1]'
-             v = (R[l,l]*E[l,j1])'
-             #z = rbar*α + A[l,j1]'*R[l,l]' + E[l,j1]'*R[l,l]'*β
-             z = rbar*α + (R[l,l]*A[l,j1])'+v*β
+             k = j
+             for ii = 1:n-j+1
+                rbar[ii] = R[j-1,k]'
+                v[ii] = R[j-1,j-1]*E[j-1,k]'
+                z[ii] = -(rbar[ii]*α + R[j-1,j-1]*A[j-1,k]' + v[ii]*β[1,1])
+                k += 1
+             end  
+             #  rbar = R[l,j1]'
+             #  v = (R[l,l]*E[l,j1])'
+             #  #z = rbar*α + A[l,j1]'*R[l,l]' + E[l,j1]'*R[l,l]'*β
              # Solve A[j1,j1]'*ubar+E[j1,j1]'*ubar*β + z = 0
              E1 = view(E,j1,j1)
-             #ubar = gsylvs!(A[j1,j1],η,E[j1,j1],β,-z;adjAC=true,adjBD=false)
-             ubar = gsylvs!(view(A,j1,j1), η, E1, β, -z; adjAC=true, adjBD=false)
-             R[l,j1] = ubar'
+             gsylvs!(view(A,j1,j1), η, E1, β, z, view(WB,j1), view(WD,j1); adjAC=true, adjBD=false)
+             # v <- v + E1'*z
+             mul!(v, UpperTriangular(E1)', z, 1, 1)
+             #R[l,j1] = z'
              # update the Cholesky factor R2'*R2 <- R2'*R2 + y'*y
              #y = conj(rbar - (E[j1,j1]'*ubar+E[l,j1]'*R[l,l]') * α')
-             #y = conj(rbar - v * α')
-             #y = conj(rbar - (E[j1,j1]'*ubar+v) * α')
-             y = conj(rbar - (E1'*ubar+v) * α')
-             qrupdate!(view(R,j1,j1), y)
+             k = j
+             for ii = 1:n-j+1
+                R[j-1,k] = z[ii]'
+                rbar[ii] = conj(rbar[ii] - v[ii] * α')
+                k += 1
+             end
+             qrupdate!(view(R,j1,j1), rbar)
           end
       end
       return R
@@ -1214,29 +1338,38 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
              j1 = 1:j
              # z = rbar*α' + s*u11
              rbar = view(Wr,j1,1:1)
-             ubar = view(Wu,j1,1:1)
-             y = view(Wy,j1,1:1)
+             v = view(Wv,j1,1:1)
              z = view(Wz,j1,1:1)
-             rbar = R[j1,l]
-             v = E[j1,l]*R[l,l]
+             #rbar = R[j1,l]
+             #v = E[j1,l]*R[l,l]
              #z = rbar*α + A[l,j1]'*R[l,l]' + E[l,j1]'*R[l,l]'*β
-             z = rbar*α' + A[j1,l]*R[l,l] + v*β'
+             #z = rbar*α' + A[j1,l]*R[l,l] + v*β'
+             for ii = 1:j
+                 rbar[ii] = R[ii,j+1]
+                 v[ii] = E[ii,j+1]*R[j+1,j+1]
+                 z[ii] = -(rbar[ii]*α' + A[ii,j+1]*R[j+1,j+1] + v[ii]*β[1,1]')
+             end
              # Solve S1*ubar+ubar*β' + z = 0
              E1 = view(E,j1,j1)
-             #ubar = gsylvs!(A[j1,j1],η,E[j1,j1],β,-z;adjAC=false,adjBD=true)
-             ubar = gsylvs!(view(A,j1,j1), η, E1, β, -z; adjAC=false, adjBD=true)
-             R[j1,l] = ubar
+             gsylvs!(view(A,j1,j1), η, E1, β, z, view(WB,j1), view(WD,j1); adjAC=false, adjBD=true)
+             # v <- v + E1*z
+             mul!(v, UpperTriangular(E1), z, 1, 1)
+             #R[j1,l] = z
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              # y = rbar - (E[j1,j1]*ubar+v) * α
-             y = rbar - (E1*ubar+v) * α
-             rqupdate!(view(R,j1,j1), y)
+             #y = rbar - (E1*z+v) * α
+             for ii = 1:j
+               R[ii,j+1] = z[ii]
+               rbar[ii] -= v[ii]*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end
    return R
 end
 """
-    plyapds!(A,R;adj = false)
+    plyapds!(A, R; adj = false)
 
 Solve the positive discrete Lyapunov matrix equation
 
@@ -1253,7 +1386,6 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    ONE = one(T1)
-   TWO = 2*ONE
    small = safemin(T1)*n*n
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
@@ -1261,11 +1393,12 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
 
+   W = Matrix{T1}(undef,n,2)
    Wr = Matrix{T1}(undef,n,2)
-   Wu = similar(Wr)
    Wv = similar(Wr)
-   Wy = similar(Wr)
    Wz = similar(Wr)
+   Mα = Matrix{T1}(undef,2,2)
+   Mβ = Matrix{T1}(undef,2,2)
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -1282,56 +1415,72 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular Lyapunov equation")
-             α = copysign( TEMP, R[j,j])
-             R[j,j] = R[j,j]/α
-             β = A[l,l]
+             tα = copysign( TEMP, R[j,j])
+             R[j,j] = R[j,j]/tα
+             Mα[1,1] = tα
+             Mβ[1,1] = A[j,j]
           else
-             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = true, disc = true)
+             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = true, disc = true)
           end
           if ll < p
+             dll = 1:dl
+             js = j
              j += dl
              j1 = j:n
              ir1 = 1:n-j+1
-             rbar = view(Wr,ir1,1:dl)
-             ubar = view(Wu,ir1,1:dl)
-             y = view(Wy,ir1,1:dl)
-             v = view(Wv,j1,1:dl)
-             z = view(Wz,ir1,1:dl)
+             rbar = view(Wr,ir1,dll)
+             v = view(Wv,j1,dll)
+             z = view(Wz,ir1,dll)
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              # Form the right-hand side of (10.16)
              # z = rbar*α + s'*u11*β
              # rbar = R[l,j1]'
              transpose!(rbar,view(R,l,j1))
              # v = (R[l,l]*A[l,j1])'
-             mul!(v,transpose(view(A,l,j1)),transpose(R[l,l]))
+             #mul!(v,transpose(view(A,l,j1)),transpose(R[l,l]))
+             k = js+dl-1
+             jj = j
+             for ii = 1:n-j+1
+                 v[ii,dl] = R[k,k]*A[k,jj]
+                 jj += 1
+             end               
+             if dl == 2
+               jj = j
+               for ii = 1:n-j+1
+                   v[ii,1] = R[js,js]*A[js,jj] + R[js,js+1]*A[js+1,jj]
+                   jj += 1
+               end
+             end
              #z = rbar*α + A[l,j1]'*R[l,l]*β
-             rbar = view(Wr,ir1,1:dl)
-             ubar = view(Wu,ir1,1:dl)
-             z = rbar*α + v*β
-             # mul!(z,rbar,α)
-             # mul!(z,v,β,ONE,ONE)
+             #z = rbar*α + v*β
+             mul!(z, rbar, α)
+             mul!(z, v, β, ONE, ONE)
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
-             #ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
-             ubar = sylvds!(S1, -β, z, adjA = true, adjB = false)
+             sylvds!(S1, -β, z, view(W,j1,1:2), adjA = true, adjB = false)
              #R[l,j1] = ubar'
-             transpose!(view(R,l,j1),ubar)
+             transpose!(view(R,l,j1), z)
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             v += S1'*ubar
-             # mul!(v,transpose(S1),ubar,ONE,ONE)
+             # v += S1'*z
+             mul!(v, transpose(S1), z, ONE, ONE)
              if dl == 1
-                y = rbar*β - v*α
-                #mul!(y,v,α)
-                #mul!(y,rbar,β,ONE,-ONE)
+                #y = rbar*β - v*α
+               #  mul!(y, v, α)
+               #  mul!(y,rbar,β,ONE,-ONE)
+                rmul!(v, -α[1,1])
+                #mul!(v, rbar, β, ONE, ONE)
+                axpy!(β[1,1], rbar, v)
              else
                #  F = qr([α; β])
                #  vy = [rbar v]*F.Q
                #  y = vy[:,dl+1:end]
-                y =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
+                v =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
                 # alternative formula of Varga
                 #y = rbar - (A[l,j1]'*R[l,l]'+S1'*ubar+ubar)*inv(I+β')*α'
              end
              #RR = view(R,j1,j1)
-             qrupdate!(view(R,j1,j1), y)
+             qrupdate!(view(R,j1,j1), v)
           end
       end
    else
@@ -1350,51 +1499,65 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              DR = abs( R[j,j] )
              TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
                 error("Singular Lyapunov equation")
-             α = copysign( TEMP, R[j,j])
-             R[j,j] = R[j,j]/α
-             β = A[l,l]
+             tα = copysign( TEMP, R[j,j])
+             R[j,j] = R[j,j]/tα
+             Mα[1,1] = tα
+             Mβ[1,1] = A[j,j]
           else
-             β, α = plyap2!(view(A,l,l), view(R,l,l), adj = false, disc = true)
+             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = false, disc = true)
           end
           if ll > 1
+             dll = 1:dl
+             js = j
              j -= dl
              j1 = 1:j
              # Form the right-hand side corresponding to the dual of (6.2)
              # S = [ S1  s  ]
              #     [ 0  s11 ]
              # z = rbar*α' + s*u11
-             rbar = view(Wr,j1,1:dl)
-             ubar = view(Wu,j1,1:dl)
-             y = view(Wy,j1,1:dl)
-             z = view(Wz,j1,1:dl)
-             v = view(Wv,j1,1:dl)
-             rbar = R[j1,l]
-             # copyto!(rbar,view(R,j1,l))
+             rbar = view(Wr,j1,dll)
+             z = view(Wz,j1,dll)
+             v = view(Wv,j1,dll)
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
+             #rbar = R[j1,l]
+             copyto!(rbar,view(R,j1,l))
              # v = A[j1,l]*R[l,l]
-             v = view(A,j1,l)*R[l,l]
-             # mul!(v,view(A,j1,l),view(R,l,l))
-             #z = rbar*α + A[j1,l]*R[l,l]*β'
-             z = rbar*α' + v*β'
-             # mul!(z,rbar,transpose(α))
-             # mul!(z,v,transpose(β),ONE,ONE)
+             # v = view(A,j1,l)*R[l,l]
+             #mul!(v,view(A,j1,l),view(R,l,l))
+             k = js-dl+1
+             for ii = 1:j
+                 v[ii,1] = R[k,k]*A[ii,k]
+             end               
+             if dl == 2
+               for ii = 1:j
+                   v[ii,2] = R[js-1,js]*A[ii,js-1] + R[js,js]*A[ii,js]
+               end
+             end
+             #z = rbar*α' + v*β'
+             mul!(z,rbar,transpose(α))
+             mul!(z,v,transpose(β),ONE,ONE)
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = sylvds!(S1, -β, z, adjA = false, adjB = true)
-             # ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
-             R[j1,l] = ubar
+             sylvds!(S1, -β, z, view(W,j1,1:2), adjA = false, adjB = true)
+             copyto!(view(R,j1,l), z )
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              #v += S1*ubar
-             mul!(v,S1,ubar,ONE,ONE)
+             mul!(v, S1, z, ONE, ONE)
              if dl == 1
-                y = rbar*β - v*α
+                #y = rbar*β - v*α
+                rmul!(v,-α[1,1])
+                mul!(v, rbar, β, ONE, ONE)
+               #  mul!(y, v, α)
+               #  mul!(y,rbar,β,ONE,-ONE)
              else
                #  F = qr([α'; β'])
                #  vy = [rbar v]*F.Q
                #  y = vy[:,dl+1:end]
-                y =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
+                v =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
              end
              #RR = view(R,j1,j1)
-             rqupdate!(view(R,j1,j1), y)
+             rqupdate!(view(R,j1,j1), v)
           end
        end
    end
@@ -1406,14 +1569,13 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
 
    T = real(T1)
    ONE = one(T)
-   ZERO = zero(T)
    small = safemin(T)*n*n
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
 
-   Wr = Matrix{T1}(undef,n,2)
-   Wu = similar(Wr)
-   Wy = similar(Wr)
+   W = Vector{T1}(undef,n)
+   Wr = Matrix{T1}(undef,n,1)
+   Wv = similar(Wr)
    Wz = similar(Wr)
    if adj
       # The (L,L)th block of X is determined starting from
@@ -1432,28 +1594,40 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           l = j:j
           β = A[l,l]
           if j < n
+             js = j
              j += 1
              j1 = j:n
              ir1 = 1:n-j+1
              rbar = view(Wr,ir1,1:1)
-             ubar = view(Wu,ir1,1:1)
-             y = view(Wy,ir1,1:1)
-             #z = view(Wz,ir1,1:1)
+             v = view(Wv,ir1,1:1)
+             z = view(Wz,ir1,1:1)
              # Form the right-hand side of (10.16)
              # z = rbar*α + s'*u11*β
-             rbar = R[l,j1]'
-             ust = R[l,l]'*A[l,j1]
-             #z = rbar*α + A[l,j1]'*R[l,l]*β
-             z = rbar*α + ust'*β
-             # Solve S1'*ubar*β+ubar + z = 0
+             k = j
+             for ii = 1:n-j+1
+                rbar[ii] = R[js,k]'
+                v[ii] = R[js,js]*A[js,k]'
+                z[ii] = rbar[ii]*α + v[ii]*β[1,1]
+                k += 1
+             end  
+             # Solve S1'*ubar*β + ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = sylvds!(S1, -β, z, adjA = true, adjB = false)
-             # ubar = sylvds!(A[j1,j1], -β, z, adjA = true, adjB = false)
-             R[l,j1] = ubar'
+             sylvds!(S1, -β, z, W; adjA = true, adjB = false)
+             # v <- v + S1'*z
+             #mul!(v, UpperTriangular(S1)', z, 1, 1) # faster but involves allocations
+             mul!(v, S1', z, 1, 1)  # null allocation
+             # R[l,j1] = z'
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             y = conj(rbar*β' - (ubar'*UpperTriangular(S1)+ust)' * α')
-             qrupdate!(view(R,j1,j1), y)
-          end
+             # y = conj(rbar*β' - v * α')
+             k = j
+             t = β[1,1]'
+             for ii = 1:n-j+1
+                R[j-1,k] = z[ii]'
+                rbar[ii] = conj(rbar[ii] * t - v[ii] * α')
+                k += 1
+             end
+             qrupdate!(view(R,j1,j1), rbar)
+         end
       end
    else
       # The (L,L)th block of X is determined starting from
@@ -1472,28 +1646,37 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
           l = j:j
           β = A[l,l]
           if j > 1
+             js = j
              j -= 1
              j1 = 1:j
              # Form the right-hand side corresponding to the dual of (6.2)
              # S = [ S1  s  ]
              #     [ 0  s11 ]
              rbar = view(Wr,j1,1:1)
-             ubar = view(Wu,j1,1:1)
-             y = view(Wy,j1,1:1)
+             v = view(Wv,j1,1:1)
              z = view(Wz,j1,1:1)
-             rbar = R[j1,l]
-             ust = A[j1,l]*R[l,l]
-             #z = rbar*α + A[j1,l]*R[l,l]*β'
-             z = rbar*α' + ust*β'
+             #  rbar = R[j1,l]
+             #  v = A[j1,l]*R[l,l]
+             #  z = rbar*α' + v*β'
+             for ii = 1:j
+                 rbar[ii] = R[ii,js]
+                 v[ii] = A[ii,js]*R[js,js]
+                 z[ii] = rbar[ii]*α' + v[ii]*β[1,1]'
+             end
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = sylvds!(S1, -β, z, adjA = false, adjB = true)
-             # ubar = sylvds!(A[j1,j1], -β, z, adjA = false, adjB = true)
-             R[j1,l] = ubar
-             # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
-             y = rbar*β - (UpperTriangular(S1)*ubar+ust) * α
-             #y = rbar - ubar*α
-             rqupdate!(view(R,j1,j1), y)
+             sylvds!(S1, -β, z, W; adjA = false, adjB = true)
+             # v <- v + S1*z
+             #mul!(v, UpperTriangular(S1), z, 1, 1) # involves allocations
+             mul!(v, S1, z, 1, 1)
+             #  R[j1,l] = ubar
+             #  update the Cholesky factor R1*R1' <- R1*R1' + y*y'
+             #  y = rbar*β - v * α
+             for ii = 1:j
+                 R[ii,j+1] = z[ii]
+                 rbar[ii] = rbar[ii]*β[1,1] - v[ii]*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end
@@ -1525,7 +1708,6 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
 
    ONE = one(T1)
    ZERO = zero(T1)
-   TWO = 2*ONE
    small = safemin(T1)*n*n
    BIGNUM = ONE / small
    SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
@@ -1533,13 +1715,14 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
 
+   WB = Matrix{T1}(undef,n,2)
+   WD = Matrix{T1}(undef,n,2)
    Wr = Matrix{T1}(undef,n,2)
-   Wu = similar(Wr)
-   Wz = similar(Wr)
    Wv = similar(Wr)
-   Wvst = similar(Wr)
-   Wy = similar(Wr)
    Wz = similar(Wr)
+   Mα = Matrix{T1}(undef,2,2)
+   Mβ = Matrix{T1}(undef,2,2)
+   η = [ -ONE ZERO; ZERO -ONE]
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -1549,7 +1732,6 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           dl = ba[ll]
           l = j:j+dl-1
           if dl == 1
-             λ = abs(A[j,j])
              abs(A[j,j]) >= abs(E[j,j]) && error("A-λE must have only eigenvalues with moduli less than one")
              TEMP = sqrt( real((E[j,j] - A[j,j])*(E[j,j] + A[j,j])) )
              TEMP < SMIN && (TEMP = SMIN)
@@ -1558,43 +1740,65 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
                 error("Singular generalized discrete Lyapunov equation")
              iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
-             β = A[l,l]/E[j,j]
-             α = TEMP/E[j,j]
+             Mα[1,1] = TEMP/E[j,j]
+             Mβ[1,1] = A[j,j]/E[j,j]
           else
-            β, α = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true, disc = true)
+            Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true, disc = true)
           end
           if ll < p
+             dll = 1:dl
+             js = j
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              j += dl
              j1 = j:n
              ir1 = 1:n-j+1
-             rbar = view(Wr,ir1,1:dl)
-             ubar = view(Wu,ir1,1:dl)
-             y = view(Wy,ir1,1:dl)
-             v = view(Wv,ir1,1:dl)
-             vst = view(Wvst,ir1,1:dl)
-             z = view(Wz,ir1,1:dl)
+             rbar = view(Wr,ir1,dll)
+             v = view(Wv,ir1,dll)
+             z = view(Wz,ir1,dll)
+             # rbar = R[l,j1]'
+             transpose!(rbar,view(R,l,j1))
              # Form the right-hand side of (22) in [1]
-             #z = rbar*α + A[l,j1]'*R[l,l]*β
-             rbar = R[l,j1]'
-             v = (R[l,l]*A[l,j1])'
-             vst = (R[l,l]*E[l,j1])'
-             #z = rbar*α + A[l,j1]'*R[l,l]'*β - E[l,j1]'*R[l,l]'
-             z = rbar*α + v*β - vst
-             #z = rbar*α + v*β - (R[l,l]*E[l,j1])'
+             # z = -rbar*α - v*β + (R[l,l]*E[l,j1])' 
+             # where v = (R[l,l]*A[l,j1])'
+             mul!(z, rbar, α)
+             rmul!(z,-1)
+             k = js+dl-1
+             # z <- z + E[l,j1]'*R[l,l]' exploiting upper triangular shape of R
+             axpy!(R[k,k],view(E,k,j1),view(z,:,dl))
+             dl == 1 || (axpy!(R[js,js],view(E,js,j1),view(z,:,1)); axpy!(R[js,js+1],view(E,js+1,j1),view(z,:,1)))
+             # v = (R[l,l]*A[l,j1])'  exploiting upper triangular shape of R
+             jj = j
+             for ii = 1:n-j+1
+                 v[ii,dl] = R[k,k]*A[k,jj]
+                 jj += 1
+             end               
+             if dl == 2
+               jj = j
+               for ii = 1:n-j+1
+                   v[ii,1] = R[js,js]*A[js,jj] + R[js,js+1]*A[js+1,jj]
+                   jj += 1
+               end
+             end
+             mul!(z, v, β, -1, 1)
+
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = gsylvs!(S1, β, view(E,j1,j1), -one(β),-z, adjAC = true, adjBD = false)
-             R[l,j1] = ubar'
+             gsylvs!(S1, β, view(E,j1,j1), view(η,dll,dll), z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = true, adjBD = false)
+             # R[l,j1] = z'
+             transpose!(view(R,l,j1),z)
+             #v += S1'*z
+             mul!(v, transpose(S1), z, ONE, ONE)
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             v += S1'*ubar
-             # mul!(v,transpose(S1),ubar,ONE,ONE) # Not working prior Julia 1.3!
              if dl == 1
-                y = rbar*β - v*α
+                #y = rbar*β - v*α
+                rmul!(rbar, β[1,1])
+                axpy!(-α[1,1], v, rbar)
              else
-                y =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
+                rbar =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
              end
-             qrupdate!(view(R,j1,j1), y)
-          end
+             qrupdate!(view(R,j1,j1), rbar)
+         end
       end
    else
       # The (L,L)th block of X is determined starting from
@@ -1613,44 +1817,59 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
                 error("Singular generalized discrete Lyapunov equation")
              iszero(DR) || (TEMP = sign(R[j,j])*TEMP)
              R[j,j] = R[j,j]/TEMP
-             l = j:j
-             β = A[l,l]/E[j,j]
-             α = TEMP/E[j,j]
+             Mα[1,1] = TEMP/E[j,j]
+             Mβ[1,1] = A[j,j]/E[j,j]
           else
-             β, α = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false, disc = true)
+             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false, disc = true)
           end
           if ll > 1
+             dll = 1:dl
+             js = j
+             α = view(Mα,dll,dll)
+             β = view(Mβ,dll,dll)
              j -= dl
              j1 = 1:j
              # Form the right-hand side corresponding to the dual of (6.2)
              # S = [ S1  s  ]
              #     [ 0  s11 ]
              # z = rbar*α' + s*u11
-             rbar = view(Wr,j1,1:dl)
-             ubar = view(Wu,j1,1:dl)
-             v = view(Wv,j1,1:dl)
-             vst = view(Wvst,j1,1:dl)
-             y = view(Wy,j1,1:dl)
-             z = view(Wz,j1,1:dl)
-             rbar = R[j1,l]
-             v = A[j1,l]*R[l,l]
-             vst = E[j1,l]*R[l,l]
-             #z = rbar*α + A[j1,l]*R[l,l]*β'
-             z = rbar*α' + v*β' - vst
-             #z = rbar*α' + v*β' - E[j1,l]*R[l,l]
+             rbar = view(Wr,j1,dll)
+             v = view(Wv,j1,dll)
+             z = view(Wz,j1,dll)
+             #rbar = R[j1,l]
+             copyto!(rbar,view(R,j1,l))
+             #v = A[j1,l]*R[l,l]
+             k = js-dl+1
+             for ii = 1:j
+                 v[ii,1] = R[k,k]*A[ii,k]
+             end               
+             if dl == 2
+               for ii = 1:j
+                   v[ii,2] = R[js-1,js]*A[ii,js-1] + R[js,js]*A[ii,js]
+               end
+             end
+             #z = -rbar*α' - v*β' + E[j1,l]*R[l,l]
+             mul!(z, rbar, transpose(α))
+             mul!(z, v, transpose(β), -1, -1)
+             axpy!(R[k,k],view(E,j1,k),view(z,:,1))
+             dl == 1 || (axpy!(R[js-1,js],view(E,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(E,j1,js),view(z,:,2)))
+
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = gsylvs!(S1, β, view(E,j1,j1), -one(β),-z, adjAC = false, adjBD = true)
-             R[j1,l] = ubar
+             gsylvs!(S1, β, view(E,j1,j1), view(η,dll,dll), z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = false, adjBD = true)
+             #R[j1,l] = z
+             copyto!(view(R,j1,l),z)
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              #v += S1*ubar
-             mul!(v,S1,ubar,ONE,ONE)
+             mul!(v, S1, z, ONE, ONE)
              if dl == 1
-                y = rbar*β - v*α
+                # y = rbar*β - v*α
+                rmul!(rbar, β[1,1])
+                axpy!(-α[1,1], v, rbar)
              else
-                y =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
+                rbar =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
              end
-             rqupdate!(view(R,j1,j1), y)
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end
@@ -1664,16 +1883,15 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
 
    T = real(T1)
    ONE = one(T)
-   ZERO = zero(T)
-   TWO = 2*ONE
    small = safemin(T)*n*n
    BIGNUM = ONE / small
    SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
 
 
+   WB = Vector{T1}(undef,n)
+   WD = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
-   Wu = similar(Wr)
-   Wy = similar(Wr)
+   Wv = similar(Wr)
    Wz = similar(Wr)
    η  = complex(fill(-ONE,(1,1)))
    if adj
@@ -1693,27 +1911,41 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           β = A[l,l]/E[j,j]
           α = TEMP/E[j,j]
           if j < n
+             js = j
              j += 1
              j1 = j:n
              ir1 = 1:n-j+1
              rbar = view(Wr,ir1,1:1)
-             ubar = view(Wu,ir1,1:1)
-             y = view(Wy,ir1,1:1)
+             v = view(Wv,ir1,1:1)
              z = view(Wz,ir1,1:1)
              # Form the right-hand side of (10.16)
-             # z = rbar*α + s'*u11*β
-             rbar = R[l,j1]'
-             ust = R[l,l]'*A[l,j1]
-             vst = R[l,l]'*E[l,j1]
-             #z = rbar*α + A[l,j1]'*R[l,l]*β
-             z = rbar*α + ust'*β - vst'
+             # rbar = R[l,j1]'
+             # v = R[l,l]*A[l,j1]'
+             # z = rbar*α + A[l,j1]'*R[l,l]*β - E[l,j1]'*R[l,l]
+             k = j
+             for ii = 1:n-j+1
+                 rbar[ii] = R[js,k]'
+                 v[ii] = R[js,js]*A[js,k]'
+                 z[ii] = -(rbar[ii]*α - R[js,js]*E[js,k]' + v[ii]*β[1,1])
+                 k += 1
+             end  
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = gsylvs!(S1, β, view(E,j1,j1), η, -z, adjAC = true, adjBD = false)
-             R[l,j1] = ubar'
-             # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
-             y = conj(rbar*β' - (ubar'*UpperTriangular(S1)+ust)' * α')
-             qrupdate!(view(R,j1,j1), y)
+             gsylvs!(S1, β, view(E,j1,j1), η, z, view(WB,j1), view(WD,j1); adjAC = true, adjBD = false)
+             # v <- v + S1'*z
+             #mul!(v, UpperTriangular(S1)', z, 1, 1)
+             mul!(v, S1', z, 1, 1)  # no allocations
+             #  R[l,j1] = z'
+             #  update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
+             #  y = conj(rbar*β' - v * α')
+             k = j
+             t = β[1,1]'
+             for ii = 1:n-j+1
+                R[js,k] = z[ii]'
+                rbar[ii] = conj(rbar[ii] * t - v[ii] * α')
+                k += 1
+             end
+             qrupdate!(view(R,j1,j1), rbar)
           end
       end
    else
@@ -1733,28 +1965,37 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
           β = A[l,l]/E[j,j]
           α = TEMP/E[j,j]
           if j > 1
+             js = j
              j -= 1
              j1 = 1:j
              # Form the right-hand side corresponding to the dual of (6.2)
              # S = [ S1  s  ]
              #     [ 0  s11 ]
              rbar = view(Wr,j1,1:1)
-             ubar = view(Wu,j1,1:1)
-             y = view(Wy,j1,1:1)
+             v = view(Wv,j1,1:1)
              z = view(Wz,j1,1:1)
-             rbar = R[j1,l]
-             ust = A[j1,l]*R[l,l]
-             vst = E[j1,l]*R[l,l]
-             #z = rbar*α + A[j1,l]*R[l,l]*β'
-             z = rbar*α' + ust*β'-vst
+             #  rbar = R[j1,l]
+             #  v = A[j1,l]*R[l,l]
+             #  z = rbar*α + A[j1,l]*R[l,l]*β' - E[j1,l]*R[l,l]
+             for ii = 1:j
+                 rbar[ii] = R[ii,j+1]
+                 v[ii] = A[ii,js]*R[js,js]
+                 z[ii] = -rbar[ii]*α' + E[ii,js]*R[js,js] - v[ii]*β[1,1]'
+             end
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             ubar = gsylvs!(S1, β, view(E,j1,j1), η, -z, adjAC = false, adjBD = true)
-             R[j1,l] = ubar
-             # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
-             y = rbar*β - (UpperTriangular(S1)*ubar+ust) * α
-             #y = rbar - ubar*α
-             rqupdate!(view(R,j1,j1), y)
+             gsylvs!(S1, β, view(E,j1,j1), η, z, view(WB,j1), view(WD,j1); adjAC = false, adjBD = true)
+             # v <- v + S1*z
+             #mul!(v, UpperTriangular(S1), z, 1, 1)
+             mul!(v, S1, z, 1, 1)  # no allocations
+             #  R[j1,l] = z
+             #  update the Cholesky factor R1*R1' <- R1*R1' + y*y'
+             #  y = rbar*β - v * α
+             for ii = 1:j
+                 R[ii,j+1] = z[ii]
+                 rbar[ii] = rbar[ii] * β[1,1] - v[ii]*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
           end
        end
    end

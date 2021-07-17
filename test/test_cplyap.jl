@@ -4,6 +4,7 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
+
 @testset "Testing positive continuous Lyapunov equation solvers" begin
 
 n = 30
@@ -50,10 +51,10 @@ x = u*u'; @test norm(ar*x+x*ar'+brw*brw')/norm(x)/norm(ar) < reltol
 @time u = plyapc(ar,I,br);
 x = u*u'; @test norm(ar*x+x*ar'+br*br')/norm(x)/norm(ar) < reltol
 
-@time u = plyapc(ar',cr')
+@time u = plyapc(ar',cr');
 x = u'*u; @test norm(ar'*x+x*ar+cr'*cr)/norm(x)/norm(ar) < reltol
 
-@time u = plyapc(ar',crt')
+@time u = plyapc(ar',crt');
 x = u'*u; @test norm(ar'*x+x*ar+crt'*crt)/norm(x)/norm(ar) < reltol
 
 @time u = plyapc(ac,bc);
@@ -66,7 +67,7 @@ x = u*u'; @test norm(ac*x+x*ac') < reltol
 x = u*u'; @test norm(ac*x+x*ac'+bcw*bcw')/norm(x)/norm(ac) < reltol
 
 @time u = plyapc(ac',cc');
-x = u'*u; @test norm(ac'*x+x*ac+cc'*cc)/norm(x)/norm(ac) < reltol
+x = u'*u; @test norm(ac'*x+x*ac+cc'*cc)/norm(x)/norm(ac) < reltol  
 
 @time u = plyapc(ac',cct');
 x = u'*u; @test norm(ac'*x+x*ac+cct'*cct)/norm(x)/norm(ac) < reltol
@@ -260,26 +261,27 @@ ac = rand(Ty,n,n)+im*rand(Ty,n,n)
 ac = ac-2*norm(ac)*Matrix(I,n,n)
 acs,  = schur(ac)
 br = rand(Ty,n,m)
+brw = rand(Ty,n,n+m)
 bc = br+im*rand(Ty,n,m)
 cr = rand(Ty,p,n)
+crt = rand(Ty,n+p,n)
 cc = cr+im*rand(Ty,p,n)
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 @time u = plyaps(as,br);
 x = u*u'; @test norm(as*x+x*as'+br*br')/norm(x)/norm(as) < reltol
 
-@time u = plyaps(as,ar);
-x = u*u'; @test norm(as*x+x*as'+ar*ar')/norm(x)/norm(as) < reltol
+@time u = plyaps(as,brw);
+x = u*u'; @test norm(as*x+x*as'+brw*brw')/norm(x)/norm(as) < reltol
 
 @time u = plyaps(as,I,br);
 x = u*u'; @test norm(as*x+x*as'+br*br')/norm(x)/norm(as) < reltol
 
-#test
 @time u = plyaps(as',cr');
 x = u'*u; @test norm(as'*x+x*as+cr'*cr)/norm(x)/norm(as) < reltol
 
-@time u = plyaps(as',ar');
-x = u'*u; @test norm(as'*x+x*as+ar'*ar)/norm(x)/norm(as) < reltol
+@time u = plyaps(as',crt');
+x = u'*u; @test norm(as'*x+x*as+crt'*crt)/norm(x)/norm(as) < reltol
 
 @time u = plyaps(acs,bc);
 x = u*u'; @test norm(acs*x+x*acs'+bc*bc')/norm(x)/norm(as) < reltol
@@ -332,14 +334,14 @@ acs, ecs = schur(ac,ec)
 @time u = plyaps(as,es,br);
 x = u*u'; @test norm(as*x*es'+es*x*as'+br*br')/norm(x)/norm(as) < reltol
 
-@time u = plyaps(as,es,ar);
-x = u*u'; @test norm(as*x*es'+es*x*as'+ar*ar')/norm(x)/norm(as) < reltol
+@time u = plyaps(as,es,brw);
+x = u*u'; @test norm(as*x*es'+es*x*as'+brw*brw')/norm(x)/norm(as) < reltol
 
 @time u = plyaps(as',es',cr');
 x = u'*u; @test norm(as'*x*es+es'*x*as+cr'*cr)/norm(x)/norm(as) < reltol  
 
-@time u = plyaps(as',es',ar');
-x = u'*u; @test norm(as'*x*es+es'*x*as+ar'*ar)/norm(x)/norm(as) < reltol
+@time u = plyaps(as',es',crt');
+x = u'*u; @test norm(as'*x*es+es'*x*as+crt'*crt)/norm(x)/norm(as) < reltol
 
 @time u = plyaps(acs,ecs,bc);
 x = u*u'; @test norm(acs*x*ecs'+ecs*x*acs'+bc*bc')/norm(x)/norm(as) < reltol

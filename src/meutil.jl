@@ -300,8 +300,9 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
          for i = 1:n
              d = abs(U[i,i])
              (!iszero(d) && !(iszero(imag(U[i,i])) && real(U[i,i]) > ZERO)) && 
-                     (tmp = conj(U[i,i])/d; [@inbounds U[i,j] *= tmp for j = i:n])
-         end
+                  (tmp = conj(U[i,i])/d; rmul!(view(U,i,i:n),tmp))
+                  #(tmp = conj(U[i,i])/d; [@inbounds U[i,j] *= tmp for j = i:n])
+            end
       end
    else
       # Make the diagonal elements of U non-negative.
@@ -313,8 +314,9 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
          for j = 1:n
              d = abs(U[j,j])
              (!iszero(d) && (iszero(imag(U[j,j])) && real(U[j,j]) > ZERO)) && 
-                    (tmp = conj(U[j,j])/d; [@inbounds U[i,j] *= tmp for i = 1:j])
-         end
+                  (tmp = conj(U[j,j])/d; rmul!(view(U,1:j,j),tmp))
+                  #(tmp = conj(U[j,j])/d; [@inbounds U[i,j] *= tmp for i = 1:j])
+            end
       end
    end
    return U
