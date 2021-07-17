@@ -29,7 +29,7 @@ function opnorm1(op::LinearMaps.LinearMap{T}) where T
    TR = real(T)
    ej = zeros(TR, n)
    ej[1] = 1
-   y = similar(T, m)
+   y = similar(ej, T, m)
    nrm = zero(typeof(norm(zero(T))))
    for j = 1:n
       ej[j] = 1
