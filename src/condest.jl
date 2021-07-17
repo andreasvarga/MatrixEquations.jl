@@ -40,7 +40,7 @@ function opnorm1(op::LinearMaps.LinearMap{T}) where T
          # if isnothing(findfirst("SingularException",string(err))) &&
          #    isnothing(findfirst("LAPACKException",string(err)))
          findfirst("SingularException", string(err)) === nothing &&
-         findfirst("LAPACKException", string(err)) === nothing ? rethrow() : (return typeof(Inf))
+         findfirst("LAPACKException", string(err)) === nothing ? rethrow() : (return TR(Inf))
       end
       ej[j] = 0
    end
@@ -99,7 +99,7 @@ function opnorm1est(op::LinearMaps.LinearMap)
          #   if isnothing(findfirst("SingularException",string(err))) &&
          #      isnothing(findfirst("LAPACKException",string(err)))
             findfirst("SingularException",string(err)) === nothing &&
-            findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
+            findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return TR(Inf))
          end
       else
          finish = true

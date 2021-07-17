@@ -308,7 +308,7 @@ M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
 function invlyapop(A::AbstractMatrix{<:BlasFloat}; disc=false, her=false)
-   InverseLyapunovMap(A; disc=disc, her=her)
+   InverseLyapunovMap(A; disc=disc, her=her) 
 end
 function invlyapop(A::AbstractMatrix; disc=false, her=false)
    InverseLyapunovMap(convert(AbstractMatrix{promote_type(eltype(A), Float64)}, A); disc=disc, her=her)

@@ -74,8 +74,10 @@ Tccssyminv = invlyapop(acs,her=true);
       #check_ctranspose(Tccssyminv) &&
       #check_ctranspose(Tccssyminv) 
 
+@test opnorm1(invlyapop([ 0 0;0 0])) == Inf
 
 try
+   T1 = invlyapop([1 0;0 1])
    T1 = invlyapop(convert(Matrix{Float32},as))
    T = invlyapop(as);
    T*rand(n*n);
