@@ -25,23 +25,26 @@ julia> opnorm1(invlyapop(A))
 ```
 """
 function opnorm1(op::LinearMaps.LinearMap{T}) where T
-   (m, n) = size(op)
-   Tnorm = real(T)
-   Tsum = promote_type(Float64, Tnorm)
-   nrm::Tsum = 0
-   for j = 1 : n
-      ej = zeros(Tsum, n)
+   m, n = size(op)
+   TR = real(T)
+   ej = zeros(TR, n)
+   ej[1] = 1
+   y = similar(T, m)
+   nrm = zero(typeof(norm(zero(T))))
+   for j = 1:n
       ej[j] = 1
       try
-         nrm = max(nrm,norm(op*ej,1))
+         mul!(y, op, ej)
+         nrm = max(nrm, norm(y, 1))
       catch err
          # if isnothing(findfirst("SingularException",string(err))) &&
          #    isnothing(findfirst("LAPACKException",string(err)))
-         findfirst("SingularException",string(err)) === nothing &&
-         findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
+         findfirst("SingularException", string(err)) === nothing &&
+         findfirst("LAPACKException", string(err)) === nothing ? rethrow() : (return typeof(Inf))
       end
+      ej[j] = 0
    end
-   return convert(Tnorm, nrm)
+   return nrm
 end
 
 """
@@ -148,12 +151,13 @@ function opsepest(opinv::LinearMaps.LinearMap; exact = false)
    TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    BIGNUM = 2*eps(TR) / SMLNUM
    ZERO = zero(TR)
-   exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
+   opinvnrm1 = exact ? opnorm1(opinv) : opnorm1est(opinv)
    if opinvnrm1 >= BIGNUM
       return ZERO
    end
    return one(TR)/opinvnrm1
 end
+
 """
     rcond = oprcondest(op, opinv; exact = false)
 
