@@ -25,24 +25,28 @@ julia> opnorm1(invlyapop(A))
 ```
 """
 function opnorm1(op::LinearMaps.LinearMap{T}) where T
-  (m, n) = size(op)
-  Tnorm = real(T)
-  Tsum = promote_type(Float64, Tnorm)
-  nrm::Tsum = 0
-  for j = 1 : n
-      ej = zeros(Tsum, n)
+   m, n = size(op)
+   TR = real(T)
+   ej = zeros(TR, n)
+   ej[1] = 1
+   y = similar(T, m)
+   nrm = zero(typeof(norm(zero(T))))
+   for j = 1:n
       ej[j] = 1
       try
-         nrm = max(nrm,norm(op*ej,1))
+         mul!(y, op, ej)
+         nrm = max(nrm, norm(y, 1))
       catch err
          # if isnothing(findfirst("SingularException",string(err))) &&
          #    isnothing(findfirst("LAPACKException",string(err)))
-         findfirst("SingularException",string(err)) === nothing &&
-         findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
+         findfirst("SingularException", string(err)) === nothing &&
+         findfirst("LAPACKException", string(err)) === nothing ? rethrow() : (return typeof(Inf))
       end
-  end
-  return convert(Tnorm, nrm)
+      ej[j] = 0
+   end
+   return nrm
 end
+
 """
     γ = opnorm1est(op)
 
@@ -66,42 +70,42 @@ julia> opnorm1est(invlyapop(A))
 3.76666666666667
 ```
 """
-function opnorm1est(op::LinearMaps.LinearMap) 
-  m, n = size(op)
-  m == n || throw(DimensionMismatch("The operator op must be square"))
-  T = promote_type(Float64,eltype(op))
-  TR = real(T)
-  TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
-  BIGNUM = 2*eps(TR) / SMLNUM
-  cmplx = T<:Complex
-  V = Array{T,1}(undef,n)
-  X = Array{T,1}(undef,n)
-  cmplx ? ISGN = Array{Int,1}(undef,1) : ISGN = Array{Int,1}(undef,n)
-  ISAVE = Array{Int,1}(undef,3)
-  ANORM = zero(TR)
-  KASE = 0
-  finish = false
-  while !finish
-     if cmplx
-        ANORM, KASE = LapackUtil.lacn2!(V, X, ANORM, KASE, ISAVE )
-     else
-        ANORM, KASE = LapackUtil.lacn2!(V, X, ISGN, ANORM, KASE, ISAVE )
-     end
-     (isfinite(ANORM) && ANORM < BIGNUM) || (return Inf)
-     if KASE != 0
-        try
-           KASE == 1 ? X = op*X : X = op'*X
-        catch err
+function opnorm1est(op::LinearMaps.LinearMap)
+   m, n = size(op)
+   m == n || throw(DimensionMismatch("The operator op must be square"))
+   T = promote_type(Float64,eltype(op))
+   TR = real(T)
+   TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
+   BIGNUM = 2*eps(TR) / SMLNUM
+   cmplx = T<:Complex
+   V = Array{T,1}(undef,n)
+   X = Array{T,1}(undef,n)
+   cmplx ? ISGN = Array{Int,1}(undef,1) : ISGN = Array{Int,1}(undef,n)
+   ISAVE = Array{Int,1}(undef,3)
+   ANORM = zero(TR)
+   KASE = 0
+   finish = false
+   while !finish
+      if cmplx
+         ANORM, KASE = LapackUtil.lacn2!(V, X, ANORM, KASE, ISAVE )
+      else
+         ANORM, KASE = LapackUtil.lacn2!(V, X, ISGN, ANORM, KASE, ISAVE )
+      end
+      (isfinite(ANORM) && ANORM < BIGNUM) || (return Inf)
+      if KASE != 0
+         try
+            KASE == 1 ? X = op*X : X = op'*X
+         catch err
          #   if isnothing(findfirst("SingularException",string(err))) &&
          #      isnothing(findfirst("LAPACKException",string(err)))
-           findfirst("SingularException",string(err)) === nothing &&
-           findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
-        end
+            findfirst("SingularException",string(err)) === nothing &&
+            findfirst("LAPACKException",string(err)) === nothing ? rethrow() : (return Inf)
+         end
       else
-        finish = true
-     end
-  end
-  return ANORM
+         finish = true
+      end
+   end
+   return ANORM
 end
 
 """
@@ -116,7 +120,7 @@ The `exact = true` option is not recommended for large order operators.
 The separation of the operator `op` is defined as
 ```math
 \\text{sep} = \\displaystyle\\min_{X\\neq 0} \\frac{\\|op*X\\|}{\\|X\\|}.
-```      
+```
 
 An estimate of the reciprocal condition number of `op` can be computed as ``\\text{sep}/\\|op\\|_1``.
 
@@ -147,12 +151,13 @@ function opsepest(opinv::LinearMaps.LinearMap; exact = false)
    TR == Float64 ? SMLNUM = reinterpret(Float64, 0x2000000000000000) : SMLNUM = reinterpret(Float32, 0x20000000)
    BIGNUM = 2*eps(TR) / SMLNUM
    ZERO = zero(TR)
-   exact ? opinvnrm1 = opnorm1(opinv) : opinvnrm1 = opnorm1est(opinv)
+   opinvnrm1 = exact ? opnorm1(opinv) : opnorm1est(opinv)
    if opinvnrm1 >= BIGNUM
       return ZERO
    end
    return one(TR)/opinvnrm1
 end
+
 """
     rcond = oprcondest(op, opinv; exact = false)
 
@@ -174,15 +179,15 @@ julia> A = [-6. -2. 1.; 5. 1. -1; -4. -2. -1.]
 
 julia> oprcondest(lyapop(A),invlyapop(A))
 0.014749262536873142
- 
+
 julia> 1/opnorm1est(lyapop(A))/opnorm1est(invlyapop(A))
 0.014749262536873142
- 
+
 julia> oprcondest(lyapop(A),invlyapop(A),exact = true)
 0.008849557522123885
- 
+
 julia> 1/opnorm1(lyapop(A))/opnorm1(invlyapop(A))
-0.008849557522123885 
+0.008849557522123885
 ```
 """
 function oprcondest(op::LinearMaps.LinearMap, opinv::LinearMaps.LinearMap; exact = false)
@@ -192,12 +197,12 @@ end
     rcond = oprcondest(op; exact = false)
 
 Compute `rcond`, an estimation of the `1`-norm reciprocal condition number
-of a linear operator `op`, where `op` is one of the defined Lyapunov or Sylvester operators. 
+of a linear operator `op`, where `op` is one of the defined Lyapunov or Sylvester operators.
 The estimate is computed as
 ``\\text{rcond} = 1 / (\\|op\\|_1\\|inv(op)\\|_1)``, using estimates of the `1`-norm, if `exact = false`, or
 computed exact values of the `1`-norm, if `exact = true`.
 The `exact = true` option is not recommended for large order operators.
 """
 function oprcondest(op::MatrixEquationsMaps{T}; kwargs...) where T
-    oprcondest(op, inv(op); kwargs...)
+   oprcondest(op, inv(op); kwargs...)
 end
