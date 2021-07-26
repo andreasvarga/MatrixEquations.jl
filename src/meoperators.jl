@@ -1,6 +1,11 @@
+# TODO: These types aren't used anywhere for multiple dispatch, so why have them?
 abstract type LyapunovMatrixEquationsMaps{T} <: LinearMaps.LinearMap{T} end
 abstract type SylvesterMatrixEquationsMaps{T} <: LinearMaps.LinearMap{T} end
 const MatrixEquationsMaps{T} = Union{LyapunovMatrixEquationsMaps{T},SylvesterMatrixEquationsMaps{T}}
+
+abstract type ContinuousOrDiscrete end
+struct Continuous <: ContinuousOrDiscrete end
+struct Discrete <: ContinuousOrDiscrete end
 
 """
     M = trmatop(n, m)
@@ -36,16 +41,20 @@ Define the transposition operator `M: X -> X'` of all matrices of the size of `A
 """
 trmatop(A) = trmatop(size(A))
 
-struct LyapunovMap{T,TA <: AbstractMatrix} <: LyapunovMatrixEquationsMaps{T}
+struct LyapunovMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
    A::TA
-   disc::Bool
    her::Bool
-   adj::Bool
-   function LyapunovMap(A::AbstractMatrix{T}; disc=false, her=false) where {T}
+   function LyapunovMap{T,TA,CD}(A::TA, her=false) where {T,TA<:AbstractMatrix{T},CD}
       LinearAlgebra.checksquare(A)
-      return new{T,typeof(A)}(A, disc, her, isa(A, Adjoint))
+      return new{T,TA,CD}(A, her)
    end
 end
+
+LyapunovMap(A::TA, ::CD = Continuous(), her::Bool = false) where {T,TA<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
+   LyapunovMap{T,TA,CD}(A, her)
+
+LinearAlgebra.adjoint(L::LyapunovMap{<:Any,<:Any,CD}) where {CD}   = LyapunovMap(L.A', CD(), L.her)
+LinearAlgebra.transpose(L::LyapunovMap{<:Any,<:Any,CD}) where {CD} = LyapunovMap(L.A', CD(), L.her)
 
 """
     L = lyapop(A; disc = false, her = false)
@@ -63,44 +72,47 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapop(A::AbstractMatrix; disc=false, her=false)
-   LyapunovMap(A; disc=disc, her=her)
-end
-lyapop(A::Schur; kwargs...) = LyapunovMap(A.T; kwargs...)
-lyapop(A::Number; kwargs...) = LyapunovMap(fill(A, 1, 1); kwargs...)
+lyapop(A::AbstractMatrix; disc=false, her=false) =
+   LyapunovMap(A, ifelse(disc, Discrete(), Continuous()), her)
+lyapop(A::Schur; disc=false, her=false) =
+   LyapunovMap(A.T, ifelse(disc, Discrete(), Continuous()), her)
+lyapop(A::Number; disc=false, her=false) =
+   LyapunovMap(fill(A, 1, 1), ifelse(disc, Discrete(), Continuous()), her)
 function Base.size(L::LyapunovMap)
    n = size(L.A, 1)
    N = L.her ? Int(n * (n + 1) / 2) : n * n
    return (N, N)
 end
-function mul!(y::AbstractVector, L::LyapunovMap{T}, x::AbstractVector) where T
+function mul!(y::AbstractVector, L::LyapunovMap{T,TA,Discrete}, x::AbstractVector) where {T,TA}
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    if L.her
-      X = vec2triu(T == T1 ? x : convert(Vector{T1}, x), her=true)
-      if L.disc
-         # (y .= triu2vec(utqu(X,L.A') - X))
-         muldsym!(y, L.A, X)
-      else
-         mulcsym!(y, L.A, X)
-      end
-      return y
+      X = vec2triu(convert(AbstractVector{T1}, x), her=true)
+      # (y .= triu2vec(utqu(X,L.A') - X))
+      muldsym!(y, L.A, X)
    else
-      X = reshape(T == T1 ? x : convert(Vector{T1}, x), n, n)
-      if L.disc
-         # (y .= (L.A*X*L.A' - X)[:])
-         copyto!(y, x)
-         Y = reshape(y, n, n)
-         mul!(Y, L.A, X * L.A', 1, -1)
-         return y
-      else
-         # (y[:] = (L.A*X + X*L.A')[:])
-         Y = reshape(y, n, n)
-         mul!(Y, X, L.A')
-         mul!(Y, L.A, X, 1, 1)
-         return y
-      end
+      X = reshape(convert(AbstractVector{T1}, x), n, n)
+      # (y .= (L.A*X*L.A' - X)[:])
+      mul!(y, -1, x)
+      Y = reshape(y, n, n)
+      mul!(Y, L.A, X * L.A', true, true)
    end
+   return y
+end
+function mul!(y::AbstractVector, L::LyapunovMap{T,TA,Continuous}, x::AbstractVector) where {T,TA}
+   n = size(L.A, 1)
+   T1 = promote_type(T, eltype(x))
+   if L.her
+      X = vec2triu(convert(AbstractVector{T1}, x), her=true)
+      mulcsym!(y, L.A, X)
+   else
+      X = reshape(convert(AbstractVector{T1}, x), n, n)
+      # (y[:] = (L.A*X + X*L.A')[:])
+      Y = reshape(y, n, n)
+      mul!(Y, X, L.A')
+      mul!(Y, L.A, X, true, true)
+   end
+   return y
 end
 function mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix)
    require_one_based_indexing(y, A, X)
@@ -144,23 +156,31 @@ function muldsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix)
    return y
 end
 
-LinearAlgebra.adjoint(L::LyapunovMap)   = lyapop(L.A'; disc=L.disc, her=L.her)
-LinearAlgebra.transpose(L::LyapunovMap) = lyapop(L.A'; disc=L.disc, her=L.her)
-
-struct GeneralizedLyapunovMap{T,TA <: AbstractMatrix{T},TE <: AbstractMatrix{T}} <: LyapunovMatrixEquationsMaps{T}
+struct GeneralizedLyapunovMap{T,TA <: AbstractMatrix{T},TE <: AbstractMatrix{T},CD<:ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
    A::TA
    E::TE
-   disc::Bool
    her::Bool
-   adj::Bool
-   function GeneralizedLyapunovMap(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc=false, her=false) where {T}
+   function GeneralizedLyapunovMap{T,TA,TE,CD}(A::TA, E::TE, her=false) where {T,TA<:AbstractMatrix{T},TE<:AbstractMatrix{T},CD}
       n = LinearAlgebra.checksquare(A)
       n == LinearAlgebra.checksquare(E) ||
                throw(DimensionMismatch("E must be a square matrix of dimension $n"))
-      adj = isa(A, Adjoint) && isa(E, Adjoint)
-      return new{T,typeof(A),typeof(E)}(A, E, disc, her, adj)
+      return new{T,TA,TE,CD}(A, E, her)
    end
 end
+function GeneralizedLyapunovMap(A::AbstractMatrix, E::AbstractMatrix, ::CD = Continuous(), her::Bool = false) where {CD<:ContinuousOrDiscrete}
+   n = LinearAlgebra.checksquare(A)
+   n == LinearAlgebra.checksquare(E) ||
+            throw(DimensionMismatch("E must be a square matrix of dimension $n"))
+   T = promote_type(eltype(A), eltype(E))
+   A = convert(AbstractMatrix{T}, A)
+   E = convert(AbstractMatrix{T}, E)
+   return GeneralizedLyapunovMap{T,typeof(A),typeof(E),CD}(A, E, her)
+end
+
+LinearAlgebra.adjoint(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   GeneralizedLyapunovMap(L.A', L.E', CD(), L.her)
+LinearAlgebra.transpose(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   GeneralizedLyapunovMap(L.A', L.E', CD(), L.her)
 
 """
     L = lyapop(A, E; disc = false, her = false)
@@ -178,53 +198,56 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function lyapop(A::AbstractMatrix{T1}, E::AbstractMatrix{T2}; disc=false, her=false) where {T1,T2}
-   T = promote_type(T1, T2)
-   GeneralizedLyapunovMap(convert.(AbstractMatrix{T}, (A, E))...; disc=disc, her=her)
-end
-lyapop(F::GeneralizedSchur; kwargs...) = GeneralizedLyapunovMap(F.S, F.T; kwargs...)
-function lyapop(A::Number, E::Number; kwargs...)
+lyapop(A::AbstractMatrix, E::AbstractMatrix; disc=false, her=false) =
+   GeneralizedLyapunovMap(A, E, ifelse(disc, Discrete(), Continuous()), her)
+lyapop(F::GeneralizedSchur; disc=false, her=false) =
+   GeneralizedLyapunovMap(F.S, F.T, ifelse(disc, Discrete(), Continuous()), her)
+function lyapop(A::Number, E::Number; disc=false, her=false)
    A, E = promote(A, E)
-   GeneralizedLyapunovMap(fill(A, 1, 1), fill(E, 1, 1); kwargs...)
+   GeneralizedLyapunovMap(fill(A, 1, 1), fill(E, 1, 1), ifelse(disc, Discrete(), Continuous()), her)
 end
 function Base.size(L::GeneralizedLyapunovMap)
    n = size(L.A, 1)
    N = L.her ? Int(n * (n + 1) / 2) : n * n
    return (N, N)
 end
-function mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T}, x::AbstractVector) where T
+function mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,<:Any,<:Any,Discrete}, x::AbstractVector) where {T}
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    if L.her
-      X = vec2triu(T == T1 ? x : convert(Vector{T1}, x), her=true)
-      if L.disc
-         # (y .= triu2vec(utqu(X,L.A') - utqu(X,L.E')))
-         muldsym!(y, L.A, L.E, X)
-      else
-         mulcsym!(y, L.A, L.E, X)
-      end
-      return y
+      X = vec2triu(convert(AbstractVector{T1}, x), her=true)
+      # (y .= triu2vec(utqu(X,L.A') - utqu(X,L.E')))
+      muldsym!(y, L.A, L.E, X)
    else
-      X = reshape(T == T1 ? x : convert(Vector{T1}, x), n, n)
+      X = reshape(convert(AbstractVector{T1}, x), n, n)
       Y = reshape(y, n, n)
       temp = similar(Y, (n, n))
-      if L.disc
-         # (y .= (L.A*X*L.A' - L.E*X*L.E')[:])
-         # Y .= X
-         mul!(temp, X, L.A')
-         mul!(Y, L.A, temp)
-         mul!(temp, X, L.E')
-         mul!(Y, L.E, temp, -1, 1)
-         return y
-      else
-         # (y[:] = (L.A*X*L.E' + L.E*X*L.A')[:])
-         mul!(temp, L.E, X)
-         mul!(Y, temp, L.A')
-         mul!(temp, X, L.E')
-         mul!(Y, L.A, temp, 1, 1)
-         return y
-      end
+      # (y .= (L.A*X*L.A' - L.E*X*L.E')[:])
+      # Y .= X
+      mul!(temp, X, L.A')
+      mul!(Y, L.A, temp)
+      mul!(temp, X, L.E')
+      mul!(Y, L.E, temp, -1, 1)
    end
+   return y
+end
+function mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where {T}
+   n = size(L.A, 1)
+   T1 = promote_type(T, eltype(x))
+   if L.her
+      X = vec2triu(convert(AbstractVector{T1}, x), her=true)
+      mulcsym!(y, L.A, L.E, X)
+   else
+      X = reshape(convert(AbstractVector{T1}, x), n, n)
+      Y = reshape(y, n, n)
+      temp = similar(Y, (n, n))
+      # (y[:] = (L.A*X*L.E' + L.E*X*L.A')[:])
+      mul!(temp, L.E, X)
+      mul!(Y, temp, L.A')
+      mul!(temp, X, L.E')
+      mul!(Y, L.A, temp, 1, 1)
+   end
+   return y
 end
 function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix)
    require_one_based_indexing(y, A)
@@ -272,23 +295,34 @@ function muldsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::Ab
    end
    return y
 end
-LinearAlgebra.adjoint(L::GeneralizedLyapunovMap)   = lyapop(L.A', L.E'; disc=L.disc, her=L.her)
-LinearAlgebra.transpose(L::GeneralizedLyapunovMap) = lyapop(L.A', L.E'; disc=L.disc, her=L.her)
 
-struct InverseLyapunovMap{T,TA <: AbstractMatrix} <: LyapunovMatrixEquationsMaps{T}
+struct InverseLyapunovMap{T,TA <: AbstractMatrix,adj,CD} <: LyapunovMatrixEquationsMaps{T}
    A::TA
-   disc::Bool
    her::Bool
-   adj::Bool
    sf::Bool
-   function InverseLyapunovMap(A::AbstractMatrix{T}; disc=false, her=false) where {T <: BlasFloat}
+   function InverseLyapunovMap{T,TA,adj,CD}(A::TA, her::Bool, sf::Bool) where {T <: BlasFloat, TA <: AbstractMatrix{T}, adj, CD}
       LinearAlgebra.checksquare(A)
-      adj = isa(A, Adjoint)
-      a = adj ? A.parent : A
-      schur_flag = isschur(a)
-      return new{T,typeof(a)}(a, disc, her, adj, schur_flag)
+      return new{T,TA,adj,CD}(A, her, sf)
    end
 end
+function InverseLyapunovMap(A::AbstractMatrix{T}, ::CD = Continuous(), her::Bool = false) where {T <: BlasFloat,CD <: ContinuousOrDiscrete}
+   schur_flag = isschur(A)
+   return InverseLyapunovMap{T,typeof(A),false,CD}(A, her, schur_flag)
+end
+function InverseLyapunovMap(A::Adjoint{T,<:AbstractMatrix{T}}, ::CD = Continuous(), her::Bool = false) where {T <: BlasFloat,CD <: ContinuousOrDiscrete}
+   Ap = A.parent
+   schur_flag = isschur(Ap)
+   return InverseLyapunovMap{T,typeof(Ap),true,CD}(Ap, her, schur_flag)
+end
+
+LinearAlgebra.adjoint(L::InverseLyapunovMap{<:Any,<:Any,adj,CD}) where {adj,CD} =
+   InverseLyapunovMap(adj ? L.A : L.A', CD(), L.her)
+LinearAlgebra.transpose(L::InverseLyapunovMap{<:Any,<:Any,adj,CD}) where {adj,CD} =
+   InverseLyapunovMap(adj ? L.A : L.A', CD(), L.her)
+LinearAlgebra.inv(L::LyapunovMap{T,TA,CD}) where {T,TA,CD} =
+   InverseLyapunovMap(L.A, CD(), L.her)
+LinearAlgebra.inv(L::InverseLyapunovMap{<:Any,<:Any,adj,CD}) where {adj,CD} =
+   LyapunovMap(adj ? L.A' : L.A, CD(), L.her)
 
 """
     LINV = invlyapop(A; disc = false, her = false)
@@ -307,83 +341,114 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapop(A::AbstractMatrix{<:BlasFloat}; disc=false, her=false)
-   InverseLyapunovMap(A; disc=disc, her=her) 
-end
+invlyapop(A::AbstractMatrix{<:BlasFloat}; disc=false, her=false) =
+   InverseLyapunovMap(A, ifelse(disc, Discrete(), Continuous()), her)
 function invlyapop(A::AbstractMatrix; disc=false, her=false)
-   InverseLyapunovMap(convert(AbstractMatrix{promote_type(eltype(A), Float64)}, A); disc=disc, her=her)
+   A = convert(AbstractMatrix{promote_type(eltype(A), Float64)}, A)
+   InverseLyapunovMap(A, ifelse(disc, Discrete(), Continuous()), her)
 end
-invlyapop(A::Schur{<:BlasFloat}; kwargs...) = InverseLyapunovMap(A.T; kwargs...)
+invlyapop(A::Schur{<:BlasFloat}; disc=false, her=false) =
+   InverseLyapunovMap(A.T, ifelse(disc, Discrete(), Continuous()), her)
 function Base.size(L::InverseLyapunovMap)
    n = size(L.A, 1)
    N = L.her ? Int(n * (n + 1) / 2) : n * n
    return (N, N)
 end
-function mul!(y::AbstractVector, L::InverseLyapunovMap{T}, x::AbstractVector) where {T <: BlasFloat}
+function mul!(y::AbstractVector, L::InverseLyapunovMap{T,<:Any,adj,Discrete}, x::AbstractVector) where {T <: BlasFloat,adj}
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    try
       if L.sf
          if L.her
-            Y = vec2triu(T1 == eltype(x) ? -x : -convert(Vector{T1}, x), her=true)
-            L.disc ? lyapds!(L.A, Y; adj=L.adj) : lyapcs!(L.A, Y; adj=L.adj)
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            lyapds!(L.A, Y, adj=adj)
             copyto!(y, triu2vec(Y))
          else
-            if L.disc
-               Y = reshape(T1 == eltype(x) ? -x : convert(Vector{T1}, -x), n, n)
-               L.adj ? sylvds!(-L.A, L.A, Y, adjA=true) : sylvds!(-L.A, L.A, Y, adjB=true)
-            else
-               Y = T1 == eltype(x) ? copy(reshape(x, n, n)) : reshape(convert(Vector{T1}, x), n, n)
-               L.adj ? (sylvcs!(L.A, L.A, Y, adjA=true)) : (sylvcs!(L.A, L.A, Y, adjB=true))
-            end
+            Y = reshape(-convert(AbstractVector{T1}, x), n, n)
+            adj ? sylvds!(-L.A, L.A, Y, adjA=true) : sylvds!(-L.A, L.A, Y, adjB=true)
             copyto!(y, Y)
          end
       else
          if L.her
-            Y = vec2triu(T1 == eltype(x) ? -x : -convert(Vector{T1}, x), her=true)
-            if L.disc
-               L.adj ? (y .= triu2vec(lyapd(L.A', Y))) : (y .= triu2vec(lyapd(L.A, Y)))
-            else
-               L.adj ? (y .= triu2vec(lyapc(L.A', Y))) : (y .= triu2vec(lyapc(L.A, Y)))
-            end
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            y .= triu2vec(lyapd(adj ? L.A' : L.A, Y))
          else
-            Y = reshape(T1 == eltype(x) ? -x : convert(Vector{T1}, -x), n, n)
-            if L.disc
-               copyto!(y, lyapd(L.adj ? L.A' : L.A, Y))
-            else
-               copyto!(y, lyapc(L.adj ? L.A' : L.A, Y))
-            end
+            Y = reshape(-convert(AbstractVector{T1}, x), n, n)
+            copyto!(y, lyapd(adj ? L.A' : L.A, Y))
          end
       end
+      return y
    catch err
       findfirst("SingularException", string(err)) === nothing &&
       findfirst("LAPACKException", string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
    end
-   return y
 end
-LinearAlgebra.adjoint(L::InverseLyapunovMap) = invlyapop(L.adj ? L.A : L.A'; disc=L.disc, her=L.her)
-function LinearAlgebra.transpose(L::InverseLyapunovMap)
-   invlyapop(L.adj ? L.A : L.A'; disc=L.disc, her=L.her)
-end
-LinearAlgebra.inv(L::LyapunovMap) = invlyapop(L.A; disc=L.disc, her=L.her)
-LinearAlgebra.inv(L::InverseLyapunovMap) = lyapop(L.A; disc=L.disc, her=L.her)
-
-struct InverseGeneralizedLyapunovMap{T,TA <: AbstractMatrix,TE <: AbstractMatrix} <: LyapunovMatrixEquationsMaps{T}
-  A::TA
-  E::TE
-  disc::Bool
-  her::Bool
-  adj::Bool
-  sf::Bool
-  function InverseGeneralizedLyapunovMap(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc=false, her=false) where {T}
-      LinearAlgebra.checksquare(A)
-      adj = isa(A, Adjoint) && isa(E, Adjoint)
-      schur_flag = adj ? isschur(A.parent, A.parent) : isschur(A, E)
-      a = adj ? A.parent : A
-      e = adj ? E.parent : E
-      return new{T,typeof(a),typeof(e)}(a, e, disc, her, adj, schur_flag)
+function mul!(y::AbstractVector, L::InverseLyapunovMap{T,<:Any,adj,Continuous}, x::AbstractVector) where {T <: BlasFloat,adj}
+   n = size(L.A, 1)
+   T1 = promote_type(T, eltype(x))
+   try
+      if L.sf
+         if L.her
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            lyapcs!(L.A, Y; adj=adj)
+            copyto!(y, triu2vec(Y))
+         else
+            Y = copy(reshape(convert(AbstractVector{T1}, x), n, n))
+            adj ? (sylvcs!(L.A, L.A, Y, adjA=true)) : (sylvcs!(L.A, L.A, Y, adjB=true))
+            copyto!(y, Y)
+         end
+      else
+         if L.her
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            y .= triu2vec(lyapc(adj ? L.A' : L.A, Y))
+         else
+            Y = reshape(-convert(AbstractVector{T1}, x), n, n)
+            copyto!(y, lyapc(adj ? L.A' : L.A, Y))
+         end
+      end
+      return y
+   catch err
+      findfirst("SingularException", string(err)) === nothing &&
+      findfirst("LAPACKException", string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
    end
 end
+
+struct InverseGeneralizedLyapunovMap{T,TA <: AbstractMatrix,TE <: AbstractMatrix,adj,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+  A::TA
+  E::TE
+  her::Bool
+  sf::Bool
+  function InverseGeneralizedLyapunovMap{T,TA,TE,adj,CD}(A::TA, E::TE, her::Bool, schur_flag::Bool) where {T<:BlasFloat,TA<:AbstractMatrix{T},TE<:AbstractMatrix{T},adj,CD}
+      LinearAlgebra.checksquare(A)
+      return new{T,TA,TE,adj,CD}(A, E, her, schur_flag)
+   end
+end
+
+function InverseGeneralizedLyapunovMap(A::AbstractMatrix, E::AbstractMatrix, ::CD = Continuous(), her::Bool = false) where {CD <: ContinuousOrDiscrete}
+   T = promote_type(eltype(A), eltype(E), Float64)
+   A = convert(AbstractMatrix{T}, A)
+   E = convert(AbstractMatrix{T}, E)
+   schur_flag = isschur(A, E)
+   return InverseGeneralizedLyapunovMap{T,typeof(A),typeof(E),false,CD}(A, E, her, schur_flag)
+end
+function InverseGeneralizedLyapunovMap(A::Adjoint{<:Any,<:AbstractMatrix}, E::Adjoint{<:Any,<:AbstractMatrix}, ::CD = Continuous(), her::Bool = false) where {CD <: ContinuousOrDiscrete}
+   A = A.parent
+   E = E.parent
+   T = promote_type(eltype(A), eltype(E), Float64)
+   A = convert(AbstractMatrix{T}, A)
+   E = convert(AbstractMatrix{T}, E)
+   schur_flag = isschur(A, E)
+   return InverseGeneralizedLyapunovMap{T,typeof(A),typeof(E),true,CD}(A, E, her, schur_flag)
+end
+
+LinearAlgebra.adjoint(L::InverseGeneralizedLyapunovMap{<:Any,<:Any,<:Any,adj,CD}) where {adj,CD} =
+   InverseGeneralizedLyapunovMap(adj ? L.A : L.A', adj ? L.E : L.E', CD(), L.her)
+LinearAlgebra.transpose(L::InverseGeneralizedLyapunovMap{<:Any,<:Any,<:Any,adj,CD}) where {adj,CD} =
+   InverseGeneralizedLyapunovMap(adj ? L.A : L.A', adj ? L.E : L.E', CD(), L.her)
+LinearAlgebra.inv(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   InverseGeneralizedLyapunovMap(L.A, L.E, CD(), L.her)
+LinearAlgebra.inv(L::InverseGeneralizedLyapunovMap{<:Any,<:Any,<:Any,adj,CD}) where {adj,CD} =
+   GeneralizedLyapunovMap(adj ? L.A' : L.A, adj ? L.E' : L.E, CD(), L.her)
 
 """
     LINV = invlyapop(A, E; disc = false, her = false)
@@ -402,78 +467,95 @@ For the definitions of the Lyapunov operators see:
 M. Konstantinov, V. Mehrmann, P. Petkov. On properties of Sylvester and Lyapunov
 operators. Linear Algebra and its Applications 312:35–71, 2000.
 """
-function invlyapop(A::AbstractMatrix{T}, E::AbstractMatrix{T}; disc=false, her=false) where {T <: BlasFloat}
-   InverseGeneralizedLyapunovMap(A, E; disc=disc, her=her)
-end
-invlyapop(F::GeneralizedSchur; kwargs...) = InverseGeneralizedLyapunovMap(F.S, F.T; kwargs...)
-function invlyapop(A::AbstractMatrix{T1}, E::AbstractMatrix{T2}; kwargs...) where {T1,T2}
-   T = promote_type(T1, T2, Float64)
-   invlyapop(convert(AbstractMatrix{T}, A), convert(AbstractMatrix{T}, E); kwargs...)
-end
+invlyapop(A::AbstractMatrix, E::AbstractMatrix; disc=false, her=false) =
+   InverseGeneralizedLyapunovMap(A, E, ifelse(disc, Discrete(), Continuous()), her)
+invlyapop(F::GeneralizedSchur; disc=false, her=false) =
+   InverseGeneralizedLyapunovMap(F.S, F.T, ifelse(disc, Discrete(), Continuous()), her)
 function Base.size(L::InverseGeneralizedLyapunovMap)
    n = size(L.A, 1)
    N = L.her ? Int(n * (n + 1) / 2) : n * n
    return (N, N)
 end
-function mul!(y::AbstractVector, L::InverseGeneralizedLyapunovMap{T}, x::AbstractVector) where T
+function mul!(y::AbstractVector, L::InverseGeneralizedLyapunovMap{T,<:Any,<:Any,adj,Discrete}, x::AbstractVector) where {T,adj}
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    try
       if L.sf
          if L.her
-            Y = vec2triu(T1 == eltype(x) ? -x : -convert(Vector{T1}, x), her=true)
-            L.disc ? lyapds!(L.A, L.E, Y; adj=L.adj) : lyapcs!(L.A, L.E, Y; adj=L.adj)
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            lyapds!(L.A, L.E, Y; adj=adj)
             y .= triu2vec(Y)
          else
             copyto!(y, x)
             Y = reshape(y, (n, n))
-            if L.disc
-               L.adj ? gsylvs!(L.A, L.A, -L.E, L.E, Y, adjAC=true) : gsylvs!(L.A, L.A, -L.E, L.E, Y, adjBD=true)
-            else
-               L.adj ? (gsylvs!(L.A, L.E, L.E, L.A, Y, adjAC=true, DBSchur=true)) : (gsylvs!(L.A, L.E, L.E, L.A, Y, adjBD=true, DBSchur=true))
-            end
-            return y
+            adj ? gsylvs!(L.A, L.A, -L.E, L.E, Y, adjAC=true) : gsylvs!(L.A, L.A, -L.E, L.E, Y, adjBD=true)
          end
       else
          if L.her
-            Y = vec2triu(T1 == eltype(x) ? -x : -convert(Vector{T1}, x), her=true)
-            if L.disc
-               L.adj ? (y .= triu2vec(lyapd(L.A', L.E', Y))) : (y .= triu2vec(lyapd(L.A, L.E, Y)))
-            else
-               L.adj ? (y .= triu2vec(lyapc(L.A', L.E', Y))) : (y .= triu2vec(lyapc(L.A, L.E, Y)))
-            end
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            y .= triu2vec(lyapd(adj ? L.A' : L.A, adj ? L.E' : L.E, Y))
          else
-            Y = reshape(T1 == eltype(x) ? -x : -convert(Vector{T1}, x), n, n)
-            if L.disc
-               # L.adj ? (y .= gsylv(-L.A',L.A,L.E',L.E,Y)[:]) : (y .= gsylv(-L.A,L.A',L.E,L.E',Y)[:])
-               copyto!(y, L.adj ? lyapd(L.A', L.E', Y) : lyapd(L.A, L.E, Y))
-            else
-               # L.adj ? (y .= gsylv(L.A',L.E,L.E',L.A,Y)[:]) : (y .= gsylv(L.A,L.E',L.E,L.A',Y)[:])
-               copyto!(y, L.adj ? lyapc(L.A', L.E', Y) : lyapc(L.A, L.E, Y))
-            end
-            return y
+            Y = reshape(-convert(AbstractVector{T1}, x), n, n)
+            # adj ? (y .= gsylv(-L.A',L.A,L.E',L.E,Y)[:]) : (y .= gsylv(-L.A,L.A',L.E,L.E',Y)[:])
+            copyto!(y, lyapd(adj ? L.A' : L.A, adj ? L.E' : L.E, Y))
          end
       end
+      return y
    catch err
       findfirst("SingularException", string(err)) === nothing &&
       findfirst("LAPACKException", string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
    end
-   return y
 end
-LinearAlgebra.adjoint(L::InverseGeneralizedLyapunovMap) = invlyapop(L.adj ? L.A : L.A', L.adj ? L.E : L.E'; disc=L.disc, her=L.her)
-LinearAlgebra.transpose(L::InverseGeneralizedLyapunovMap) = invlyapop(L.adj ? L.A : L.A', L.adj ? L.E : L.E'; disc=L.disc, her=L.her)
-LinearAlgebra.inv(L::GeneralizedLyapunovMap) = invlyapop(L.A, L.E; disc=L.disc, her=L.her)
-LinearAlgebra.inv(L::InverseGeneralizedLyapunovMap) = lyapop(L.A, L.E; disc=L.disc, her=L.her)
-
-struct SylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}
-   A::TA
-   B::TB
-   disc::Bool
-   function SylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc=false) where {T}
-      LinearAlgebra.checksquare(A, B)
-      return new{T,typeof(A),typeof(B)}(A, B, disc)
+function mul!(y::AbstractVector, L::InverseGeneralizedLyapunovMap{T,<:Any,<:Any,adj,Continuous}, x::AbstractVector) where {T,adj}
+   n = size(L.A, 1)
+   T1 = promote_type(T, eltype(x))
+   try
+      if L.sf
+         if L.her
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            lyapcs!(L.A, L.E, Y; adj=adj)
+            y .= triu2vec(Y)
+         else
+            copyto!(y, x)
+            Y = reshape(y, (n, n))
+            adj ? (gsylvs!(L.A, L.E, L.E, L.A, Y, adjAC=true, DBSchur=true)) : (gsylvs!(L.A, L.E, L.E, L.A, Y, adjBD=true, DBSchur=true))
+         end
+      else
+         if L.her
+            Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
+            y .= triu2vec(lyapc(adj ? L.A' : L.A, adj ? L.E' : L.E, Y))
+         else
+            Y = reshape(-convert(AbstractVector{T1}, x), n, n)
+            # adj ? (y .= gsylv(L.A',L.E,L.E',L.A,Y)[:]) : (y .= gsylv(L.A,L.E',L.E,L.A',Y)[:])
+            copyto!(y, lyapc(adj ? L.A' : L.A, adj ? L.E' : L.E, Y))
+         end
+      end
+      return y
+   catch err
+      findfirst("SingularException", string(err)) === nothing &&
+      findfirst("LAPACKException", string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
    end
 end
+
+struct SylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: SylvesterMatrixEquationsMaps{T}
+   A::TA
+   B::TB
+   function SylvesterMap{T,TA,TB,CD}(A::TA, B::TB) where {T,TA<:AbstractMatrix{T},TB<:AbstractMatrix{T},CD}
+      LinearAlgebra.checksquare(A, B)
+      return new{T,TA,TB,CD}(A, B)
+   end
+end
+function SylvesterMap(A::AbstractMatrix, B::AbstractMatrix, ::CD = Continuous()) where {CD}
+   T = promote_type(eltype(A), eltype(B))
+   A = convert(AbstractMatrix{T}, A)
+   B = convert(AbstractMatrix{T}, B)
+   return SylvesterMap{T,typeof(A),typeof(B),CD}(A, B)
+end
+
+LinearAlgebra.adjoint(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   SylvesterMap(L.A', L.B', CD())
+LinearAlgebra.transpose(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   SylvesterMap(L.A', L.B', CD())
 
 """
     M = sylvop(A, B; disc = false)
@@ -481,53 +563,68 @@ end
 Define the continuous Sylvester operator `M: X -> AX+XB` if `disc = false`
 or the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices.
 """
-function sylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}; disc=false) where {T1,T2}
-   T = promote_type(eltype(A), eltype(B))
-   SylvesterMap(convert(AbstractMatrix{T}, A), convert(AbstractMatrix{T}, B); disc=disc)
-end
-sylvop(A::Schur{S}, B::Schur{S}; kwargs...) where S = SylvesterMap(A.T, B.T; kwargs...)
-function sylvop(A::Number, B::Number; kwargs...)
+sylvop(A::AbstractMatrix, B::AbstractMatrix; disc=false) =
+   SylvesterMap(A, B, ifelse(disc, Discrete(), Continuous()))
+sylvop(A::Schur, B::Schur; disc=false) = SylvesterMap(A.T, B.T, ifelse(disc, Discrete(), Continuous()))
+function sylvop(A::Number, B::Number; disc=false)
    A, B = promote(A, B)
-   SylvesterMap(fill(A, 1, 1), fill(B, 1, 1); kwargs...)
+   SylvesterMap(fill(A, 1, 1), fill(B, 1, 1), ifelse(disc, Discrete(), Continuous()))
 end
 Base.size(L::SylvesterMap) = (N = size(L.A, 1) * size(L.B, 1); return (N, N))
-function mul!(y::AbstractVector, L::SylvesterMap{T}, x::AbstractVector) where T
+function mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:Any,Discrete}, x::AbstractVector) where T
    m = size(L.A, 1)
    n = size(L.B, 1)
    T1 = promote_type(T, eltype(x))
-   X = reshape(T == T1 ? x : convert(Vector{T1}, x), (m, n))
+   X = reshape(convert(AbstractVector{T1}, x), (m, n))
    Y = reshape(y, (m, n))
-   if L.disc
-      # Y = A * X * B + X
-      copyto!(y, x)
-      mul!(Y, L.A * X, L.B, 1, 1)
-   else
-      # Y = A * X + X * B
-      mul!(Y, L.A, X)
-      mul!(Y, X, L.B, 1, 1)
-   end
+   # Y = A * X * B + X
+   copyto!(y, x)
+   mul!(Y, L.A * X, L.B, true, true)
    return y
 end
-LinearAlgebra.adjoint(L::SylvesterMap)   = SylvesterMap(L.A', L.B'; disc=L.disc)
-LinearAlgebra.transpose(L::SylvesterMap) = SylvesterMap(L.A', L.B'; disc=L.disc)
+function mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where T
+   m = size(L.A, 1)
+   n = size(L.B, 1)
+   T1 = promote_type(T, eltype(x))
+   X = reshape(convert(AbstractVector{T1}, x), (m, n))
+   Y = reshape(y, (m, n))
+   # Y = A * X + X * B
+   mul!(Y, L.A, X)
+   mul!(Y, X, L.B, true, true)
+   return y
+end
 
-struct InverseSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}
+struct InverseSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,CD} <: SylvesterMatrixEquationsMaps{T}
    A::TA
    B::TB
-   disc::Bool
    adjA::Bool
    adjB::Bool
    sf::Bool
-   function InverseSylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}; disc=false) where {T}
+   function InverseSylvesterMap{T,TA,TB,CD}(A::AbstractMatrix{T}, B::AbstractMatrix{T}) where {T,TA,TB,CD}
       LinearAlgebra.checksquare(A, B)
       adjA = isa(A, Adjoint)
       adjB = isa(B, Adjoint)
-      a = adjA ? A.parent : A
-      b = adjB ? B.parent : B
-      schur_flag = isschur(a) && isschur(b)
-      return new{T,typeof(a),typeof(b)}(a, b, disc, adjA, adjB, schur_flag)
+      A = adjA ? A.parent : A
+      B = adjB ? B.parent : B
+      schur_flag = isschur(A) && isschur(B)
+      return new{T,typeof(A),typeof(B),CD}(A, B, adjA, adjB, schur_flag)
    end
 end
+function InverseSylvesterMap(A::AbstractMatrix, B::AbstractMatrix, ::CD = Continuous) where {CD}
+   T = promote_type(eltype(A), eltype(B))
+   A = convert(AbstractMatrix{T}, A)
+   B = convert(AbstractMatrix{T}, B)
+   return InverseSylvesterMap{T,typeof(A),typeof(B),CD}(A, B)
+end
+
+LinearAlgebra.adjoint(L::InverseSylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   InverseSylvesterMap(L.adjA ? L.A : L.A', L.adjB ? L.B : L.B', CD())
+LinearAlgebra.transpose(L::InverseSylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   InverseSylvesterMap(L.adjA ? L.A : L.A', L.adjB ? L.B : L.B', CD())
+LinearAlgebra.inv(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   InverseSylvesterMap(L.A, L.B, CD())
+LinearAlgebra.inv(L::InverseSylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+   SylvesterMap(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, CD())
 
 """
     MINV = invsylvop(A, B; disc = false)
@@ -535,17 +632,17 @@ end
 Define `MINV`, the inverse of the continuous Sylvester operator  `M: X -> AX+XB` if `disc = false`
 or of the discrete Sylvester operator `M: X -> AXB+X` if `disc = true`, where `A` and `B` are square matrices.
 """
-function invsylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}; disc=false) where {T1,T2}
-   T = promote_type(eltype(A), eltype(B))
-   InverseSylvesterMap(convert.(AbstractMatrix{T}, (A, B))...; disc=disc)
+function invsylvop(A::AbstractMatrix, B::AbstractMatrix; disc=false)
+   InverseSylvesterMap(A, B, ifelse(disc, Discrete(), Continuous()))
 end
-invsylvop(A::Schur{S}, B::Schur{S}; kwargs...) where S = InverseSylvesterMap(A.T, B.T; kwargs...)
-function invsylvop(A::Number, B::Number; kwargs...)
+invsylvop(A::Schur, B::Schur; disc=false) =
+   InverseSylvesterMap(A.T, B.T, ifelse(disc, Discrete(), Continuous()))
+function invsylvop(A::Number, B::Number; disc=false)
    A, B = promote(A, B)
-   InverseSylvesterMap(fill(A, 1, 1), fill(B, 1, 1); kwargs...)
+   InverseSylvesterMap(fill(A, 1, 1), fill(B, 1, 1), ifelse(disc, Discrete(), Continuous()))
 end
 Base.size(L::InverseSylvesterMap) = (N = size(L.A, 1) * size(L.B, 1); return (N, N))
-function mul!(y::AbstractVector, L::InverseSylvesterMap{T}, x::AbstractVector) where T
+function mul!(y::AbstractVector, L::InverseSylvesterMap{T,<:Any,<:Any,Discrete}, x::AbstractVector) where {T}
    m = size(L.A, 1)
    n = size(L.B, 1)
    T1 = promote_type(T, eltype(x))
@@ -553,58 +650,73 @@ function mul!(y::AbstractVector, L::InverseSylvesterMap{T}, x::AbstractVector) w
       if L.sf
          copyto!(y, x)
          Y = reshape(y, (m, n))
-         if L.disc
-            sylvds!(L.A, L.B, Y, adjA=L.adjA, adjB=L.adjB)
-         else
-            sylvcs!(L.A, L.B, Y, adjA=L.adjA, adjB=L.adjB)
-         end
+         sylvds!(L.A, L.B, Y, adjA=L.adjA, adjB=L.adjB)
       else
-         Y = reshape(eltype(x) == T1 ? x : convert(Vector{T1}, x), m, n)
-         if L.disc
-            copyto!(y, sylvd(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, Y))
-         else
-            copyto!(y, sylvc(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, Y))
-         end
+         Y = reshape(convert(AbstractVector{T1}, x), m, n)
+         copyto!(y, sylvd(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, Y))
       end
+      return y
    catch err
       findfirst("SingularException", string(err)) === nothing &&
       findfirst("LAPACKException", string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
    end
-   return y
 end
-LinearAlgebra.adjoint(L::InverseSylvesterMap) = InverseSylvesterMap(L.adjA ? L.A : L.A', L.adjB ? L.B : L.B'; disc=L.disc)
-LinearAlgebra.transpose(L::InverseSylvesterMap) = InverseSylvesterMap(L.adjA ? L.A : L.A', L.adjB ? L.B : L.B'; disc=L.disc)
-LinearAlgebra.inv(L::SylvesterMap) = InverseSylvesterMap(L.A, L.B; disc=L.disc)
-LinearAlgebra.inv(L::InverseSylvesterMap) = SylvesterMap(L.A, L.B; disc=L.disc)
+function mul!(y::AbstractVector, L::InverseSylvesterMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where T
+   m = size(L.A, 1)
+   n = size(L.B, 1)
+   T1 = promote_type(T, eltype(x))
+   try
+      if L.sf
+         copyto!(y, x)
+         Y = reshape(y, (m, n))
+         sylvcs!(L.A, L.B, Y, adjA=L.adjA, adjB=L.adjB)
+      else
+         Y = reshape(convert(AbstractVector{T1}, x), m, n)
+         copyto!(y, sylvc(L.adjA ? L.A' : L.A, L.adjB ? L.B' : L.B, Y))
+      end
+      return y
+   catch err
+      findfirst("SingularException", string(err)) === nothing &&
+      findfirst("LAPACKException", string(err)) === nothing ? rethrow() : throw("ME:SingularException: Singular operator")
+   end
+end
 
 struct GeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <: AbstractMatrix,TD <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}
    A::TA
    B::TB
    C::TC
    D::TD
-   function GeneralizedSylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+   function GeneralizedSylvesterMap(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
       m, n = LinearAlgebra.checksquare(A, B)
       [m, n] == LinearAlgebra.checksquare(C, D) ||
                throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      T = promote_type(map(eltype, (A, B, C, D))...)
+      A = convert(AbstractMatrix{T}, A)
+      B = convert(AbstractMatrix{T}, B)
+      C = convert(AbstractMatrix{T}, C)
+      D = convert(AbstractMatrix{T}, D)
       return new{T,typeof(A),typeof(B),typeof(C),typeof(D)}(A, B, C, D)
    end
 end
+
+LinearAlgebra.adjoint(L::GeneralizedSylvesterMap{T}) where T =
+   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
+LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T =
+   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
 
 """
     M = sylvop(A, B, C, D)
 
 Define the generalized Sylvester operator `M: X -> AXB+CXD`, where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function sylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
-   T = promote_type(T1, T2, T3, T4)
-   GeneralizedSylvesterMap(convert.(AbstractMatrix{T}, (A, B, C, D))...)
-end
+sylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) =
+   GeneralizedSylvesterMap(A, B, C, D)
 Base.size(L::GeneralizedSylvesterMap) = (N = size(L.A, 1) * size(L.B, 1); return (N, N))
 function mul!(y::AbstractVector, L::GeneralizedSylvesterMap{T}, x::AbstractVector) where T
    m = size(L.A, 1)
    n = size(L.B, 1)
    T1 = promote_type(T, eltype(x))
-   X = reshape(eltype(x) == T1 ? x : convert(Vector{T1}, x), (m, n))
+   X = reshape(convert(AbstractVector{T1}, x), (m, n))
    Y = reshape(y, (m, n))
    # Y = A * X * B + C * X * D
    temp = similar(Y, (m, n))
@@ -614,10 +726,6 @@ function mul!(y::AbstractVector, L::GeneralizedSylvesterMap{T}, x::AbstractVecto
    mul!(Y, temp, L.D, 1, 1)
    return y
 end
-LinearAlgebra.adjoint(L::GeneralizedSylvesterMap{T}) where T =
-   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
-LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T =
-   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
 
 struct InverseGeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <: AbstractMatrix,TD <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}
    A::TA
@@ -629,7 +737,7 @@ struct InverseGeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatri
    sf::Bool
    BDSchur::Bool
    DBSchur::Bool
-   function InverseGeneralizedSylvesterMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+   function InverseGeneralizedSylvesterMap(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
       m, n = LinearAlgebra.checksquare(A, B)
       [m, n] == LinearAlgebra.checksquare(C, D) ||
                throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
@@ -639,13 +747,30 @@ struct InverseGeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatri
       BDSchur = (adjBD ? isschur(B.parent, D.parent) : isschur(B, D))
       DBSchur = (adjBD ? isschur(D.parent, B.parent) : isschur(D, B))
       schur_flag = ACSchur && (BDSchur || DBSchur)
-      a = adjAC ? A.parent : A
-      b = adjBD ? B.parent : B
-      c = adjAC ? C.parent : C
-      d = adjBD ? D.parent : D
-    return new{T,typeof(a),typeof(b),typeof(c),typeof(d)}(a, b, c, d, adjAC, adjBD, schur_flag, BDSchur, DBSchur)
+      A = adjAC ? A.parent : A
+      B = adjBD ? B.parent : B
+      C = adjAC ? C.parent : C
+      D = adjBD ? D.parent : D
+      T = promote_type(map(eltype, (A, B, C, D))...)
+      A = convert(AbstractMatrix{T}, A)
+      B = convert(AbstractMatrix{T}, B)
+      C = convert(AbstractMatrix{T}, C)
+      D = convert(AbstractMatrix{T}, D)
+    return new{T,typeof(A),typeof(B),typeof(C),typeof(D)}(A, B, C, D, adjAC, adjBD, schur_flag, BDSchur, DBSchur)
    end
 end
+
+LinearAlgebra.adjoint(L::InverseGeneralizedSylvesterMap) =
+   InverseGeneralizedSylvesterMap(L.adjAC ? L.A : L.A', L.adjBD ? L.B : L.B',
+                                    L.adjAC ? L.C : L.C', L.adjBD ? L.D : L.D')
+LinearAlgebra.transpose(L::InverseGeneralizedSylvesterMap) =
+   InverseGeneralizedSylvesterMap(L.adjAC ? L.A : L.A', L.adjBD ? L.B : L.B',
+                                    L.adjAC ? L.C : L.C', L.adjBD ? L.D : L.D')
+LinearAlgebra.inv(L::GeneralizedSylvesterMap) =
+   InverseGeneralizedSylvesterMap(L.A, L.B, L.C, L.D)
+LinearAlgebra.inv(L::InverseGeneralizedSylvesterMap) =
+   GeneralizedSylvesterMap(L.adjAC ? L.A' : L.A, L.adjBD ? L.B' : L.B,
+                           L.adjAC ? L.C' : L.C, L.adjBD ? L.D' : L.D)
 
 """
     MINV = invsylvop(A, B, C, D)
@@ -653,10 +778,9 @@ end
 Define `MINV`, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`,
 where (A,C) and (B,D) a pairs of square matrices.
 """
-function invsylvop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
-   T = promote_type(T1, T2, T3, T4)
-   InverseGeneralizedSylvesterMap(convert.(AbstractMatrix{T}, (A, B, C, D))...)
-end
+invsylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) =
+   InverseGeneralizedSylvesterMap(A, B, C, D)
+invsylvop(F::GeneralizedSchur, G::GeneralizedSchur) = invsylvop(F.S, G.S, F.T, G.T)
 Base.size(L::InverseGeneralizedSylvesterMap) = (N = size(L.A, 1) * size(L.B, 1); return (N, N))
 function mul!(y::AbstractVector, L::InverseGeneralizedSylvesterMap{T}, x::AbstractVector) where T
    m = size(L.A, 1)
@@ -668,7 +792,7 @@ function mul!(y::AbstractVector, L::InverseGeneralizedSylvesterMap{T}, x::Abstra
          Y = reshape(y, m, n)
          gsylvs!(L.A, L.B, L.C, L.D, Y, adjAC=L.adjAC, adjBD=L.adjBD, DBSchur=L.DBSchur && !L.BDSchur)
       else
-         X = reshape(eltype(x) == T1 ? x : convert(Vector{T1}, x), m, n)
+         X = reshape(convert(AbstractVector{T1}, x), m, n)
          copyto!(y, gsylv(L.adjAC ? L.A' : L.A, L.adjBD ? L.B' : L.B,
                            L.adjAC ? L.C' : L.C, L.adjBD ? L.D' : L.D, X))
       end
@@ -678,27 +802,21 @@ function mul!(y::AbstractVector, L::InverseGeneralizedSylvesterMap{T}, x::Abstra
    end
    return y
 end
-invsylvop(F::GeneralizedSchur{U}, G::GeneralizedSchur{U}) where U = invsylvop(F.S, G.S, F.T, G.T)
-LinearAlgebra.adjoint(L::InverseGeneralizedSylvesterMap{T}) where T =
-   InverseGeneralizedSylvesterMap(L.adjAC ? L.A : L.A', L.adjBD ? L.B : L.B',
-                                    L.adjAC ? L.C : L.C', L.adjBD ? L.D : L.D')
-LinearAlgebra.transpose(L::InverseGeneralizedSylvesterMap{T}) where T =
-   InverseGeneralizedSylvesterMap(L.adjAC ? L.A : L.A', L.adjBD ? L.B : L.B',
-                                    L.adjAC ? L.C : L.C', L.adjBD ? L.D : L.D')
-LinearAlgebra.inv(L::GeneralizedSylvesterMap{T}) where T =
-   InverseGeneralizedSylvesterMap(L.A, L.B, L.C, L.D)
-LinearAlgebra.inv(L::InverseGeneralizedSylvesterMap{T}) where T =
-   GeneralizedSylvesterMap(L.A, L.B, L.C, L.D)
 
 struct SylvesterSystemMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <: AbstractMatrix,TD <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}
    A::TA
    B::TB
    C::TC
    D::TD
-   function SylvesterSystemMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+   function SylvesterSystemMap(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
       m, n = LinearAlgebra.checksquare(A, B)
       [m, n] == LinearAlgebra.checksquare(C, D) ||
-    throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+         throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      T = promote_type(map(eltype, (A, B, C, D))...)
+      A = convert(AbstractMatrix{T}, A)
+      B = convert(AbstractMatrix{T}, B)
+      C = convert(AbstractMatrix{T}, C)
+      D = convert(AbstractMatrix{T}, D)
       return new{T,typeof(A),typeof(B),typeof(C),typeof(D)}(A, B, C, D)
    end
 end
@@ -706,13 +824,11 @@ end
 """
     M = sylvsysop(A, B, C, D)
 
-Define the operator `M: (X,Y) -> (AX+YB, CX+YD )`,
-where `(A,C)` and `(B,D)` a pairs of square matrices.
+Define the operator `M: (X,Y) -> (AX+YB, CX+YD)`, where `(A,C)` and `(B,D)` are pairs of
+square matrices.
 """
-function sylvsysop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
-   T = promote_type(T1, T2, T3, T4)
-   SylvesterSystemMap(convert.(AbstractMatrix{T}, (A, B, C, D))...)
-end
+sylvsysop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) =
+   SylvesterSystemMap(A, B, C, D)
 Base.size(L::SylvesterSystemMap) = (N = size(L.A, 1) * size(L.B, 1) * 2; return (N, N))
 function mul!(y::AbstractVector, L::SylvesterSystemMap{T}, x::AbstractVector) where T
    require_one_based_indexing(y, x)
@@ -720,8 +836,8 @@ function mul!(y::AbstractVector, L::SylvesterSystemMap{T}, x::AbstractVector) wh
    n = size(L.B, 1)
    mn = m * n
    T1 = promote_type(T, eltype(x))
-   X1 = reshape(eltype(x) == T1 ? view(x, 1:mn) : convert(Vector{T1}, view(x, 1:m * n)), m, n)
-   X2 = reshape(eltype(x) == T1 ? view(x, mn + 1:2 * mn) : convert(Vector{T1}, view(x, mn + 1:2 * mn)), m, n)
+   X1 = reshape(convert(AbstractVector{T1}, view(x, 1:mn)), m, n)
+   X2 = reshape(convert(AbstractVector{T1}, view(x, mn + 1:2 * mn)), m, n)
    U = reshape(view(y, 1:m * n), (m, n))
    V = reshape(view(y, mn + 1:2 * mn), (m, n))
    # U = A * X + Y * B
@@ -739,8 +855,8 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       n = size(LT.lmap.B, 1)
       mn = m * n
       T1 = promote_type(T, eltype(x))
-      X1 = reshape(eltype(x) == T1 ? view(x, 1:mn) : convert(Vector{T1}, view(x, 1:m * n)), m, n)
-      X2 = reshape(eltype(x) == T1 ? view(x, mn + 1:2 * mn) : convert(Vector{T1}, view(x, mn + 1:2 * mn)), m, n)
+      X1 = reshape(convert(AbstractVector{T1}, view(x, 1:mn)), m, n)
+      X2 = reshape(convert(AbstractVector{T1}, view(x, mn + 1:2 * mn)), m, n)
       U = reshape(view(y, 1:m * n), (m, n))
       V = reshape(view(y, mn + 1:2 * mn), (m, n))
       # U = A' * X + C' * Y
@@ -754,29 +870,38 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
 end
 
 struct InverseSylvesterSystemMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <: AbstractMatrix,TD <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}
-    A::TA
+   A::TA
    B::TB
    C::TC
    D::TD
    sf::Bool
-   function InverseSylvesterSystemMap(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}, D::AbstractMatrix{T}) where {T}
+   function InverseSylvesterSystemMap(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix)
       m, n = LinearAlgebra.checksquare(A, B)
       [m, n] == LinearAlgebra.checksquare(C, D) ||
                throw(DimensionMismatch("A, B, C and D have incompatible dimensions"))
+      T = promote_type(map(eltype, (A, B, C, D))...)
+      A = convert(AbstractMatrix{T}, A)
+      B = convert(AbstractMatrix{T}, B)
+      C = convert(AbstractMatrix{T}, C)
+      D = convert(AbstractMatrix{T}, D)
       schur_flag = isschur(A, C) && isschur(B, D)
       return new{T,typeof(A),typeof(B),typeof(C),typeof(D)}(A, B, C, D, schur_flag)
    end
 end
+
+LinearAlgebra.inv(L::SylvesterSystemMap) = InverseSylvesterSystemMap(L.A, L.B, L.C, L.D)
+LinearAlgebra.inv(L::InverseSylvesterSystemMap) = SylvesterSystemMap(L.A, L.B, L.C, L.D)
+
 """
     MINV = invsylvsysop(A, B, C, D)
 
 Define `MINV`, the inverse of the linear operator `M: (X,Y) -> (AX+YB, CX+YD )`,
 where `(A,C)` and `(B,D)` a pairs of square matrices.
 """
-function invsylvsysop(A::AbstractMatrix{T1}, B::AbstractMatrix{T2}, C::AbstractMatrix{T3}, D::AbstractMatrix{T4}) where {T1,T2,T3,T4}
-   T = promote_type(T1, T2, T3, T4)
-   InverseSylvesterSystemMap(convert.(AbstractMatrix{T}, (A, B, C, D))...)
-end
+invsylvsysop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) =
+   InverseSylvesterSystemMap(A, B, C, D)
+invsylvsysop(AC::GeneralizedSchur, BD::GeneralizedSchur) =
+   InverseSylvesterSystemMap(AC.S, BD.S, AC.T, BD.T)
 Base.size(L::InverseSylvesterSystemMap) = (N = size(L.A, 1) * size(L.B, 1) * 2; return (N, N))
 function mul!(y::AbstractVector, L::InverseSylvesterSystemMap{T}, x::AbstractVector) where T
    require_one_based_indexing(y, x)
@@ -810,7 +935,7 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       n = size(L.lmap.B, 1)
       mn = m * n
       T1 = promote_type(T, eltype(x))
-      E = reshape(eltype(x) == T1 ? x[1:mn] : convert(Vector{T1}, view(x, 1:m * n)), m, n)
+      E = reshape(eltype(x) == T1 ? x[1:mn] : convert(Vector{T1}, view(x, 1:mn)), m, n)
       F = reshape(eltype(x) == T1 ? x[mn + 1:2 * mn] : convert(Vector{T1}, view(x, mn + 1:2 * mn)), m, n)
       Y1 = view(y, 1:mn)
       Y2 = view(y, mn + 1:2mn)
@@ -830,6 +955,3 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       return y
    end
 end
-invsylvsysop(AC::GeneralizedSchur{U}, BD::GeneralizedSchur{U}) where U = invsylvsysop(AC.S, BD.S, AC.T, BD.T)
-LinearAlgebra.inv(L::SylvesterSystemMap) = InverseSylvesterSystemMap(L.A, L.B, L.C, L.D)
-LinearAlgebra.inv(L::InverseSylvesterSystemMap) = SylvesterSystemMap(L.A, L.B, L.C, L.D)
