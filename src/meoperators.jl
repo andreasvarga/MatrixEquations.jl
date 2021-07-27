@@ -358,7 +358,7 @@ function mul!(y::AbstractVector, L::InverseLyapunovMap{T,<:Any,adj,Discrete}, x:
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    try
-      if L.sf
+      if L.sf && !(T <: Real && T1 <: Complex) 
          if L.her
             Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
             lyapds!(L.A, Y, adj=adj)
@@ -387,7 +387,7 @@ function mul!(y::AbstractVector, L::InverseLyapunovMap{T,<:Any,adj,Continuous}, 
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    try
-      if L.sf
+      if L.sf && !(T <: Real && T1 <: Complex) 
          if L.her
             Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
             lyapcs!(L.A, Y; adj=adj)
@@ -480,7 +480,7 @@ function mul!(y::AbstractVector, L::InverseGeneralizedLyapunovMap{T,<:Any,<:Any,
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    try
-      if L.sf
+      if L.sf && !(T <: Real && T1 <: Complex) 
          if L.her
             Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
             lyapds!(L.A, L.E, Y; adj=adj)
@@ -510,7 +510,7 @@ function mul!(y::AbstractVector, L::InverseGeneralizedLyapunovMap{T,<:Any,<:Any,
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    try
-      if L.sf
+      if L.sf && !(T <: Real && T1 <: Complex) 
          if L.her
             Y = vec2triu(-convert(AbstractVector{T1}, x), her=true)
             lyapcs!(L.A, L.E, Y; adj=adj)
