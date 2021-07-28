@@ -1,9 +1,12 @@
 # Release Notes
 
+## Version 2.1 
+
+This is a minor release which enhances the definitions of Lyapunov and Sylvester operators, by introducing types for `Adjoint`, `Discrete` and `Continuous` Lyapunov/Sylvester maps.   
+
 ## Version 2.0 
 
-This is a major release which concludes the efforts to increase the speed of all solvers and minimize the memory allocation burden. The Lyapunov solvers have been functionally extended to cover the case of non-symmmetric/non-hermitian solutions.
-The implementations of linear Lyapunov and Sylvester operators now rely on the `LinearMaps.jl` (instead of `LinearOperators.jl` in previous releases).   
+This is a major release which concludes the efforts to increase the speed of all solvers and minimize the memory allocation burden. The Lyapunov solvers have been functionally extended to cover the case of non-symmmetric/non-hermitian solutions. The implementations of linear Lyapunov and Sylvester operators now rely on the `LinearMaps.jl` (instead of `LinearOperators.jl` in previous releases).   
 
 ## Version 1.5
 
