@@ -1818,8 +1818,8 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m == length(WB) || throw(DimensionMismatch("WB must be an $m - dimensional vector"))
    m == length(WD) || throw(DimensionMismatch("WD must be an $m - dimensional vector"))
 
-   # WB = zeros(T1,m)
-   # WD = zeros(T1,m)
+   WB = zeros(T1,m)
+   WD = zeros(T1,m)
    ZERO = zero(T1)
    if !adjAC && !adjBD
       # """
@@ -2011,8 +2011,8 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                      tc += C[ir,k]'*E[ir,l]
                  end
                  y -= (ta*B[l,l]'+tc*D[l,l]')
-              end
-              if l < n
+               end
+               if l < n
                  ic = 1:m
                  ta = ZERO
                  tc = ZERO
@@ -2025,7 +2025,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  for ic = 1:m
                      y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
                  end
-              end
+               end
               E[k,l] = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
               isfinite(E[k,l]) || throw("ME:SingularException: A'-λC' and D'+λB' have common or close eigenvalues")
           end
