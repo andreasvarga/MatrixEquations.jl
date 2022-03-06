@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2 
+
+This is a minor release to use Julia 1.6 and higher.  
+
 ## Version 2.1 
 
 This is a minor release which enhances the definitions of Lyapunov and Sylvester operators, by introducing types for `Adjoint`, `Discrete` and `Continuous` Lyapunov/Sylvester maps.   

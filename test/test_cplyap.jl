@@ -101,6 +101,31 @@ reltol = eps(float(100f0))
 a = -1f0; ee = 4f0; b = 2f0im; @time u = plyapc(a,ee,b)
 @test abs(a*u*u'*ee'+ee*u*u'*a'+b*b')  < reltol
 
+# # scaling related tests
+# a = [   -1.3429   -0.4189   -0.3001
+#    -1.0322   -0.1403    1.0294
+#     1.3312    0.8998   -0.3451];
+# e = [
+#     1.0128   -0.8657   -0.4381
+#     0.6293   -1.0431   -0.4087
+#    -0.2130   -0.2701    0.9835];
+# b = [
+#    -0.2977    0.9726
+#     1.1437   -0.5223
+#    -0.5316    0.1766];
+# b = copy(b');
+
+# U = plyapc(a',e',b'); 
+# X = U'*U; 
+# @test norm(a'*X*e + e'*X*a + b'*b,Inf) < 1.e-7
+
+# t = 1e150; U = plyapc(a',e',(t*b)')/t; X = U'*U; 
+# @test norm(a'*X*e + e'*X*a + b'*b,Inf) < 1.e-7
+
+# t = 1.e150; U = plyapc((t*a)',(t*e)',(t*b)'); X = U'*U; 
+# @test norm(a'*X*e + e'*X*a + b'*b,Inf) < 1.e-7
+
+
 for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
