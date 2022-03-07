@@ -862,7 +862,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = true)
           end
           if ll < p
-             dll = 1:dl
+             dll = dl == 1 ? 1 : (1:dl)
              js = j
              j += dl
              j1 = j:n
@@ -1423,7 +1423,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = true, disc = true)
           end
           if ll < p
-             dll = 1:dl
+             dll = dl == 1 ? 1 : (1:dl)
              js = j
              j += dl
              j1 = j:n
@@ -1507,7 +1507,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = false, disc = true)
           end
           if ll > 1
-             dll = 1:dl
+             dll = dl == 1 ? 1 : (1:dl)
              js = j
              j -= dl
              j1 = 1:j
@@ -1746,7 +1746,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true, disc = true)
           end
           if ll < p
-             dll = 1:dl
+             dll = dl == 1 ? 1 : (1:dl)
              js = j
              α = view(Mα,dll,dll)
              β = view(Mβ,dll,dll)
@@ -1823,7 +1823,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false, disc = true)
           end
           if ll > 1
-             dll = 1:dl
+             dll = dl == 1 ? 1 : (1:dl)
              js = j
              α = view(Mα,dll,dll)
              β = view(Mβ,dll,dll)
