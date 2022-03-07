@@ -555,7 +555,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}) where {T <:BlasReal}
+function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:BlasReal}
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
@@ -572,7 +572,9 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
    n = na*nb
    i1 = 1:n
    R = view(Xw, i1, i1)
-   Y = reshape(C, n)
+   # Y = reshape(C, n)
+   Y = view(Yw,i1)
+   Y[:] = C[:]
    if adjA && !adjB
       if na == 1
          # R12 =
@@ -811,7 +813,7 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
       end
    end
    luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
-   #C[:,:] = Y
+   C[:,:] = Y[i1]
    return C
 end
 """
@@ -847,6 +849,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    WA = Matrix{T1}(undef,2,2)
 
    Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if !adjA && !adjB
       # """
       # The (K,L)th block of X is determined starting from
@@ -889,7 +892,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
                  mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
               copyto!(Ckl,y)
            i -= dk
           end
@@ -936,7 +939,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
                     mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
                  end
-                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw)  
+                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
                  copyto!(Ckl,y)
                  i -= dk
              end
@@ -984,7 +987,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
                  mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
               copyto!(Ckl,y)
            i += dk
           end
@@ -1031,7 +1034,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
                  mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
               copyto!(Ckl,y)
            i += dk
           end
