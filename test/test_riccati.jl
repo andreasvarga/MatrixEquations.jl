@@ -10,7 +10,7 @@ using Test
 # only double precision tests are performed
 
 #for (Ty,n,p,m) in ((Float64, 30, 10, 10), (Float32, 5, 3, 3))
-for (Ty,n,p,m) in ((Float64, 30, 10, 10),  (Float64, 5, 3, 1))
+for (Ty,n,p,m) in ((Float64, 20, 10, 10),  (Float64, 5, 3, 1))
 
 Random.seed!(21235)
 
@@ -351,7 +351,7 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
 
-@time x, clseig, f = ared(ar,br,rr,Qr,sr,as = true)
+@time x, clseig, f = ared(ar,br,rr,Qr,sr,as = true)  #fails
 @test norm(ar'*x*ar-x-(ar'*x*br+sr)*inv(rr+br'*x*br*I)*(br'*x*ar+sr')+Qr)/max(1,norm(x)) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
@@ -401,7 +401,7 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f,er))))/max(opnorm(ar,1),opnorm
 norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol
 
-@time x, clseig, f = gared(ac,ec,bc,rc,qc,sc; as = true)
+@time x, clseig, f = gared(ac,ec,bc,rc,qc,sc; as = true) #fails
 @test norm(ac'*x*ac-ec'*x*ec-(ac'*x*bc+sc)*inv(rc+bc'*x*bc*I)*(bc'*x*ac+sc')+qc)/max(1,norm(x)) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f,ec))))/max(opnorm(ac,1),opnorm(ec,1))  < rtol
