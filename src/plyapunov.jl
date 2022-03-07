@@ -1470,7 +1470,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
                #  mul!(y,rbar,β,ONE,-ONE)
                 rmul!(v, -α[1,1])
                 #mul!(v, rbar, β, ONE, ONE)
-                axpy!(β[1,1], rbar, v)
+                LinearAlgebra.axpy!(β[1,1], rbar, v)
              else
                #  F = qr([α; β])
                #  vy = [rbar v]*F.Q
@@ -1793,7 +1793,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              if dl == 1
                 #y = rbar*β - v*α
                 rmul!(rbar, β[1,1])
-                axpy!(-α[1,1], v, rbar)
+                LinearAlgebra.axpy!(-α[1,1], v, rbar)
              else
                 rbar =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
              end
@@ -1865,7 +1865,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              if dl == 1
                 # y = rbar*β - v*α
                 rmul!(rbar, β[1,1])
-                axpy!(-α[1,1], v, rbar)
+                LinearAlgebra.axpy!(-α[1,1], v, rbar)
              else
                 rbar =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
              end
