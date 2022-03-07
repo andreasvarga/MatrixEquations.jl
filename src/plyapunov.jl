@@ -1429,7 +1429,8 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
              j1 = j:n
              ir1 = 1:n-j+1
              rbar = view(Wr,ir1,dll)
-             v = view(Wv,j1,dll)
+             #v = view(Wv,j1,dll)
+             v = view(Wv,ir1,dll)
              z = view(Wz,ir1,dll)
              α = view(Mα,dll,dll)
              β = view(Mβ,dll,dll)
@@ -1470,7 +1471,8 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
                #  mul!(y,rbar,β,ONE,-ONE)
                 rmul!(v, -α[1,1])
                 #mul!(v, rbar, β, ONE, ONE)
-                LinearAlgebra.axpy!(β[1,1], rbar, v)
+                #LinearAlgebra.axpy!(β[1,1], rbar, v)
+                axpy!(β[1,1], view(Wr,ir1,1), view(Wv,ir1,1))
              else
                #  F = qr([α; β])
                #  vy = [rbar v]*F.Q
@@ -1793,7 +1795,8 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              if dl == 1
                 #y = rbar*β - v*α
                 rmul!(rbar, β[1,1])
-                LinearAlgebra.axpy!(-α[1,1], v, rbar)
+                #LinearAlgebra.axpy!(-α[1,1], v, rbar)
+                axpy!(-α[1,1], view(Wv,ir1,1), view(Wr,ir1,1))
              else
                 rbar =  ([rbar v]*qr([α; β]).Q)[:,dl+1:end]
              end
@@ -1865,7 +1868,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
              if dl == 1
                 # y = rbar*β - v*α
                 rmul!(rbar, β[1,1])
-                LinearAlgebra.axpy!(-α[1,1], v, rbar)
+                axpy!(-α[1,1], view(Wv,j1,1), view(Wr,j1,1))
              else
                 rbar =  ([rbar v]*qr([α'; β']).Q)[:,dl+1:end]
              end
