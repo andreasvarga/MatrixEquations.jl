@@ -572,7 +572,6 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
    n = na*nb
    i1 = 1:n
    R = view(Xw, i1, i1)
-   # Y = reshape(C, n)
    Y = view(Yw,i1)
    Y[:] = C[:]
    if adjA && !adjB
@@ -1271,6 +1270,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    # WB = zeros(T1,m,2)
    # WD = zeros(T1,m,2)
    Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
    if !adjAC && !adjBD
       # """
       # The (K,L)th block of X is determined starting from
@@ -1329,7 +1329,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
                  mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i -= dk
           end
           j += dl
@@ -1391,7 +1391,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
                     mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
                  end
-                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw) 
+                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
                  i -= dk
              end
              j -= dl
@@ -1454,7 +1454,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  #y -= C[ic,k]'*WD[ic,dll]
                  mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i += dk
           end
           j += dl
@@ -1517,7 +1517,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,transpose(view(A,ic,k)),view(WB,ic,dll),-ONE,ONE)
                  mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
               i += dk
           end
           j -= dl
@@ -1525,7 +1525,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return E
 end
-@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}) where T <:BlasReal
+@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
    #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C) 
    #      A'*X*B + C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + kron(D',C')
@@ -1540,7 +1540,9 @@ end
    n = na*nb
    i1 = 1:n
    R = view(Xw,i1,i1)
-   Y = reshape(E, n)
+   Y = view(Yw,i1)
+   Y[:] = E[:]
+   #Y = reshape(E, n)
    if !adjAC && !adjBD
       if na == 1
          # R12 =
@@ -1799,7 +1801,7 @@ end
       #R = kron(B,transpose(A)) + kron(D,transpose(C))
    end
    luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
-   # E[:,:] = Y
+   E[:,:] = Y
    return E
 end
 
