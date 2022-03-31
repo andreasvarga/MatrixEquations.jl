@@ -56,10 +56,10 @@ for (fn, elty, relty) in ((:dtgsyl_, :Float64, :Float64),
                 (Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt},
                  Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
                  Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
-                 Ptr{$relty}, Ptr{$relty}, Ptr{$relty}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}),
+                 Ptr{$relty}, Ptr{$relty}, Ptr{$relty}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Clong),
                  trans, ijob, m, n,
                  A, lda, B, ldb, C, ldc, D, ldd, E, lde, F, ldf,
-                 scale, dif, work, lwork, iwork, info)
+                 scale, dif, work, lwork, iwork, info, 1)
             chklapackerror(info[])
             C, F, scale[1]
         end
