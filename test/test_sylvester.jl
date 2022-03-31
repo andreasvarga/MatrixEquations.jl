@@ -6,7 +6,7 @@ using Test
 
 @testset "Testing Sylvester equation solvers" begin
 
-n = 30; m = 20; 
+n = 20; m = 10; 
 Ty = Float64
 reltol = sqrt(eps(1.))
 
