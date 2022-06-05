@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.2
+
+Patch release to enforce AbstractMatrix type in all Schur form based solvers. 
+
 ## Version 2.2.1
 
 Patch release to address hidden character length arguments issue discussed in [JuliaLang/julia#32870](https://github.com/JuliaLang/julia/issues/32870). 

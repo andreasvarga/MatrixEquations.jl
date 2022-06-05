@@ -436,7 +436,7 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 `A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 `C` contains on output the solution `X`.
 """
-function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -709,7 +709,7 @@ function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{
    C[:,:] = Y
    return C
 end
-function lyapcs!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
+function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -791,7 +791,7 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -1167,7 +1167,7 @@ end
    C[:,:] = Y
    return C
 end
-function lyapcs!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
+function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -1247,7 +1247,7 @@ where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -1290,21 +1290,21 @@ function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasReal}
               y = view(G,1:dk,1:dl)
               copyto!(y,Ckl)
               if kk > 1
-                 # C[l,k] = C[l,ir]*A[ir,k]
+                # C[l,k] = C[l,ir]*A[ir,k]
                  mul!(view(C,l,k),view(C,l,ir),view(A,ir,k))
                  ic = 1:j1
                  #y += C[ic,k]'*A[ic,l]
                  mul!(y,transpose(view(C,ic,k)),view(A,ic,l),ONE,ONE)
-               end
+              end
               if kk == ll
                  lyapd2!(adj,y,dk,view(A,k,k),Xw,Yw)
                  copyto!(Ckl,y)
-               else
+              else
                  lyapdsylv2!(adj,y,dk,dl,view(A,k,k),view(A,l,l),Xw,Yw)
                  copyto!(Ckl,y)
-               end
-               j += dl
-               if ll < kk
+              end
+              j += dl
+              if ll < kk
                  # C[l,k] += C[k,l]'*A[k,k]
                  mul!(view(C,l,k),transpose(Ckl),view(A,k,k),ONE,ONE)
                end
@@ -1577,7 +1577,7 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
    C[:,:] = Y
    return C
 end
-function lyapds!(A::Matrix{T1},C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
+function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -1652,7 +1652,7 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -2028,7 +2028,7 @@ end
    C[:,:] = Y
    return C
 end
-function lyapds!(A::Matrix{T1},E::Union{Matrix{T1},UniformScaling{Bool}}, C::Matrix{T1}; adj = false) where {T1<:BlasComplex}
+function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))

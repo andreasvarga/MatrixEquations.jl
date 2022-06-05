@@ -821,7 +821,7 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with negative real parts.
 `R` contains on output the solution `U`.
 """
-function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
+function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -953,7 +953,7 @@ function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    end
    return R
 end
-function plyapcs!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1066,7 +1066,7 @@ The pair `(A,E)` is in a generalized real/complex Schur form and `R` is an upper
 triangular matrix. The pencil `A-λE` must have only eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
 """
-function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
+function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -1236,7 +1236,7 @@ function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::Up
    end
    return R
 end
-function plyapcs!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) &&
@@ -1381,7 +1381,7 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
+function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1565,7 +1565,7 @@ function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 
    end
    return R
 end
-function plyapds!(A::Matrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1696,7 +1696,7 @@ The pair `(A,E)` of square real or complex matrices is in a generalized Schur fo
 and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
+function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
    # The method of [1] for the discrete case is implemented.
 
    # [1] Penzl, T.
@@ -1878,7 +1878,7 @@ function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::U
    end
    return R
 end
-function plyapds!(A::Matrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapds!(A::AbstractMatrix{T1}, E::Union{Matrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
