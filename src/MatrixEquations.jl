@@ -33,5 +33,8 @@ include("sylvkr.jl")
 include("plyapunov.jl")
 include("meoperators.jl")
 include("condest.jl")
- 
+if !occursin(joinpath(".julia", "dev"), pathof(@__MODULE__))
+    # Only perform extra precompilation for end users, not for developers
+    include("precompilation.jl")
+end
 end
