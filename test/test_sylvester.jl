@@ -3,9 +3,11 @@ module Test_sylvester
 using LinearAlgebra
 using MatrixEquations
 using Test
+using Random
 
 @testset "Testing Sylvester equation solvers" begin
 
+Random.seed!(21235)
 n = 20; m = 10; 
 Ty = Float64
 reltol = sqrt(eps(1.))
