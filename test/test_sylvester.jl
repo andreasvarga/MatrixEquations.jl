@@ -8,7 +8,7 @@ using Random
 @testset "Testing Sylvester equation solvers" begin
 
 Random.seed!(21235)
-n = 20; m = 10; 
+n = 15; m = 10; 
 Ty = Float64
 reltol = sqrt(eps(1.))
 
