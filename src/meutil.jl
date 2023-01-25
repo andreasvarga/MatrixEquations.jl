@@ -121,9 +121,9 @@ function utqu(Q,U)
    end
 
    T = promote_type(eltype(Q),eltype(U))
-   if !(T <: BlasFloat)
-      return U'*Q*U
-   end
+   # if !(T <: BlasFloat)
+   #    return U'*Q*U
+   # end
 
    t = UpperTriangular(Q)-Diagonal(Q[diagind(Q)]./2)
    X = similar(Q, T, m, m)

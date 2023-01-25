@@ -2,6 +2,8 @@ module Test_clyap
 
 using LinearAlgebra
 using MatrixEquations
+using GenericSchur
+using DoubleFloats
 using Test
 
 
@@ -48,12 +50,13 @@ catch
   @test true
 end  
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
 
 ar = rand(Ty,n,n);
 ac = rand(Ty,n,n)+im*rand(Ty,n,n);
 c = rand(Ty,n,n)+im*rand(Ty,n,n);
-qc = c'*c;
+#qc = c'*c;
+qc = Matrix(Hermitian(c'*c));
 Qr = real(qc);
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
@@ -130,7 +133,8 @@ catch
   @test true
 end  
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = rand(Ty,n,n)+im*rand(Ty,n,n)
@@ -138,7 +142,8 @@ er = rand(Ty,n,n)
 ec = er+im*rand(Ty,n,n)
 
 c = rand(Ty,n,n)+im*rand(Ty,n,n)
-qc = c'*c
+#qc = c'*c
+qc = Matrix(Hermitian(c'*c));
 Qr = real(qc)
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 

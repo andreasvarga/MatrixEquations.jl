@@ -848,7 +848,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     as ? PLS = schur(L1[iric,iric],P1[iric,iric]) : PLS = schur(P1[iric,iric],L1[iric,iric])
     select = abs.(PLS.α) .> abs.(PLS.β)
 
-    n == length(filter(y-> y == true,select)) || error("The extended simplectic pencil is not dichotomic")
+    n == length(filter(y-> y == true,select)) || error("The extended symplectic pencil is not dichotomic")
 
     ordschur!(PLS, select)
     z[:,i1]= z[:,iric]*PLS.Z[:,i1]
