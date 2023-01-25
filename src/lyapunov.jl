@@ -368,6 +368,8 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    T. Penzl. Numerical solution of generalized Lyapunov equations.
    Adv. Comput. Math., 8:33–48, 1998.
    """
+   T2 = promote_type(eltype(A), eltype(E), eltype(C))
+   T2 <: BlasFloat || T2 <: Complex || (return real(lyapd(complex(A),complex(E),complex(C))))   
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(C) == n ||
       throw(DimensionMismatch("C must be a square matrix of dimension $n"))
@@ -387,7 +389,6 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    adj = adjA & adjE
    her = ishermitian(C)
 
-   T2 = promote_type(eltype(A), eltype(E), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
@@ -1253,7 +1254,8 @@ where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
+# function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -1383,7 +1385,8 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    end
 end
 
-function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
+# function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
    #      A'*X*A - X = -C if adj = true  -> R = kron(A',A')-I = (kron(A,A)-I)'
    #      A*X*A' - X = -C if adj = false -> R = kron(A,A)-I
@@ -1444,7 +1447,8 @@ function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
    @inbounds C[2,2] = Y[3]
    return C
 end
-function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::AbstractVector{T}) where T <:BlasReal
+function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::AbstractVector{T}) where T <: Real
+# function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::AbstractVector{T}) where T <:BlasReal
 #    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
 #    # encountered in solving discrete Lyapunov equations:
 #    #      A'*X*B - X = -C if adj = true  -> R = kron(B',A') - I = (kron(B,A)-I)'
@@ -1583,7 +1587,8 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
    C[:,:] = Y
    return C
 end
-function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
+function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Complex}
+# function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
@@ -2034,7 +2039,8 @@ end
    C[:,:] = Y
    return C
 end
-function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
+function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:Complex}
+# function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))

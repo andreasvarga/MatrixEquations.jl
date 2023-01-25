@@ -2,6 +2,8 @@ module Test_dlyap
 
 using LinearAlgebra
 using MatrixEquations
+using GenericSchur
+using DoubleFloats
 using Test
 
 
@@ -23,38 +25,40 @@ a = 1f0-2f0im; b = 2f0; @time x = lyapd(a,b)
 try
    x = lyapd(ones(1,1),ones(1,1))
    @test false
- catch
+catch
    @test true
- end  
+end  
 
- try
+try
    x = lyapd([0 1;  -1 0 ],ones(2,2))  
    @test false
- catch
+catch
    @test true
- end  
+end  
  
-  try
+try
    x = lyapd([0.5 1;  0 2],ones(2,2))
    @test false
- catch
+catch
    @test true
- end  
+end  
  
- try
+try
    x = lyapd([1 1 1 1;  -1 1 0 1; 0 0 0.5 0.5; 0 0 -0.5 0.5],ones(4,4)) 
    @test false
- catch
+catch
    @test true
- end  
+end  
  
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+# for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = rand(Ty,n,n)+im*rand(Ty,n,n)
 c = rand(Ty,n,n)+im*rand(Ty,n,n)
-qc = c'*c
+#qc = c'*c
+qc = Matrix(Hermitian(c'*c));
 Qr = real(qc)
 Ty == Float64 ? reltol = eps(float(10000)) : reltol = eps(10000*n*one(Ty))
 
@@ -133,7 +137,8 @@ catch
    @test true
 end  
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+# for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = rand(Ty,n,n)+im*rand(Ty,n,n)
@@ -141,7 +146,8 @@ er = rand(Ty,n,n)
 ec = er+im*rand(Ty,n,n)
 
 c = rand(Ty,n,n)+im*rand(Ty,n,n)
-qc = c'*c
+#qc = c'*c
+qc = Matrix(Hermitian(c'*c));
 Qr = real(qc)
 Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 
