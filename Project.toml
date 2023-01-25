@@ -12,8 +12,10 @@ LinearMaps = "3.3"
 julia = "1.6"
 
 [extras]
+GenericSchur = "c145ed77-6b09-5dd9-b285-bf645a82121e"
+DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Random", "Test"]
+test = ["Random", "Test", "GenericSchur", "DoubleFloats"]
