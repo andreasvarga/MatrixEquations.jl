@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.3
+
+Patch release to allow arbitrary floating-point types in all Lyapunov solvers. 
+
 ## Version 2.2.2
 
 Patch release to enforce AbstractMatrix type in all Schur form based solvers. 
