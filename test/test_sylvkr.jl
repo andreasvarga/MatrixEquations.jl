@@ -2,27 +2,31 @@ module Test_sylvkr
 
 using LinearAlgebra
 using MatrixEquations
+using GenericSchur
+using DoubleFloats
 using Test
 
 @testset "Testing Sylvester equation solvers based on Kronecker expansions" begin
 
 n = 10; m = 7;
-ar = rand(n,n)
-br = rand(m,m)
-cr = rand(n,m)
-dr = rand(n,n)
-er = rand(m,m)
-fr = rand(n,m)
-ac = ar+im*rand(n,n)
-bc = br+im*rand(m,m)
-cc = cr+im*rand(n,m)
-dc = dr+im*rand(n,n)
-ec = er+im*rand(m,m)
-fc = fr+im*rand(n,m)
+
+for Ty in (Float64, BigFloat, Double64)
+
+ar = rand(Ty,n,n)
+br = rand(Ty,m,m)
+cr = rand(Ty,n,m)
+dr = rand(Ty,n,n)
+er = rand(Ty,m,m)
+fr = rand(Ty,n,m)
+ac = ar+im*rand(Ty,n,n)
+bc = br+im*rand(Ty,m,m)
+cc = cr+im*rand(Ty,n,m)
+dc = dr+im*rand(Ty,n,n)
+ec = er+im*rand(Ty,m,m)
+fc = fr+im*rand(Ty,n,m)
 qr = cr*cr'
 qc = cc*cc'
-reltol = sqrt(eps(1.))
-
+reltol = sqrt(eps(one(Ty)))
 
 # solving Sylvester equations
 @time x = sylvckr(ar,br,cr)
@@ -98,6 +102,7 @@ reltol = sqrt(eps(1.))
 @test norm(ar'*x-dr'*y-cr)/max(norm(x),norm(y)) < reltol &&
       norm(x*br'+y*er'+fr)/max(norm(x),norm(y)) < reltol
 
+end
 end
 
 end
