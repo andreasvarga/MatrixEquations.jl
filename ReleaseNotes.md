@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.4
+
+Patch release to allow arbitrary floating-point types in all positive Lyapunov solvers. 
+
 ## Version 2.2.3
 
 Patch release to allow arbitrary floating-point types in all Lyapunov solvers. 

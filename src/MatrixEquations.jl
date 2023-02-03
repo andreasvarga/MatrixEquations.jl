@@ -16,10 +16,11 @@ using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!, safemin, smlnum
 export MatrixEquationsMaps
 export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormalize!
 export lanv2, ladiv, lag2, lacn2!
+export _lanv2, _safemin, _lag2, _ladiv
 export lyapc, lyapd, lyapcs!, lyapds! 
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
-export sylvc, sylvd, gsylv, sylvcs!, sylvds!, gsylvs!
+export sylvc, sylvd, gsylv, sylvcs!, sylvcs1!, sylvcs2!, sylvds!, gsylvs!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr
 export opnorm1, opnorm1est, oprcondest, opsepest

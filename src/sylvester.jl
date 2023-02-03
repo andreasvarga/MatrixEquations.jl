@@ -1244,7 +1244,10 @@ The pencils `A-λC` and `D+λB` must be regular and must not have common eigenva
 """
 function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
                  WB::AbstractMatrix{T1} = similar(A,size(A,1),2), WD::AbstractMatrix{T1} = similar(A,size(A,1),2); 
-                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasReal
+                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Real
+# function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
+#                  WB::AbstractMatrix{T1} = similar(A,size(A,1),2), WD::AbstractMatrix{T1} = similar(A,size(A,1),2); 
+#                  adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasReal
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1525,7 +1528,8 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return E
 end
-@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:BlasReal
+@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
+# @inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
    #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C) 
    #      A'*X*B + C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + kron(D',C')
@@ -1807,7 +1811,10 @@ end
 
 function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
                  WB::AbstractVector{T1} = similar(A,size(A,1)), WD::AbstractVector{T1} = similar(A,size(A,1)); 
-                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasComplex
+                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Complex
+# function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
+#                 WB::AbstractVector{T1} = similar(A,size(A,1)), WD::AbstractVector{T1} = similar(A,size(A,1)); 
+#                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasComplex
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -2083,4 +2090,142 @@ function dsylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloa
    F = -F
    C, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, F)
    return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
+end
+function sylvcs2!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
+   n = LinearAlgebra.checksquare(A)
+   m = LinearAlgebra.checksquare(B)
+   m <= 2 || throw(DimensionMismatch("B must be a 1×1 or 2×2 matrix"))
+   (n,m) == size(C) ||
+      throw(DimensionMismatch("C must be a $n x $m matrix"))
+
+   ONE = one(T1)
+
+   # determine the structure of the real Schur form
+   ba, p = sfstruct(A)
+
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
+   
+   if adj
+      # """
+      # The (K,1)th block of X is determined starting from
+      # upper-left corner column by column by
+
+      # A(K,K)'*X(K,1) + X(K,1)*B(1,1) = -C(K,1) - R(K,1),
+
+      # where
+      #          K-1                    
+      # R(K,1) = SUM [A(I,K)'*X(I,L)] 
+      #          I=1                    
+      # """
+
+      l = 1:m
+      i = 1
+      for kk = 1:p
+          dk = ba[kk]
+          k = i:i+dk-1
+          y = view(C,k,l)
+          if kk > 1
+             ir = 1:i-1
+             # y += A[ia,k]'*C[ia,l]
+             mul!(y,transpose(view(A,ir,k)),view(C,ir,l),ONE,ONE)
+          end
+          lyapcsylv2!(adj,y,dk,m,view(A,k,k),B,Xw,Yw)
+          i += dk
+      end
+   else
+      # """
+      # The (K,1)th block of X is determined starting from
+      # bottom-right corner column by column by
+
+      # A(K,K)*X(K,1) + X(K,1)*B(1,1)' = -C(K,1) - R(K,1),
+
+      # where
+      #           N                     
+      # R(K,1) = SUM [A(K,I)*X(I,1)] 
+      #         I=K+1                 
+      # """
+      l = 1:m
+      i = n
+      for kk = p:-1:1
+          dk = ba[kk]
+          i1 = i-dk+1
+          k = i1:i
+          y = view(C,k,l)
+          if kk < p
+             ia = i+1:n
+             #  y += A[k,ia]*C[ia,l]
+             mul!(y,view(A,k,ia),view(C,ia,l),ONE,ONE)
+          end
+          lyapcsylv2!(adj,y,dk,m,view(A,k,k),B,Xw,Yw)
+          i -= dk
+      end
+   end
+   C
+end
+function sylvcs1!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Complex}
+   n = LinearAlgebra.checksquare(A)
+   m = LinearAlgebra.checksquare(B)
+   m == 1 || throw(DimensionMismatch("B must be an 1×1 matrix"))
+   (n,m) == size(C) ||
+      throw(DimensionMismatch("C must be a $n x $m matrix"))
+
+   ONE = one(real(T1))
+
+
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
+   
+   if adj
+      # """
+      # The (K,1)th block of X is determined starting from
+      # upper-left corner column by column by
+
+      # A(K,K)'*X(K,1) + X(K,1)*B(1,1) = -C(K,1) - R(K,1),
+
+      # where
+      #          K-1                    
+      # R(K,1) = SUM [A(I,K)'*X(I,L)] 
+      #          I=1                    
+      # """
+
+      l = 1:1
+      for i = 1:n
+          k = i:i
+          y = view(C,k,l)
+          if i > 1
+             ir = 1:i-1
+             # y += A[ia,k]'*C[ia,l]
+             mul!(y,adjoint(view(A,ir,k)),view(C,ir,l),ONE,ONE)
+          end
+          #lyapcsylv2!(adj,y,1,1,view(A,k,k),B,Xw,Yw)
+          C[i,1] = -(A[i,i]'+B[1,1])\y[1]
+          isfinite(C[i,1]) || error("Singular Lyapunov equation")
+       end
+   else
+      # """
+      # The (K,1)th block of X is determined starting from
+      # bottom-right corner column by column by
+
+      # A(K,K)*X(K,1) + X(K,1)*B(1,1)' = -C(K,1) - R(K,1),
+
+      # where
+      #           N                     
+      # R(K,1) = SUM [A(K,I)*X(I,1)] 
+      #         I=K+1                 
+      # """
+      l = 1:1
+      for i = n:-1:1
+          k = i:i
+          y = view(C,k,l)
+          if i < n
+             ia = i+1:n
+             #  y += A[k,ia]*C[ia,l]
+             mul!(y,view(A,k,ia),view(C,ia,l),ONE,ONE)
+          end
+          C[i,1] = -(A[i,i]+B[1,1]')\y[1]
+          isfinite(C[i,1]) || error("Singular Lyapunov equation")
+      end
+   end
+   C
 end

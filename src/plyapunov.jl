@@ -1,3 +1,4 @@
+rev!(t) = reverse!(reverse!(t,dims=1),dims=2)
 """
     U = plyapc(A, B)
 
@@ -76,51 +77,73 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
 
    ZERO = zero(T2)
 
+  
    # Reduce A to Schur form and transform B
    if adj
       AS, Q, EV = schur(A.parent)
    else
       AS, Q, EV = schur(A)
    end
-
    maximum(real(EV)) >= 0 && error("A must have only eigenvalues with negative real part")
+   
    if adj
       #U'U = Q'*B'*B*Q
-      tau = similar(Q,min(n,mb))
-      if mb <= n
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
+      if mb < n
          U = similar(Q,T2,n,n)
          U1 = view(U,1:mb,:)
-         mul!(U1,B.parent,Q)
-         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         if T2 <: BlasFloat
+            mul!(U1,B.parent,Q)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr!(B.parent*Q).R)
+         end
          fill!(view(U,mb+1:n,:),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
+         else
+            U = qr!(B.parent*Q).R[1:n,:]
+         end
       end
    else
       #UU' = Q'*B*B'*Q
-      tau = similar(Q,min(n,nb))
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
       if nb <= n
          U = similar(Q,T2,n,n)
          U2 = view(U,:,n-nb+1:n)
-         mul!(U2,Q',B)
-         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         if T2 <: BlasFloat
+            mul!(U2,Q',B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
+         end
          fill!(view(U,:,1:n-nb),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(B'*Q)).R)'
+         end
       end
    end
+   U = UpperTriangular(U)
    plyapcs!(AS, U, adj = adj)
-   tau = similar(U,n)
+   T2 <: BlasFloat  && (tau = similar(U,n))
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      else
+         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
+      end
    else
       #X <- Q*U*U'*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
+      else
+         U = UpperTriangular(rev!(qr!(rev!(rmul!(Q, U)')).R)')
+      end
    end  
    return utnormalize!(U,adj)
 end
@@ -198,11 +221,20 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapc(A, B))
-   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   
+   T2 = promote_type(eltype(A), eltype(E), eltype(B))
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
 
    adj = isa(A,Adjoint)
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
+
+   # generalized Schur form decomposition available only for complex data 
+   T2 <: BlasFloat || T2 <: Complex || 
+   (return adj ? real(plyapc(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapc(complex(A),complex(E),complex(B))))
+
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+
 
    if adj
       nb, mb = size(B)
@@ -212,8 +244,6 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-   T2 = promote_type(eltype(A), eltype(B))
-   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
@@ -232,41 +262,62 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    if adj
       #U'*U = Z'*B'*B*Z
-      tau = similar(Z,min(n,mb))
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
       if mb <= n
          U = similar(Z,T2,n,n)
          U1 = view(U,1:mb,:)
-         mul!(U1,B.parent,Z)
-         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         if T2 <: BlasFloat
+            mul!(U1,B.parent,Z)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr!(B.parent*Z).R)
+         end
          fill!(view(U,mb+1:n,:),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
+         else
+            U = qr!(B.parent*Z).R[1:n,:]
+         end
       end
    else
       #UU' = Q'*B*B'*Q
-      tau = similar(Q,min(n,nb))
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
       if nb <= n
          U = similar(Q,T2,n,n)
          U2 = view(U,:,n-nb+1:n)
-         mul!(U2,Q',B)
-         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         if T2 <: BlasFloat
+            mul!(U2,Q',B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
+         end
          fill!(view(U,:,1:n-nb),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         U = UpperTriangular(U)
-       end
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(B'*Q)).R)'
+         end
+      end
    end
+   U = UpperTriangular(U)
    plyapcs!(AS, ES, U, adj = adj)
-   tau = similar(U,n)
+   T2 <: BlasFloat  && (tau = similar(U,n))
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      else
+         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
+      end
    else
       #X <- Z*U*U'*Z'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
+      else
+         U = UpperTriangular(rev!(qr!(rev!(rmul!(Z, U)')).R)')
+      end
    end  
    return utnormalize!(U,adj)
 end
@@ -639,41 +690,55 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
 
    if adj
       #U'U = B'*B
-      tau = similar(B,min(n,mb))
+      T2 <: BlasFloat  && (tau = similar(B,min(n,mb)))
       if mb <= n
          U = similar(B,T2,n,n)
          U1 = view(U,1:mb,:)
-         copyto!(U1,B.parent)
-         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         if T2 <: BlasFloat
+            copyto!(U1,B.parent)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr(B.parent).R)
+         end
          fill!(view(U,mb+1:n,:),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
+         else
+            U = qr(B.parent).R[1:n,:]
+         end
       end
+      U = UpperTriangular(U)
       if disc
-         plyapds!(A.parent, U, adj = adj)
+         plyapds!(A.parent, U; adj)
       else
-         plyapcs!(A.parent, U, adj = adj)
+         plyapcs!(A.parent, U; adj)
       end
    else
       #UU' = B*B'
-      tau = similar(B,min(n,nb))
+      T2 <: BlasFloat  && (tau = similar(B,min(n,nb)))
       if nb <= n
          U = similar(B,T2,n,n)
          U2 = view(U,:,n-nb+1:n)
-         copyto!(U2,B)
-         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         if T2 <: BlasFloat
+            copyto!(U2,B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(copy(B'))).R)')
+         end
          fill!(view(U,:,1:n-nb),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(copy(B'))).R)'
+         end
       end
+      U = UpperTriangular(U)
       if disc
-         plyapds!(A, U, adj = adj)
+         plyapds!(A, U; adj)
       else
-         plyapcs!(A, U, adj = adj)
+         plyapcs!(A, U; adj)
       end
    end
    return utnormalize!(U,adj)
@@ -747,6 +812,9 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyaps(A, B))
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
+   T2 = promote_type(eltype(A), eltype(E), eltype(B))
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+
    adj = isa(A,Adjoint)
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
@@ -760,8 +828,6 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    end
 
 
-   T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
@@ -769,41 +835,55 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    if adj
       #U'*U = B'*B
-      tau = similar(B,min(n,mb))
+      T2 <: BlasFloat  && (tau = similar(B,min(n,mb)))
       if mb <= n
          U = similar(B,T2,n,n)
          U1 = view(U,1:mb,:)
-         copyto!(U1,B.parent)
-         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         if T2 <: BlasFloat
+            copyto!(U1,B.parent)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr(B.parent).R)
+         end
          fill!(view(U,mb+1:n,:),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
+         else
+            U = qr(B.parent).R[1:n,:]
+         end
       end
+      U = UpperTriangular(U)
       if disc
-         plyapds!(A.parent, E.parent, U, adj = adj)
+         plyapds!(A.parent, E.parent, U; adj)
       else
-         plyapcs!(A.parent, E.parent, U, adj = adj)
+         plyapcs!(A.parent, E.parent, U; adj)
       end
    else
-      #U*U' = B*B
-      tau = similar(B,min(n,nb))
+      #U*U' = B*B'
+      T2 <: BlasFloat  && (tau = similar(B,min(n,nb)))
       if nb <= n
          U = similar(B,T2,n,n)
          U2 = view(U,:,n-nb+1:n)
-         copyto!(U2,B)
-         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         if T2 <: BlasFloat
+            copyto!(U2,B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(copy(B'))).R)')
+         end
          fill!(view(U,:,1:n-nb),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(copy(B'))).R)'
+         end
       end
+      U = UpperTriangular(U)
       if disc
-         plyapds!(A, E, U, adj = adj)
+         plyapds!(A, E, U; adj)
       else
-         plyapcs!(A, E, U, adj = adj)
+         plyapcs!(A, E, U; adj)
       end
    end
    return utnormalize!(U,adj)
@@ -821,16 +901,23 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with negative real parts.
 `R` contains on output the solution `U`.
 """
-function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
+function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Real
+# function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    ONE = one(T1)
    ZERO = zero(T1)
    TWO = 2*ONE
-   small = safemin(T1)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   EPS = eps(T1)
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
+   # small = safemin(T1)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(maximum(abs.(A)))
+
 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
@@ -884,9 +971,14 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              dl == 1 || (axpy!(R[js,js],view(A,js,j1),view(z,:,1)); axpy!(R[js,js+1],view(A,js+1,j1),view(z,:,1)))
 
              # Solve S1'*ubar+ubar*β + z = 0
-             _, scale = LAPACK.trsyl!('T','N', view(A,j1,j1), β, z)
-             scale == ONE || error("Singular Lyapunov equation")
-             transpose!(view(R,l,j1),rmul!(z,-1))
+             if T1 <: BlasReal
+                _, scale = LAPACK.trsyl!('T','N', view(A,j1,j1), β, z)
+                scale == ONE || error("Singular Lyapunov equation")
+                transpose!(view(R,l,j1),rmul!(z,-1))
+             else
+                sylvcs2!(view(A,j1,j1), β, z; adj)
+                transpose!(view(R,l,j1),z)
+             end
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
              # y = rbar - ubar * α'
              mul!(rbar, z, transpose(α), -ONE, ONE)
@@ -941,9 +1033,14 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              axpy!(R[k,k],view(A,j1,k),view(z,:,1))
              dl == 1 || (axpy!(R[js-1,js],view(A,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(A,j1,js),view(z,:,2)))
              # Solve S1*ubar+ubar*β' + z = 0
-             _, scale = LAPACK.trsyl!('N','T', view(A,j1,j1), β, z)
-             scale == ONE || error("Singular Lyapunov equation")
-             copyto!(view(R,j1,l), rmul!(z,-1))
+             if T1 <: BlasReal
+                _, scale = LAPACK.trsyl!('N','T', view(A,j1,j1), β, z)
+                scale == ONE || error("Singular Lyapunov equation")
+                copyto!(view(R,j1,l), rmul!(z,-1))
+             else
+               sylvcs2!(view(A,j1,j1), β, z; adj)
+               copyto!(view(R,j1,l), z)
+             end  
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              # y = rbar - ubar*α
              mul!(rbar, z, α, -ONE, ONE)
@@ -953,17 +1050,28 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    end
    return R
 end
-function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+# function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+
+   # T = real(T1)
+   # ONE = one(T)
+   # ZERO = zero(T)
+   # TWO = 2*ONE
+   # small = safemin(T)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(maximum(abs.(A)))
 
    T = real(T1)
    ONE = one(T)
    ZERO = zero(T)
    TWO = 2*ONE
-   small = safemin(T)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   EPS = eps(T)
+   SMLNUM = sqrt(_safemin(T))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
 
    Wr = Vector{T1}(undef,n)
    Wz = similar(Wr,n,1)
@@ -997,8 +1105,13 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
                k += 1
             end  
             # Solve S1'*ubar+ubar*β + z = 0
-            _, scale = LAPACK.trsyl!('C','N', view(A,j1,j1), β, z)
-            scale == ONE || error("Singular Lyapunov equation")
+            if T <: BlasReal
+               _, scale = LAPACK.trsyl!('C','N', view(A,j1,j1), β, z)
+               scale == ONE || error("Singular Lyapunov equation")
+            else
+               sylvcs1!(view(A,j1,j1), β, z; adj)
+               rmul!(z,-1)
+            end
             k = j
             for ii = 1:n-j+1
                R[j-1,k] = -z[ii]'
@@ -1040,8 +1153,13 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              end
              #z = rbar*α' + A[j1,l]*R[l,l]
              # Solve S1*ubar+ubar*β' + z = 0
-             _, scale = LAPACK.trsyl!('N','C', view(A,j1,j1), β, z)
-             scale == ONE || error("Singular Lyapunov equation")
+             if T <: BlasReal
+                _, scale = LAPACK.trsyl!('N','C', view(A,j1,j1), β, z)
+                scale == ONE || error("Singular Lyapunov equation")
+             else
+                sylvcs1!(view(A,j1,j1), β, z; adj)
+                rmul!(z,-1)
+             end
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              # y = rbar + z*α
              for ii = 1:j
@@ -1066,19 +1184,28 @@ The pair `(A,E)` is in a generalized real/complex Schur form and `R` is an upper
 triangular matrix. The pencil `A-λE` must have only eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
 """
-function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
-   n = LinearAlgebra.checksquare(A)
+function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: Real
+# function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
+      n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
+   # ONE = one(T1)
+   # ZERO = zero(T1)
+   # TWO = 2*ONE
+   # small = safemin(T1)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
+
    ONE = one(T1)
    ZERO = zero(T1)
    TWO = 2*ONE
-   small = safemin(T1)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
-
+   EPS = eps(T1)
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+   
    # determine the structure of the generalized real Schur form
    ba, p = sfstruct(A)
 
@@ -1089,7 +1216,7 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    Wz = similar(Wr)
    Mα = Matrix{T1}(undef,2,2)
    Mβ = Matrix{T1}(undef,2,2)
-   η = [ ONE ZERO; small ONE]
+   η = [ ONE ZERO; SMLNUM ONE]
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -1236,7 +1363,8 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    end
    return R
 end
-function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+# function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) &&
@@ -1244,13 +1372,22 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
+   # T = real(T1)
+   # ONE = one(T)
+   # ZERO = zero(T)
+   # TWO = 2*ONE
+   # small = safemin(T)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
+
    T = real(T1)
    ONE = one(T)
    ZERO = zero(T)
    TWO = 2*ONE
-   small = safemin(T)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
+   EPS = eps(T)
+   SMLNUM = sqrt(_safemin(T))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
 
    WB = Vector{T1}(undef,n)
    WD = Vector{T1}(undef,n)
@@ -2042,7 +2179,8 @@ one or more of the eigenvalues have a non-negative real part, if `disc = false`,
 can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
 If this situation is detected, an error message is issued.
 """
-function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:BlasReal
+function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:Real
+# function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:BlasReal
    # This function is based on the SLICOT routine SB03OY, which implements the
    # the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
    # for 2-by-2 Lyapunov equations, but directly computing the Cholesky factor
@@ -2056,7 +2194,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    ZERO = zero(T)
    ONE = one(T)
    TWO = 2*ONE
-   small = 2*safemin(T)
+   small = 2*sqrt(_safemin(T))
    BIGNUM = ONE / small
    SMIN = eps(maximum(abs.(A)))
    noadj = !adj
@@ -2066,7 +2204,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    S12 = A[1,2]
    S21 = A[2,1]
    S22 = A[2,2]
-   TEMPR, TEMPI, E1, E2, CSP, CSQ = LapackUtil.lanv2( S11, S12, S21, S22)
+   #TEMPR, TEMPI, E1, E2, CSP, CSQ = LapackUtil.lanv2( S11, S12, S21, S22)
+   TEMPR, TEMPI, E1, E2 = _lanv2( S11, S12, S21, S22)
    TEMPI == ZERO && error("A has real eigenvalues")
    ABSB = hypot(E1,E2)
    if disc
@@ -2401,7 +2540,8 @@ can make one or more of the eigenvalues have a non-negative real part, if `disc 
 can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
 If this situation is detected, an error message is issued.
 """
-function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: BlasReal
+function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: Real
+# function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: BlasReal
    # This function is based on the SLICOT routine SG03BX, which implements the
    # generalization of the method due to Hammarling ([1], section 6) for Lyapunov
    # equations of order 2. A more detailed description is given in [2].
@@ -2415,15 +2555,27 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
 
    errtext = "Singular Lyapunov equation"
+   Blr = T1 <: BlasReal
 
-   ZERO = zero(T1)
+
+   # ZERO = zero(T1)
+   # ONE = one(T1)
+   # TWO = 2*ONE
+   # SMLNUM = smlnum(T1)
+   # EPS = eps(T1)
+   # small = 2*SMLNUM/EPS
+   # BIGNUM = ONE / small
+   # SMIN = EPS*maximum(abs.(A))
+
    ONE = one(T1)
+   ZERO = zero(T1)
    TWO = 2*ONE
-   SMLNUM = smlnum(T1)
    EPS = eps(T1)
-   small = 2*SMLNUM/EPS
-   BIGNUM = ONE / small
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
+   small = SMLNUM
+
    #scale = ONE
    noadj = !adj
    ISCONT = !disc
@@ -2462,13 +2614,21 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    end
    if iszero(EE[2,1])
       # handle the case when EE is upper triangular (required by lag2)
-      scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(AA,EE,small)
+      if Blr
+         scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(AA,EE,small)
+      else
+         scale1, scale2, LAMR, W, LAMI = _lag2(AA,EE,small)
+      end
    else
       # handle the case when EE is full
       E1 = copy(EE)
       G, E1[1,1] = givens(E1[1,1],E1[2,1],1,2)
       lmul!(G,view(E1,:,2)); E1[2,1] = ZERO
-      scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(lmul!(G,copy(AA)),E1,small)
+      if Blr
+         scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(lmul!(G,copy(AA)),E1,small)
+      else
+         scale1, scale2, LAMR, W, LAMI = _lag2(lmul!(G,copy(AA)),E1,small)
+      end
    end
    LAMI == ZERO && error("The pair (A,E) has real generalized eigenvalues")
    # Compute right orthogonal transformation matrix Q (modified to cope with nonzero E[2,1])
@@ -2498,7 +2658,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
 
    # Make main diagonal entries of E real and positive.
    @inbounds V = hypot( ER[1,1], EI[1,1] )
-   @inbounds XR, XI = LapackUtil.ladiv(V, ZERO, ER[1,1], EI[1,1])
+   if Blr
+      @inbounds XR, XI = LapackUtil.ladiv(V, ZERO, ER[1,1], EI[1,1])
+   else
+      @inbounds XR, XI = _ladiv(V, ZERO, ER[1,1], EI[1,1])
+   end
    ER[1,1] = V
    EI[1,1] = ZERO
    YR = ZR[1,1]
@@ -2538,7 +2702,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    BI[2,1] = ZERO
    V = hypot( BR[2,2], BI[2,2] )
    if V >= max( EPS*max( BR[1,1], hypot( BR[1,2], BI[1,2] ) ), SMLNUM )
-      XR, XI = LapackUtil.ladiv( V, ZERO, BR[2,2], BI[2,2] )
+      if Blr
+         XR, XI = LapackUtil.ladiv( V, ZERO, BR[2,2], BI[2,2] )
+      else
+         XR, XI = _ladiv( V, ZERO, BR[2,2], BI[2,2] )
+      end
       BR[2,2] = V
       YR = QBR[2,1]
       YI = QBI[2,1]
@@ -2590,7 +2758,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
          YI = YI - EI[2,2]*AR[1,1] + ER[2,2]*AI[1,1]
          T  = TWO*hypot( XR, XI )*SMLNUM
          T > hypot( YR, YI ) && error("$errtext")
-         UR[1,2], UI[1,2] = LapackUtil.ladiv( XR, XI, YR, YI )
+         if Blr
+            UR[1,2], UI[1,2] = LapackUtil.ladiv( XR, XI, YR, YI )
+         else
+            UR[1,2], UI[1,2] = _ladiv( XR, XI, YR, YI )
+         end
          UI[1,2] = -UI[1,2]
       end
 
@@ -2600,7 +2772,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       XI = (-EI[1,2]*UR[1,1] - ER[2,2]*UI[1,2] - EI[2,2]*UR[1,2] )*V
       T  = TWO*hypot( XR, XI )*SMLNUM
       T > hypot( ER[1,1], EI[1,1] ) && error("$errtext")
-      YR, YI = LapackUtil.ladiv( XR, XI, ER[1,1], -EI[1,1] )
+      if Blr
+         YR, YI = LapackUtil.ladiv( XR, XI, ER[1,1], -EI[1,1] )
+      else
+         YR, YI = _ladiv( XR, XI, ER[1,1], -EI[1,1] )
+      end
       YR =  BR[1,2] - YR
       YI = -BI[1,2] - YI
       V  = -TWO*( AR[2,2]*ER[2,2] + AI[2,2]*EI[2,2] )
@@ -2618,7 +2794,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       M1I[2,1] = ZERO
       M2R[2,1] = ZERO
       M2I[2,1] = ZERO
-      BETAR, BETAI = LapackUtil.ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
+      if Blr
+         BETAR, BETAI = LapackUtil.ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
+      else
+         BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
+      end
       M1R[1,1] =  BETAR
       M1I[1,1] =  BETAI
       M1R[2,2] =  BETAR
@@ -2681,7 +2861,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
          YI = YI + EI[2,2]*ER[1,1] - ER[2,2]*EI[1,1]
          T  = TWO*hypot( XR, XI )*SMLNUM
          T > hypot( YR, YI ) && error("$errtext")
-         t1, t2 = LapackUtil.ladiv( XR, XI, YR, YI )
+         if Blr
+            t1, t2 = LapackUtil.ladiv( XR, XI, YR, YI )
+         else
+            t1, t2 = _ladiv( XR, XI, YR, YI )
+         end
          UR[1,2] = t1
          UI[1,2] = -t2
       end
@@ -2721,7 +2905,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       M1I[2,1] = ZERO
       M2R[2,1] = ZERO
       M2I[2,1] = ZERO
-      BETAR, BETAI = LapackUtil.ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
+      if Blr
+         BETAR, BETAI = LapackUtil.ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
+      else
+         BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
+      end
       M1R[1,1] =  BETAR
       M1I[1,1] =  BETAI
       M1R[2,2] =  BETAR
@@ -2736,7 +2924,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       XI = -TWO*BETAI*B12R - B11*XI
       V  =  ONE + ( BETAI - BETAR )*( BETAI + BETAR )
       W  = -TWO*BETAI*BETAR
-      YR, YI = LapackUtil.ladiv( XR, XI, V, W )
+      if Blr
+        YR, YI = LapackUtil.ladiv( XR, XI, V, W )
+      else
+         YR, YI = _ladiv( XR, XI, V, W )
+      end
       #if ( YR != ZERO ) || ( YI != ZERO )
       # - to avoid NaNs, the above has been changed to:
       if ( abs(YR) > SMLNUM ) || ( abs(YI) > SMLNUM )
@@ -2783,7 +2975,11 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    U22 = UR[2,2]
    V = hypot( U22, UI[2,2] )
    if V  !=  ZERO
-      XR, XI = LapackUtil.ladiv( V, ZERO, U22, UI[2,2] )
+      if Blr
+         XR, XI = LapackUtil.ladiv( V, ZERO, U22, UI[2,2] )
+      else
+         XR, XI = _ladiv( V, ZERO, U22, UI[2,2] )
+      end
       YR = QUR[2,1]
       YI = QUI[2,1]
       QUR[2,1] = XR*YR - XI*YI
