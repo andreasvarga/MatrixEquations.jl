@@ -142,7 +142,7 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
       if T2 <: BlasFloat
          U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
       else
-         U = UpperTriangular(rev!(qr!(rev!(rmul!(Q, U)')).R)')
+         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Q, U)'))).R)')
       end
    end  
    return utnormalize!(U,adj)
@@ -316,7 +316,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       if T2 <: BlasFloat
          U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
       else
-         U = UpperTriangular(rev!(qr!(rev!(rmul!(Z, U)')).R)')
+         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Z, U)'))).R)')
       end
    end  
    return utnormalize!(U,adj)
