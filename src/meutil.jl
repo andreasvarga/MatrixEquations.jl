@@ -84,7 +84,7 @@ function utqu!(Q,U)
 
 
    Qd = view(Q,diagind(Q))
-   rmul!(Qd,ONE/2)
+   rmul!(Qd,one(T)/2)
    if isa(U,Adjoint)
       mul!(Q, U.parent*UpperTriangular(Q), U)
    else
