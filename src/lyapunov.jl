@@ -799,7 +799,8 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
+# function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -961,8 +962,9 @@ function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScalin
       end
    end
 end
-@inline function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
-# speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 generalized continuous Lyapunov equations
+@inline function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
+#  @inline function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+      # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 generalized continuous Lyapunov equations
 # LAPACK generated diagonal structure of E is exploited when possible
 #      A'*X*E + E'*X*A = -C if adj = true  -> R = kron(E',A')+kron(A',E') = (kron(E,A)+kron(A,E))'
 #      A*X*E' + E*X*A' = -C if adj = false -> R = kron(E,A)+kron(A,E)
@@ -1029,7 +1031,8 @@ end
    @inbounds C[2,2] = Y[3]
    return C
 end
-@inline function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
+#  @inline function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
 # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
 # encountered in solving generalized continuous Lyapunov equations:
 #      A'*X*F + E'*X*B = -C if adj = true  -> R = kron(F',A')+kron(B',E') = (kron(F,A)+kron(B,E))'
@@ -1665,7 +1668,8 @@ complex Schur form and `C` is a symmetric or hermitian matrix.
 The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
-function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
+function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
+# function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:BlasReal}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
@@ -1827,7 +1831,8 @@ function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScalin
       end
    end
 end
-@inline function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
+# @inline function lyapd2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
    #      A'*X*A - E'*X*E = -C if adj = true  -> R = kron(A',A')-kron(E',E') = (kron(A,A)-kron(E,E))'
    #      A*X*A' - E*X*E' = -C if adj = false -> R = kron(A,A)-kron(E,E)
@@ -1896,7 +1901,8 @@ end
    @inbounds C[2,2] = Y[3]
    return C
 end
-@inline function lyapdsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
+@inline function lyapdsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
+# @inline function lyapdsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},E::AbstractMatrix{T},B::AbstractMatrix{T},F::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
    # encountered in solving discrete Lyapunov equations:
    #      A'*X*B - E'*X*F = -C if adj = true  -> R = kron(B',A') - kron(F',E') = (kron(B,A)-kron(F,E))'
@@ -1955,7 +1961,8 @@ end
             @inbounds  R[1,2] = A[2,1]*B[1,1]
             @inbounds  R[1,3] = A[1,1]*B[2,1]
             @inbounds  R[1,4] = A[2,1]*B[2,1]
-            @inbounds  R[2,1] = A[1,2]*B[1,1]-E[1,1]*F[1,2]
+            #@inbounds  R[2,1] = A[1,2]*B[1,1]-E[1,1]*F[1,2]
+            @inbounds  R[2,1] = A[1,2]*B[1,1]-E[1,2]*F[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]-E[2,2]*F[1,1]
             @inbounds  R[2,3] = A[1,2]*B[2,1]
             @inbounds  R[2,4] = A[2,2]*B[2,1]

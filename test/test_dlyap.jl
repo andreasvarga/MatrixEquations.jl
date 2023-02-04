@@ -251,17 +251,21 @@ end
 
 @testset "Discrete Lyapunov equations - Schur form" begin
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+# for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
 ac = rand(Ty,n,n)+im*rand(Ty,n,n);
 er = rand(Ty,n,n);
 ec = er+im*rand(Ty,n,n);
-as, es = schur(ar,er);
+es = triu(er);
+as = es*schur(ar).T;
+#as, es = schur(ar,er);
 acs, ecs = schur(ac,ec);
 
 c = rand(Ty,n,n)+im*rand(Ty,n,n);
-qc = c'*c;
+#qc = c'*c;
+qc = Matrix(Hermitian(c'*c));
 Qr = real(qc);
 Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 
