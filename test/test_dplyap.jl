@@ -2,6 +2,8 @@ module Test_dplyap
 
 using LinearAlgebra
 using MatrixEquations
+using GenericSchur
+using DoubleFloats
 using Test
 
 @testset "Testing positive discrete Lyapunov equation solvers" begin
@@ -21,7 +23,8 @@ reltol = eps(float(100f0))
 a = -.1f0+-.1f0*im; b = 2f0im; @time u = plyapd(a,b)
 @test abs(a*u*u'*a'-u*u'+b*b')  < reltol
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+# for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ar = ar/(one(Ty) + norm(ar))
@@ -93,8 +96,9 @@ reltol = eps(float(100f0))
 a = -1f0+1f0*im; ee = 4f0; b = 2f0im; @time u = plyapd(a,ee,b)
 @test abs(a*u*u'*a'-ee*u*u'*ee'+b*b')  < reltol
 
-for Ty in (Float64, Float32)
-
+for Ty in (Float64, Float32, BigFloat, Double64)
+# for Ty in (Float64, Float32)
+    
 ar = rand(Ty,n,n)
 ar = ar/(one(Ty) + norm(ar))
 er = rand(Ty,n,n)
@@ -240,7 +244,8 @@ end
 @testset "Positive discrete Lyapunov equations - Schur form" begin
 
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+# for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
 ar = ar/(one(Ty) + norm(ar));
@@ -301,12 +306,16 @@ X = U'*U; @test norm(acs'*X*acs-X+R'*R)/max(1,norm(X))/norm(acs) < reltol
 
 
 
+as = schur(ar).T
 er = rand(Ty,n,n)
 ar = er*ar
-as, es = schur(ar,er)
+es = triu(er)
+as = es*as
+#as, es = schur(ar,er)
 ec = er+im*rand(Ty,n,n)
 ac = ec*ac
 acs, ecs = schur(ac,ec)
+
 
 @time u = plyaps(as,es,br,disc = true);
 x = u*u'; @test norm(as*x*as'-es*x*es'+br*br')/norm(x)/norm(as) < reltol

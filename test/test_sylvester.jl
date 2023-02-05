@@ -121,7 +121,6 @@ acs, = schur(ac);
 bcs, = schur(bc);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
-
 y = copy(cr); @time sylvcs!(as,bs,y)
 @test norm(as*y+y*bs-cr)/norm(y) < reltol
 
@@ -235,7 +234,7 @@ for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
 ac = ar+im*rand(Ty,n,n);
-br = -rand(Ty,m,m);
+br = rand(Ty,m,m)/10;
 bc = br-im*rand(Ty,m,m);
 cr = rand(Ty,n,m);
 cc = cr+im*rand(Ty,n,m);

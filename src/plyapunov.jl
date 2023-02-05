@@ -235,7 +235,6 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
-
    if adj
       nb, mb = size(B)
       nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
@@ -262,7 +261,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    if adj
       #U'*U = Z'*B'*B*Z
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
+      T2 <: BlasFloat  && (tau = similar(Z,min(n,mb)))
       if mb <= n
          U = similar(Z,T2,n,n)
          U1 = view(U,1:mb,:)
@@ -416,41 +415,62 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
 
    if adj
       #U'U = Q'*B'*B*Q
-      tau = similar(Q,min(n,mb))
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
       if mb <= n
          U = similar(Q,T2,n,n)
          U1 = view(U,1:mb,:)
-         mul!(U1,B.parent,Q)
-         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         if T2 <: BlasFloat
+            mul!(U1,B.parent,Q)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr!(B.parent*Q).R)
+         end
          fill!(view(U,mb+1:n,:),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
+         else
+            U = qr!(B.parent*Q).R[1:n,:]
+         end
       end
    else
       #UU' = Q'*B*B'*Q
-      tau = similar(Q,min(n,nb))
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
       if nb <= n
          U = similar(Q,T2,n,n)
          U2 = view(U,:,n-nb+1:n)
-         mul!(U2,Q',B)
-         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         if T2 <: BlasFloat
+            mul!(U2,Q',B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
+         end
          fill!(view(U,:,1:n-nb),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(B'*Q)).R)'
+         end
        end
    end
+   U = UpperTriangular(U)
    plyapds!(AS, U, adj = adj)
    tau = similar(U,n)
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      else
+         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
+      end
    else
       #X <- Q*U*U'*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
+      else
+         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Q, U)'))).R)')
+      end
    end  
    return utnormalize!(U,adj)
 end
@@ -528,12 +548,20 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapd(A, B))
-   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   
+   T2 = promote_type(eltype(A), eltype(E), eltype(B))
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
 
    adj = isa(A,Adjoint)
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
 
+   # generalized Schur form decomposition available only for complex data 
+   T2 <: BlasFloat || T2 <: Complex || 
+   (return adj ? real(plyapd(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapd(complex(A),complex(E),complex(B))))
+
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   
    if adj
       nb, mb = size(B)
       nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
@@ -542,8 +570,6 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-   T2 = promote_type(eltype(A), eltype(E), eltype(B))
-   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
@@ -563,41 +589,62 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    if adj
       #U'*U = Z'*B'*B*Z
-      tau = similar(Z,min(n,mb))
+      T2 <: BlasFloat  && (tau = similar(Z,min(n,mb)))
       if mb <= n
          U = similar(Z,T2,n,n)
          U1 = view(U,1:mb,:)
-         mul!(U1,B.parent,Z)
-         LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         if T2 <: BlasFloat
+            mul!(U1,B.parent,Z)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr!(B.parent*Z).R)
+         end
          fill!(view(U,mb+1:n,:),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
+         else
+            U = qr!(B.parent*Z).R[1:n,:]
+         end
       end
    else
       #UU' = Q'*B*B'*Q
-      tau = similar(Q,min(n,nb))
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
       if nb <= n
          U = similar(Q,T2,n,n)
          U2 = view(U,:,n-nb+1:n)
-         mul!(U2,Q',B)
-         LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         if T2 <: BlasFloat
+            mul!(U2,Q',B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
+         end
          fill!(view(U,:,1:n-nb),ZERO)
-         U = UpperTriangular(U)
       else
-         U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         U = UpperTriangular(U)
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(B'*Q)).R)'
+         end
        end
    end
+   U = UpperTriangular(U)
    plyapds!(AS, ES, U, adj = adj)
-   tau = similar(U,n)
+   T2 <: BlasFloat  && (tau = similar(U,n))
    if adj
       #X = Q*U'*U*Q'
-      U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+      else
+         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
+      end
    else
       #X <- Z*U*U'*Z'
-      U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
+      if T2 <: BlasFloat
+         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
+      else
+         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Z, U)'))).R)')
+      end
    end  
    return utnormalize!(U,adj)
 end
@@ -810,14 +857,17 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyaps(A, B))
-   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-
+   
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
 
    adj = isa(A,Adjoint)
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
+
+
+   LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+   
 
    if adj
       nb, mb = size(B)
@@ -1518,14 +1568,23 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
+function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Real
+# function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    ONE = one(T1)
-   small = safemin(T1)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   ZERO = zero(T1)
+   TWO = 2*ONE
+   EPS = eps(T1)
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
+   # ONE = one(T1)
+   # small = safemin(T1)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
@@ -1702,15 +1761,23 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    end
    return R
 end
-function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+# function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
    T = real(T1)
+
    ONE = one(T)
-   small = safemin(T)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   EPS = eps(T)
+   SMLNUM = sqrt(_safemin(T))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
+   # ONE = one(T)
+   # small = safemin(T)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(maximum(abs.(A)))
 
    W = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
@@ -1833,7 +1900,8 @@ The pair `(A,E)` of square real or complex matrices is in a generalized Schur fo
 and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
+function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: Real
+# function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
    # The method of [1] for the discrete case is implemented.
 
    # [1] Penzl, T.
@@ -1845,11 +1913,20 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
+   # ONE = one(T1)
+   # ZERO = zero(T1)
+   # small = safemin(T1)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
+
    ONE = one(T1)
    ZERO = zero(T1)
-   small = safemin(T1)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
+   TWO = 2*ONE
+   EPS = eps(T1)
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
@@ -2015,18 +2092,27 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    end
    return R
 end
-function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
+function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+# function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
+   # T = real(T1)
+   # ONE = one(T)
+   # small = safemin(T)*n*n
+   # BIGNUM = ONE / small
+   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
+
    T = real(T1)
    ONE = one(T)
-   small = safemin(T)*n*n
-   BIGNUM = ONE / small
-   SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
-
+   ZERO = zero(T)
+   TWO = 2*ONE
+   EPS = eps(T)
+   SMLNUM = sqrt(_safemin(T))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
 
    WB = Vector{T1}(undef,n)
    WD = Vector{T1}(undef,n)

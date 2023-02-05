@@ -354,8 +354,6 @@ R = copy(F)
 x = R'*R; @test norm(acs'*x+x*acs+F'*F)/norm(x)/norm(acs) < reltol
 
 
-ar = rand(Ty,n,n)
-ar = ar-2*norm(ar)*Matrix(I,n,n)
 as = schur(ar).T
 er = rand(Ty,n,n)
 ar = er*ar

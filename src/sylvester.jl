@@ -555,7 +555,8 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:BlasReal}
+function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:Real}
+# function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:BlasReal}
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
@@ -827,7 +828,8 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasReal
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:Real
+# function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasReal
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -1042,7 +1044,8 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasComplex
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
+# function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasComplex
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
