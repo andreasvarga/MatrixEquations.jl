@@ -1165,13 +1165,12 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  y -= ta*B[l,l]
               end
               if l > 1
-                 ic = 1:m
                  tz = ZERO
                  for ir = il1
                      tz += C[k,ir]*B[ir,l]
                  end
                  W[k] = tz
-                 for ic = 1:m
+                 for ic = 1:k
                      y -= A[ic,k]'*W[ic]
                  end
               end
@@ -1206,13 +1205,12 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  y -= ta*B[l,l]'
               end
               if l < n
-                 ic = 1:m
                  tz = ZERO
                  for ir = il1
                      tz += C[k,ir]*B[l,ir]'
                  end
                  W[k] = tz
-                 for ic = 1:m
+                 for ic = 1:k
                      y -= A[ic,k]'*W[ic]
                  end
               end

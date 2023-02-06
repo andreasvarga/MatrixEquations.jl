@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.5
+
+Patch release to fix a bug in sylvds!. 
+
 ## Version 2.2.4
 
 Patch release to allow arbitrary floating-point types in all positive Lyapunov solvers. 
