@@ -371,6 +371,8 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    Adv. Comput. Math., 8:33–48, 1998.
    """
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   # use complex solver until real generalized Schur form will be available 
    T2 <: BlasFloat || T2 <: Complex || (return real(lyapd(complex(A),complex(E),complex(C))))   
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(C) == n ||
@@ -391,7 +393,6 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    adj = adjA & adjE
    her = ishermitian(C)
 
-   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))

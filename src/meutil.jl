@@ -758,6 +758,7 @@ function _lag2(a::StridedMatrix{T},b::StridedMatrix{T},safmin::T) where {T <: Re
 #
    return scale1, scale2, wr1, wr2, wi
 end
+_lag2(a::StridedMatrix{T},b::StridedMatrix{T},safmin::T) where {T <: BlasReal} = LapackUtil.lag2(a,b,safmin)
 function _ladiv(A, B, C, D)
 #
 #    ladiv(A, B, C, D) -> (P, Q)
@@ -771,3 +772,4 @@ function _ladiv(A, B, C, D)
    t = complex(A,B) / complex(C,D)
    return real(t), imag(t)
 end
+_ladiv(A::Float64, B::Float64, C::Float64, D::Float64) = Base.cdiv(A,B,C,D)

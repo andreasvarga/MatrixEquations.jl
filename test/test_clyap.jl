@@ -55,9 +55,11 @@ for Ty in (Float64, Float32, BigFloat, Double64)
 ar = rand(Ty,n,n);
 ac = rand(Ty,n,n)+im*rand(Ty,n,n);
 c = rand(Ty,n,n)+im*rand(Ty,n,n);
+qnh = rand(Ty,n,n)+im*rand(Ty,n,n);
 #qc = c'*c;
 qc = Matrix(Hermitian(c'*c));
 Qr = real(qc);
+Qnh = real(qnh);
 Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 @time x = lyapc(ac,qc);
@@ -89,8 +91,19 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(ar,qc);
 @test norm(ar*x+x*ar'+qc)/norm(x)/norm(ar) < reltol
 
-@time x = lyapc(ar',qc);
-@test norm(ar'*x+x*ar+qc)/norm(x)/norm(ar)  < reltol
+@time x = lyapc(ar,Qnh);
+@test norm(ar*x+x*ar'+Qnh)/norm(x)/norm(ar)  < reltol
+
+@time x = lyapc(ar',Qnh);
+@test norm(ar'*x+x*ar+Qnh)/norm(x)/norm(ar)  < reltol
+
+@time x = lyapc(ac,qnh);
+@test norm(ac*x+x*ac'+qnh)/norm(x)/norm(ac)  < reltol
+
+@time x = lyapc(ac',qnh);
+@test norm(ac'*x+x*ac+qnh)/norm(x)/norm(ac)  < reltol
+
+
 end
 end
 

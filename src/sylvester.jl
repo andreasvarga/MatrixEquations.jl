@@ -66,6 +66,11 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
 
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
+
+   # generalized Schur form decomposition available only for complex data 
+   #T2 <: BlasFloat || T2 <: Complex || (return real(sylvc(complex(A),complex(B),complex(C))))
+   #T2 <: Complex || (return real(sylvc(complex(A),complex(B),complex(C))))
+
    eltype(A) == T2 || (A = convert(Matrix{T2},A))
    eltype(B) == T2 || (B = convert(Matrix{T2},B))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
@@ -85,7 +90,7 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
 
    Y = QA' * C * QB
 
-   sylvcs!(RA, RB, Y, adjA = adjA, adjB = adjB)
+   sylvcs!(RA, RB, Y; adjA, adjB)
 
    mul!(Y, QA, Y*QB')
 
@@ -269,44 +274,48 @@ julia> A*X*B + C*X*D - E
 """
 function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix)
 
-    m, n = size(E);
-    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
-       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
-    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
-    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
-    eltype(A) == T2 || (A = convert(Matrix{T2},A))
-    eltype(B) == T2 || (B = convert(Matrix{T2},B))
-    eltype(C) == T2 || (C = convert(Matrix{T2},C))
-    eltype(D) == T2 || (D = convert(Matrix{T2},D))
-    eltype(E) == T2 || (E = convert(Matrix{T2},E))
+   m, n = size(E);
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
+   throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
+   T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
+   T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
 
-    adjA = isa(A,Adjoint)
-    adjB = isa(B,Adjoint)
-    adjC = isa(C,Adjoint)
-    adjD = isa(D,Adjoint)
-    adjAC = adjA && adjC
-    adjBD = adjB && adjD
+   # use complex solver until real generalized Schur form will be available 
+   T2 <: BlasFloat || T2 <: Complex || (return real(gsylv(complex(A),complex(B),complex(C),complex(D),complex(E))))   
 
-    if adjAC
-       AS, CS, Z1, Q1 = schur(A.parent,C.parent)
-    else
-       adjA && (A = copy(A))
-       adjC && (C = copy(C))
-       AS, CS, Q1, Z1 = schur(A,C)
-    end
-    if adjBD
-       BS, DS, Z2, Q2 = schur(B.parent,D.parent)
-    else
-       adjB && (B = copy(B))
-       adjD && (D = copy(D))
-       BS, DS, Q2, Z2 = schur(B,D)
-    end
+   eltype(A) == T2 || (A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (B = convert(Matrix{T2},B))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   eltype(D) == T2 || (D = convert(Matrix{T2},D))
+   eltype(E) == T2 || (E = convert(Matrix{T2},E))
 
-    Y = Q1' * E *Z2
+   adjA = isa(A,Adjoint)
+   adjB = isa(B,Adjoint)
+   adjC = isa(C,Adjoint)
+   adjD = isa(D,Adjoint)
+   adjAC = adjA && adjC
+   adjBD = adjB && adjD
 
-    gsylvs!(AS, BS, CS, DS, Y, adjAC = adjAC, adjBD = adjBD)
+   if adjAC
+      AS, CS, Z1, Q1 = schur(A.parent,C.parent)
+   else
+      adjA && (A = copy(A))
+      adjC && (C = copy(C))
+      AS, CS, Q1, Z1 = schur(A,C)
+   end
+   if adjBD
+      BS, DS, Z2, Q2 = schur(B.parent,D.parent)
+   else
+      adjB && (B = copy(B))
+      adjD && (D = copy(D))
+      BS, DS, Q2, Z2 = schur(B,D)
+   end
 
-    mul!(Y, Z1, Y*Q2')
+   Y = Q1' * E *Z2
+
+   gsylvs!(AS, BS, CS, DS, Y, adjAC = adjAC, adjBD = adjBD)
+
+   mul!(Y, Z1, Y*Q2')
 
    return Y
 end
@@ -555,6 +564,303 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; 
+                 adjA::Bool = false, adjB::Bool = false) where T1<:Real
+   """
+   The Bartels-Stewart Schur form based approach [1] is employed.
+
+   References:
+   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+       Comm. ACM, 15:820–826, 1972.
+   """
+   m, n = size(C);
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+  
+   ONE = one(T1)
+
+   # determine the structure of the generalized real Schur forms of A and B
+   (ba, pa) = sfstruct(A)
+   (bb, pb) = sfstruct(B)
+
+   Xw = Matrix{T1}(undef,4,4)
+   Yw = Vector{T1}(undef,4)
+   if !adjA && !adjB
+      # """
+      # The (K,L)th block of X is determined starting from
+      # bottom-left corner column by column by
+
+      #       A(K,K)*X(K,L) + X(K,L)*B(L,L) = C(K,L) - R(K,L)
+
+      # where
+      #                        M                       L-1
+      #            R(K,L) =   SUM [A(K,J)*X(J,L)]    + SUM [X(K,I)*B(I,L)] 
+      #                      J=K+1                     I=1
+      #
+      # """
+      j = 1
+      for ll = 1:pb
+          dl = bb[ll]
+          il1 = 1:j-1
+          l = j:j+dl-1
+          i = m
+          for kk = pa:-1:1
+              dk = ba[kk]
+              k = i-dk+1:i
+              y = view(C,k,l)
+              if kk < pa
+                 ir = i+1:m
+                 mul!(y,view(A,k,ir),view(C,ir,l),-ONE,ONE)
+              end
+              if ll > 1
+                 mul!(y,view(C,k,il1),view(B,il1,l),-ONE,ONE)
+              end
+              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+              i -= dk
+          end
+          j += dl
+      end
+   elseif !adjA && adjB
+         # """
+         #  The (K,L)th element of X is determined starting from
+         #  bottom-right corner column by column by
+
+         #       A(K,K)*X(K,L) + X(K,L)*B(L,L)' = C(K,L) - R(K,L)
+
+         #  where
+         #                        M                       N
+         #            R(K,L) =   SUM [A(K,J)*X(J,L)] } + SUM [X(K,I)*B(L,I)'] 
+         #                      J=K+1                   I=L+1
+         # """
+         j = n
+         for ll = pb:-1:1
+             dl = bb[ll]
+             il1 = j+1:n
+             l = j-dl+1:j
+             i = m
+             for kk = pa:-1:1
+                 dk = ba[kk]
+                 i1 = i-dk+1
+                 k = i1:i
+                 y = view(C,k,l)
+                 if kk < pa
+                    ir = i+1:m
+                    mul!(y,view(A,k,ir),view(C,ir,l),-ONE,ONE)
+                 end
+                 if ll < pb
+                    mul!(y,view(C,k,il1),transpose(view(B,l,il1)),-ONE,ONE)
+                 end
+                 sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+                 i -= dk
+             end
+             j -= dl
+         end
+   elseif adjA && !adjB
+      # """
+      # The (K,L)th element of X is determined starting from the
+      # upper-left corner column by column by
+
+      #     A(K,K)'*X(K,L) + X(K,L)*B(L,L) = C(K,L) - R(K,L),
+
+      # where
+      #                       K-1                      L-1
+      #            R(K,L) =   SUM [A(J,K)'*X(J,L)]  +  SUM [X(k,I)*B(I,L)]
+      #                       J=1                      I=1
+      # """
+      j = 1
+      for ll = 1:pb
+          dl = bb[ll]
+          il1 = 1:j-1
+          l = j:j+dl-1
+          i = 1
+          for kk = 1:pa
+              dk = ba[kk]
+              k = i:i+dk-1
+              y = view(C,k,l)
+              if kk > 1
+                 ir = 1:i-1
+                 mul!(y,transpose(view(A,ir,k)),view(C,ir,l),-ONE,ONE)
+              end
+              if ll > 1
+                 mul!(y,view(C,k,il1),view(B,il1,l),-ONE,ONE)
+              end
+              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+              i += dk
+          end
+          j += dl
+      end
+   elseif adjA && adjB
+      # """
+      # The (K,L)th element of X is determined starting from
+      # upper-rght corner column by column by
+
+      #       A(K,K)'*X(K,L) + X(K,L)*B(L,L)' = C(K,L) - R(K,L)
+
+      # where
+      #                       K-1                        N
+      #            R(K,L) =   SUM [A(J,K)'*X(J,L)]  +   SUM [X(k,I)*B(L,I)'] 
+      #                       J=1                      I=L+1
+      # """
+      j = n
+      for ll = pb:-1:1
+          dl = bb[ll]
+          il1 = j+1:n
+          l = j-dl+1:j
+          i = 1
+          for kk = 1:pa
+              dk = ba[kk]
+              k = i:i+dk-1
+              y = view(C,k,l)
+              if kk > 1
+                 ir = 1:i-1
+                 mul!(y,transpose(view(A,ir,k)),view(C,ir,l),-ONE,ONE)
+              end
+              if ll < pb
+                 mul!(y,view(C,k,il1),transpose(view(B,l,il1)),-ONE,ONE)
+              end
+              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+              i += dk
+          end
+          j -= dl
+      end
+   end
+   return C
+end
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; 
+                 adjA::Bool = false, adjB::Bool = false) where T1<:Complex
+   """
+   The Bartels-Stewart Schur form based approach [1] is employed.
+
+   References:
+   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+       Comm. ACM, 15:820–826, 1972.
+   """
+   m, n = size(C);
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+   if !adjA && !adjB
+      # """
+      # The (K,L)th element of X is determined starting from
+      # bottom-left corner column by column by
+
+      #       A(K,K)*X(K,L) + X(K,L)*B(L,L) = C(K,L) - R(K,L)
+
+      # where
+      #                        M                       L-1
+      #            R(K,L) =   SUM [A(K,J)*X(J,L)]    + SUM [X(K,I)*B(I,L)] 
+      #                      J=K+1                     I=1
+      #
+      # """
+      for l = 1:n
+          il1 = 1:l-1
+          for k = m:-1:1
+              y = C[k,l]
+              if k < m
+                 for ir = k+1:m
+                     y -= A[k,ir]*C[ir,l]
+                  end
+              end
+              if l > 1
+                 for ir = il1
+                     y -= C[k,ir]*B[ir,l]
+                 end
+              end
+              C[k,l] = y/(A[k,k]+B[l,l])
+              isfinite(C[k,l]) || throw("ME:SingularException: A and -B have common or close eigenvalues")
+          end
+      end
+   elseif !adjA && adjB
+         # """
+         #  The (K,L)th element of X is determined starting from
+         #  bottom-right corner column by column by
+
+         #       A(K,K)*X(K,L) + X(K,L)*B(L,L)' = C(K,L) - R(K,L)
+
+         #  where
+         #                        M                       N
+         #            R(K,L) =   SUM [A(K,J)*X(J,L)] } + SUM [X(K,I)*B(L,I)'] 
+         #                      J=K+1                   I=L+1
+         # """
+         for l = n:-1:1
+             il1 = l+1:n
+             for k = m:-1:1
+                 y = C[k,l]
+                 if k < m
+                    for ir = k+1:m
+                        y -= A[k,ir]*C[ir,l]
+                    end
+                 end
+                 if l < n
+                    for ir = il1
+                        y -= C[k,ir]*B[l,ir]'
+                    end
+                 end
+                 C[k,l] = y/(A[k,k]+B[l,l]')
+                 isfinite(C[k,l]) || throw("ME:SingularException: A and -B' have common or close eigenvalues")
+             end
+         end
+   elseif adjA && !adjB
+      # """
+      # The (K,L)th element of X is determined starting from the
+      # upper-left corner column by column by
+
+      #     A(K,K)'*X(K,L) + X(K,L)*B(L,L) = C(K,L) - R(K,L),
+
+      # where
+      #                       K-1                      L-1
+      #            R(K,L) =   SUM [A(J,K)'*X(J,L)]  +  SUM [X(k,I)*B(I,L)]
+      #                       J=1                      I=1
+      # """
+      for l = 1:n
+          il1 = 1:l-1
+          for k = 1:m
+              y = C[k,l]
+              if k > 1
+                 for ir = 1:k-1
+                     y -= A[ir,k]'*C[ir,l]
+                 end
+              end
+              if l > 1
+                 for ir = il1
+                     y -= C[k,ir]*B[ir,l]
+                 end
+              end
+              C[k,l] = y/(A[k,k]'+B[l,l])
+              isfinite(C[k,l]) || throw("ME:SingularException: A' and -B have common or close eigenvalues")
+          end
+      end
+   elseif adjA && adjB
+      # """
+      # The (K,L)th element of X is determined starting from
+      # upper-rght corner column by column by
+
+      #       A(K,K)'*X(K,L) + X(K,L)*B(L,L)' = C(K,L) - R(K,L)
+
+      # where
+      #                       K-1                        N
+      #            R(K,L) =   SUM [A(J,K)'*X(J,L)]  +   SUM [X(k,I)*B(L,I)'] 
+      #                       J=1                      I=L+1
+      # """
+      for l = n:-1:1
+          il1 = l+1:n
+          for k = 1:m
+              y = C[k,l]
+              if k > 1
+                 for ir = 1:k-1
+                     y -= A[ir,k]'*C[ir,l]
+                 end
+               end
+               if l < n
+                  for ir = il1
+                      y -= C[k,ir]*B[l,ir]'
+                 end
+               end
+              C[k,l] = y/(A[k,k]'+B[l,l]')
+              isfinite(C[k,l]) || throw("ME:SingularException: A' and -B' have common or close eigenvalues")
+          end
+      end
+   end
+   return C
+end
+
 function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:Real}
 # function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:BlasReal}
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
@@ -1529,6 +1835,158 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return E
 end
+function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
+   #      A*X + X*B = C     if adjA = false and adjB = false -> R = kron(I,A)  + kron(B',I) 
+   #      A'*X + X*B = C    if adjA = true and adjB = false  -> R = kron(I,A') + kron(B',I)
+   #      A*X + X*B' = C    if adjA = false and adjB = true  -> R = kron(I,A)   + kron(B,I)
+   #      A'*X + X*B' = C   if adjA = true and adjB = true   -> R = kron(I,A')  + kron(B,I)
+   if na == 1 && nb == 1
+      temp = A[1,1] + B[1,1]
+      rmul!(C,inv(temp))
+      any(!isfinite, C) &&  throw("ME:SingularException: `A` and `-B` have common eigenvalues")
+      return C
+   end
+   n = na*nb
+   i1 = 1:n
+   R = view(Xw,i1,i1)
+   Y = view(Yw,i1)
+   Y[:] = C[:]
+   ZERO = zero(T)
+   if !adjA && !adjB
+      #R = kron(I,A) + kron(transpose(B),I)
+      if na == 1
+         @inbounds  R[1,1] = A[1,1]+B[1,1]
+         @inbounds  R[1,2] = B[2,1]
+         @inbounds  R[2,1] = B[1,2]
+         @inbounds  R[2,2] = A[1,1]+B[2,2]
+      else
+         if nb == 1
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[1,2]
+            @inbounds  R[2,1] = A[2,1]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+         else
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[1,2]
+            @inbounds  R[1,3] = B[2,1]
+            @inbounds  R[1,4] = ZERO
+            @inbounds  R[2,1] = A[2,1]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            @inbounds  R[2,3] = ZERO
+            @inbounds  R[2,4] = B[2,1]
+            @inbounds  R[3,1] = B[1,2]
+            @inbounds  R[3,2] = ZERO
+            @inbounds  R[3,3] = A[1,1]+B[2,2]
+            @inbounds  R[3,4] = A[1,2]
+            @inbounds  R[4,1] = ZERO
+            @inbounds  R[4,2] = B[1,2]
+            @inbounds  R[4,3] = A[2,1]
+            @inbounds  R[4,4] = A[2,2]+B[2,2]
+         end
+      end
+   elseif adjA && !adjB
+      #R = kron(I,transpose(A)) + kron(transpose(B),I)
+      if na == 1
+         @inbounds  R[1,1] = A[1,1]+B[1,1]
+         @inbounds  R[1,2] = B[2,1]
+         @inbounds  R[2,1] = B[1,2]
+         @inbounds  R[2,2] = A[1,1]+B[2,2]
+      else
+         if nb == 1
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[2,1]
+            @inbounds  R[2,1] = A[1,2]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+         else
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[2,1]
+            @inbounds  R[1,3] = B[2,1]
+            @inbounds  R[1,4] = ZERO
+            @inbounds  R[2,1] = A[1,2]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            @inbounds  R[2,3] = ZERO
+            @inbounds  R[2,4] = B[2,1]
+            @inbounds  R[3,1] = B[1,2]
+            @inbounds  R[3,2] = ZERO
+            @inbounds  R[3,3] = A[1,1]+B[2,2]
+            @inbounds  R[3,4] = A[2,1]
+            @inbounds  R[4,1] = ZERO
+            @inbounds  R[4,2] = B[1,2]
+            @inbounds  R[4,3] = A[1,2]
+            @inbounds  R[4,4] = A[2,2]+B[2,2]
+         end
+      end
+   elseif !adjA && adjB
+      #R = kron(I,A) + kron(B,I)
+      if na == 1
+         @inbounds  R[1,1] = A[1,1]+B[1,1]
+         @inbounds  R[1,2] = B[1,2]
+         @inbounds  R[2,1] = B[2,1]
+         @inbounds  R[2,2] = A[1,1]+B[2,2]
+      else
+         if nb == 1
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[1,2]
+            @inbounds  R[2,1] = A[2,1]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+         else
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[1,2]
+            @inbounds  R[1,3] = B[1,2]
+            @inbounds  R[1,4] = ZERO
+            @inbounds  R[2,1] = A[2,1]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            @inbounds  R[2,3] = ZERO
+            @inbounds  R[2,4] = B[1,2]
+            @inbounds  R[3,1] = B[2,1]
+            @inbounds  R[3,2] = ZERO
+            @inbounds  R[3,3] = A[1,1]+B[2,2]
+            @inbounds  R[3,4] = A[1,2]
+            @inbounds  R[4,1] = ZERO
+            @inbounds  R[4,2] = B[2,1]
+            @inbounds  R[4,3] = A[2,1]
+            @inbounds  R[4,4] = A[2,2]+B[2,2]
+        end
+      end
+   else
+      #R = kron(I,transpose(A)) + kron(B,I)
+      if na == 1
+         @inbounds  R[1,1] = A[1,1]+B[1,1]
+         @inbounds  R[1,2] = B[1,2]
+         @inbounds  R[2,1] = B[2,1]
+         @inbounds  R[2,2] = A[1,1]+B[2,2]
+     else
+         if nb == 1
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[2,1]
+            @inbounds  R[2,1] = A[1,2]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+         else
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = A[2,1]
+            @inbounds  R[1,3] = B[1,2]
+            @inbounds  R[1,4] = ZERO
+            @inbounds  R[2,1] = A[1,2]
+            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            @inbounds  R[2,3] = ZERO
+            @inbounds  R[2,4] = B[1,2]
+            @inbounds  R[3,1] = B[2,1]
+            @inbounds  R[3,2] = ZERO
+            @inbounds  R[3,3] = A[1,1]+B[2,2]
+            @inbounds  R[3,4] = A[2,1]
+            @inbounds  R[4,1] = ZERO
+            @inbounds  R[4,2] = B[2,1]
+            @inbounds  R[4,3] = A[1,2]
+            @inbounds  R[4,4] = A[2,2]+B[2,2]
+        end
+      end
+   end
+   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+   C[:,:] = Y
+   return C
+end
+
 @inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
 # @inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:BlasReal
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 

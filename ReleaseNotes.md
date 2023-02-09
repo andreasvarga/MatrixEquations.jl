@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.6
+
+Patch release to allow arbitrary floating-point types in all Sylvester equation solvers. 
+
 ## Version 2.2.5
 
 Patch release to fix a bug in sylvds!. 

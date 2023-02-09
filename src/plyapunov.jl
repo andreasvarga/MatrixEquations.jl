@@ -2641,8 +2641,6 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
 
    errtext = "Singular Lyapunov equation"
-   Blr = T1 <: BlasReal
-
 
    # ZERO = zero(T1)
    # ONE = one(T1)
@@ -2700,21 +2698,13 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    end
    if iszero(EE[2,1])
       # handle the case when EE is upper triangular (required by lag2)
-      if Blr
-         scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(AA,EE,small)
-      else
-         scale1, scale2, LAMR, W, LAMI = _lag2(AA,EE,small)
-      end
+      scale1, scale2, LAMR, W, LAMI = _lag2(AA,EE,small)
    else
       # handle the case when EE is full
       E1 = copy(EE)
       G, E1[1,1] = givens(E1[1,1],E1[2,1],1,2)
       lmul!(G,view(E1,:,2)); E1[2,1] = ZERO
-      if Blr
-         scale1, scale2, LAMR, W, LAMI = LapackUtil.lag2(lmul!(G,copy(AA)),E1,small)
-      else
-         scale1, scale2, LAMR, W, LAMI = _lag2(lmul!(G,copy(AA)),E1,small)
-      end
+      scale1, scale2, LAMR, W, LAMI = _lag2(lmul!(G,copy(AA)),E1,small)
    end
    LAMI == ZERO && error("The pair (A,E) has real generalized eigenvalues")
    # Compute right orthogonal transformation matrix Q (modified to cope with nonzero E[2,1])
@@ -2744,11 +2734,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
 
    # Make main diagonal entries of E real and positive.
    @inbounds V = hypot( ER[1,1], EI[1,1] )
-   if Blr
-      @inbounds XR, XI = LapackUtil.ladiv(V, ZERO, ER[1,1], EI[1,1])
-   else
-      @inbounds XR, XI = _ladiv(V, ZERO, ER[1,1], EI[1,1])
-   end
+   @inbounds XR, XI = _ladiv(V, ZERO, ER[1,1], EI[1,1])
    ER[1,1] = V
    EI[1,1] = ZERO
    YR = ZR[1,1]
@@ -2788,11 +2774,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    BI[2,1] = ZERO
    V = hypot( BR[2,2], BI[2,2] )
    if V >= max( EPS*max( BR[1,1], hypot( BR[1,2], BI[1,2] ) ), SMLNUM )
-      if Blr
-         XR, XI = LapackUtil.ladiv( V, ZERO, BR[2,2], BI[2,2] )
-      else
-         XR, XI = _ladiv( V, ZERO, BR[2,2], BI[2,2] )
-      end
+      XR, XI = _ladiv( V, ZERO, BR[2,2], BI[2,2] )
       BR[2,2] = V
       YR = QBR[2,1]
       YI = QBI[2,1]
@@ -2844,11 +2826,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
          YI = YI - EI[2,2]*AR[1,1] + ER[2,2]*AI[1,1]
          T  = TWO*hypot( XR, XI )*SMLNUM
          T > hypot( YR, YI ) && error("$errtext")
-         if Blr
-            UR[1,2], UI[1,2] = LapackUtil.ladiv( XR, XI, YR, YI )
-         else
-            UR[1,2], UI[1,2] = _ladiv( XR, XI, YR, YI )
-         end
+         UR[1,2], UI[1,2] = _ladiv( XR, XI, YR, YI )
          UI[1,2] = -UI[1,2]
       end
 
@@ -2858,11 +2836,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       XI = (-EI[1,2]*UR[1,1] - ER[2,2]*UI[1,2] - EI[2,2]*UR[1,2] )*V
       T  = TWO*hypot( XR, XI )*SMLNUM
       T > hypot( ER[1,1], EI[1,1] ) && error("$errtext")
-      if Blr
-         YR, YI = LapackUtil.ladiv( XR, XI, ER[1,1], -EI[1,1] )
-      else
-         YR, YI = _ladiv( XR, XI, ER[1,1], -EI[1,1] )
-      end
+      YR, YI = _ladiv( XR, XI, ER[1,1], -EI[1,1] )
       YR =  BR[1,2] - YR
       YI = -BI[1,2] - YI
       V  = -TWO*( AR[2,2]*ER[2,2] + AI[2,2]*EI[2,2] )
@@ -2880,11 +2854,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       M1I[2,1] = ZERO
       M2R[2,1] = ZERO
       M2I[2,1] = ZERO
-      if Blr
-         BETAR, BETAI = LapackUtil.ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
-      else
-         BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
-      end
+      BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
       M1R[1,1] =  BETAR
       M1I[1,1] =  BETAI
       M1R[2,2] =  BETAR
@@ -2947,11 +2917,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
          YI = YI + EI[2,2]*ER[1,1] - ER[2,2]*EI[1,1]
          T  = TWO*hypot( XR, XI )*SMLNUM
          T > hypot( YR, YI ) && error("$errtext")
-         if Blr
-            t1, t2 = LapackUtil.ladiv( XR, XI, YR, YI )
-         else
-            t1, t2 = _ladiv( XR, XI, YR, YI )
-         end
+         t1, t2 = _ladiv( XR, XI, YR, YI )
          UR[1,2] = t1
          UI[1,2] = -t2
       end
@@ -2991,11 +2957,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       M1I[2,1] = ZERO
       M2R[2,1] = ZERO
       M2I[2,1] = ZERO
-      if Blr
-         BETAR, BETAI = LapackUtil.ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
-      else
-         BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
-      end
+      BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
       M1R[1,1] =  BETAR
       M1I[1,1] =  BETAI
       M1R[2,2] =  BETAR
@@ -3010,12 +2972,8 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
       XI = -TWO*BETAI*B12R - B11*XI
       V  =  ONE + ( BETAI - BETAR )*( BETAI + BETAR )
       W  = -TWO*BETAI*BETAR
-      if Blr
-        YR, YI = LapackUtil.ladiv( XR, XI, V, W )
-      else
-         YR, YI = _ladiv( XR, XI, V, W )
-      end
-      #if ( YR != ZERO ) || ( YI != ZERO )
+      YR, YI = _ladiv( XR, XI, V, W )
+     #if ( YR != ZERO ) || ( YI != ZERO )
       # - to avoid NaNs, the above has been changed to:
       if ( abs(YR) > SMLNUM ) || ( abs(YI) > SMLNUM )
          M2R[1,2] =  ( YR*BETAR - YI*BETAI )/UR[2,2]
@@ -3061,11 +3019,7 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    U22 = UR[2,2]
    V = hypot( U22, UI[2,2] )
    if V  !=  ZERO
-      if Blr
-         XR, XI = LapackUtil.ladiv( V, ZERO, U22, UI[2,2] )
-      else
-         XR, XI = _ladiv( V, ZERO, U22, UI[2,2] )
-      end
+      XR, XI = _ladiv( V, ZERO, U22, UI[2,2] )
       YR = QUR[2,1]
       YI = QUI[2,1]
       QUR[2,1] = XR*YR - XI*YI

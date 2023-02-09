@@ -2,6 +2,8 @@ module Test_sylvester
 
 using LinearAlgebra
 using MatrixEquations
+using GenericSchur
+using DoubleFloats
 using Test
 using Random
 
@@ -25,7 +27,8 @@ catch
    @test true
 end
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#  for Ty in (Float64, Float32)
 
 
 ar = rand(Ty,n,n)
@@ -55,17 +58,19 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvc(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
 
-@time x = sylvester(ar,br,cr)
-@test norm(ar*x+x*br+cr)/norm(x) < reltol
-
 @time x = sylvckr(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
 
 @time x = sylvc(ac,bc,cc)
 @test norm(ac*x+x*bc-cc)/norm(x) < reltol
 
-@time x = sylvester(ac,bc,cc)
-@test norm(ac*x+x*bc+cc)/norm(x) < reltol
+if Ty <: LinearAlgebra.BlasFloat
+      @time x = sylvester(ar,br,cr)
+      @test norm(ar*x+x*br+cr)/norm(x) < reltol
+
+      @time x = sylvester(ac,bc,cc)
+      @test norm(ac*x+x*bc+cc)/norm(x) < reltol
+end
 
 @time x = sylvckr(ac,bc,cc)
 @test norm(ac*x+x*bc-cc)/norm(x) < reltol
@@ -76,14 +81,23 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvc(ar',br,cr)
 @test norm(ar'*x+x*br-cr)/norm(x) < reltol
 
-@time x = sylvc(ar,-br',cr)
-@test norm(ar*x-x*br'-cr)/norm(x) < reltol
+@time x = sylvc(ar,br',cr)
+@test norm(ar*x+x*br'-cr)/norm(x) < reltol
+
+@time x = sylvc(ar',br',cr)
+@test norm(ar'*x+x*br'-cr)/norm(x) < reltol
+
+@time x = sylvc(ac,bc',cc)
+@test norm(ac*x+x*bc'-cc)/norm(x) < reltol
 
 @time x = sylvc(ac',bc,cc)
 @test norm(ac'*x+x*bc-cc)/norm(x) < reltol
 
 @time x = sylvc(ac',br,cc)
 @test norm(ac'*x+x*br-cc)/norm(x) < reltol
+
+@time x = sylvc(ac',bc',cc)
+@test norm(ac'*x+x*bc'-cc)/norm(x) < reltol
 
 @time x = sylvc(ac',br',cc)
 @test norm(ac'*x+x*br'-cc)/norm(x) < reltol
@@ -167,7 +181,8 @@ catch
 end
 
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#  for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = ar+im*rand(Ty,n,n)
@@ -178,11 +193,8 @@ cc = cr+im*rand(Ty,n,m)
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 
-@time x = sylvd(1,2im,3.)
+@time x = sylvd(Ty(1),Ty(2)*im,Ty(3))
 @test abs(x*2*im+x-3.) < reltol
-
-@time x = sylvd(1.f0,2.f0*im,3.f0)
-@test abs(x*2.f0*im+x-3.f0) < reltol
 
 @time x = sylvd(ar,2I,cr)
 @test norm(2*ar*x+x-cr)/norm(x) < reltol
@@ -230,7 +242,8 @@ end
 
 @testset "Discrete Sylvester equations - Schur form" begin
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
 ac = ar+im*rand(Ty,n,n);
@@ -297,7 +310,8 @@ catch
 end
 
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
 ac = ar+im*rand(Ty,n,n);
@@ -387,7 +401,8 @@ end
 
 @testset "Generalized Sylvester equations - Schur form" begin
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
 ac = ar+im*rand(Ty,n,n);
@@ -399,8 +414,12 @@ dr = rand(Ty,n,n);
 er = rand(Ty,m,m);
 dc = dr+im*rand(Ty,n,n);
 ec = er+im*rand(Ty,m,m);
-as, ds = schur(ar,dr);
-bs, es = schur(br,er);
+as = schur(ar).T
+ds = triu(dr)
+as = ds*as
+bs = schur(br).T
+es = triu(er)
+bs = es*bs
 acs, dcs = schur(ac,dc);
 bcs, ecs = schur(bc,ec);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
