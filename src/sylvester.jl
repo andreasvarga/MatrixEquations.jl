@@ -403,34 +403,45 @@ julia> D*X + Y*E - F
 """
 function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix,F::AbstractMatrix)
 
-    m, n = size(C);
-    (m == size(F,1) && n == size(F,2)) ||
+   m, n = size(C);
+   (m == size(F,1) && n == size(F,2)) ||
       throw(DimensionMismatch("C and F must have the same dimensions"))
-    [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
-    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
-    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
-    eltype(A) == T2 || (A = convert(Matrix{T2},A))
-    eltype(B) == T2 || (B = convert(Matrix{T2},B))
-    eltype(C) == T2 || (C = convert(Matrix{T2},C))
-    eltype(D) == T2 || (D = convert(Matrix{T2},D))
-    eltype(E) == T2 || (E = convert(Matrix{T2},E))
-    eltype(F) == T2 || (F = convert(Matrix{T2},F))
+   T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+   T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
 
-    isa(A,Adjoint) && (A = copy(A))
-    isa(B,Adjoint) && (B = copy(B))
-    isa(D,Adjoint) && (D = copy(D))
-    isa(E,Adjoint) && (E = copy(E))
+   # use complex solver until real generalized Schur form will be available 
+   T2 <: BlasFloat || T2 <: Complex || (return real.(sylvsys(complex(A),complex(B),complex(C),complex(D),complex(E),complex(F))))   
 
-    AS, DS, Q1, Z1 = schur(A,D)
-    BS, ES, Q2, Z2 = schur(B,E)
+   eltype(A) == T2 || (A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (B = convert(Matrix{T2},B))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   eltype(D) == T2 || (D = convert(Matrix{T2},D))
+   eltype(E) == T2 || (E = convert(Matrix{T2},E))
+   eltype(F) == T2 || (F = convert(Matrix{T2},F))
 
-    CS = adjoint(Q1) * (C*Z2)
-    FS = adjoint(Q1) * (F*Z2)
+   isa(A,Adjoint) && (A = copy(A))
+   isa(B,Adjoint) && (B = copy(B))
+   isa(D,Adjoint) && (D = copy(D))
+   isa(E,Adjoint) && (E = copy(E))
 
-    X, Y, scale =  tgsyl!('N',AS,BS,CS,DS,ES,FS)
+   AS, DS, Q1, Z1 = schur(A,D)
+   BS, ES, Q2, Z2 = schur(B,E)
 
-    (rmul!(Z1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Q2)), inv(-scale)) )
+   CS = adjoint(Q1) * (C*Z2)
+   FS = adjoint(Q1) * (F*Z2)
+
+   # if T2 <: BlasFloat 
+   #    X, Y, scale =  tgsyl!('N',AS,BS,CS,DS,ES,FS)
+   #    return (rmul!(Z1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Q2)), inv(-scale)) )
+   # else
+   #    X, Y =  sylvsyss!(AS,BS,CS,DS,ES,FS)
+   #    return Z1*(X * adjoint(Z2)), Q1*(Y * adjoint(Q2))
+   # end
+   X, Y =  sylvsyss!(AS,BS,CS,DS,ES,FS)
+   return Z1*(X * adjoint(Z2)), Q1*(Y * adjoint(Q2))
+
 end
 """
     (X,Y) = dsylvsys(A,B,C,D,E,F)
@@ -500,40 +511,58 @@ julia> X*B + Y*E - F
 """
 function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix,F::AbstractMatrix)
 
-    m, n = size(C);
-    (m == size(F,1) && n == size(F,2)) ||
+   m, n = size(C);
+   (m == size(F,1) && n == size(F,2)) ||
       throw(DimensionMismatch("C and F must have the same dimensions"))
-    [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
        throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
 
-    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
-    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
-    eltype(A) == T2 || (A = convert(Matrix{T2},A))
-    eltype(B) == T2 || (B = convert(Matrix{T2},B))
-    eltype(C) == T2 || (C = convert(Matrix{T2},C))
-    eltype(D) == T2 || (D = convert(Matrix{T2},D))
-    eltype(E) == T2 || (E = convert(Matrix{T2},E))
-    eltype(F) == T2 || (F = convert(Matrix{T2},F))
-    realcase = T2 <: AbstractFloat
-    transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
-    realcase ? trans = 'T' : trans = 'C'
-    if transsylv
-       AS, DS, Q1, Z1 = schur(A.parent,D.parent)
-       BS, ES, Q2, Z2 = schur(B.parent,E.parent)
-       CS = adjoint(Z1) * (C*Z2)
-       FS = adjoint(Q1) * (F*Q2)
-       X, Y, scale =  tgsyl!(trans,AS,BS,CS,DS,ES,-FS)
-       (rmul!(Q1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Z2)), inv(scale)) )
-    else
-       AS, DS, Q1, Z1 = schur(copy(A'),copy(D'))
-       BS, ES, Q2, Z2 = schur(copy(B'),copy(E'))
-       CS = adjoint(Z1) * (C*Z2)
-       FS = adjoint(Q1) * (F*Q2)
+   T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
+   T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
 
-       X, Y, scale =  tgsyl!(trans,AS,BS,CS,DS,ES,-FS)
+   # use complex solver until real generalized Schur form will be available 
+   T2 <: BlasFloat || T2 <: Complex || (return real.(dsylvsys(complex(A),complex(B),complex(C),complex(D),complex(E),complex(F))))   
 
-       (rmul!(Q1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Z2)), inv(scale)) )
-    end
+   eltype(A) == T2 || (A = convert(Matrix{T2},A))
+   eltype(B) == T2 || (B = convert(Matrix{T2},B))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   eltype(D) == T2 || (D = convert(Matrix{T2},D))
+   eltype(E) == T2 || (E = convert(Matrix{T2},E))
+   eltype(F) == T2 || (F = convert(Matrix{T2},F))
+   realcase = T2 <: AbstractFloat
+   transsylv = isa(A,Adjoint) && isa(B,Adjoint) && isa(D,Adjoint) && isa(E,Adjoint)
+   realcase ? trans = 'T' : trans = 'C'
+   if transsylv
+      AS, DS, Q1, Z1 = schur(A.parent,D.parent)
+      BS, ES, Q2, Z2 = schur(B.parent,E.parent)
+      CS = adjoint(Z1) * (C*Z2)
+      FS = adjoint(Q1) * (F*Q2)
+      if T2 <: BlasFloat 
+         X, Y =  dsylvsyss!(true,AS,BS,CS,DS,ES,FS)
+         return Q1*(X * adjoint(Z2)), Q1*(Y * adjoint(Z2))
+         #X, Y, scale =  tgsyl!(trans,AS,BS,CS,DS,ES,-FS)
+         #return (rmul!(Q1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Z2)), inv(scale)) )
+      else
+         X, Y =  dsylvsyss!(true,AS,BS,CS,DS,ES,FS)
+         return Q1*(X * adjoint(Z2)), Q1*(Y * adjoint(Z2))
+      end
+   else
+      if T2 <: BlasFloat 
+         AS, DS, Q1, Z1 = schur(copy(A'),copy(D'))
+         BS, ES, Q2, Z2 = schur(copy(B'),copy(E'))
+         CS = adjoint(Z1) * (C*Z2)
+         FS = adjoint(Q1) * (F*Q2)
+         X, Y, scale =  tgsyl!(trans,AS,BS,CS,DS,ES,-FS)
+         return (rmul!(Q1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Z2)), inv(scale)) )
+      else
+         AS, DS, Q1, Z1 = schur(A,D)
+         BS, ES, Q2, Z2 = schur(B,E)
+         CS = adjoint(Q1) * (C*Q2)
+         FS = adjoint(Z1) * (F*Z2)
+         X, Y =  dsylvsyss!(false,AS,BS,CS,DS,ES,FS)
+         return Z1*(X * adjoint(Q2)), Z1*(Y * adjoint(Q2))
+      end
+   end
 end
 """
     sylvcs!(A,B,C; adjA = false, adjB = false)
@@ -1577,8 +1606,6 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    CASchur ? ((ba, pa) = sfstruct(C)) : ((ba, pa) = sfstruct(A))
    DBSchur ? ((bb, pb) = sfstruct(D)) : ((bb, pb) = sfstruct(B))
 
-   # WB = zeros(T1,m,2)
-   # WD = zeros(T1,m,2)
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if !adjAC && !adjBD
@@ -2289,13 +2316,11 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m == length(WB) || throw(DimensionMismatch("WB must be an $m - dimensional vector"))
    m == length(WD) || throw(DimensionMismatch("WD must be an $m - dimensional vector"))
 
-   WB = zeros(T1,m)
-   WD = zeros(T1,m)
    ZERO = zero(T1)
    if !adjAC && !adjBD
       # """
       # The (K,L)th element of X is determined starting from
-      # bottom-left corner column by column by
+      # the bottom-left corner column by column by
 
       #       A(K,K)*X(K,L)*B(L,L) +C(K,K)*X(K,L)*D(L,L) = E(K,L) - R(K,L)
 
@@ -2347,7 +2372,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    elseif !adjAC && adjBD
          # """
          #  The (K,L)th element of X is determined starting from
-         #  bottom-right corner column by column by
+         #  the bottom-right corner column by column by
 
          #       A(K,K)*X(K,L)*B(L,L)' + C(K,K)*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
 
@@ -2440,7 +2465,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  end
                  WB[k] = ta
                  WD[k] = tc
-                 for ic = 1:m
+                 for ic = 1:k
                      y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
                  end
               end
@@ -2451,7 +2476,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    elseif adjAC && adjBD
       # """
       # The (K,L)th element of X is determined starting from
-      # upper-rght corner column by column by
+      # the upper-right corner column by column by
 
       #       A(K,K)'*X(K,L)*B(L,L)' + C(K,K)'*X(K,L)*D(L,L)' = E(K,L) - R(K,L)
 
@@ -2484,18 +2509,17 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  y -= (ta*B[l,l]'+tc*D[l,l]')
                end
                if l < n
-                 ic = 1:m
-                 ta = ZERO
-                 tc = ZERO
-                 for ir = il1
-                     ta += E[k,ir]*B[l,ir]'
-                     tc += E[k,ir]*D[l,ir]'
-                 end
-                 WB[k] = ta
-                 WD[k] = tc
-                 for ic = 1:m
-                     y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
-                 end
+                  ta = ZERO
+                  tc = ZERO
+                  for ir = il1
+                      ta += E[k,ir]*B[l,ir]'
+                      tc += E[k,ir]*D[l,ir]'
+                  end
+                  WB[k] = ta
+                  WD[k] = tc
+                  for ic = 1:k
+                      y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
+                  end
                end
               E[k,l] = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
               isfinite(E[k,l]) || throw("ME:SingularException: A'-λC' and D'+λB' have common or close eigenvalues")
@@ -2524,10 +2548,11 @@ function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat
    This is a wrapper to the LAPACK.tgsyl! function with `trans = 'N'`.
    """
    C, F, scale =  tgsyl!('N',A,B,C,D,E,F)
+   scale == one(T) || error("Singular Sylvester system")
    return rmul!(C,inv(scale)), rmul!(F,inv(-scale))
 end
 """
-    (X,Y) = dsylvsyss!(A,B,C,D,E,F)
+    (X,Y) = dsylvsyss!(adj,A,B,C,D,E,F)
 
 Solve the dual Sylvester system of matrix equations
 
@@ -2538,7 +2563,7 @@ where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generali
 The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
 solution `(X,Y)` is contained in `(C,F)`.
 """
-function dsylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
+function dsylvsyss!(adj::Bool,A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
    """
    This is an interface to the LAPACK.tgsyl! function with `trans = 'T' or `trans = 'C'`.
    """
@@ -2546,8 +2571,9 @@ function dsylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloa
    # E, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, MF)
    # F = MF
    # return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
-   F = -F
+   rmul!(F,-1)
    C, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, F)
+   scale == one(T) || error("Singular Sylvester system")
    return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
 end
 function sylvcs2!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
@@ -2568,7 +2594,7 @@ function sylvcs2!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
    if adj
       # """
       # The (K,1)th block of X is determined starting from
-      # upper-left corner column by column by
+      # the upper-left corner column by column by
 
       # A(K,K)'*X(K,1) + X(K,1)*B(1,1) = -C(K,1) - R(K,1),
 
@@ -2595,7 +2621,7 @@ function sylvcs2!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
    else
       # """
       # The (K,1)th block of X is determined starting from
-      # bottom-right corner column by column by
+      # the bottom-right corner column by column by
 
       # A(K,K)*X(K,1) + X(K,1)*B(1,1)' = -C(K,1) - R(K,1),
 
@@ -2638,7 +2664,7 @@ function sylvcs1!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
    if adj
       # """
       # The (K,1)th block of X is determined starting from
-      # upper-left corner column by column by
+      # the upper-left corner column by column by
 
       # A(K,K)'*X(K,1) + X(K,1)*B(1,1) = -C(K,1) - R(K,1),
 
@@ -2664,7 +2690,7 @@ function sylvcs1!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
    else
       # """
       # The (K,1)th block of X is determined starting from
-      # bottom-right corner column by column by
+      # the bottom-right corner column by column by
 
       # A(K,K)*X(K,1) + X(K,1)*B(1,1)' = -C(K,1) - R(K,1),
 
@@ -2687,4 +2713,177 @@ function sylvcs1!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
       end
    end
    C
+end
+function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Complex,T1<:AbstractMatrix{T}}
+   """
+   Solve the Sylvester system of matrix equations
+
+   AX + YB = C
+   DX + YE = F,
+
+   where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generalized Schur forms.
+   The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
+   solution `(X,Y)` is contained in `(C,F)`.
+
+   References:
+   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+       Comm. ACM, 15:820–826, 1972.
+   """
+   m, n = size(C);
+   (m == size(F,1) && n == size(F,2)) ||
+     throw(DimensionMismatch("C and F must have the same dimensions"))
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+      throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
+   Aw = Matrix{T}(undef,2,2)
+   Bw = Vector{T}(undef,2)
+   # """
+   # The (K,L)th elements of X and Y are determined starting from
+   # bottom-left corner column by column by
+
+   #       A(K,K)*X(K,L) + Y(K,L)*B(L,L) = C(K,L) - P(K,L)
+   #       C(K,K)*X(K,L) + Y(K,L)*E(L,L) = F(K,L) - R(K,L)
+
+   # where
+   #                        M                     L-1
+   #            P(K,L) =   SUM [A(K,J)*X(J,L)]  + SUM [Y(K,I)*B(I,L)] 
+   #                      J=K+1                   I=1
+   #                        M                     L-1
+   #            R(K,L) =   SUM [D(K,J)*X(J,L)]  + SUM [Y(K,I)*E(I,L)] 
+   #                      J=K+1                   I=1
+   #
+   # """
+   for l = 1:n
+      il1 = 1:l-1
+      for k = m:-1:1
+          y = C[k,l]
+          z = F[k,l]
+          if k < m
+             for ir = k+1:m
+                 y -= A[k,ir]*C[ir,l]
+                 z -= D[k,ir]*C[ir,l]
+             end
+          end
+          if l > 1
+             for ir = il1
+                 y -= F[k,ir]*B[ir,l]
+                 z -= F[k,ir]*E[ir,l]
+             end
+          end
+          Aw = [A[k,k] B[l,l]; D[k,k] E[l,l]]
+          Bw = [y; z]
+          luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
+          C[k,l] = Bw[1]
+          F[k,l] = Bw[2]
+      end
+   end
+   return C, F
+end
+function dsylvsyss!(adj::Bool,A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Complex,T1<:AbstractMatrix{T}}
+   # """
+   #     (X,Y) = dsylvsyss!(A,B,C,D,E,F)
+
+   # Solve the following dual Sylvester systems of matrix equations
+   # for adj = false
+   #     AX + DY = C
+   #     XB + YE = F 
+   #
+   # for adj = true
+   #     A'X + D'Y = C
+   #     XB' + YE' = F,
+
+   # where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generalized Schur forms.
+   # The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
+   # solution `(X,Y)` is contained in `(C,F)`.
+   # """
+
+      m, n = size(C);
+      (m == size(F,1) && n == size(F,2)) ||
+      throw(DimensionMismatch("C and F must have the same dimensions"))
+      [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+         throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
+      Aw = Matrix{T}(undef,2,2)
+      Bw = Vector{T1}(undef,2)
+      
+      if adj
+         # """
+         # The (K,L)th elements of X and Y are determined starting from
+         # the upper-right corner column by column by
+
+         #       A(K,K)'*X(K,L) + D(K,K)'*Y(K,L) = C(K,L) - P(K,L)
+         #       X(K,L)*B(L,L)' + Y(K,L)*E(L,L)' = F(K,L) - R(K,L)
+
+         # where
+         #                       K-1                       K-1                    
+         #            P(K,L) =   SUM [A(J,K)'*X(J,L)]  +   SUM [D(J,K)'*Y(J,L)]    
+         #                       J=1                       J=1                    
+         #                        N                         N
+         #            R(K,L) =   SUM [X(K,I)*B(L,I)']  +   SUM [Y(K,I)*E(L,I)'] 
+         #                      I=L+1                     I=L+1
+         # """
+         for l = n:-1:1
+             il1 = l+1:n
+             for k = 1:m
+                 y = C[k,l]
+                 z = F[k,l]
+                 if k > 1
+                    for ir = 1:k-1
+                        y -= A[ir,k]'*C[ir,l]
+                        y -= D[ir,k]'*F[ir,l]
+                    end
+                 end
+                 if l < n
+                    for ir = il1
+                        z -= C[k,ir]*B[l,ir]'
+                        z -= F[k,ir]*E[l,ir]'
+                    end
+                 end
+                 Aw = [A[k,k]' D[k,k]'; B[l,l]' E[l,l]']
+                 Bw = [y; z]
+                 luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
+                 C[k,l] = Bw[1]
+                 F[k,l] = Bw[2]
+             end
+         end
+         return C, F
+     else
+         # """
+         # The (K,L)th elements of X and Y are determined starting from
+         # the upper-right corner column by column by
+
+         #       A(K,K)*X(K,L) + D(K,K)*Y(K,L) = C(K,L) - P(K,L)
+         #       X(K,L)*B(L,L) + Y(K,L)*E(L,L) = F(K,L) - R(K,L)
+
+         # where
+         #                        M                      M                   
+         #            P(K,L) =   SUM [A(K,J)*X(J,L)]  + SUM [D(K,J)*Y(J,L)]  
+         #                      J=K+1                  J=K+1                 
+         #                       L-1                    L-1
+         #            R(K,L) =   SUM [Y(K,I)*B(I,L)]  + SUM [Y(K,I)*E(I,L)] 
+         #                       I=1                    I=1
+         for l = 1:n
+             il1 = 1:l-1
+             for k = m:-1:1
+                 y = C[k,l]
+                 z = F[k,l]
+                 if k < m
+                    for ir = k+1:m
+                        y -= A[k,ir]*C[ir,l]
+                        y -= D[k,ir]*F[ir,l]
+                    end
+                 end
+                 if l > 1
+                    for ir = il1
+                        z -= C[k,ir]*B[ir,l]
+                        z -= F[k,ir]*E[ir,l]
+                    end
+                 end
+                 Aw = [A[k,k] D[k,k]; B[l,l] E[l,l]]
+                 Bw = [y; z]
+                 luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
+                 C[k,l] = Bw[1]
+                 F[k,l] = Bw[2]
+             end
+          end
+          return C, F
+     end
 end

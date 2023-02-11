@@ -376,14 +376,14 @@ end
          return any(!isfinite, B)
    end
 end
-# compute the eigenvalues of a real 2x2 [a b; c d] in e1r, e1i, e2r, e2i 
-# extracted from the translation from LAPACK::dlanv2 by Ralph Smith
-# Copyright:
-# Univ. of Tennessee
-# Univ. of California Berkeley
-# Univ. of Colorado Denver
-# NAG Ltd.
 function _lanv2(a::T,b::T,c::T,d::T) where {T <: Real}
+   # compute the eigenvalues of a real 2x2 [a b; c d] in e1r, e1i, e2r, e2i 
+   # extracted from the translation from LAPACK::dlanv2 by Ralph Smith
+   # Copyright:
+   # Univ. of Tennessee
+   # Univ. of California Berkeley
+   # Univ. of Colorado Denver
+   # NAG Ltd.
    ZERO = zero(T)
    ONE = one(T)
    sgn(x) = (x < 0) ? -ONE : ONE # fortran sign differs from Julia
@@ -456,11 +456,11 @@ function _lanv2(a::T,b::T,c::T,d::T) where {T <: Real}
    end
    return w1r,w1i,w2r,w2i
 end
-# compute the Schur decomposition of a real 2x2 matrix H2 in standard form
-# return the eigenvalues in e1r, e1i, e2r, e2i and 
-# the elements cs and sn of the corresponding Givens rotation
-# Translated from LAPACK::dlanv2 by Ralph Smith within the GenericSchur.jl
 function _lanv2!(H2::StridedMatrix{T}) where {T <: Real}
+   # compute the Schur decomposition of a real 2x2 matrix H2 in standard form
+   # return the eigenvalues in e1r, e1i, e2r, e2i and 
+   # the elements cs and sn of the corresponding Givens rotation
+   # Translated from LAPACK::dlanv2 by Ralph Smith within the GenericSchur.jl
    a,b,c,d = H2[1,1], H2[1,2], H2[2,1], H2[2,2]
    ZERO = zero(T)
    ONE = one(T)
@@ -562,15 +562,15 @@ function _safemin(T)
    sfmin
 end
 function _lag2(a::StridedMatrix{T},b::StridedMatrix{T},safmin::T) where {T <: Real}
-#
-#    _lag2(A, B, SAFMIN) -> (SCALE1, SCALE2, WR1, WR2, WI)
-#
-# Compute the eigenvalues of a 2-by-2 generalized real eigenvalue problem for
-# the matrix pair `(A,B)`, with scaling as necessary to avoid over-/underflow.
-# `SAFMIN` is the smallest positive number s.t. `1/SAFMIN` does not overflow.
-# If `WI = 0`, `WR1/SCALE1` and `WR2/SCALE2` are the resulting real eigenvalues, while
-# if `WI <> 0`, then `(WR1+/-im*WI)/SCALE1` are the resulting complex eigenvalues.
-# Conversion of the LAPACK subroutines DLAG2/SLAG2.
+   #
+   #    _lag2(A, B, SAFMIN) -> (SCALE1, SCALE2, WR1, WR2, WI)
+   #
+   # Compute the eigenvalues of a 2-by-2 generalized real eigenvalue problem for
+   # the matrix pair `(A,B)`, with scaling as necessary to avoid over-/underflow.
+   # `SAFMIN` is the smallest positive number s.t. `1/SAFMIN` does not overflow.
+   # If `WI = 0`, `WR1/SCALE1` and `WR2/SCALE2` are the resulting real eigenvalues, while
+   # if `WI <> 0`, then `(WR1+/-im*WI)/SCALE1` are the resulting complex eigenvalues.
+   # Conversion of the LAPACK subroutines DLAG2/SLAG2.
 
    ZERO = zero(T)
    ONE = one(T)

@@ -941,7 +941,7 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       Y2 = view(y, mn + 1:2mn)
       try
          if L.lmap.sf
-            X1, X2 = dsylvsyss!(L.lmap.A, L.lmap.B, E, L.lmap.C, L.lmap.D, F)
+            X1, X2 = dsylvsyss!(true,L.lmap.A, L.lmap.B, E, L.lmap.C, L.lmap.D, F)
             copyto!(Y1, X1)
             copyto!(Y2, X2)
          else

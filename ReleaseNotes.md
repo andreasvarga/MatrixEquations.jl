@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.7
+
+Patch release to allow arbitrary floating-point types in all Sylvester system of equations solvers. 
+
 ## Version 2.2.6
 
 Patch release to allow arbitrary floating-point types in all Sylvester equation solvers. 

@@ -6,6 +6,7 @@ using GenericSchur
 using DoubleFloats
 using Test
 using Random
+using LinearAlgebra: BlasFloat
 
 @testset "Testing Sylvester equation solvers" begin
 
@@ -453,7 +454,8 @@ end
 # Sylvester systems
 @testset "Sylvester systems" begin
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = ar+im*rand(Ty,n,n)
@@ -522,7 +524,8 @@ end
 # dual Sylvester systems
 @testset "Dual Sylvester systems" begin
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = ar+im*rand(Ty,n,n)
@@ -586,7 +589,8 @@ end
 # LAPACK wrappers of Sylvester system solvers
 @testset "LAPACK wrappers of Sylvester system solvers" begin
 
-for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat, Double64)
+#for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
 ac = ar+im*rand(Ty,n,n)
@@ -600,63 +604,68 @@ dc = dr+im*rand(Ty,n,n)
 ec = er+im*rand(Ty,m,m)
 fr = rand(Ty,n,m)
 fc = fr+im*rand(Ty,n,m)
-as, ds = schur(ar,dr)
-bs, es = schur(br,er)
+as = schur(ar).T
+ds = triu(dr)
+bs = schur(br).T
+es = triu(er)
 acs, dcs = schur(ac,dc)
 bcs, ecs = schur(bc,ec)
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
-x = copy(cr); y = copy(fr);
-@time x, y, scale =  tgsyl!(as, bs, x, ds, es, y)
-@test norm(as*x-y*bs-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(ds*x-y*es-fr)/max(norm(x),norm(y)) < reltol
+if Ty <: LinearAlgebra.BlasFloat
 
-x = copy(cr); y = copy(fr);
-@time x, y, scale =  tgsyl!('T',as, bs, x, ds, es, y)
-@test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(x*bs'+y*es'+fr)/max(norm(x),norm(y)) < reltol
+   x = copy(cr); y = copy(fr);
+   @time x, y, scale =  tgsyl!(as, bs, x, ds, es, y)
+   @test norm(as*x-y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+         norm(ds*x-y*es-fr)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cr); y = copy(fr);
+   @time x, y, scale =  tgsyl!('T',as, bs, x, ds, es, y)
+   @test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
+         norm(x*bs'+y*es'+fr)/max(norm(x),norm(y)) < reltol  
 
+   x = copy(cc); y = copy(fc);
+   @time x, y, scale =  tgsyl!(acs, bcs, x, dcs, ecs, y)
+   @test norm(acs*x-y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
+         norm(dcs*x-y*ecs-fc)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cc); y = copy(fc);
+   @time x, y, scale =  tgsyl!('C',acs, bcs, x, dcs, ecs, y)
+   @test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
+         norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cr); y = copy(fr);
+   @time x, y, scale =  tgsyl!(as, bs, x, ds, es, y)
+   @test norm(as*x-y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+         norm(ds*x-y*es-fr)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cr); y = copy(fr);
+   @time x, y, scale =  tgsyl!('T',as, bs, x, ds, es, y)
+   @test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
+         norm(x*bs'+y*es'+fr)/max(norm(x),norm(y)) < reltol
+   
+   
+   x = copy(cc); y = copy(fc);
+   @time x, y, scale =  tgsyl!(acs, bcs, x, dcs, ecs, y)
+   @test norm(acs*x-y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
+         norm(dcs*x-y*ecs-fc)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cc); y = copy(fc);
+   @time x, y, scale =  tgsyl!('C',acs, bcs, x, dcs, ecs, y)
+   @test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
+         norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cr); y = copy(fr);
+   @time x, y =  sylvsyss!(as, bs, x, ds, es, y)
+   @test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+         norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
+   
+   x = copy(cr); y = copy(fr);
+   @time x, y =  dsylvsyss!(true,as, bs, x, ds, es, y)
+   @test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
+         norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
+end
 
-x = copy(cc); y = copy(fc);
-@time x, y, scale =  tgsyl!(acs, bcs, x, dcs, ecs, y)
-@test norm(acs*x-y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(dcs*x-y*ecs-fc)/max(norm(x),norm(y)) < reltol
-
-x = copy(cc); y = copy(fc);
-@time x, y, scale =  tgsyl!('C',acs, bcs, x, dcs, ecs, y)
-@test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
-
-x = copy(cr); y = copy(fr);
-@time x, y, scale =  tgsyl!(as, bs, x, ds, es, y)
-@test norm(as*x-y*bs-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(ds*x-y*es-fr)/max(norm(x),norm(y)) < reltol
-
-x = copy(cr); y = copy(fr);
-@time x, y, scale =  tgsyl!('T',as, bs, x, ds, es, y)
-@test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(x*bs'+y*es'+fr)/max(norm(x),norm(y)) < reltol
-
-
-x = copy(cc); y = copy(fc);
-@time x, y, scale =  tgsyl!(acs, bcs, x, dcs, ecs, y)
-@test norm(acs*x-y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(dcs*x-y*ecs-fc)/max(norm(x),norm(y)) < reltol
-
-x = copy(cc); y = copy(fc);
-@time x, y, scale =  tgsyl!('C',acs, bcs, x, dcs, ecs, y)
-@test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
-
-x = copy(cr); y = copy(fr);
-@time x, y =  sylvsyss!(as, bs, x, ds, es, y)
-@test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
-
-x = copy(cr); y = copy(fr);
-@time x, y =  dsylvsyss!(as, bs, x, ds, es, y)
-@test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
 @time x, y =  sylvsyss!(acs, bcs, x, dcs, ecs, y)
@@ -664,7 +673,7 @@ x = copy(cc); y = copy(fc);
       norm(dcs*x+y*ecs-fc)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
-@time x, y =  dsylvsyss!(acs, bcs, x, dcs, ecs, y)
+@time x, y =  dsylvsyss!(true,acs, bcs, x, dcs, ecs, y)
 @test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
       norm(x*bcs'+y*ecs'-fc)/max(norm(x),norm(y)) < reltol
 
