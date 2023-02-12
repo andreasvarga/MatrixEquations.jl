@@ -555,8 +555,8 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
          X, Y, scale =  tgsyl!(trans,AS,BS,CS,DS,ES,-FS)
          return (rmul!(Q1*(X * adjoint(Z2)), inv(scale)), rmul!(Q1*(Y * adjoint(Z2)), inv(scale)) )
       else
-         AS, DS, Q1, Z1 = schur(A,D)
-         BS, ES, Q2, Z2 = schur(B,E)
+         AS, DS, Q1, Z1 = schur(isa(A,Adjoint) ? copy(A) : A, isa(D,Adjoint) ? copy(D) : D)
+         BS, ES, Q2, Z2 = schur(isa(B,Adjoint) ? copy(B) : B, isa(E,Adjoint) ? copy(E) : E)
          CS = adjoint(Q1) * (C*Q2)
          FS = adjoint(Z1) * (F*Z2)
          X, Y =  dsylvsyss!(false,AS,BS,CS,DS,ES,FS)

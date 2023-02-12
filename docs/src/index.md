@@ -12,7 +12,7 @@ end
 
 This collection of Julia functions is an attemp to implement high performance
 numerical software to solve classes of Lyapunov, Sylvester and Riccati matrix equations
-at a performance level comparable with efficient structure exploiting Fortran implementations, as those available in the Systems and Control Library [SLICOT](http://slicot.org/).
+at a performance level comparable with efficient structure exploiting Fortran implementations, as those available in the Systems and Control Library [SLICOT](https://github.com/SLICOT).
 This goal has been fully achieved for Lyapunov and Sylvester equation solvers, for which the
 codes for both real and complex data perform at practically same performance level as similar functions available in
 the MATLAB Control System Toolbox (which rely on SLICOT).
