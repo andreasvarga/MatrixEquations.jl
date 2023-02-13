@@ -655,22 +655,32 @@ if Ty <: LinearAlgebra.BlasFloat
    @test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
          norm(x*bcs'+y*ecs'+fc)/max(norm(x),norm(y)) < reltol
    
-   x = copy(cr); y = copy(fr);
-   @time x, y =  sylvsyss!(as, bs, x, ds, es, y)
-   @test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
-         norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
-   
-   x = copy(cr); y = copy(fr);
-   @time x, y =  dsylvsyss!(true,as, bs, x, ds, es, y)
-   @test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
-         norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
 end
 
+x = copy(cr); y = copy(fr);
+@time x, y =  sylvsyss!(as, bs, x, ds, es, y)
+@test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
+
+x = copy(cr); y = copy(fr);
+@time x, y =  dsylvsyss!(false,as, bs, x, ds, es, y)
+@test norm(as*x+ds*y-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bs+y*es-fr)/max(norm(x),norm(y)) < reltol
+
+x = copy(cr); y = copy(fr);
+@time x, y =  dsylvsyss!(true,as, bs, x, ds, es, y)
+@test norm(as'*x+ds'*y-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
 @time x, y =  sylvsyss!(acs, bcs, x, dcs, ecs, y)
 @test norm(acs*x+y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
       norm(dcs*x+y*ecs-fc)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time x, y =  dsylvsyss!(false,acs, bcs, x, dcs, ecs, y)
+@test norm(acs*x+dcs*y-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(x*bcs+y*ecs-fc)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
 @time x, y =  dsylvsyss!(true,acs, bcs, x, dcs, ecs, y)

@@ -2552,7 +2552,7 @@ function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat
    return rmul!(C,inv(scale)), rmul!(F,inv(-scale))
 end
 """
-    (X,Y) = dsylvsyss!(adj,A,B,C,D,E,F)
+    (X,Y) = dsylvsyss!(A,B,C,D,E,F)
 
 Solve the dual Sylvester system of matrix equations
 
@@ -2563,18 +2563,16 @@ where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generali
 The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
 solution `(X,Y)` is contained in `(C,F)`.
 """
-function dsylvsyss!(adj::Bool,A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
+function dsylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:BlasFloat,T1<:Matrix{T}}
    """
    This is an interface to the LAPACK.tgsyl! function with `trans = 'T' or `trans = 'C'`.
    """
-   # MF = -F
-   # E, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, MF)
-   # F = MF
-   # return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
    rmul!(F,-1)
    C, F, scale =  tgsyl!(T <: Complex ? 'C' : 'T', A, B, C, D, E, F)
    scale == one(T) || error("Singular Sylvester system")
-   return rmul!(C[:,:],inv(scale)), rmul!(F[:,:],inv(scale))
+   rmul!(view(C,:,:),inv(scale))
+   rmul!(view(F,:,:),inv(scale))
+   return C, F
 end
 function sylvcs2!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
    n = LinearAlgebra.checksquare(A)
@@ -2726,8 +2724,9 @@ function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Complex,T
    solution `(X,Y)` is contained in `(C,F)`.
 
    References:
-   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
-       Comm. ACM, 15:820–826, 1972.
+   [1] B. Kagstrom and L. Westin, Generalized Schur Methods with Condition Estimators for Solving 
+       the Generalized Sylvester Equation, 
+       IEEE Transactions on Automatic Control, Vol. 34, No. 7,  pp 745-751, 1989.
    """
    m, n = size(C);
    (m == size(F,1) && n == size(F,2)) ||
@@ -2778,7 +2777,190 @@ function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Complex,T
    end
    return C, F
 end
+function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Real,T1<:AbstractMatrix{T}}
+   """
+   Solve the Sylvester system of matrix equations
+
+   AX + YB = C
+   DX + YE = F,
+
+   where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generalized Schur forms.
+   The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
+   solution `(X,Y)` is contained in `(C,F)`.
+
+   References:
+   [1] B. Kagstrom and L. Westin, Generalized Schur Methods with Condition Estimators for Solving 
+       the Generalized Sylvester Equation, 
+       IEEE Transactions on Automatic Control, Vol. 34, No. 7,  pp 745-751, 1989.
+   """
+   m, n = size(C);
+   (m == size(F,1) && n == size(F,2)) ||
+     throw(DimensionMismatch("C and F must have the same dimensions"))
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+      throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
+
+   ONE = one(T)
+
+   # determine the structure of the generalized real Schur forms of (A,D) and (B,E)
+   (ba, pa) = sfstruct(A)
+   (bb, pb) = sfstruct(B)
+
+   # Xw = Matrix{T1}(undef,8,8)
+   # Yw = Vector{T1}(undef,8)
+   # """
+   # The (K,L)th elements of X and Y are determined starting from
+   # bottom-left corner column by column by
+
+   #       A(K,K)*X(K,L) + Y(K,L)*B(L,L) = C(K,L) - P(K,L)
+   #       C(K,K)*X(K,L) + Y(K,L)*E(L,L) = F(K,L) - R(K,L)
+
+   # where
+   #                        M                     L-1
+   #            P(K,L) =   SUM [A(K,J)*X(J,L)]  + SUM [Y(K,I)*B(I,L)] 
+   #                      J=K+1                   I=1
+   #                        M                     L-1
+   #            R(K,L) =   SUM [D(K,J)*X(J,L)]  + SUM [Y(K,I)*E(I,L)] 
+   #                      J=K+1                   I=1
+   #
+   # """
+   j = 1
+   for ll = 1:pb
+       dl = bb[ll]
+       il1 = 1:j-1
+       l = j:j+dl-1
+       i = m
+       for kk = pa:-1:1
+           dk = ba[kk]
+           k = i-dk+1:i
+           y = view(C,k,l)
+           z = view(F,k,l)
+           if kk < pa
+              ir = i+1:m
+              mul!(y,view(A,k,ir),view(C,ir,l),-ONE,ONE)
+              mul!(z,view(D,k,ir),view(C,ir,l),-ONE,ONE)
+           end
+           if ll > 1
+              mul!(y,view(F,k,il1),view(B,il1,l),-ONE,ONE)
+              mul!(z,view(F,k,il1),view(E,il1,l),-ONE,ONE)
+           end
+           C[k,l], F[k,l] = sylvsyskr(A[k,k], B[l,l], y, D[k,k], E[l,l], z)
+           # sylvsys2!(dk,dl,view(A,k,k),view(B,l,l),y,view(D,k,k),view(E,l,l),z,Xw,Yw) 
+           i -= dk
+       end
+       j += dl
+   end
+   return C, F
+end
 function dsylvsyss!(adj::Bool,A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Complex,T1<:AbstractMatrix{T}}
+   # """
+   #     (X,Y) = dsylvsyss!(adj,A,B,C,D,E,F)
+
+   # Solve the following dual Sylvester systems of matrix equations
+   # for adj = false
+   #     AX + DY = C
+   #     XB + YE = F 
+   #
+   # for adj = true
+   #     A'X + D'Y = C
+   #     XB' + YE' = F,
+
+   # where `(A,D)`, `(B,E)` are pairs of square matrices of the same size in generalized Schur forms.
+   # The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
+   # solution `(X,Y)` is contained in `(C,F)`.
+   # """
+   adj && (T1 <: BlasComplex) && (return dsylvsyss!(A,B,C,D,E,F))
+
+   m, n = size(C);
+   (m == size(F,1) && n == size(F,2)) ||
+   throw(DimensionMismatch("C and F must have the same dimensions"))
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+      throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
+   
+   Aw = Matrix{T}(undef,2,2)
+   Bw = Vector{T1}(undef,2)
+   if adj
+      # """
+      # The (K,L)th elements of X and Y are determined starting from
+      # the upper-right corner column by column by
+
+      #       A(K,K)'*X(K,L) + D(K,K)'*Y(K,L) = C(K,L) - P(K,L)
+      #       X(K,L)*B(L,L)' + Y(K,L)*E(L,L)' = F(K,L) - R(K,L)
+
+      # where
+      #                       K-1                       K-1                    
+      #            P(K,L) =   SUM [A(J,K)'*X(J,L)]  +   SUM [D(J,K)'*Y(J,L)]    
+      #                       J=1                       J=1                    
+      #                        N                         N
+      #            R(K,L) =   SUM [X(K,I)*B(L,I)']  +   SUM [Y(K,I)*E(L,I)'] 
+      #                      I=L+1                     I=L+1
+      # """
+      for l = n:-1:1
+          il1 = l+1:n
+          for k = 1:m
+              y = C[k,l]
+              z = F[k,l]
+              if k > 1
+                 for ir = 1:k-1
+                     y -= A[ir,k]'*C[ir,l]
+                     y -= D[ir,k]'*F[ir,l]
+                 end
+              end
+              if l < n
+                 for ir = il1
+                     z -= C[k,ir]*B[l,ir]'
+                     z -= F[k,ir]*E[l,ir]'
+                 end
+              end
+              Aw = [A[k,k]' D[k,k]'; B[l,l]' E[l,l]']
+              Bw = [y; z]
+              luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
+              C[k,l] = Bw[1]
+              F[k,l] = Bw[2]
+          end
+      end
+   else
+      # """
+      # The (K,L)th elements of X and Y are determined starting from
+      # the upper-right corner column by column by
+
+      #       A(K,K)*X(K,L) + D(K,K)*Y(K,L) = C(K,L) - P(K,L)
+      #       X(K,L)*B(L,L) + Y(K,L)*E(L,L) = F(K,L) - R(K,L)
+
+      # where
+      #                        M                      M                   
+      #            P(K,L) =   SUM [A(K,J)*X(J,L)]  + SUM [D(K,J)*Y(J,L)]  
+      #                      J=K+1                  J=K+1                 
+      #                       L-1                    L-1
+      #            R(K,L) =   SUM [X(K,I)*B(I,L)]  + SUM [Y(K,I)*E(I,L)] 
+      #                       I=1                    I=1
+      for l = 1:n
+          il1 = 1:l-1
+          for k = m:-1:1
+              y = C[k,l]
+              z = F[k,l]
+              if k < m
+                 for ir = k+1:m
+                     y -= A[k,ir]*C[ir,l]
+                     y -= D[k,ir]*F[ir,l]
+                 end
+              end
+              if l > 1
+                 for ir = il1
+                     z -= C[k,ir]*B[ir,l]
+                     z -= F[k,ir]*E[ir,l]
+                 end
+              end
+              Aw = [A[k,k] D[k,k]; B[l,l] E[l,l]]
+              Bw = [y; z]
+              luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
+              C[k,l] = Bw[1]
+              F[k,l] = Bw[2]
+          end
+       end
+  end
+  return C, F
+end
+function dsylvsyss!(adj::Bool,A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Real,T1<:AbstractMatrix{T}}
    # """
    #     (X,Y) = dsylvsyss!(A,B,C,D,E,F)
 
@@ -2795,95 +2977,105 @@ function dsylvsyss!(adj::Bool,A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T
    # The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues. The computed
    # solution `(X,Y)` is contained in `(C,F)`.
    # """
+   adj && (T1 <: BlasReal) && (return dsylvsyss!(A,B,C,D,E,F))
 
-      m, n = size(C);
-      (m == size(F,1) && n == size(F,2)) ||
-      throw(DimensionMismatch("C and F must have the same dimensions"))
-      [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
-         throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
-      Aw = Matrix{T}(undef,2,2)
-      Bw = Vector{T1}(undef,2)
-      
-      if adj
-         # """
-         # The (K,L)th elements of X and Y are determined starting from
-         # the upper-right corner column by column by
+   m, n = size(C);
+   (m == size(F,1) && n == size(F,2)) ||
+   throw(DimensionMismatch("C and F must have the same dimensions"))
+   [m; n; m; n] == LinearAlgebra.checksquare(A,B,D,E) ||
+      throw(DimensionMismatch("A, B, C, D, E and F have incompatible dimensions"))
 
-         #       A(K,K)'*X(K,L) + D(K,K)'*Y(K,L) = C(K,L) - P(K,L)
-         #       X(K,L)*B(L,L)' + Y(K,L)*E(L,L)' = F(K,L) - R(K,L)
+   ONE = one(T)
 
-         # where
-         #                       K-1                       K-1                    
-         #            P(K,L) =   SUM [A(J,K)'*X(J,L)]  +   SUM [D(J,K)'*Y(J,L)]    
-         #                       J=1                       J=1                    
-         #                        N                         N
-         #            R(K,L) =   SUM [X(K,I)*B(L,I)']  +   SUM [Y(K,I)*E(L,I)'] 
-         #                      I=L+1                     I=L+1
-         # """
-         for l = n:-1:1
-             il1 = l+1:n
-             for k = 1:m
-                 y = C[k,l]
-                 z = F[k,l]
-                 if k > 1
-                    for ir = 1:k-1
-                        y -= A[ir,k]'*C[ir,l]
-                        y -= D[ir,k]'*F[ir,l]
-                    end
-                 end
-                 if l < n
-                    for ir = il1
-                        z -= C[k,ir]*B[l,ir]'
-                        z -= F[k,ir]*E[l,ir]'
-                    end
-                 end
-                 Aw = [A[k,k]' D[k,k]'; B[l,l]' E[l,l]']
-                 Bw = [y; z]
-                 luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
-                 C[k,l] = Bw[1]
-                 F[k,l] = Bw[2]
-             end
-         end
-         return C, F
-     else
-         # """
-         # The (K,L)th elements of X and Y are determined starting from
-         # the upper-right corner column by column by
+   # determine the structure of the generalized real Schur forms of (A,D) and (B,E)
+   (ba, pa) = sfstruct(A)
+   (bb, pb) = sfstruct(B)
 
-         #       A(K,K)*X(K,L) + D(K,K)*Y(K,L) = C(K,L) - P(K,L)
-         #       X(K,L)*B(L,L) + Y(K,L)*E(L,L) = F(K,L) - R(K,L)
+   # Xw = Matrix{T1}(undef,8,8)
+   # Yw = Vector{T1}(undef,8)
+   if adj
+      # """
+      # The (K,L)th elements of X and Y are determined starting from
+      # the upper-right corner column by column by
 
-         # where
-         #                        M                      M                   
-         #            P(K,L) =   SUM [A(K,J)*X(J,L)]  + SUM [D(K,J)*Y(J,L)]  
-         #                      J=K+1                  J=K+1                 
-         #                       L-1                    L-1
-         #            R(K,L) =   SUM [Y(K,I)*B(I,L)]  + SUM [Y(K,I)*E(I,L)] 
-         #                       I=1                    I=1
-         for l = 1:n
-             il1 = 1:l-1
-             for k = m:-1:1
-                 y = C[k,l]
-                 z = F[k,l]
-                 if k < m
-                    for ir = k+1:m
-                        y -= A[k,ir]*C[ir,l]
-                        y -= D[k,ir]*F[ir,l]
-                    end
-                 end
-                 if l > 1
-                    for ir = il1
-                        z -= C[k,ir]*B[ir,l]
-                        z -= F[k,ir]*E[ir,l]
-                    end
-                 end
-                 Aw = [A[k,k] D[k,k]; B[l,l] E[l,l]]
-                 Bw = [y; z]
-                 luslv!(Aw,Bw) && throw("ME:SingularException: Singular system of Sylvester equations")
-                 C[k,l] = Bw[1]
-                 F[k,l] = Bw[2]
-             end
+      #       A(K,K)'*X(K,L) + D(K,K)'*Y(K,L) = C(K,L) - P(K,L)
+      #       X(K,L)*B(L,L)' + Y(K,L)*E(L,L)' = F(K,L) - R(K,L)
+
+      # where
+      #                       K-1                       K-1                    
+      #            P(K,L) =   SUM [A(J,K)'*X(J,L)]  +   SUM [D(J,K)'*Y(J,L)]    
+      #                       J=1                       J=1                    
+      #                        N                         N
+      #            R(K,L) =   SUM [X(K,I)*B(L,I)']  +   SUM [Y(K,I)*E(L,I)'] 
+      #                      I=L+1                     I=L+1
+      # """
+      j = n
+      for ll = pb:-1:1
+          dl = bb[ll]
+          il1 = j+1:n
+          l = j-dl+1:j
+          i = 1
+          for kk = 1:pa
+              dk = ba[kk]
+              k = i:i+dk-1
+              y = view(C,k,l)
+              z = view(F,k,l)
+              if kk > 1
+                 ir = 1:i-1
+                 mul!(y,transpose(view(A,ir,k)),view(C,ir,l),-ONE,ONE)
+                 mul!(y,transpose(view(D,ir,k)),view(F,ir,l),-ONE,ONE)
+              end
+              if ll < pb
+                 mul!(z,view(C,k,il1),transpose(view(B,l,il1)),-ONE,ONE)
+                 mul!(z,view(F,k,il1),transpose(view(E,l,il1)),-ONE,ONE)
+              end
+              C[k,l], F[k,l] = dsylvsyskr(A[k,k]', B[l,l]', y, D[k,k]', E[l,l]', z)
+              # dsylvsys2!(adj,dk,dl,view(A,k,k),view(B,l,l),y,view(D,k,k),view(E,l,l),z,Xw,Yw) 
+              i += dk
           end
-          return C, F
-     end
+          j -= dl
+      end
+   else 
+      # """
+      # The (K,L)th elements of X and Y are determined starting from
+      # the upper-right corner column by column by
+
+      #       A(K,K)*X(K,L) + D(K,K)*Y(K,L) = C(K,L) - P(K,L)
+      #       X(K,L)*B(L,L) + Y(K,L)*E(L,L) = F(K,L) - R(K,L)
+
+      # where
+      #                        M                      M                   
+      #            P(K,L) =   SUM [A(K,J)*X(J,L)]  + SUM [D(K,J)*Y(J,L)]  
+      #                      J=K+1                  J=K+1                 
+      #                       L-1                    L-1
+      #            R(K,L) =   SUM [X(K,I)*B(I,L)]  + SUM [Y(K,I)*E(I,L)] 
+      #                       I=1                    I=1
+      j = 1
+      for ll = 1:pb
+          dl = bb[ll]
+          il1 = 1:j-1
+          l = j:j+dl-1
+          i = m
+          for kk = pa:-1:1
+              dk = ba[kk]
+              k = i-dk+1:i
+              y = view(C,k,l)
+              z = view(F,k,l)
+              if kk < pa
+                 ir = i+1:m
+                 mul!(y,view(A,k,ir),view(C,ir,l),-ONE,ONE)
+                 mul!(y,view(D,k,ir),view(F,ir,l),-ONE,ONE)
+              end
+              if ll > 1
+                 mul!(z,view(C,k,il1),view(B,il1,l),-ONE,ONE)
+                 mul!(z,view(F,k,il1),view(E,il1,l),-ONE,ONE)
+              end
+              C[k,l], F[k,l] = dsylvsyskr(A[k,k], B[l,l], y, D[k,k], E[l,l], z)
+              # dsylvsys2!(adj,dk,dl,view(A,k,k),view(B,l,l),y,view(D,k,k),view(E,l,l),z,Xw,Yw) 
+              i -= dk
+          end
+          j += dl
+      end
+   end
+   return C, F   
 end
