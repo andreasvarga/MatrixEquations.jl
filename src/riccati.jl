@@ -93,7 +93,7 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     S = schur([A  -G; -Q  -copy(A')])
 
     as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
-    n == length(filter(y-> y == true,select)) || error("The Hamiltonian matrix is not dichotomic")
+    n == count(select) || error("The Hamiltonian matrix is not dichotomic")
     ordschur!(S, select)
 
     n2 = n+n
@@ -395,7 +395,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     P = [ E zeros(T,n,n); zeros(T,n,n) E']
     LPS = schur(L,P)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
-    n == length(filter(y-> y == true,select)) ||
+    n == count(select) ||
        error("The Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
     ordschur!(LPS, select)
     i1 = 1:n
@@ -598,7 +598,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     P11 = [ E*z[i1,:]; E'*z[i2,:] ]
     LPS = schur(L11,P11)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
-    n == length(filter(y-> y == true,select)) ||
+    n == count(select) ||
          error("The extended Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
     ordschur!(LPS, select)
 
@@ -848,7 +848,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     as ? PLS = schur(L1[iric,iric],P1[iric,iric]) : PLS = schur(P1[iric,iric],L1[iric,iric])
     select = abs.(PLS.α) .> abs.(PLS.β)
 
-    n == length(filter(y-> y == true,select)) || error("The extended symplectic pencil is not dichotomic")
+    n == count(select) || error("The extended symplectic pencil is not dichotomic")
 
     ordschur!(PLS, select)
     z[:,i1]= z[:,iric]*PLS.Z[:,i1]
