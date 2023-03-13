@@ -2164,7 +2164,7 @@ function tlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
        i1 = 1:r; j2 = r+1:m
        norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
        return ([ldiv!(UpperTriangular(2*F.R[i1,i1]),view(Ct,i1,i1)) ldiv!(UpperTriangular(F.R[i1,i1]),view(Ct,i1,j2));
-                zeros(T2,n-r,m)]*transpose(F.Q))[invperm(F.p),:]
+                zeros(T2,n-r,m)]*transpose(Matrix(F.Q)))[invperm(F.p),:]
    else
        m > n ? F = svd(A,full = true) : F = svd(A)
        tol = max(atol, rtol*F.S[1])
