@@ -1,5 +1,10 @@
 # Release Notes
 
+## Version 2.2.8
+
+Patch release with two new functions to solve Lyapunov-like equations and several experimental functions to solve various 
+Lyapunov-like and Sylvester-like equations using Kronecker product based expansions (not suited for large problems).  
+
 ## Version 2.2.7
 
 Patch release to allow arbitrary floating-point types in all Sylvester system of equations solvers. 

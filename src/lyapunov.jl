@@ -2117,3 +2117,119 @@ function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScalin
       end
    end
 end
+# Lyapunov-like equations 
+"""
+    X = tlyapc(A,C, isig = 1; fast = true, atol::Real=0, rtol::Real=atol>0 ? 0 : N*ϵ)
+
+Compute for `isig = ±1` a solution of the continuous T-Lyapunov matrix equation
+
+                A*X + isig*transpose(X)*transpose(A) + C = 0
+
+using explicit formulas based on full rank factorizations of `A`  (see [1] and [2]). 
+`A` and `C` are `m×n` and `m×m` matrices, respectively, and `X` is an `n×m` matrix.
+The matrix `C` must be symmetric if `isig = 1` and skew-symmetric if `isig = -1`.
+`atol` and `rtol` are the absolute and relative tolerances, respectively, used for rank computation. 
+The default relative tolerance is `N*ϵ`, where `N = min(m,n)` and ϵ is the machine precision of 
+the element type of `A`.
+
+The underlying rank revealing factorization of `A` is the QR-factorization with column pivoting, 
+if `fast = true` (default), or the more reliable SVD-decomposition, if `fast = false`.
+
+[1] H. W. Braden. The equations A^T X ± X^T A = B. SIAM J. Matrix Anal. Appl., 20(2):295–302, 1998.
+
+[2] C.-Y. Chiang, E. K.-W. Chu, W.-W. Lin, On the ★-Sylvester equation AX ± X^★ B^★ = C.
+    Applied Mathematics and Computation, 218:8393–8407, 2012.
+"""
+function tlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real = (min(size(A)...)*eps(real(float(one(eltype(A))))))*iszero(atol))
+    m = LinearAlgebra.checksquare(C)
+    ma, n = size(A)
+    ma == m || throw(DimensionMismatch("A and C have incompatible dimensions"))
+    abs(isig) == 1 || error(" isig must be either 1 or -1")
+    if isig == 1
+       issymmetric(C) || error("C must be symmetric for isig = 1")
+       # temporary fix to avoid false results for DoubleFloats 
+       # C == transpose(C) || error("C must be symmetric for isig = 1")
+    else
+       iszero(C+transpose(C)) || error("C must be skew-symmetric for isig = -1")
+    end
+    T2 = promote_type(eltype(A), eltype(C))
+    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+    eltype(A) == T2 || (A = convert(Matrix{T2},A))
+    eltype(C) == T2 || (C = convert(Matrix{T2},C))
+    if fast 
+       @static VERSION < v"1.7.0" ? F = qr(A, Val(true)) : F = qr(A, ColumnNorm())
+       tol = max(atol, rtol*norm(F.R,Inf))
+       r = count(x -> abs(x) > tol, diag(F.R))
+       Ct = F.Q'*C*conj(F.Q)
+       i1 = 1:r; j2 = r+1:m
+       norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
+       return ([ldiv!(UpperTriangular(2*F.R[i1,i1]),view(Ct,i1,i1)) ldiv!(UpperTriangular(F.R[i1,i1]),view(Ct,i1,j2));
+                zeros(T2,n-r,m)]*transpose(F.Q))[invperm(F.p),:]
+   else
+       m > n ? F = svd(A,full = true) : F = svd(A)
+       tol = max(atol, rtol*F.S[1])
+       r = count(x -> x > tol, F.S)
+       Ct = F.U'*C*conj(F.U)
+       i1 = 1:r; j2 = r+1:m
+       norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
+       return view(F.Vt,i1,:)'*[Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S)\Ct[i1,j2]]*transpose(F.U)
+    end
+end 
+"""
+    X = hlyapc(A,C, isig = 1; atol::Real=0, rtol::Real=atol>0 ? 0 : N*ϵ)
+
+Compute for `isig = ±1` a solution of the continuous H-Lyapunov matrix equation
+
+                A*X + isig*adjoint(X)*adjoint(A) + C = 0
+
+using explicit formulas based on full rank factorizations of `A`  (see [1] and [2]). 
+`A` and `C` are `m×n` and `m×m` matrices, respectively, and `X` is an `n×m` matrix.
+The matrix `C` must be hermitian if `isig = 1` and skew-hermitian if `isig = -1`.
+`atol` and `rtol` are the absolute and relative tolerances, respectively, used for rank computation. 
+The default relative tolerance is `N*ϵ`, where `N = min(m,n)` and ϵ is the machine precision 
+of the element type of `A`.
+
+The underlying rank revealing factorization of `Ae` (or of `A` if real) is the QR-factorization with column pivoting, 
+if `fast = true` (default), or the more reliable SVD-decomposition, if `fast = false`.
+
+[1]  H. W. Braden. The equations A^T X ± X^T A = B. SIAM J. Matrix Anal. Appl., 20(2):295–302, 1998.
+
+[2] C.-Y. Chiang, E. K.-W. Chu, W.-W. Lin, On the ★-Sylvester equation AX ± X^★ B^★ = C.
+    Applied Mathematics and Computation, 218:8393–8407, 2012.
+"""
+function hlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real = (min(size(A)...)*eps(real(float(one(eltype(A))))))*iszero(atol))
+   promote_type(eltype(A),eltype(C)) <: Real && (return tlyapc(A, C; fast, atol, rtol))
+   m = LinearAlgebra.checksquare(C)
+   ma, n = size(A)
+   ma == m || throw(DimensionMismatch("A and C have incompatible dimensions"))
+   abs(isig) == 1 || error(" isig must be either 1 or -1")
+   if isig == 1
+      ishermitian(C) || error("C must be hermitian for isig = 1")
+      # temporary fix to avoid false results for DoubleFloats 
+      # C == adjoint(C) || error("C must be hermitian for isig = 1")
+   else
+      iszero(C+adjoint(C)) || error("C must be skew-hermitian for isig = -1")
+   end
+   T2 = promote_type(eltype(A), eltype(C))
+   T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
+   eltype(A) == T2 || (A = convert(Matrix{T2},A))
+   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   if fast 
+      @static VERSION < v"1.7.0" ? F = qr(A, Val(true)) : F = qr(A, ColumnNorm())
+      tol = max(atol, rtol*norm(F.R,Inf))
+      r = count(x -> abs(x) > tol, diag(F.R))
+      Ct = F.Q'*C*F.Q
+      i1 = 1:r; j2 = r+1:m
+      norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
+      return ([ldiv!(UpperTriangular(2*F.R[i1,i1]),view(Ct,i1,i1)) ldiv!(UpperTriangular(F.R[i1,i1]),view(Ct,i1,j2));
+               zeros(T2,n-r,m)]*F.Q')[invperm(F.p),:]
+  else
+      m > n ? F = svd(A,full = true) : F = svd(A)
+      tol = max(atol, rtol*F.S[1])
+      r = count(x -> x > tol, F.S)
+      Ct = F.U'*C*F.U
+      i1 = 1:r; j2 = r+1:m
+      norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
+      return view(F.Vt,i1,:)'*[Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S)\Ct[i1,j2]]*F.U'
+   end
+end

@@ -28,6 +28,8 @@ The current version of the package includes the following functions:
 | Function | Description |
 | :--- | :--- |
 | **[`lyapc`](@ref)**  | Solution of the continuous Lyapunov equations |
+| **[`tlyapc`](@ref)** | Solution of the continuous T-Lyapunov equations |
+| **[`hlyapc`](@ref)** | Solution of the continuous H-Lyapunov equations |
 | **[`lyapd`](@ref)**  | Solution of the discrete Lyapunov equations |
 | **[`plyapc`](@ref)** | Solution of the positive continuous Lyapunov equations|
 | **[`plyapd`](@ref)** | Solution of the positive discrete Lyapunov equations|
@@ -64,7 +66,7 @@ The general solvers of Lyapunov and Sylvester equations rely on a set of special
 
 ## Future plans
 
-The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Riccati equations, as those arising in game-theoretic optimization problems. Further performance improvements are still possible by employing blocking based variants of solvers for Lyapunov and Sylvester equations.
+The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Sylvester-like equations or Riccati equations (as those arising in game-theoretic optimization problems). Further performance improvements are still possible by employing blocking based variants of solvers for Lyapunov and Sylvester equations.
 
 ## [Release Notes](https://github.com/andreasvarga/MatrixEquations.jl/blob/master/ReleaseNotes.md)
 

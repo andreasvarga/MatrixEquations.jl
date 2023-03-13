@@ -5,6 +5,8 @@
 ```@docs
 lyapc
 lyapcs!
+tlyapc
+hlyapc
 ```
 
 ## Discrete-time Lyapunov (Stein) Matrix Equations

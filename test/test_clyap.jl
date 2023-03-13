@@ -3,13 +3,14 @@ module Test_clyap
 using LinearAlgebra
 using MatrixEquations
 using GenericSchur
+using GenericLinearAlgebra
 using DoubleFloats
 using Test
 
 
 @testset "Testing continuous Lyapunov equation solvers" begin
 
-n = 10
+n = 10; m = 7
 Ty = Float64
 
 @testset "Continuous Lyapunov equations" begin
@@ -323,6 +324,68 @@ x = copy(Qr)
 @time lyapcs!(as,x,adj=true);
 @test norm(as'*x+x*as+Qr)/norm(x)/norm(as) < reltol
 end
+end
+
+@testset "Continuous Lyapunov-like equations" begin
+for Ty in (Float64, Float32, BigFloat, Double64)
+
+  ar = rand(Ty,n,n);
+  er = rand(Ty,m,m)
+  cr = rand(Ty,n,m)
+  art = rand(Ty,m,n)
+  crt = rand(Ty,m,m)
+  ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+  cc = cr+im*rand(Ty,n,m)
+  crt1 = rand(Ty,m,n)
+  act = art+im*rand(Ty,m,n)
+  cct = crt+im*rand(Ty,m,m)
+  cct1 = crt1+im*rand(Ty,m,n)
+  qnh = rand(Ty,n,n)+im*rand(Ty,n,n);
+  Qc = Matrix(Hermitian(cc*cc'));
+  Qr = real(Qc);
+  Qcs = (Qc+transpose(Qc))/2
+  Qcss = (Qc-transpose(Qc))/2
+  Qrt1 = Matrix(Symmetric(crt1*crt1'))
+  Qct1 = Matrix(Hermitian(cct1*cct1'))
+  Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+
+  for fast in (true, false)
+
+  @time x2 = tlyapc(ar,-Qr; fast)
+  @test norm(ar*x2+transpose(x2)*ar'+Qr)/norm(x2) < reltol && x2 ≈ (-2ar)\Qr
+
+  @time x2 = tlyapc(art,-Qrt1; fast)
+  @test norm(art*x2+transpose(x2)*art'+Qrt1)/norm(x2) < reltol 
+
+  @time x2 = tlyapc(art,-Qrt1; fast)
+  @test norm(art*x2+transpose(x2)*art'+Qrt1)/norm(x2) < reltol 
+
+  @time x2 = tlyapc(ac,-Qcs; fast)
+  @test norm(ac*x2+transpose(x2)*transpose(ac)+Qcs)/norm(x2) < reltol 
+
+  @time x2 = tlyapc(ac,-Qcss,-1; fast)
+  @test norm(ac*x2-transpose(x2)*transpose(ac)+Qcss)/norm(x2) < reltol 
+
+  @time x2 = tlyapc(ar,-ar+ar',-1; fast)
+  @test norm(ar*x2-transpose(x2)*ar'+ar-ar')/norm(x2) < reltol && x2 ≈ (-2ar)\(ar-ar')
+
+  @time x2 = tlyapc(art,-er+er',-1; fast)
+  @test norm(art*x2-transpose(x2)*art'+er-er')/norm(x2) < reltol 
+  
+  @time x2 = tlyapc(transpose(ac),-ac+transpose(ac),-1; fast)
+  @test norm(transpose(ac)*x2-transpose(x2)*ac+ac-transpose(ac))/norm(x2) < reltol && x2 ≈ (-2transpose(ac))\(ac-transpose(ac))
+
+  @time x2 = hlyapc(ac',-Qc; fast)  
+  @test norm(ac'*x2+adjoint(x2)*ac+Qc)/norm(x2) < reltol 
+
+  @time x2 = hlyapc(act,-Qct1; fast)  
+  @test norm(act*x2+adjoint(x2)*adjoint(act)+Qct1)/norm(x2) < reltol 
+
+  @time x2 = hlyapc(ac',-ac+ac',-1; fast)  
+  @test norm(ac'*x2-adjoint(x2)*ac+ac-ac')/norm(x2) < reltol 
+
+end
+end  
 end
 
 end

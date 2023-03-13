@@ -2,7 +2,7 @@ module Test_sylvkr
 
 using LinearAlgebra
 using MatrixEquations
-using GenericSchur
+using GenericLinearAlgebra
 using DoubleFloats
 using Test
 
@@ -10,22 +10,37 @@ using Test
 
 n = 10; m = 7;
 
-for Ty in (Float64, BigFloat, Double64)
+# tests disabled for BigFloat and Double64 due to generic svd Issue 104 
+# for Ty in (Float64, BigFloat, Double64)
+for Ty in (Float64,)
+
 
 ar = rand(Ty,n,n)
 br = rand(Ty,m,m)
 cr = rand(Ty,n,m)
+art = rand(Ty,m,n)
+brt = rand(Ty,n,m)
+crt = rand(Ty,m,m)
+crt1 = rand(Ty,m,n)
 dr = rand(Ty,n,n)
 er = rand(Ty,m,m)
 fr = rand(Ty,n,m)
 ac = ar+im*rand(Ty,n,n)
 bc = br+im*rand(Ty,m,m)
 cc = cr+im*rand(Ty,n,m)
+act = art+im*rand(Ty,m,n)
+bct = brt+im*rand(Ty,n,m)
+cct = crt+im*rand(Ty,m,m)
+cct1 = crt1+im*rand(Ty,m,n)
 dc = dr+im*rand(Ty,n,n)
 ec = er+im*rand(Ty,m,m)
 fc = fr+im*rand(Ty,n,m)
-qr = cr*cr'
-qc = cc*cc'
+Qr = cr*cr'
+Qrss = (Qr-transpose(Qr))/2
+Qc = cc*cc'
+Qrt1 = crt1*crt1'
+Qcs = (Qc+transpose(Qc))/2
+Qcss = (Qc-transpose(Qc))/2
 reltol = sqrt(eps(one(Ty)))
 
 # solving Sylvester equations
@@ -41,18 +56,101 @@ reltol = sqrt(eps(one(Ty)))
 @time x = sylvdkr(ac,bc,cc)
 @test norm(ac*x*bc+x-cc)/norm(x) < reltol
 
+# solving Sylvester-like equations
+@time x = tsylvckr(art,brt,crt)
+@test norm(art*x+transpose(x)*brt-crt)/norm(x) < reltol
+
+@time x = tsylvckr(act,bct,cct)
+@test norm(act*x+transpose(x)*bct-cct)/norm(x) < reltol
+
+@time x = hsylvckr(act,bct,cct)
+@test norm(act*x+adjoint(x)*bct-cct)/norm(x) < reltol
+
+@time x = csylvckr(ac,bc,cc)
+@test norm(ac*x+conj(x)*bc-cc)/norm(x) < reltol
+
+@time x = tsylvdkr(art,brt',crt1)
+@test norm(art*transpose(x)*brt'+x-crt1)/norm(x) < reltol
+
+@time x = tsylvdkr(act,bct',cct1)
+@test norm(act*transpose(x)*bct'+x-cct1)/norm(x) < reltol
+
+@time x = hsylvdkr(act,bct',cct1)
+@test norm(act*adjoint(x)*bct'+x-cct1)/norm(x) < reltol
+
+@time x = csylvdkr(ac,bc,cc)
+@test norm(ac*conj(x)*bc+x-cc)/norm(x) < reltol
+
 # solving Lyapunov equations
-@time x = sylvckr(ar,ar',-qr)
-@test norm(ar*x+x*ar'+qr)/norm(x) < reltol
+@time x = sylvckr(ar,ar',-Qr)
+@test norm(ar*x+x*ar'+Qr)/norm(x) < reltol
 
-@time x = sylvckr(ac',ac,-qc)
-@test norm(ac'*x+x*ac+qc)/norm(x) < reltol
+@time x = sylvckr(ac',ac,-Qc)
+@test norm(ac'*x+x*ac+Qc)/norm(x) < reltol
 
-@time x = sylvdkr(-ar,ar',qr)
-@test norm(ar*x*ar'-x+qr)/norm(x) < reltol
+@time x = sylvdkr(-ar,ar',Qr)
+@test norm(ar*x*ar'-x+Qr)/norm(x) < reltol
 
-@time x = sylvdkr(-ac',ac,qc)
-@test norm(ac'*x*ac-x+qc)/norm(x) < reltol
+@time x = sylvdkr(-ac',ac,Qc)
+@test norm(ac'*x*ac-x+Qc)/norm(x) < reltol
+
+# solving Lyapunov-like equations
+@time x = tsylvckr(ar,ar',-Qr)
+@test norm(ar*x+transpose(x)*ar'+Qr)/norm(x) < reltol
+
+@time x1 = tlyapckr(ar,-Qr)
+@test norm(ar*x1+transpose(x1)*ar'+Qr)/norm(x1) < reltol && x ≈ x1
+
+@time x = tsylvckr(art,art',-Qrt1)
+@test norm(art*x+transpose(x)*art'+Qrt1)/norm(x) < reltol
+
+@time x1 = tlyapckr(art,-Qrt1)
+@test norm(art*x1+transpose(x1)*art'+Qrt1)/norm(x1) < reltol && x ≈ x1
+
+@time x = tsylvckr(ac,transpose(ac),-Qcs)
+@test norm(ac*x+transpose(x)*transpose(ac)+Qcs)/norm(x) < reltol
+
+@time x1 = tlyapckr(ac,-Qcs)
+@test norm(ac*x1+transpose(x1)*transpose(ac)+Qcs)/norm(x1) < reltol && x ≈ x1
+
+@time x = tsylvckr(ar,-ar',-ar+ar')
+@test norm(ar*x-transpose(x)*ar'+ar-ar')/norm(x) < reltol
+
+@time x1 = tlyapckr(ar,-ar+ar',-1)
+@test norm(ar*x1-transpose(x1)*ar'+ar-ar')/norm(x1) < reltol && x ≈ x1
+
+@time x = tsylvckr(art,-art',-er+er')
+@test norm(art*x-transpose(x)*art'+er-er')/norm(x) < reltol
+
+@time x1 = tlyapckr(art,-er+er',-1)
+@test norm(art*x1-transpose(x1)*art'+er-er')/norm(x1) < reltol && x ≈ x1
+
+@time x = tsylvckr(transpose(ac),-ac,-ac+transpose(ac))
+@test norm(transpose(ac)*x-transpose(x)*ac+ac-transpose(ac))/norm(x) < reltol
+
+@time x1 = tlyapckr(transpose(ac),-ac+transpose(ac),-1)
+@test norm(transpose(ac)*x1-transpose(x1)*ac+ac-transpose(ac))/norm(x1) < reltol && x ≈ x1
+
+@time x = hsylvckr(ac',ac,-Qc)  
+@test norm(ac'*x+adjoint(x)*ac+Qc)/norm(x) < reltol
+
+@time x1 = hlyapckr(ac',-Qc)  
+@test norm(ac'*x1+adjoint(x1)*ac+Qc)/norm(x1) < reltol && x ≈ x1
+
+@time x = hsylvckr(ac',-ac,-ac+ac')  
+@test norm(ac'*x-adjoint(x)*ac+ac-ac')/norm(x) < reltol
+
+@time x1 = hlyapckr(ac',-ac+ac',-1)  
+@test norm(ac'*x1-adjoint(x1)*ac+ac-ac')/norm(x1) < reltol && x ≈ x1
+
+@time x = tsylvdkr(-ar,ar',Qr)
+@test norm(ar*transpose(x)*ar'-x+Qr)/norm(x) < reltol
+
+@time x = hsylvdkr(-ac',ac,Qc)
+@test norm(ac'*adjoint(x)*ac-x+Qc)/norm(x) < reltol
+
+@time x = csylvdkr(-ac',ac,Qc)
+@test norm(ac'*conj(x)*ac-x+Qc)/norm(x) < reltol
 
 
 # solving generalized Sylvester equations
@@ -69,17 +167,17 @@ reltol = sqrt(eps(one(Ty)))
 @test norm(ac'*x*bc-dc*x*ec'-cc)/norm(x) < reltol
 
 # solving generalized Lyapunov equations
-@time x = gsylvkr(ar,dr',dr,ar',-qr)
-@test norm(ar*x*dr'+dr*x*ar'+qr)/norm(x) < reltol
+@time x = gsylvkr(ar,dr',dr,ar',-Qr)
+@test norm(ar*x*dr'+dr*x*ar'+Qr)/norm(x) < reltol
 
-@time x = gsylvkr(ac',dc,dc',ac,-qc)
-@test norm(ac'*x*dc+dc'*x*ac+qc)/norm(x) < reltol
+@time x = gsylvkr(ac',dc,dc',ac,-Qc)
+@test norm(ac'*x*dc+dc'*x*ac+Qc)/norm(x) < reltol
 
-@time x = gsylvkr(ar,ar',-dr,dr',-qr)
-@test norm(ar*x*ar'-dr*x*dr'+qr)/norm(x) < reltol
+@time x = gsylvkr(ar,ar',-dr,dr',-Qr)
+@test norm(ar*x*ar'-dr*x*dr'+Qr)/norm(x) < reltol
 
-@time x = gsylvkr(ac',ac,-dc',dc,-qc)
-@test norm(ac'*x*ac-dc'*x*dc+qc)/norm(x) < reltol
+@time x = gsylvkr(ac',ac,-dc',dc,-Qc)
+@test norm(ac'*x*ac-dc'*x*dc+Qc)/norm(x) < reltol
 
 # solving Sylvester systems
 @time x, y = sylvsyskr(ar,br,cr,dr,er,fr)
