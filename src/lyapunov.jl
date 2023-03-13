@@ -2160,7 +2160,7 @@ function tlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
        @static VERSION < v"1.7.0" ? F = qr(A, Val(true)) : F = qr(A, ColumnNorm())
        tol = max(atol, rtol*norm(F.R,Inf))
        r = count(x -> abs(x) > tol, diag(F.R))
-       Ct = F.Q'*C*conj(F.Q)
+       Ct = F.Q'*C*conj(Matrix(F.Q))
        i1 = 1:r; j2 = r+1:m
        norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
        return ([ldiv!(UpperTriangular(2*F.R[i1,i1]),view(Ct,i1,i1)) ldiv!(UpperTriangular(F.R[i1,i1]),view(Ct,i1,j2));

@@ -347,7 +347,7 @@ for Ty in (Float64, Float32, BigFloat, Double64)
   Qcss = (Qc-transpose(Qc))/2
   Qrt1 = Matrix(Symmetric(crt1*crt1'))
   Qct1 = Matrix(Hermitian(cct1*cct1'))
-  Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+  Ty == Float64 ? reltol = eps(float(100*n)) : reltol = eps(100*n*one(Ty))
 
   for fast in (true, false)
 
