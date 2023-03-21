@@ -8,12 +8,9 @@ using Test
 
 @testset "Testing Sylvester equation solvers based on Kronecker expansions" begin
 
-n = 10; m = 7;
+n = 5; m = 3;
 
-# tests disabled for BigFloat and Double64 due to generic svd Issue 104 
-# for Ty in (Float64, BigFloat, Double64)
-for Ty in (Float64,)
-
+for Ty in (Float64, BigFloat, Double64)
 
 ar = rand(Ty,n,n)
 br = rand(Ty,m,m)
@@ -36,9 +33,12 @@ dc = dr+im*rand(Ty,n,n)
 ec = er+im*rand(Ty,m,m)
 fc = fr+im*rand(Ty,n,m)
 Qr = cr*cr'
+Qr = (Qr+transpose(Qr))/2
 Qrss = (Qr-transpose(Qr))/2
 Qc = cc*cc'
+Qc = (Qc+Qc')/2
 Qrt1 = crt1*crt1'
+Qrt1 = (Qrt1+transpose(Qrt1))/2
 Qcs = (Qc+transpose(Qc))/2
 Qcss = (Qc-transpose(Qc))/2
 reltol = sqrt(eps(one(Ty)))

@@ -122,7 +122,13 @@ function tlyapckr(A, C, isig = 1; atol::Real = 0.0, rtol::Real = (4*min(size(A).
     ma == m || throw(DimensionMismatch("A and C have incompatible dimensions"))
     abs(isig) == 1 || error(" isig must be either 1 or -1")
     if isig == 1
-       issymmetric(C) || error("C must be symmetric for isig = 1")
+       T1 =  eltype(C)
+       if T1 <: BlasFloat ||  T1 <: BigFloat
+          issymmetric(C) || error("C must be symmetric for isig = 1")
+       else
+          # alternative test to overcome issue #168 in DoubleFloats
+          iszero(C-transpose(C)) || error("C must be symmetric for isig = 1")   
+       end       
     else
        iszero(C+transpose(C)) || error("C must be skew-symmetric for isig = -1")
     end
