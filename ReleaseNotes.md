@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.10
+
+Patch release to fix issue [MatrixPencils#11](https://github.com/andreasvarga/MatrixPencils.jl/issues/11).
+
 ## Version 2.2.9
 
 Patch release with generic functions to solve various 
