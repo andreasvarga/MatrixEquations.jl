@@ -17,12 +17,11 @@ end
     
 println("Test_MEcondest")
 
-@testset "Testing Lyapunov and Sylvester operators" begin
+#@testset "Testing Lyapunov and Sylvester operators" begin
 
 n = 10; m = 5;
 reltol = sqrt(eps(10.));
 sc = 0.1;
-
 
 @testset "Continuous Lyapunov operators" begin
 
@@ -1378,6 +1377,6 @@ try
 
 end
 
-end
+#end
 
 end
