@@ -9,6 +9,8 @@ ar, ur, = schur(rand(n,n))
 cr = rand(n,n)
 Qr = cr'*cr
 
+println("Test_meutil")
+
 @testset "Matrix Equations Utilities" begin
 x = copy(Qr); @time utqu!(x,ur);
 @time y = ur'*Qr*ur;

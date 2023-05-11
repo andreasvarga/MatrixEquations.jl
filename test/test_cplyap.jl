@@ -7,6 +7,7 @@ using DoubleFloats
 using Test
 
 
+println("Test_cplyap")
 @testset "Testing positive continuous Lyapunov equation solvers" begin
 
 n = 30

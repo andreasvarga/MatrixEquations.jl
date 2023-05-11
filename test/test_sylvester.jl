@@ -8,6 +8,9 @@ using Test
 using Random
 using LinearAlgebra: BlasFloat
 
+
+println("Test_sylvester")
+
 @testset "Testing Sylvester equation solvers" begin
 
 Random.seed!(21235)

@@ -6,6 +6,7 @@ using GenericSchur
 using DoubleFloats
 using Test
 
+println("Test_dplyap")
 @testset "Testing positive discrete Lyapunov equation solvers" begin
 
 n = 30

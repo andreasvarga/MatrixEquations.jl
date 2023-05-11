@@ -7,6 +7,7 @@ using DoubleFloats
 using Test
 
 
+println("Test_dlyap")
 @testset "Testing discrete Lyapunov equation solvers" begin
 
 n = 10

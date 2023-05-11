@@ -6,6 +6,9 @@ using GenericLinearAlgebra
 using DoubleFloats
 using Test
 
+println("Test_sylvkr")
+
+
 @testset "Testing Sylvester equation solvers based on Kronecker expansions" begin
 
 n = 5; m = 3;

@@ -5,6 +5,8 @@ using LinearAlgebra
 using MatrixEquations
 using Test
 
+println("Test_riccati")
+
 @testset "Testing algebraic Riccati equation solvers" begin
 
 # only double precision tests are performed

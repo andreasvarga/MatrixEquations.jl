@@ -15,6 +15,7 @@ function check_ctranspose(op::LinearMaps.LinearMap{T}) where {T <: Union{Abstrac
    return abs(yAx - conj(xAty)) < (abs(yAx) + ε) * ε^(1 / 3)
 end
     
+println("Test_MEcondest")
 
 @testset "Testing Lyapunov and Sylvester operators" begin
 

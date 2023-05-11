@@ -8,6 +8,7 @@ using DoubleFloats
 using Test
 
 
+println("Test_clyap")
 @testset "Testing continuous Lyapunov equation solvers" begin
 
 n = 10; m = 7
