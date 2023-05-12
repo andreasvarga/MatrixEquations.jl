@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Sylvester Matrix Equation Solvers · MatrixEquations.jl</title><script data-outdated-warner src="assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="index.html">MatrixEquations.jl</a></span></div><form class="docs-search" action="search.html"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="index.html">Home</a></li><li><span class="tocitem">Library</span><ul><li><a class="tocitem" href="lyapunov.html">Lyapunov Matrix Equation Solvers</a></li><li><a class="tocitem" href="plyapunov.html">Positive-definite Lyapunov Matrix Equation Solvers</a></li><li><a class="tocitem" href="riccati.html">Riccati Matrix Equation Solvers</a></li><li class="is-active"><a class="tocitem" href="sylvester.html">Sylvester Matrix Equation Solvers</a><ul class="internal"><li><a class="tocitem" href="#Standard-Sylvester-Matrix-Equations"><span>Standard Sylvester Matrix Equations</span></a></li><li><a class="tocitem" href="#Generalized-Sylvester-Matrix-Equations"><span>Generalized Sylvester Matrix Equations</span></a></li><li><a class="tocitem" href="#Sylvester-Systems-of-Matrix-Equation"><span>Sylvester Systems of Matrix Equation</span></a></li></ul></li><li><a class="tocitem" href="sylvkr.html">Matrix Equation Solvers using Kronecker-product Expansions</a></li><li><a class="tocitem" href="condest.html">Norm, Condition Number and Separation Estimations</a></li><li><a class="tocitem" href="meoperators.html">Linear Operators Related to Matrix Equation Solvers</a></li></ul></li><li><span class="tocitem">Internal</span><ul><li><a class="tocitem" href="lapackutil.html">Lapack Utilities</a></li><li><a class="tocitem" href="meutil.html">Matrix Equations Utilities</a></li></ul></li><li><a class="tocitem" href="makeindex.html">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Library</a></li><li class="is-active"><a href="sylvester.html">Sylvester Matrix Equation Solvers</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href="sylvester.html">Sylvester Matrix Equation Solvers</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/master/docs/src/sylvester.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Sylvester-Matrix-Equation-Solvers"><a class="docs-heading-anchor" href="#Sylvester-Matrix-Equation-Solvers">Sylvester Matrix Equation Solvers</a><a id="Sylvester-Matrix-Equation-Solvers-1"></a><a class="docs-heading-anchor-permalink" href="#Sylvester-Matrix-Equation-Solvers" title="Permalink"></a></h1><h2 id="Standard-Sylvester-Matrix-Equations"><a class="docs-heading-anchor" href="#Standard-Sylvester-Matrix-Equations">Standard Sylvester Matrix Equations</a><a id="Standard-Sylvester-Matrix-Equations-1"></a><a class="docs-heading-anchor-permalink" href="#Standard-Sylvester-Matrix-Equations" title="Permalink"></a></h2><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.sylvc" href="#MatrixEquations.sylvc"><code>MatrixEquations.sylvc</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">X = sylvc(A,B,C)</code></pre><p>Solve the continuous Sylvester matrix equation</p><pre><code class="nohighlight hljs">            AX + XB = C</code></pre><p>using the Bartels-Stewart Schur form based approach. <code>A</code> and <code>B</code> are square matrices, and <code>A</code> and <code>-B</code> must not have common eigenvalues.</p><p>The following particular cases are also adressed:</p><pre><code class="nohighlight hljs">X = sylvc(α*I,B,C)  or  X = sylvc(α,B,C)</code></pre><p>Solve the matrix equation <code>X(αI+B)  = C</code>.</p><pre><code class="nohighlight hljs">X = sylvc(A,β*I,C)  or  X = sylvc(A,β,C)</code></pre><p>Solve the matrix equation <code>(A+βI)X = C</code>.</p><pre><code class="nohighlight hljs">X = sylvc(α*I,β*I,C)  or  sylvc(α,β,C)</code></pre><p>Solve the matrix equation <code>(α+β)X = C</code>.</p><pre><code class="nohighlight hljs">x = sylvc(α,β,γ)</code></pre><p>Solve the equation <code>(α+β)x = γ</code>.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl hljs">julia&gt; A = [3. 4.; 5. 6.]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+
+julia&gt; B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia&gt; C = [-1. -2.; 2. -1.]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+
+julia&gt; X = sylvc(A, B, C)
+2×2 Array{Float64,2}:
+ -4.46667   1.93333
+  3.73333  -1.8
+
+julia&gt; A*X + X*B - C
+2×2 Array{Float64,2}:
+  2.66454e-15  1.77636e-15
+ -3.77476e-15  4.44089e-16</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L1-L56">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.sylvcs!" href="#MatrixEquations.sylvcs!"><code>MatrixEquations.sylvcs!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">sylvcs!(A,B,C; adjA = false, adjB = false)</code></pre><p>Solve the continuous Sylvester matrix equation</p><pre><code class="nohighlight hljs">            op(A)X + Xop(B) =  C,</code></pre><p>where <code>op(A) = A</code> or <code>op(A) = A&#39;</code> if <code>adjA = false</code> or <code>adjA = true</code>, respectively, and <code>op(B) = B</code> or <code>op(B) = B&#39;</code> if <code>adjB = false</code> or <code>adjB = true</code>, respectively. <code>A</code> and <code>B</code> are square matrices in Schur forms, and <code>A</code> and <code>-B</code> must not have common eigenvalues. <code>C</code> contains on output the solution <code>X</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L567-L578">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.sylvd" href="#MatrixEquations.sylvd"><code>MatrixEquations.sylvd</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">X = sylvd(A,B,C)</code></pre><p>Solve the discrete Sylvester matrix equation</p><pre><code class="nohighlight hljs">            AXB + X = C</code></pre><p>using an extension of the Bartels-Stewart Schur form based approach. <code>A</code> and <code>B</code> are square matrices, and <code>A</code> and <code>-B</code> must not have common reciprocal eigenvalues.</p><p>The following particular cases are also adressed:</p><pre><code class="nohighlight hljs">X = sylvd(α*I,B,C)  or  X = sylvd(α,B,C)</code></pre><p>Solve the matrix equation <code>X(αB+I)  = C</code>.</p><pre><code class="nohighlight hljs">X = sylvd(A,β*I,C)   or  X = sylvd(A,β,C)</code></pre><p>Solve the matrix equation <code>(βA+I)X = C</code>.</p><pre><code class="nohighlight hljs">X = sylvd(α*I,β*I,C)  or  X = sylvd(α,β,C)</code></pre><p>Solve the matrix equation <code>(αβ+1)X = C</code>.</p><pre><code class="nohighlight hljs">x = sylvd(α,β,γ)</code></pre><p>Solve the equation <code>(αβ+1)x = γ</code>.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl hljs">julia&gt; A = [3. 4.; 5. 6.]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+
+julia&gt; B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia&gt; C = [-1. -2.; 2. -1.]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+
+julia&gt; X = sylvd(A, B, C)
+2×2 Array{Float64,2}:
+ -2.46667  -2.73333
+  2.4       1.86667
+
+julia&gt; A*X*B + X - C
+2×2 Array{Float64,2}:
+  8.88178e-16   8.88178e-16
+ -3.9968e-15   -5.55112e-15</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L107-L163">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.sylvds!" href="#MatrixEquations.sylvds!"><code>MatrixEquations.sylvds!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">sylvds!(A,B,C; adjA = false, adjB = false)</code></pre><p>Solve the discrete Sylvester matrix equation</p><pre><code class="nohighlight hljs">            op(A)Xop(B) + X =  C,</code></pre><p>where <code>op(A) = A</code> or <code>op(A) = A&#39;</code> if <code>adjA = false</code> or <code>adjA = true</code>, respectively, and <code>op(B) = B</code> or <code>op(B) = B&#39;</code> if <code>adjB = false</code> or <code>adjB = true</code>, respectively. <code>A</code> and <code>B</code> are square matrices in Schur forms, and <code>A</code> and <code>-B</code> must not have common reciprocal eigenvalues. <code>C</code> contains on output the solution <code>X</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L1154-L1165">source</a></section></article><h2 id="Generalized-Sylvester-Matrix-Equations"><a class="docs-heading-anchor" href="#Generalized-Sylvester-Matrix-Equations">Generalized Sylvester Matrix Equations</a><a id="Generalized-Sylvester-Matrix-Equations-1"></a><a class="docs-heading-anchor-permalink" href="#Generalized-Sylvester-Matrix-Equations" title="Permalink"></a></h2><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.gsylv" href="#MatrixEquations.gsylv"><code>MatrixEquations.gsylv</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">X = gsylv(A,B,C,D,E)</code></pre><p>Solve the generalized Sylvester matrix equation</p><pre><code class="nohighlight hljs">          AXB + CXD = E</code></pre><p>using a generalized Schur form based approach. <code>A</code>, <code>B</code>, <code>C</code> and <code>D</code> are square matrices. The pencils <code>A-λC</code> and <code>D+λB</code> must be regular and must not have common eigenvalues.</p><p>The following particular cases are also adressed:</p><pre><code class="nohighlight hljs">X = gsylv(A,B,E)</code></pre><p>Solve the generalized Sylvester matrix equation <code>AXB  = E</code>.</p><pre><code class="nohighlight hljs">X = gsylv(A,B,γ*I,E)  or  X = gsylv(A,B,γ,E)</code></pre><p>Solve the generalized Sylvester matrix equation <code>AXB +γX = E</code>.</p><pre><code class="nohighlight hljs">X = gsylv(A,B,γ*I,D,E)  or  X = gsylv(A,B,γ,D,E)</code></pre><p>Solve the generalized Sylvester matrix equation <code>AXB +γXD = E</code>.</p><pre><code class="nohighlight hljs">X = gsylv(A,B,C,δ*I,E)  or  X = gsylv(A,B,C,δ,E)</code></pre><p>Solve the generalized Sylvester matrix equation <code>AXB +CXδ = E</code>.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl hljs">julia&gt; A = [3. 4.; 5. 6.]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+
+julia&gt; B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia&gt; C = [-1. -2.; 2. -1.]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+
+julia&gt; D = [1. -2.; -2. -1.]
+2×2 Array{Float64,2}:
+  1.0  -2.0
+ -2.0  -1.0
+
+julia&gt; E = [1. -1.; -2. 2.]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+
+julia&gt; X = gsylv(A, B, C, D, E)
+2×2 Array{Float64,2}:
+ -0.52094   -0.0275792
+ -0.168539   0.314607
+
+julia&gt; A*X*B + C*X*D - E
+2×2 Array{Float64,2}:
+ 4.44089e-16  8.88178e-16
+ 6.66134e-16  0.0</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L208-L274">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.gsylvs!" href="#MatrixEquations.gsylvs!"><code>MatrixEquations.gsylvs!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">X = gsylvs!(A,B,C,D,E; adjAC=false, adjBD=false, CASchur = false, DBSchur = false)</code></pre><p>Solve the generalized Sylvester matrix equation</p><pre><code class="nohighlight hljs">            op1(A)Xop2(B) + op1(C)Xop2(D) = E,</code></pre><p>where <code>A</code>, <code>B</code>, <code>C</code> and <code>D</code> are square matrices, and</p><p><code>op1(A) = A</code> and <code>op1(C) = C</code> if <code>adjAC = false</code>;</p><p><code>op1(A) = A&#39;</code> and <code>op1(C) = C&#39;</code> if <code>adjAC = true</code>;</p><p><code>op2(B) = B</code> and <code>op2(D) = D</code> if <code>adjBD = false</code>;</p><p><code>op2(B) = B&#39;</code> and <code>op2(D) = D&#39;</code> if <code>adjBD = true</code>.</p><p>The matrix pair <code>(A,C)</code> is in a generalized real or complex Schur form. The matrix pair <code>(B,D)</code> is in a generalized real or complex Schur form if <code>DBSchur = false</code> or the matrix pair <code>(D,B)</code> is in a generalized real or complex Schur form if <code>DBSchur = true</code>. The pencils <code>A-λC</code> and <code>D+λB</code> must be regular and must not have common eigenvalues.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L1559-L1580">source</a></section></article><h2 id="Sylvester-Systems-of-Matrix-Equation"><a class="docs-heading-anchor" href="#Sylvester-Systems-of-Matrix-Equation">Sylvester Systems of Matrix Equation</a><a id="Sylvester-Systems-of-Matrix-Equation-1"></a><a class="docs-heading-anchor-permalink" href="#Sylvester-Systems-of-Matrix-Equation" title="Permalink"></a></h2><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.sylvsys" href="#MatrixEquations.sylvsys"><code>MatrixEquations.sylvsys</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">(X,Y) = sylvsys(A,B,C,D,E,F)</code></pre><p>Solve the Sylvester system of matrix equations</p><pre><code class="nohighlight hljs">            AX + YB = C
+            DX + YE = F,</code></pre><p>where <code>(A,D)</code>, <code>(B,E)</code> are pairs of square matrices of the same size. The pencils <code>A-λD</code> and <code>-B+λE</code> must be regular and must not have common eigenvalues.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl hljs">julia&gt; A = [3. 4.; 5. 6.]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+
+julia&gt; B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia&gt; C = [-1. -2.; 2. -1.]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+
+julia&gt; D = [1. -2.; -2. -1.]
+2×2 Array{Float64,2}:
+  1.0  -2.0
+ -2.0  -1.0
+
+julia&gt; E = [1. -1.; -2. 2.]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+
+julia&gt; F = [1. -1.; -2. 2.]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+
+julia&gt; X, Y = sylvsys(A, B, C, D, E, F);
+
+julia&gt; X
+2×2 Array{Float64,2}:
+  1.388  -1.388
+ -0.892   0.892
+
+julia&gt; Y
+2×2 Array{Float64,2}:
+ -1.788  0.192
+  0.236  0.176
+
+julia&gt; A*X + Y*B - C
+2×2 Array{Float64,2}:
+  6.66134e-16  2.22045e-15
+ -3.10862e-15  2.66454e-15
+
+julia&gt; D*X + Y*E - F
+2×2 Array{Float64,2}:
+  1.33227e-15  -2.22045e-15
+ -4.44089e-16   4.44089e-16</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L339-L403">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.sylvsyss!" href="#MatrixEquations.sylvsyss!"><code>MatrixEquations.sylvsyss!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">(X,Y) = sylvsyss!(A,B,C,D,E,F)</code></pre><p>Solve the Sylvester system of matrix equations</p><pre><code class="nohighlight hljs">            AX + YB = C
+            DX + YE = F,</code></pre><p>where <code>(A,D)</code>, <code>(B,E)</code> are pairs of square matrices of the same size in generalized Schur forms. The pencils <code>A-λD</code> and <code>-B+λE</code> must be regular and must not have common eigenvalues. The computed solution <code>(X,Y)</code> is contained in <code>(C,F)</code>.</p><p><em>Note:</em> This is an enhanced interface to the <code>LAPACK.tgsyl!</code> function to also cover the case when <code>A</code>, <code>B</code>, <code>D</code> and <code>E</code> are real matrices and <code>C</code> and <code>F</code> are complex matrices.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L2531-L2545">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.dsylvsys" href="#MatrixEquations.dsylvsys"><code>MatrixEquations.dsylvsys</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">(X,Y) = dsylvsys(A,B,C,D,E,F)</code></pre><p>Solve the dual Sylvester system of matrix equations</p><pre><code class="nohighlight hljs">   AX + DY = C
+   XB + YE = F ,</code></pre><p>where <code>(A,D)</code>, <code>(B,E)</code> are pairs of square matrices of the same size. The pencils <code>A-λD</code> and <code>-B+λE</code> must be regular and must not have common eigenvalues.</p><p><strong>Example</strong></p><pre><code class="language-julia-repl hljs">julia&gt; A = [3. 4.; 5. 6.]
+2×2 Array{Float64,2}:
+ 3.0  4.0
+ 5.0  6.0
+
+julia&gt; B = [1. 1.; 1. 2.]
+2×2 Array{Float64,2}:
+ 1.0  1.0
+ 1.0  2.0
+
+julia&gt; C = [-1. -2.; 2. -1.]
+2×2 Array{Float64,2}:
+ -1.0  -2.0
+  2.0  -1.0
+
+julia&gt; D = [1. -2.; -2. -1.]
+2×2 Array{Float64,2}:
+  1.0  -2.0
+ -2.0  -1.0
+
+julia&gt; E = [1. -1.; -2. 2.]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+
+julia&gt; F = [1. -1.; -2. 2.]
+2×2 Array{Float64,2}:
+  1.0  -1.0
+ -2.0   2.0
+
+julia&gt; X, Y = dsylvsys(A, B, C, D, E, F);
+
+julia&gt; X
+2×2 Array{Float64,2}:
+  2.472  -1.648
+ -1.848   1.232
+
+julia&gt; Y
+2×2 Array{Float64,2}:
+ -0.496  -0.336
+  0.264   0.824
+
+julia&gt; A*X + D*Y - C
+2×2 Array{Float64,2}:
+  4.44089e-16  0.0
+ -3.55271e-15  1.55431e-15
+
+julia&gt; X*B + Y*E - F
+2×2 Array{Float64,2}:
+ -8.88178e-16   0.0
+  8.88178e-16  -4.44089e-16</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L446-L511">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="MatrixEquations.dsylvsyss!" href="#MatrixEquations.dsylvsyss!"><code>MatrixEquations.dsylvsyss!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">(X,Y) = dsylvsyss!(A,B,C,D,E,F)</code></pre><p>Solve the dual Sylvester system of matrix equations</p><pre><code class="nohighlight hljs">A&#39;X + D&#39;Y = C
+XB&#39; + YE&#39; = F,</code></pre><p>where <code>(A,D)</code>, <code>(B,E)</code> are pairs of square matrices of the same size in generalized Schur forms. The pencils <code>A-λD</code> and <code>-B+λE</code> must be regular and must not have common eigenvalues. The computed solution <code>(X,Y)</code> is contained in <code>(C,F)</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/andreasvarga/MatrixEquations.jl/blob/2fa4f3ad6d06641471c73b40780b272a8e0b9894/src/sylvester.jl#L2554-L2565">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="riccati.html">« Riccati Matrix Equation Solvers</a><a class="docs-footer-nextpage" href="sylvkr.html">Matrix Equation Solvers using Kronecker-product Expansions »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 12 May 2023 07:18">Friday 12 May 2023</span>. Using Julia version 1.6.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
