@@ -7,6 +7,8 @@ lyapc
 lyapcs!
 tlyapc
 hlyapc
+tlyapcu!
+hlyapcu!
 ```
 
 ## Discrete-time Lyapunov (Stein) Matrix Equations

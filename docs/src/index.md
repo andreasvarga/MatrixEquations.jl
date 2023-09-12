@@ -30,7 +30,9 @@ The current version of the package includes the following functions:
 | **[`lyapc`](@ref)**  | Solution of the continuous Lyapunov equations |
 | **[`tlyapc`](@ref)** | Solution of the continuous T-Lyapunov equations |
 | **[`hlyapc`](@ref)** | Solution of the continuous H-Lyapunov equations |
-| **[`lyapd`](@ref)**  | Solution of the discrete Lyapunov equations |
+| **[`tlyapcu!`](@ref)** | Computation of the upper triangular solution of the continuous T-Lyapunov equation |
+| **[`hlyapcu!`](@ref)** | Computation of the upper triangular solution of the continuous H-Lyapunov equation |
+**[`lyapd`](@ref)**  | Solution of the discrete Lyapunov equations |
 | **[`plyapc`](@ref)** | Solution of the positive continuous Lyapunov equations|
 | **[`plyapd`](@ref)** | Solution of the positive discrete Lyapunov equations|
 

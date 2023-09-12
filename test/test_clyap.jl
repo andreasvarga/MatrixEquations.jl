@@ -387,8 +387,46 @@ for Ty in (Float64, Float32, BigFloat, Double64)
 
 end
 end  
+
+@testset "Continuous positive Lyapunov-like equations" begin
+  n = 10
+  Ty = Float64
+  reltol = 1.e-7
+  for Ty in (Float64, Float32, BigFloat, Double64)
+      Ty == Float64 ? reltol = eps(float(100*n)) : reltol = eps(100*n*one(Ty))
+      U = triu(rand(Ty,n,n));
+      X0 = triu(rand(Ty,n,n));
+      Q = Matrix(Symmetric(transpose(U)*X0 + transpose(X0)*U))
+      @time X = tlyapcu!(U, copy(Q); adj = true)  
+      @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
+    
+      Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
+      @time X = tlyapcu!(U, copy(Q); adj = false); 
+      @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
+
+      U = triu(rand(Ty,n,n)+im*rand(Ty,n,n));
+      X0 = triu(rand(Ty,n,n)+im*rand(Ty,n,n));
+      Q = Matrix(Symmetric(transpose(U)*X0 + transpose(X0)*U))
+      @time X = tlyapcu!(U, copy(Q); adj = true)  
+      @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
+
+      Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
+      @time X = tlyapcu!(U, copy(Q); adj = false); 
+      @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
+
+      Q = Matrix(Hermitian(U'*X0 + X0'*U))
+      @time X = hlyapcu!(U, copy(Q); adj = true)  
+      @test norm(U'*X + X'*U - Q)/norm(X) < reltol 
+
+      Q = Matrix(Hermitian(U*X0' + X0*U'))
+      @time X = hlyapcu!(U, copy(Q); adj = false); 
+      @test norm(U*X' + X*U'- Q)/norm(X) < reltol 
+ 
+  end
+    
 end
 
 end
 
+end
 end

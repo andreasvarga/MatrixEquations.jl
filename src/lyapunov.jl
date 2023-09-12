@@ -2171,8 +2171,9 @@ function tlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
        r = count(x -> x > tol, F.S)
        Ct = F.U'*C*conj(F.U)
        i1 = 1:r; j2 = r+1:m
+       #@show Ct
        norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
-       return view(F.Vt,i1,:)'*[Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S)\Ct[i1,j2]]*transpose(F.U)
+       return view(F.Vt,i1,:)'*([Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S[i1])\Ct[i1,j2]]*transpose(F.U))
     end
 end 
 """
@@ -2230,6 +2231,116 @@ function hlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
       Ct = F.U'*C*F.U
       i1 = 1:r; j2 = r+1:m
       norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
-      return view(F.Vt,i1,:)'*[Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S)\Ct[i1,j2]]*F.U'
+      return view(F.Vt,i1,:)'*[Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S[i1])\Ct[i1,j2]]*F.U'
    end
+end
+"""
+    X = tlyapcu!(U, Q; adj = false)
+
+Compute for a nonsingular upper triangular `U` and a symmetric `Q` an upper triangular solution `X` of the continuous T-Lyapunov matrix equation
+
+                U*transpose(X) + X*transpose(U) = Q   if adj = false, 
+
+or
+
+                transpose(U)*X + transpose(X)*U = Q   if adj = true.
+
+The solution `X` overwrites the matrix `Q`, while `U` is unchanged.
+
+A backward elimination method is used, if `adj = false`, or a forward elimination method is used if `adj = true`, by adapting the approach 
+employed in the function `dU_from_dQ!` of the [`DiffOpt.jl`](https://github.com/jump-dev/DiffOpt.jl) package. 
+"""
+function tlyapcu!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false) where {T}
+   n = LinearAlgebra.checksquare(Q)
+   n == LinearAlgebra.checksquare(Q) || throw(DimensionMismatch("U and Q have incompatible dimensions"))
+   istriu(U) || throw(ArgumentError("U must be upper triangular"))
+   issymmetric(Q) || throw(ArgumentError("Q must be symmetric"))
+   any(iszero.(diag(U))) && throw(SingularException)
+   if adj
+      # transpose(U)*X + transpose(X)*U = Q
+      for j in 1:n
+          for i in 1:n
+              if i < j
+                 Q[i, j] -= transpose(view(U, 1:i, j))*view(Q, 1:i, i)
+              elseif i == j
+                 Q[i, j] /= 2
+              else
+                 Q[i, j] = 0
+              end
+          end
+          Ut = transpose(LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j)))
+          LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+      end
+   else
+      # U*transpose(X) + X*transpose(U) = Q
+      for i in n:-1:1
+          for j in n:-1:1
+              if i < j
+                 Q[i, j] -= transpose(view(U, i, j:n))*view(Q, j, j:n)
+              elseif i == j
+                 Q[i, j] /= 2
+              else
+                 Q[i, j] = 0
+              end
+          end
+          Ut = transpose(LinearAlgebra.UpperTriangular(view(U, i:n, i:n)))
+          LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
+      end
+   end
+   return Q
+end
+"""
+    X = hlyapcu!(U, Q; adj = false)
+
+Compute for a nonsingular upper triangular `U` and a hermitian `Q` an upper triangular solution `X` of the continuous H-Lyapunov matrix equation
+
+                U*X' + X*U' = Q   if adj = false, 
+
+or
+
+                U'*X + X'*U = Q   if adj = true.
+
+The solution `X` overwrites the matrix `Q`, while `U` is unchanged.
+
+A backward elimination method is used, if `adj = false`, or a forward elimination method is used if `adj = true`, by adapting the approach 
+employed in the function `dU_from_dQ!` of the [`DiffOpt.jl`](https://github.com/jump-dev/DiffOpt.jl) package. 
+"""
+function hlyapcu!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false) where {T}
+   n = LinearAlgebra.checksquare(Q)
+   n == LinearAlgebra.checksquare(Q) || throw(DimensionMismatch("U and Q have incompatible dimensions"))
+   istriu(U) || throw(ArgumentError("U must be upper triangular"))
+   ishermitian(Q) || throw(ArgumentError("Q must be hermitian"))
+   any(iszero.(diag(U))) && throw(SingularException)
+   if adj
+      # U'*X + X'*U = Q
+      for j in 1:n
+          for i in 1:n
+              if i < j
+                 Q[i, j] -= view(Q, 1:i, i)'*view(U, 1:i, j)
+              elseif i == j
+                 Q[i, j] /= 2
+              else
+                 Q[i, j] = 0
+              end
+          end
+          Ut = LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j))'
+          LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+      end
+   else
+      # U*X' + X*U' = Q
+      for i in n:-1:1
+          for j in n:-1:1
+              if i < j
+                 Q[i, j] -= view(Q, j, j:n)'*view(U, i, j:n)
+              elseif i == j
+                 Q[i, j] /= 2
+              else
+                 Q[i, j] = 0
+              end
+          end
+          Ut = LinearAlgebra.UpperTriangular(view(U, i:n, i:n))'
+          LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
+      end
+   end
+   return Q
 end

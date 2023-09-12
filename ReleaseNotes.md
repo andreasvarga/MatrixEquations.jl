@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.2.11
+
+Patch release to fix bugs in tlyapc and hlyapc. New functions tlyapcu! and hlyapcu! have been implemented to solve continuous T/H-Lyapunov equations for the upper triangular solution. 
+
 ## Version 2.2.10
 
 Patch release to fix issue [MatrixPencils#11](https://github.com/andreasvarga/MatrixPencils.jl/issues/11).
