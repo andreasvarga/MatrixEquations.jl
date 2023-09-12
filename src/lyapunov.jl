@@ -2171,7 +2171,6 @@ function tlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
        r = count(x -> x > tol, F.S)
        Ct = F.U'*C*conj(F.U)
        i1 = 1:r; j2 = r+1:m
-       #@show Ct
        norm(view(Ct,j2,j2),Inf) <= tol || @warn "Incompatible equation: least-squares solution computed"
        return view(F.Vt,i1,:)'*([Diagonal(F.S[i1]*2)\Ct[i1,i1] Diagonal(F.S[i1])\Ct[i1,j2]]*transpose(F.U))
     end
