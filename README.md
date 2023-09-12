@@ -40,8 +40,8 @@ The current version of the package includes the following functions:
 
 * **lyapc**   Solution of the continuous Lyapunov equations `AX+XA'+C = 0` and `AXE'+EXA'+C = 0`.
 * **lyapd**  Solution of discrete Lyapunov equations `AXA'-X +C = 0` and `AXA'-EXE'+C = 0`.
-* **tlyapc** Solution of the continuous T-Lyapunov equations .
-* **hlyapc** Solution of the continuous H-Lyapunov equations .
+* **tlyapc** Solution of the continuous T-Lyapunov equations `A*X±X^⊤*A^⊤+C = 0`.
+* **hlyapc** Solution of the continuous H-Lyapunov equations `A*X±X'*A'+C = 0`.
 * **plyapc**  Solution of the positive continuous Lyapunov equations `AX+XA'+BB' = 0` and `AXE'+EXA'+BB' = 0`.
 * **plyapd**  Solution of the positive discrete Lyapunov equations `AXA'-X +C = 0` and `AXA'-EXE'+C = 0`.
 
