@@ -8,7 +8,6 @@ using LinearAlgebra
 using LinearAlgebra: require_one_based_indexing
 import LinearAlgebra: mul!
 using LinearMaps
-using Optim
 #using JLD  
 
 
