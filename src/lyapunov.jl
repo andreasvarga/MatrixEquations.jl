@@ -2234,7 +2234,7 @@ function hlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
    end
 end
 """
-    X = tlyapcu!(U, Q; adj = false)
+    X = tulyapc!(U, Q; adj = false)
 
 Compute for a nonsingular upper triangular `U` and a symmetric `Q` an upper triangular solution `X` of the continuous T-Lyapunov matrix equation
 
@@ -2246,50 +2246,61 @@ or
 
 The solution `X` overwrites the matrix `Q`, while `U` is unchanged.
 
-A backward elimination method is used, if `adj = false`, or a forward elimination method is used if `adj = true`, by adapting the approach 
+If `U` is nonsingular, a backward elimination method is used, if `adj = false`, or a forward elimination method is used if `adj = true`, by adapting the approach 
 employed in the function `dU_from_dQ!` of the [`DiffOpt.jl`](https://github.com/jump-dev/DiffOpt.jl) package. 
+For a `n×n`  singular `U`, a least-squares upper-triangular solution `X` is determined using a conjugate-gradient based iterative method applied 
+to a suitably defined T-Lyapunov linear operator `L:X -> Y`, which maps upper triangular matrices `X`
+into upper triangular matrices `Y`, and the associated matrix `M = Matrix(L)` is ``n(n+1)/2 \\times n(n+1)/2``. 
+In this case, the keyword argument `tol` (default: `tol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function tlyapcu!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false) where {T}
+function tulyapc!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false, abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
    n = LinearAlgebra.checksquare(Q)
    n == LinearAlgebra.checksquare(Q) || throw(DimensionMismatch("U and Q have incompatible dimensions"))
    istriu(U) || throw(ArgumentError("U must be upper triangular"))
    issymmetric(Q) || throw(ArgumentError("Q must be symmetric"))
-   any(iszero.(diag(U))) && throw(SingularException)
-   if adj
-      # transpose(U)*X + transpose(X)*U = Q
-      for j in 1:n
-          for i in 1:n
-              if i < j
-                 Q[i, j] -= transpose(view(U, 1:i, j))*view(Q, 1:i, i)
-              elseif i == j
-                 Q[i, j] /= 2
-              else
-                 Q[i, j] = 0
-              end
-          end
-          Ut = transpose(LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j)))
-          LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+   if !any(iszero.(diag(U))) 
+      if adj
+         # transpose(U)*X + transpose(X)*U = Q
+         for j in 1:n
+            for i in 1:n
+                if i < j
+                   Q[i, j] -= transpose(view(U, 1:i, j))*view(Q, 1:i, i)
+                elseif i == j
+                   Q[i, j] /= 2
+                else
+                   Q[i, j] = 0
+                end
+            end
+            Ut = transpose(LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j)))
+            LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+         end
+      else
+         # U*transpose(X) + X*transpose(U) = Q
+         for i in n:-1:1
+             for j in n:-1:1
+                 if i < j
+                    Q[i, j] -= transpose(view(U, i, j:n))*view(Q, j, j:n)
+                 elseif i == j
+                    Q[i, j] /= 2
+                 else
+                    Q[i, j] = 0
+                 end
+             end
+             Ut = transpose(LinearAlgebra.UpperTriangular(view(U, i:n, i:n)))
+             LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
+         end
       end
    else
-      # U*transpose(X) + X*transpose(U) = Q
-      for i in n:-1:1
-          for j in n:-1:1
-              if i < j
-                 Q[i, j] -= transpose(view(U, i, j:n))*view(Q, j, j:n)
-              elseif i == j
-                 Q[i, j] /= 2
-              else
-                 Q[i, j] = 0
-              end
-          end
-          Ut = transpose(LinearAlgebra.UpperTriangular(view(U, i:n, i:n)))
-          LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
-      end
+      LT = tulyapop(adj ? U : transpose(U))
+      xt, info = MatrixEquations.cgls(LT,triu2vec(Q); abstol, reltol, maxiter)
+      info.flag == 1 || @warn "convergence issues: info = $info"
+      Q[:] = vec2triu(xt)
    end
    return Q
 end
 """
-    X = hlyapcu!(U, Q; adj = false)
+    X = hulyapc!(U, Q; adj = false)
 
 Compute for a nonsingular upper triangular `U` and a hermitian `Q` an upper triangular solution `X` of the continuous H-Lyapunov matrix equation
 
@@ -2301,45 +2312,56 @@ or
 
 The solution `X` overwrites the matrix `Q`, while `U` is unchanged.
 
-A backward elimination method is used, if `adj = false`, or a forward elimination method is used if `adj = true`, by adapting the approach 
+If `U` is nonsingular, a backward elimination method is used, if `adj = false`, or a forward elimination method is used if `adj = true`, by adapting the approach 
 employed in the function `dU_from_dQ!` of the [`DiffOpt.jl`](https://github.com/jump-dev/DiffOpt.jl) package. 
+For a `n×n`  singular `U`, a least-squares upper-triangular solution `X` is determined using a conjugate-gradient based iterative method applied 
+to a suitably defined T-Lyapunov linear operator `L:X -> Y`, which maps upper triangular matrices `X`
+into upper triangular matrices `Y`, and the associated matrix `M = Matrix(L)` is ``n(n+1)/2 \\times n(n+1)/2``. 
+In this case, the keyword argument `tol` (default: `tol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function hlyapcu!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false) where {T}
+function hulyapc!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false, abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
    n = LinearAlgebra.checksquare(Q)
    n == LinearAlgebra.checksquare(Q) || throw(DimensionMismatch("U and Q have incompatible dimensions"))
    istriu(U) || throw(ArgumentError("U must be upper triangular"))
    ishermitian(Q) || throw(ArgumentError("Q must be hermitian"))
-   any(iszero.(diag(U))) && throw(SingularException)
-   if adj
-      # U'*X + X'*U = Q
-      for j in 1:n
-          for i in 1:n
-              if i < j
-                 Q[i, j] -= view(Q, 1:i, i)'*view(U, 1:i, j)
-              elseif i == j
-                 Q[i, j] /= 2
-              else
-                 Q[i, j] = 0
-              end
-          end
-          Ut = LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j))'
-          LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+   if !any(iszero.(diag(U))) 
+      if adj
+         # U'*X + X'*U = Q
+         for j in 1:n
+             for i in 1:n
+                 if i < j
+                    Q[i, j] -= view(Q, 1:i, i)'*view(U, 1:i, j)
+                 elseif i == j
+                    Q[i, j] /= 2
+                 else
+                    Q[i, j] = 0
+                 end
+             end
+             Ut = LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j))'
+             LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+         end
+      else
+         # U*X' + X*U' = Q
+         for i in n:-1:1
+             for j in n:-1:1
+                 if i < j
+                    Q[i, j] -= view(Q, j, j:n)'*view(U, i, j:n)
+                 elseif i == j
+                    Q[i, j] /= 2
+                 else
+                    Q[i, j] = 0
+                 end
+             end
+             Ut = LinearAlgebra.UpperTriangular(view(U, i:n, i:n))'
+             LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
+         end
       end
    else
-      # U*X' + X*U' = Q
-      for i in n:-1:1
-          for j in n:-1:1
-              if i < j
-                 Q[i, j] -= view(Q, j, j:n)'*view(U, i, j:n)
-              elseif i == j
-                 Q[i, j] /= 2
-              else
-                 Q[i, j] = 0
-              end
-          end
-          Ut = LinearAlgebra.UpperTriangular(view(U, i:n, i:n))'
-          LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
-      end
+      LT = hulyapop(adj ? U : U')
+      xt, info = cgls(LT,triu2vec(Q); abstol, reltol, maxiter)
+      info.flag == 1 || @warn "convergence issues: info = $info"
+      Q[:] = vec2triu(xt)
    end
    return Q
 end

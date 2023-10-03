@@ -346,6 +346,7 @@ Solve the Sylvester system of matrix equations
 
 where `(A,D)`, `(B,E)` are pairs of square matrices of the same size.
 The pencils `A-λD` and `-B+λE` must be regular and must not have common eigenvalues.
+
 # Example
 ```jldoctest
 julia> A = [3. 4.; 5. 6.]

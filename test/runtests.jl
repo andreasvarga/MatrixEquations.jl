@@ -12,6 +12,7 @@ using Test, MatrixEquations
     include("test_cplyap.jl")
     include("test_dplyap.jl")
     include("test_mecondest.jl")
+    include("test_iterative.jl")
 end
 
 end

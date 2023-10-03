@@ -389,40 +389,103 @@ end
 end  
 
 @testset "Continuous positive Lyapunov-like equations" begin
-  n = 10
-  Ty = Float64
-  reltol = 1.e-7
+  n = 5
+ 
+  # nonsingular U
   for Ty in (Float64, Float32, BigFloat, Double64)
       Ty == Float64 ? reltol = eps(float(100*n)) : reltol = eps(100*n*one(Ty))
       U = triu(rand(Ty,n,n));
       X0 = triu(rand(Ty,n,n));
       Q = Matrix(Symmetric(transpose(U)*X0 + transpose(X0)*U))
-      @time X = tlyapcu!(U, copy(Q); adj = true)  
+      @time X = tulyapc!(U, copy(Q); adj = true)  
       @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
     
       Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
-      @time X = tlyapcu!(U, copy(Q); adj = false); 
+      @time X = tulyapc!(U, copy(Q); adj = false); 
       @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
 
       U = triu(rand(Ty,n,n)+im*rand(Ty,n,n));
       X0 = triu(rand(Ty,n,n)+im*rand(Ty,n,n));
       Q = Matrix(Symmetric(transpose(U)*X0 + transpose(X0)*U))
-      @time X = tlyapcu!(U, copy(Q); adj = true)  
+      @time X = tulyapc!(U, copy(Q); adj = true)  
       @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
 
       Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
-      @time X = tlyapcu!(U, copy(Q); adj = false); 
+      @time X = tulyapc!(U, copy(Q); adj = false); 
       @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
 
       Q = Matrix(Hermitian(U'*X0 + X0'*U))
-      @time X = hlyapcu!(U, copy(Q); adj = true)  
+      @time X = hulyapc!(U, copy(Q); adj = true)  
       @test norm(U'*X + X'*U - Q)/norm(X) < reltol 
 
       Q = Matrix(Hermitian(U*X0' + X0*U'))
-      @time X = hlyapcu!(U, copy(Q); adj = false); 
+      @time X = hulyapc!(U, copy(Q); adj = false); 
       @test norm(U*X' + X*U'- Q)/norm(X) < reltol 
  
   end
+
+  # singular U
+  n = 5
+  Ty = Float64
+  reltol = 1.e-7
+  # real case
+  U = triu(rand(Ty,n,n)); U[1,1] = 0; U[n,n] = 0; #U[7,7] = 0
+  X0 = triu(rand(Ty,n,n)); X0[1,1] = 0; X0[n,n] = 0
+  Q = Matrix(Symmetric(transpose(U)*X0 + transpose(X0)*U))
+  @time X = tulyapc!(U, copy(Q); adj = false) 
+  @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
+
+  LT = MatrixEquations.tulyapop(transpose(U))
+  x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
+  @test norm(transpose(U)*X2 + transpose(X2)*U - Q)/norm(X2) < reltol 
+
+  Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
+  @time X = tulyapc!(U, copy(Q); adj = true) 
+  @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
+
+  LT = MatrixEquations.tulyapop(U)
+  x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
+  @test norm(U*transpose(X2) + X2*transpose(U)- Q)/norm(X2) < reltol 
+
+  # complex case
+  U = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); U[1,1] = 0; U[n,n] = 0; 
+  X0 = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); X0[1,1] = 0; X0[n,n] = 0
+  Q = Matrix(Symmetric(transpose(U)*X0 + transpose(X0)*U))
+  @time X = tulyapc!(U, copy(Q); adj = false)  
+  @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
+
+  LT = MatrixEquations.tulyapop(transpose(U))
+  x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
+  @test norm(transpose(U)*X2 + transpose(X2)*U - Q)/norm(X2) < reltol 
+
+
+  Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
+  @time X = tulyapc!(U, copy(Q); adj = true); 
+  @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
+
+  LT = MatrixEquations.tulyapop(U)
+  x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
+  @test norm(U*transpose(X2) + X2*transpose(U)- Q)/norm(X) < reltol 
+
+  # complex hermitian case
+  U = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); U[1,1] = 0; U[n,n] = 0; 
+  X0 = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); X0[1,1] = 0; X0[n,n] = 0
+  Q = Matrix(Hermitian(U'*X0 + X0'*U))
+  @time X = hulyapc!(U, copy(Q); adj = false)  
+  @test norm(U'*X + X'*U - Q)/norm(X) < reltol 
+
+  LT = MatrixEquations.hulyapop(U')
+  x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
+  @test norm(U'*X2 + X2'*U - Q)/norm(X2) < reltol 
+
+  Q = Matrix(Hermitian(U*X0' + X0*U'))
+  @time X = hulyapc!(U, copy(Q); adj = true); 
+  @test norm(U*X' + X*U'- Q)/norm(X) < reltol 
+
+  LT = MatrixEquations.hulyapop(U)
+  x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
+  @test norm(U*X2' + X2*U'- Q)/norm(X) < reltol 
+
     
 end
 

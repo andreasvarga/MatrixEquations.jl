@@ -6,6 +6,10 @@ const MatrixEquationsMaps{T} = Union{LyapunovMatrixEquationsMaps{T},SylvesterMat
 abstract type ContinuousOrDiscrete end
 struct Continuous <: ContinuousOrDiscrete end
 struct Discrete <: ContinuousOrDiscrete end
+abstract type TtypeOrHtype end
+struct Ttype <: TtypeOrHtype end
+struct Htype <: TtypeOrHtype end
+
 
 """
     M = trmatop(n, m)
@@ -40,6 +44,209 @@ end
 Define the transposition operator `M: X -> X'` of all matrices of the size of `A`.
 """
 trmatop(A) = trmatop(size(A))
+
+struct TLyapMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+   A::TA
+   adj::Bool
+   function TLyapMap{T,TA,CD}(A::TA, adj=false) where {T,TA<:AbstractMatrix{T},CD}
+      return new{T,TA,CD}(A, adj)
+   end
+end
+TLyapMap(A::TA, ::CD = Continuous(), adj::Bool = false) where {T,TA<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
+   TLyapMap{T,TA,CD}(A, adj)
+#LinearAlgebra.transpose(L::TLyapunovMap{<:Any,<:Any,CD}) where {CD} = TLyapunovMap(L.U', CD(), !L.adj)
+
+function Base.size(L::TLyapMap)
+   m, n = size(L.A)
+   return (m*m, m*n)
+end
+
+"""
+    L = tlyapop(A; adj = false)
+
+Define, for an `m x n` matrix `A`, the continuous T-Lyapunov operator `L:X -> A*X+transpose(X)*transpose(A)` 
+if `adj = false` and  `L:X -> A*transpose(X)+X*transpose(A)` if `adj = true`. 
+"""
+tlyapop(A::AbstractMatrix; disc=false, adj=false) = TLyapMap(A, ifelse(disc, Discrete(), Continuous()), adj)
+
+function mul!(y::AbstractVector, L::TLyapMap{T,TA,Continuous}, x::AbstractVector) where {T,TA}
+   m, n = size(L.A)
+   T1 = promote_type(T, eltype(x))
+   X = L.adj ? reshape(convert(AbstractVector{T1}, x), m, n) : reshape(convert(AbstractVector{T1}, x), n, m)
+   Y = L.adj ? L.A*transpose(X) : L.A*X
+   y[:] .= (Y+transpose(Y))[:]
+   return y
+end
+
+function mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:TLyapMap{T}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A,1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), m, m)
+   x[:] = LT.lmap.adj ? ((Y+transpose(Y))*LT.lmap.A)[:] : (transpose(LT.lmap.A)*(Y+transpose(Y)))[:]
+   return x
+end
+
+function mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:TLyapMap{T}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A,1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), m, m)
+   x[:] = LT.lmap.adj ? ((Y+transpose(Y))*conj(LT.lmap.A))[:] : (LT.lmap.A'*(Y+transpose(Y)))[:]
+   return x
+end
+
+# ###
+struct HLyapMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+   A::TA
+   adj::Bool
+   function HLyapMap{T,TA,CD}(A::TA, adj=false) where {T,TA<:AbstractMatrix{T},CD}
+      return new{T,TA,CD}(A, adj)
+   end
+end
+HLyapMap(A::TA, ::CD = Continuous(), adj::Bool = false) where {T,TA<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
+   HLyapMap{T,TA,CD}(A, adj)
+#LinearAlgebra.transpose(L::HLyapunovMap{<:Any,<:Any,CD}) where {CD} = HLyapunovMap(L.U', CD(), !L.adj)
+
+function Base.size(L::HLyapMap)
+   m, n = size(L.A)
+   return (m*m, m*n)
+end
+"""
+    L = hlyapop(A; adj = false)
+
+Define, for an `m x n` matrix `A`, the continuous T-Lyapunov operator `L:X -> A*X+X'*A'` 
+if `adj = false` and  `L:X -> A*X'+X*A'` if `adj = true`. 
+"""
+function hlyapop(A::AbstractMatrix; disc=false, adj=false)
+    HLyapMap(A, ifelse(disc, Discrete(), Continuous()), adj)
+end
+function mul!(y::AbstractVector, L::HLyapMap{T,TA,Continuous}, x::AbstractVector) where {T,TA}
+   m, n = size(L.A)
+   T1 = promote_type(T, eltype(x))
+   X = L.adj ? reshape(convert(AbstractVector{T1}, x), m, n) : reshape(convert(AbstractVector{T1}, x), n, m)
+   Y = L.adj ? L.A*X' : L.A*X
+   y[:] .= (Y+Y')[:]
+   return y
+end
+
+function mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:HLyapMap{T}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A,1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), m, m)
+   x[:] = LT.lmap.adj ? ((Y+transpose(Y))*LT.lmap.A)[:] : (transpose(LT.lmap.A)*(Y+transpose(Y)))[:]
+   return x
+end
+
+function mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:HLyapMap{T}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A,1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), m, m)
+   x[:] = LT.lmap.adj ? ((Y+Y')*LT.lmap.A)[:] : (LT.lmap.A'*(Y+Y'))[:]
+   return x
+end
+
+
+struct UTTLyapunovMap{T,TU <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+   U::TU
+   adj::Bool
+   function UTTLyapunovMap{T,TU,CD}(U::TU, adj=false) where {T,TU<:AbstractMatrix{T},CD}
+      LinearAlgebra.checksquare(U)
+      (!adj && istriu(U.parent)) || (adj && istriu(U)) || error("U must be upper triangular")
+      return new{T,TU,CD}(U, adj)
+   end
+end
+
+UTTLyapunovMap(U::TU, ::CD = Continuous(), adj::Bool = false) where {T,TU<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
+   UTTLyapunovMap{T,TU,CD}(U, adj)
+
+function Base.size(L::UTTLyapunovMap)
+   n = size(L.U, 1)
+   N = Int(n * (n + 1) / 2)
+   return (N, N)
+end
+
+"""
+    L = tulyapop(U)
+
+Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*X+transpose(X)*transpose(U)`.
+
+    L = tulyapop(transpose(U))
+
+Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*transpose(X)+X*transpose(U)`.
+"""
+function tulyapop(U::AbstractMatrix; disc=false)
+   UTTLyapunovMap(U, ifelse(disc, Discrete(), Continuous()), !(typeof(U) <: Transpose))
+end
+function mul!(y::AbstractVector, L::UTTLyapunovMap{T,TU,Continuous}, x::AbstractVector) where {T,TU}
+   T1 = promote_type(T, eltype(x))
+   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+   Y = L.adj ? L.U*transpose(X) : L.U*X
+   y[:] .= triu2vec(Y+transpose(Y))
+   return y
+end
+
+function mul!(y::AbstractVector, LT::LinearMaps.TransposeMap{T,<:UTTLyapunovMap{T}}, x::AbstractVector) where {T}
+   n = size(LT.lmap.U,2)
+   T1 = promote_type(T, eltype(x))
+   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+   y[:] = LT.lmap.adj ? triu2vec((X+transpose(X))*LT.lmap.U) : triu2vec(transpose(LT.lmap.U)*(X+transpose(X)))
+   return y
+end
+function mul!(y::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTTLyapunovMap{T}}, x::AbstractVector) where {T}
+   n = size(LT.lmap.U,2)
+   T1 = promote_type(T, eltype(x))
+   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+   y[:] = LT.lmap.adj ? triu2vec((X+transpose(X))*+conj(LT.lmap.U)) : triu2vec(LT.lmap.U'*(X+transpose(X)))
+   return y
+end
+
+struct UTHLyapunovMap{T,TU <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+   U::TU
+   adj::Bool
+   function UTHLyapunovMap{T,TU,CD}(U::TU, adj=false) where {T,TU<:AbstractMatrix{T},CD}
+      LinearAlgebra.checksquare(U)
+      (!adj && istriu(U.parent)) || (adj && istriu(U)) || error("U must be upper triangular")
+      return new{T,TU,CD}(U, adj)
+   end
+end
+
+UTHLyapunovMap(U::TU, ::CD = Continuous(), adj::Bool = false) where {T,TU<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
+   UTHLyapunovMap{T,TU,CD}(U, adj)
+
+#LinearAlgebra.transpose(L::UTHLyapunovMap{<:Any,<:Any,CD}) where {CD} = LinearAlgebra.adjoint(L)
+
+function Base.size(L::UTHLyapunovMap)
+   n = size(L.U, 1)
+   N = Int(n * (n + 1) / 2)
+   return (N, N)
+end
+
+"""
+    L = hulyapop(U)
+
+Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*X+X'*U'`.
+
+    L = hulyapop(U')
+
+Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*X'+X*U'`. 
+"""
+function hulyapop(U::AbstractMatrix; disc=false)
+   UTHLyapunovMap(U, ifelse(disc, Discrete(), Continuous()), !(typeof(U) <: Adjoint))
+end
+function mul!(y::AbstractVector, L::UTHLyapunovMap{T,TU,Continuous}, x::AbstractVector) where {T,TU}
+   T1 = promote_type(T, eltype(x))
+   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+   Y = L.adj ? L.U*X' : L.U*X
+   y[:] .= triu2vec(Y+Y')
+   return y
+end
+
+function mul!(y::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTHLyapunovMap{T}}, x::AbstractVector) where {T}
+   n = size(LT.lmap.U,2)
+   T1 = promote_type(T, eltype(x))
+   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+   y[:] = LT.lmap.adj ? triu2vec((X+X')*LT.lmap.U) : triu2vec(LT.lmap.U'*(X+X'))
+   return y
+end
 
 struct LyapunovMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
    A::TA
@@ -707,7 +914,7 @@ LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T =
 """
     M = sylvop(A, B, C, D)
 
-Define the generalized Sylvester operator `M: X -> AXB+CXD`, where `(A,C)` and `(B,D)` a pairs of square matrices.
+Define the generalized Sylvester operator `M: X -> AXB+CXD`, where `(A,C)` and `(B,D)` are pairs of square matrices.
 """
 sylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) =
    GeneralizedSylvesterMap(A, B, C, D)
@@ -776,7 +983,7 @@ LinearAlgebra.inv(L::InverseGeneralizedSylvesterMap) =
     MINV = invsylvop(A, B, C, D)
 
 Define `MINV`, the inverse of the generalized Sylvester operator `M: X -> AXB+CXD`,
-where (A,C) and (B,D) a pairs of square matrices.
+where (A,C) and (B,D) are pairs of square matrices.
 """
 invsylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix) =
    InverseGeneralizedSylvesterMap(A, B, C, D)
@@ -955,3 +1162,273 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       return y
    end
 end
+struct GeneralizedTSylvesterMap{T,TA,TB,TC,TD,TH<:TtypeOrHtype} <: SylvesterMatrixEquationsMaps{T}
+   A::TA
+   B::TB
+   C::TC
+   D::TD
+   m::Int
+   n::Int
+   mx::Int
+   nx::Int
+   function GeneralizedTSylvesterMap{T,TA,TB,TC,TD,TH}(A, B, C, D; mx = -1, nx = -1) where {T,TA,TB,TC,TD,TH}
+      la = length(A)
+      la == length(B) ||  throw(DimensionMismatch("A and B must have the same lengths"))
+      lc = length(C)
+      lc == length(D) ||  throw(DimensionMismatch("C and D must have the same lengths"))
+      la+lc > 0 || throw(DimensionMismatch("either A or C must be non-empty"))
+      m = mx; n = nx; 
+      squareA = any(isa.(A,UniformScaling)) 
+      squareC = any(isa.(C,UniformScaling))
+      squareB = any(isa.(B,UniformScaling)) 
+      squareD = any(isa.(D,UniformScaling))
+      for i = 1:la
+          isa(A[i],UniformScaling) && continue
+          if m < 0 
+             m = size(A[i],1)
+             mx < 0 ? mx = size(A[i],2) : (mx == size(A[i],2) || throw(DimensionMismatch("all matrices in vector A must have column dimension $mx but A[$i] has column dimension $(size(A[i],2))")) )
+             (squareA && m !== mx) && throw(DimensionMismatch("all matrices in vector A must be square")) 
+             continue
+          end
+          (m == size(A[i],1) && mx == size(A[i],2)) || throw(DimensionMismatch("all matrices in vector A must have the same dimensions"))
+      end
+      for i = 1:la
+         isa(B[i],UniformScaling) && continue
+         if n < 0 
+            n = size(B[i],2)
+            nx < 0 ? nx = size(B[i],1) : (nx == size(B[i],1) || throw(DimensionMismatch("all matrices in vector B must have row dimension $nx but B[$i] has row dimension $(size(B[i],1))")) )
+            (squareB && n !== nx) && throw(DimensionMismatch("all matrices in vector B must be square")) 
+            continue
+         end
+         (n == size(B[i],2) && nx == size(B[i],1)) || throw(DimensionMismatch("all matrices in vector B must have the same dimensions"))
+      end
+      for i = 1:lc
+          isa(C[i],UniformScaling) && continue
+          if m < 0 
+             m = size(C[i],1)
+             nx < 0 ? nx = size(C[i],2) : (nx == size(C[i],2) || throw(DimensionMismatch("all matrices in vector C must have column dimension $nx but C[$i] has column dimension $(size(C[i],2))")) )
+             (squareC && m == nx) || throw(DimensionMismatch("all matrices in vector C must be square")) 
+             continue
+          end
+          (m == size(C[i],1) && nx == size(C[i],2)) || throw(DimensionMismatch("all matrices in vector C must have the same dimensions"))
+      end
+      for i = 1:lc
+          isa(D[i],UniformScaling) && continue
+          if n < 0 
+             n = size(D[i],2)
+             mx < 0 ? mx = size(D[i],1) : (mx == size(D[i],1) || throw(DimensionMismatch("all matrices in vector D must have row dimension $mx but D[$i] has row dimension $(size(D[i],1))")) )
+             (squareD && n !== mx) && throw(DimensionMismatch("all matrices in vector D must be square")) 
+             continue
+          end
+          (n == size(D[i],2) && mx == size(D[i],1)) || throw(DimensionMismatch("all matrices in vector D must have the same dimensions"))
+      end
+      (m >= 0 && mx >= 0) || throw(DimensionMismatch("at least one of elements of A or D must be a matrix; use mx to specify the row dimension of X"))
+      (n >= 0 && nx >= 0) || throw(DimensionMismatch("at least one of elements of B or C must be a matrix; use nx to specify the column dimension of X"))
+          
+      T1 = promote_type(eltype.(A)...)       
+      T1 = promote_type(T1, eltype.(B)...)       
+      T1 = promote_type(T1, eltype.(C)...)       
+      T1 = promote_type(T1, eltype.(D)...)      
+      T1 == Bool && (T1 = Float64) 
+      A1 = [ isa(A[i],UniformScaling) ? convert(UniformScaling{T}, A[i]) : convert(AbstractMatrix{T}, A[i]) for i in 1:la ]
+      B1 = [ isa(B[i],UniformScaling) ? convert(UniformScaling{T}, B[i]) : convert(AbstractMatrix{T}, B[i]) for i in 1:la ]
+      C1 = [ isa(C[i],UniformScaling) ? convert(UniformScaling{T}, C[i]) : convert(AbstractMatrix{T}, C[i]) for i in 1:lc ]
+      D1 = [ isa(D[i],UniformScaling) ? convert(UniformScaling{T}, D[i]) : convert(AbstractMatrix{T}, D[i]) for i in 1:lc ]
+      return new{T1,typeof(A1),typeof(B1),typeof(C1),typeof(D1),TH}(A1, B1, C1, D1, m, n, mx, nx)
+   end
+end
+function GeneralizedTSylvesterMap(A, B, C, D, ::TH = Ttype(); mx = -1, nx = -1) where {TH}
+   la = length(A)
+   la == length(B) ||  throw(DimensionMismatch("A and B must have the same lengths"))
+   lc = length(C)
+   lc == length(D) ||  throw(DimensionMismatch("C and D must have the same lengths"))
+   la+lc > 0 || throw(DimensionMismatch("either A or C must be non-empty"))
+   T = promote_type(eltype.(A)...)       
+   T = promote_type(T, eltype.(B)...)       
+   T = promote_type(T, eltype.(C)...)       
+   T = promote_type(T, eltype.(D)...)      
+   T == Bool && (T = Float64) 
+   A1 = [ isa(A[i],UniformScaling) ? convert(UniformScaling{T}, A[i]) : convert(AbstractMatrix{T}, A[i]) for i in 1:la ]
+   B1 = [ isa(B[i],UniformScaling) ? convert(UniformScaling{T}, B[i]) : convert(AbstractMatrix{T}, B[i]) for i in 1:la ]
+   C1 = [ isa(C[i],UniformScaling) ? convert(UniformScaling{T}, C[i]) : convert(AbstractMatrix{T}, C[i]) for i in 1:lc ]
+   D1 = [ isa(D[i],UniformScaling) ? convert(UniformScaling{T}, D[i]) : convert(AbstractMatrix{T}, D[i]) for i in 1:lc ]
+   return GeneralizedTSylvesterMap{T,typeof(A1),typeof(B1),typeof(C1),typeof(D1),TH}(A1, B1, C1, D1; mx, nx)
+end
+"""
+    M = gsylvop(A, B, C, D; mx, nx, htype = false)
+
+Define the generalized T-Sylvester operator `M: X -> ∑ A_i*X*B_i + ∑ C_j'*transpose(X)*D_j`, if `htype = false` or
+the generalized H-Sylvester operator `M: X -> ∑ A_i*X*B_i + ∑ C_j'*X'*D_j`, if `htype = true`.
+`A_i` and `C_j` are matrices having the same row dimension and `B_i` and `D_j` are matrices having the same column dimension. 
+`A_i` and `B_i` are contained in the `k`-vectors of matrices `A` and `B`, respectively, and 
+`C_j` and `D_j` are contained in the `l`-vectors of matrices `C` and `D`, respectively. Any of the component matrices can be given as an `UniformScaling`. 
+The keyword parameters `mx` and `nx` can be used to specify the row and column dimensions of `X`, if they cannot be inferred from the data.   
+"""
+function gsylvop(A, B, C, D; mx = -1, nx = -1, htype = false)
+    GeneralizedTSylvesterMap(A, B, C, D, ifelse(htype, Htype(), Ttype()); mx, nx)
+end
+Base.size(L::GeneralizedTSylvesterMap) = (M = L.m*L.n; N = L.mx * L.nx; return (M, N))
+function mul!(y::AbstractVector, L::GeneralizedTSylvesterMap{T,<:Any,<:Any,<:Any,<:Any,Ttype}, x::AbstractVector) where T
+   T1 = promote_type(T, eltype(x))
+   X = reshape(convert(AbstractVector{T1}, x), (L.mx, L.nx))
+   Y = reshape(y, (L.m, L.n))
+   # Y = ∑ A_i * X * B_i + ∑ C_j * transpose(X) * D_j
+   la = length(L.A)
+   lc = length(L.C)
+   temp = similar(Y, (L.m, L.nx))
+   if la > 0
+      mul!(temp, L.A[1], X)
+      mul!(Y, temp, L.B[1], 1, 0)
+      for i = 2:la
+          mul!(temp, L.A[i], X)
+          mul!(Y, temp, L.B[i], 1, 1)
+      end
+   end
+   temp = similar(Y, (L.m, L.mx))
+   if lc > 0
+      mul!(temp, L.C[1], transpose(X))
+      mul!(Y, temp, L.D[1], 1, la> 0 ? 1 : 0)
+      for i = 2:lc
+          mul!(temp, L.C[i], transpose(X))
+          mul!(Y, temp, L.D[i], 1, 1)
+      end
+   end
+   return y
+end
+function mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,<:GeneralizedTSylvesterMap{T,<:Any,<:Any,<:Any,<:Any,Ttype}}, y::AbstractVector) where T
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), (L.lmap.m, L.lmap.n))
+   X = reshape(x, (L.lmap.mx, L.lmap.nx))
+   # X = ∑ transpose(A_i) * Y * transpose(B_i) + ∑ D_j * transpose(Y) * C_j
+   la = length(L.lmap.A)
+   lc = length(L.lmap.C)
+   temp = similar(Y, (L.lmap.mx, L.lmap.n))
+   if la > 0
+      mul!(temp, transpose(L.lmap.A[1]), Y)
+      mul!(X, temp, transpose(L.lmap.B[1]), 1, 0)
+      for i = 2:la
+          mul!(temp, transpose(L.lmap.A[i]), Y)
+          mul!(X, temp, transpose(L.lmap.B[i]), 1, 1)
+      end
+   end
+   temp = similar(Y, (L.lmap.mx, L.lmap.m))
+   if lc > 0
+      mul!(temp, L.lmap.D[1], transpose(Y))
+      mul!(X, temp, L.lmap.C[1], 1, la> 0 ? 1 : 0)
+      for i = 2:lc
+          mul!(temp, L.lmap.D[i], transpose(Y))
+          mul!(X, temp, L.lmap.C[i], 1, 1)
+      end
+   end
+   return x
+end
+function mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,<:GeneralizedTSylvesterMap{T,<:Any,<:Any,<:Any,<:Any,Ttype}}, y::AbstractVector) where T
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), (L.lmap.m, L.lmap.n))
+   X = reshape(x, (L.lmap.mx, L.lmap.nx))
+   # X = ∑ transpose(A_i) * Y * transpose(B_i) + ∑ D_j * transpose(Y) * C_j
+   la = length(L.lmap.A)
+   lc = length(L.lmap.C)
+   temp = similar(Y, (L.lmap.mx, L.lmap.n))
+   if la > 0
+      mul!(temp, L.lmap.A[1]', Y)
+      mul!(X, temp, L.lmap.B[1]', 1, 0)
+      for i = 2:la
+          mul!(temp, L.lmap.A[i]', Y)
+          mul!(X, temp, L.lmap.B[i]', 1, 1)
+      end
+   end
+   temp = similar(Y, (L.lmap.mx, L.lmap.m))
+   if lc > 0
+      mul!(temp, conj(L.lmap.D[1]), transpose(Y))
+      mul!(X, temp, conj(L.lmap.C[1]), 1, la> 0 ? 1 : 0)
+      for i = 2:lc
+          mul!(temp, conj(L.lmap.D[i]), transpose(Y))
+          mul!(X, temp, conj(L.lmap.C[i]), 1, 1)
+      end
+   end
+   return x
+end
+function mul!(y::AbstractVector, L::GeneralizedTSylvesterMap{T,<:Any,<:Any,<:Any,<:Any,Htype}, x::AbstractVector) where T
+   T1 = promote_type(T, eltype(x))
+   X = reshape(convert(AbstractVector{T1}, x), (L.mx, L.nx))
+   Y = reshape(y, (L.m, L.n))
+   # Y = ∑ A_i * X * B_i + ∑ C_j * X' * D_j
+   la = length(L.A)
+   lc = length(L.C)
+   temp = similar(Y, (L.m, L.nx))
+   if la > 0
+      mul!(temp, L.A[1], X)
+      mul!(Y, temp, L.B[1], 1, 0)
+      for i = 2:la
+          mul!(temp, L.A[i], X)
+          mul!(Y, temp, L.B[i], 1, 1)
+      end
+   end
+   temp = similar(Y, (L.m, L.mx))
+   if lc > 0
+      mul!(temp, L.C[1], X')
+      mul!(Y, temp, L.D[1], 1, la> 0 ? 1 : 0)
+      for i = 2:lc
+          mul!(temp, L.C[i], X')
+          mul!(Y, temp, L.D[i], 1, 1)
+      end
+   end
+   return y
+end
+# function mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,<:GeneralizedTSylvesterMap{T,<:Any,<:Any,<:Any,<:Any,Htype}}, y::AbstractVector) where T
+#    T1 = promote_type(T, eltype(y))
+#    Y = reshape(convert(AbstractVector{T1}, y), (L.lmap.m, L.lmap.n))
+#    X = reshape(x, (L.lmap.mx, L.lmap.nx))
+#    # X = ∑ transpose(A_i) * Y * transpose(B_i) + ∑ D_j * transpose(Y) * C_j
+#    la = length(L.lmap.A)
+#    lc = length(L.lmap.C)
+#    temp = similar(Y, (L.lmap.mx, L.lmap.n))
+#    if la > 0
+#       mul!(temp, transpose(L.lmap.A[1]), Y)
+#       mul!(X, temp, transpose(L.lmap.B[1]), 1, 0)
+#       for i = 2:la
+#           mul!(temp, transpose(L.lmap.A[i]), Y)
+#           mul!(X, temp, transpose(L.lmap.B[i]), 1, 1)
+#       end
+#    end
+#    temp = similar(Y, (L.lmap.mx, L.lmap.m))
+#    if lc > 0
+#       mul!(temp, L.lmap.D[1], transpose(Y))
+#       mul!(X, temp, L.lmap.C[1], 1, la> 0 ? 1 : 0)
+#       for i = 2:lc
+#           mul!(temp, L.lmap.D[i], transpose(Y))
+#           mul!(X, temp, L.lmap.C[i], 1, 1)
+#       end
+#    end
+#    return x
+# end
+function mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,<:GeneralizedTSylvesterMap{T,<:Any,<:Any,<:Any,<:Any,Htype}}, y::AbstractVector) where T
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, y), (L.lmap.m, L.lmap.n))
+   X = reshape(x, (L.lmap.mx, L.lmap.nx))
+   # X = ∑ A_i' * Y * B_i' + ∑ D_j * Y' * C_j
+   la = length(L.lmap.A)
+   lc = length(L.lmap.C)
+   temp = similar(Y, (L.lmap.mx, L.lmap.n))
+   if la > 0
+      mul!(temp, L.lmap.A[1]', Y)
+      mul!(X, temp, L.lmap.B[1]', 1, 0)
+      for i = 2:la
+          mul!(temp, L.lmap.A[i]', Y)
+          mul!(X, temp, L.lmap.B[i]', 1, 1)
+      end
+   end
+   temp = similar(Y, (L.lmap.mx, L.lmap.m))
+   if lc > 0
+      mul!(temp, L.lmap.D[1], Y')
+      mul!(X, temp, L.lmap.C[1], 1, la> 0 ? 1 : 0)
+      for i = 2:lc
+          mul!(temp, L.lmap.D[i], Y')
+          mul!(X, temp, L.lmap.C[i], 1, 1)
+      end
+   end
+   return x
+end
+
+

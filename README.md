@@ -42,6 +42,8 @@ The current version of the package includes the following functions:
 * **lyapd**  Solution of discrete Lyapunov equations `AXA'-X +C = 0` and `AXA'-EXE'+C = 0`.
 * **tlyapc** Solution of the continuous T-Lyapunov equations `A*X±X^⊤*A^⊤+C = 0`.
 * **hlyapc** Solution of the continuous H-Lyapunov equations `A*X±X'*A'+C = 0`.
+* **tulyapc!** Solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.
+* **hulyapc!** Solution of the continuous H-Lyapunov equations `U*X'+X*U' = C` and `U'*X+X'*U = C` for `U` and `X` upper triangular.
 * **plyapc**  Solution of the positive continuous Lyapunov equations `AX+XA'+BB' = 0` and `AXE'+EXA'+BB' = 0`.
 * **plyapd**  Solution of the positive discrete Lyapunov equations `AXA'-X +C = 0` and `AXA'-EXE'+C = 0`.
 
@@ -64,6 +66,15 @@ The current version of the package includes the following functions:
 * **sylvsys** Solution of the Sylvester system of matrix equations `AX+YB = C, DX+YE = F`.
 * **dsylvsys** Solution of the dual Sylvester system of matrix equations `AX+DY = C, XB+YE = F`.
 
+**Iterative solution of linear matrix equations**
+
+* **tlyapci** Iterative solution of the continuous T-Lyapunov equations `A*X+X^⊤*A^⊤ = C` and `A*X^⊤+X*A^⊤ = C`.
+* **hlyapci** Iterative solution of the continuous H-Lyapunov equations `A*X+X'*A' = C` and `A*X'+X*A' = C`.
+* **tulyapci** Iterative solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.
+* **hulyapci** Iterative solution of the continuous H-Lyapunov equations `U*X'+X*U' = C` and `U'*X+X'*U = C` for `U` and `X` upper triangular.
+* **gtsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X^⊤*D_j = E`.
+* **cgls** The conjugate gradient method for nonsymmetric linear equations and least squares problems.
+
 **Norm, condition and separation estimation**
 
 * **opnorm1**  Computation of the 1-norm of a linear operator.
@@ -71,7 +82,8 @@ The current version of the package includes the following functions:
 * **oprcondest** Estimation of the reciprocal 1-norm condition number of a linear operator.
 * **opsepest** Estimation of the 1-norm separation a linear operator.
 
-The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for Sylvester equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. A complete list of implemented functions is available [here](https://sites.google.com/view/andreasvarga/home/software/matrix-equations-in-julia).
+The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for various linear matrix equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. Based on the conjugate gradient method to solve linear systems or least-squares problems, several iterative solvers have been implemented, which potentially are applicable to solve linear matrix equations with large order dense and sparse matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators.  
+A complete list of implemented functions is available [here](https://sites.google.com/view/andreasvarga/home/software/matrix-equations-in-julia).
 
 ## Future plans
 

@@ -34,6 +34,8 @@ as,  = schur(ar);
 ac = ar+im*rand(n,n);
 cc = cc*cc';
 acs,  = schur(ac);
+ur = triu(ar)
+uc = triu(ac)
 
 Tcr = lyapop(ar);
 Tcrinv = invlyapop(ar);
@@ -43,6 +45,16 @@ Tcrsym = lyapop(ar,her=true);
 Tcrsyminv = invlyapop(ar,her=true);
 Tcrssym = lyapop(as,her=true);
 Tcrssyminv = invlyapop(as,her=true);
+
+# define some T/H-Lyapunov operators for upper triangular arguments
+Ttur = tulyapop(ur)
+Ttaur = tulyapop(transpose(ur))
+Ttuc = tulyapop(uc)
+Ttauc = tulyapop(transpose(uc))
+Thur = hulyapop(ur)
+Thaur = hulyapop(ur')
+Thuc = hulyapop(uc)
+Thauc = hulyapop(uc')
 
 
 Tcc = lyapop(ac);
@@ -214,6 +226,18 @@ end
       opsepest(invlyapop([0. 1.; 0. 1.])) == 0.  &&
       opsepest(transpose(invlyapop([0. 1.; 0. 1.]))) == 0.  &&
       opsepest(adjoint(invlyapop([0. 1.; 0. 1.]))) == 0.
+
+
+# some tests for T/H-Lyapunov operators with upper triangular arguments
+@test transpose(Matrix(Ttur)) == Matrix(transpose(Ttur)) &&
+      transpose(Matrix(Ttaur)) == Matrix(transpose(Ttaur)) &&
+      transpose(Matrix(Ttuc)) == Matrix(transpose(Ttuc)) &&
+      transpose(Matrix(Ttauc)) == Matrix(transpose(Ttauc))
+@test adjoint(Matrix(Ttur)) == Matrix(adjoint(Ttur)) &&
+      adjoint(Matrix(Ttaur)) == Matrix(adjoint(Ttaur)) &&
+      adjoint(Matrix(Ttuc)) == Matrix(adjoint(Ttuc)) &&
+      adjoint(Matrix(Ttauc)) == Matrix(adjoint(Ttauc))
+
 
 end
 

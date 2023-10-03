@@ -1,7 +1,7 @@
 name = "MatrixEquations"
 uuid = "99c1a7ee-ab34-5fd5-8076-27c950a045f4"
 authors = ["Andreas Varga <varga.andreas@gmail.com>"]
-version = "2.2.11"
+version = "2.3.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -15,8 +15,10 @@ julia = "1.6"
 DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 GenericSchur = "c145ed77-6b09-5dd9-b285-bf645a82121e"
+IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Random", "Test", "GenericSchur", "GenericLinearAlgebra", "DoubleFloats"]
+test = ["Random", "Test", "GenericSchur", "GenericLinearAlgebra", "DoubleFloats", "IterativeSolvers", "SparseArrays"]

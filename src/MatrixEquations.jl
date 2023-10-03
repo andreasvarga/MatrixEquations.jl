@@ -18,7 +18,8 @@ export MatrixEquationsMaps
 export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormalize!
 export lanv2, ladiv, lag2, lacn2!
 export _lanv2, _safemin, _lag2, _ladiv
-export lyapc, lyapd, lyapcs!, lyapds!, tlyapc, tlyapcu!, hlyapc, hlyapcu! 
+export lyapc, lyapd, lyapcs!, lyapds!, tlyapc, tulyapc!, hlyapc, hulyapc! 
+export cgls, tlyapci, hlyapci, tulyapci, hulyapci, gtsylvi, ghsylvi
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvcs!, sylvcs1!, sylvcs2!, sylvds!, gsylvs!
@@ -27,6 +28,7 @@ export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr,
        tsylvckr, hsylvckr, csylvckr, tsylvdkr, hsylvdkr, csylvdkr, tlyapckr, hlyapckr
 export opnorm1, opnorm1est, oprcondest, opsepest
 export lyapop, invlyapop, sylvop, invsylvop, sylvsysop, invsylvsysop, trmatop
+export tulyapop, hulyapop, tlyapop, hlyapop, gsylvop
 
 include("meutil.jl")
 include("sylvester.jl")
@@ -36,5 +38,6 @@ include("sylvkr.jl")
 include("plyapunov.jl")
 include("meoperators.jl")
 include("condest.jl")
+include("iterative_methods.jl")
  
 end

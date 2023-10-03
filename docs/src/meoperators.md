@@ -5,6 +5,10 @@
 ```@docs
 lyapop
 invlyapop
+tlyapop
+hlyapop
+tulyapop
+hulyapop
 ```
 
 ## Sylvester Operators
@@ -12,6 +16,7 @@ invlyapop
 ```@docs
 sylvop
 invsylvop
+gsylvop
 ```
 
 ## Sylvester System Operators

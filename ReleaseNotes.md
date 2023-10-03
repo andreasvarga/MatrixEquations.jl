@@ -1,8 +1,12 @@
 # Release Notes
 
+## Version 2.3.0
+
+Minor release containing updated and renamed functions `tulyapc!` and `hulyapc!` to cover singular input matrices, new functions to define some T/H-Lyapunov and T-Sylvester operators, a new function `cgls` which implements the conjugate gradient method [`CGLS`](https://web.stanford.edu/group/SOL/software/cgls/) to solve linear equations and linear least-squares problems with matrix and linear operator arguments, and several functions to solve Lyapunov-like and Sylvester-like matrix equations using conjugate gradient based iterative techniques.  
+
 ## Version 2.2.11
 
-Patch release to fix bugs in tlyapc and hlyapc. New functions tlyapcu! and hlyapcu! have been implemented to solve continuous T/H-Lyapunov equations for the upper triangular solution. 
+Patch release to fix bugs in `tlyapc` and `hlyapc`. New functions tlyapcu! and hlyapcu! have been implemented to solve continuous T/H-Lyapunov equations for the upper triangular solution. 
 
 ## Version 2.2.10
 
@@ -28,7 +32,7 @@ Patch release to allow arbitrary floating-point types in all Sylvester equation 
 
 ## Version 2.2.5
 
-Patch release to fix a bug in sylvds!. 
+Patch release to fix a bug in `sylvds!`. 
 
 ## Version 2.2.4
 

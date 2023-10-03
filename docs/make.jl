@@ -1,7 +1,7 @@
 using Documenter, MatrixEquations
 DocMeta.setdocmeta!(MatrixEquations, :DocTestSetup, :(using MatrixEquations); recursive=true)
 
-makedocs(
+makedocs(warnonly = true, 
   modules  = [MatrixEquations],
   sitename = "MatrixEquations.jl",
   authors  = "Andreas Varga",
@@ -15,7 +15,8 @@ makedocs(
         "sylvester.md",
         "sylvkr.md",
         "condest.md",
-        "meoperators.md"
+        "meoperators.md",
+        "iterative.md"
      ],
      "Internal" => [
         "lapackutil.md",
