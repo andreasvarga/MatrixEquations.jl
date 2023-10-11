@@ -68,11 +68,14 @@ The current version of the package includes the following functions:
 
 **Iterative solution of linear matrix equations**
 
+* **lyapci** Iterative solution of the continuous Lyapunov equation `AX+XA'+C = 0`.
+* **lyapdi**  Iterative solution of the discrete Lyapunov equation `AXA'-X+C = 0`.
 * **tlyapci** Iterative solution of the continuous T-Lyapunov equations `A*X+X^⊤*A^⊤ = C` and `A*X^⊤+X*A^⊤ = C`.
 * **hlyapci** Iterative solution of the continuous H-Lyapunov equations `A*X+X'*A' = C` and `A*X'+X*A' = C`.
 * **tulyapci** Iterative solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.
 * **hulyapci** Iterative solution of the continuous H-Lyapunov equations `U*X'+X*U' = C` and `U'*X+X'*U = C` for `U` and `X` upper triangular.
 * **gtsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X^⊤*D_j = E`.
+* **ghsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X'*D_j = E`.
 * **cgls** The conjugate gradient method for nonsymmetric linear equations and least squares problems.
 
 **Norm, condition and separation estimation**

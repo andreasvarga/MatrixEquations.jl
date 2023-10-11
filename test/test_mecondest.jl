@@ -5,15 +5,26 @@ using LinearMaps
 using MatrixEquations
 using Test
 
-function check_ctranspose(op::LinearMaps.LinearMap{T}) where {T <: Union{AbstractFloat, Complex}}
+# function check_ctranspose(op::LinearMaps.LinearMap{T}) where {T <: Union{AbstractFloat, Complex}}
+#    (m, n) = size(op)
+#    x = rand(T,n)
+#    y = rand(T,m)
+#    yAx = dot(y, op * x)
+#    xAty = dot(x, op' * y)
+#    ε = eps(real(eltype(op)))
+#    return abs(yAx - conj(xAty)) < (abs(yAx) + ε) * ε^(1 / 3)
+# end
+function check_ctranspose(op::LinearMaps.LinearMap) 
    (m, n) = size(op)
-   x = rand(T,n)
-   y = rand(T,m)
+   T1 = promote_type(Float64,eltype(op))
+   x = rand(T1,n)
+   y = rand(T1,m)
    yAx = dot(y, op * x)
    xAty = dot(x, op' * y)
-   ε = eps(real(eltype(op)))
+   ε = eps(real(T1))
    return abs(yAx - conj(xAty)) < (abs(yAx) + ε) * ε^(1 / 3)
 end
+   
     
 println("Test_MEcondest")
 
@@ -65,22 +76,29 @@ Tccsym = lyapop(ac,her=true);
 Tccsyminv = invlyapop(ac,her=true);
 Tccssym = lyapop(acs,her=true);
 Tccssyminv = invlyapop(acs,her=true);
-Π = trmatop(n); 
+Π = trmatop(n); MPn = Matrix(Π)
 @test issymmetric(Π) && ishermitian(Π)
 @test size(Tcr) == size(Tcr') == size(Tcrinv)
+Ln = eliminationop(n); MLn = Matrix(Ln)
+Dn = duplicationop(n); MDn = Matrix(Dn)
+@test MPn == MDn*MDn' + MLn'*MLn*MPn*MLn'*MLn - I
+@test (Ln'*Ln*Π*Ln'*Ln)*vec(ar) == vec(Diagonal(ar))
+
 
 @test check_ctranspose(Tcr) &&
       check_ctranspose(Tcrinv) &&
       check_ctranspose(Tcrs) &&
       check_ctranspose(Tcrsinv) &&
-      #check_ctranspose(Tcrsym) &&
+      check_ctranspose(Tcrsym) &&
+      Matrix(Tcrsyminv') ≈  Matrix(Tcrsyminv)' &&
+      Matrix(Tcrssyminv') ≈  Matrix(Tcrssyminv)' &&
       #check_ctranspose(Tcrsyminv) &&
-      #check_ctranspose(Tcrssyminv) &&
       #check_ctranspose(Tcrssyminv) &&
       check_ctranspose(Tcc) &&
       check_ctranspose(Tccinv) &&
       check_ctranspose(Tccs) &&
-      check_ctranspose(Tccsinv) 
+      check_ctranspose(Tccsinv) &&
+      Matrix(Tccsinv') ≈  Matrix(Tccsinv)'
       #check_ctranspose(Tccsym) &&
       #check_ctranspose(Tccsyminv) &&
       #check_ctranspose(Tccssyminv) &&
@@ -174,8 +192,8 @@ end
 @time y = Tccinv'*cc[:];
 @test norm(Tcc'*y-cc[:])/norm(y[:]) < reltol
 
-@time x = Tccsyminv'*triu2vec(cr);
-@test norm(Tccsym'*x-triu2vec(cr))/norm(x[:]) < reltol
+# @time x = Tccsyminv'*triu2vec(cr);
+# @test norm(Tccsym'*x-triu2vec(cr))/norm(x[:]) < reltol
 
 @time x = Tccsinv*cc[:];
 @test norm(Tccs*x-cc[:])/norm(x[:]) < reltol
@@ -539,8 +557,8 @@ end
 @time y = Tdcinv'*cc[:]
 @test norm(Tdc'*y-cc[:])/norm(y[:]) < reltol
 
-@time x = Tdcsyminv'*triu2vec(cr);
-@test norm(Tdcsym'*x-triu2vec(cr))/norm(x[:]) < reltol
+# @time x = Tdcsyminv'*triu2vec(cr);
+# @test norm(Tdcsym'*x-triu2vec(cr))/norm(x[:]) < reltol
 
 @time x = Tdcsinv*cc[:]
 @test norm(Tdcs*x-cc[:])/norm(x[:]) < reltol

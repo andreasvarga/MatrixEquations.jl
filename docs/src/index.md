@@ -28,11 +28,11 @@ The current version of the package includes the following functions:
 | Function | Description |
 | :--- | :--- |
 | **[`lyapc`](@ref)**  | Solution of the continuous Lyapunov equations |
+| **[`lyapd`](@ref)**  | Solution of the discrete Lyapunov equations |
 | **[`tlyapc`](@ref)** | Solution of the continuous T-Lyapunov equations |
 | **[`hlyapc`](@ref)** | Solution of the continuous H-Lyapunov equations |
 | **[`tulyapc!`](@ref)** | Computation of the upper triangular solution of the continuous T-Lyapunov equation |
 | **[`hulyapc!`](@ref)** | Computation of the upper triangular solution of the continuous H-Lyapunov equation |
-| **[`lyapd`](@ref)**  | Solution of the discrete Lyapunov equations |
 | **[`plyapc`](@ref)** | Solution of the positive continuous Lyapunov equations|
 | **[`plyapd`](@ref)** | Solution of the positive discrete Lyapunov equations|
 
@@ -60,6 +60,8 @@ The current version of the package includes the following functions:
 
 | Function | Description |
 | :--- | :--- |
+| **[`lyapci`](@ref)** |Iterative solution of continuous Lyapunov equations|
+| **[`lyapdi`](@ref)** |Iterative solution of discrete Lyapunov equations|
 | **[`tlyapci`](@ref)** |Iterative solution of the continuous T-Lyapunov equations|
 | **[`hlyapci`](@ref)** |Iterative solution of the continuous H-Lyapunov equations|
 | **[`tulyapci`](@ref)** |Iterative solution of the continuous T-Lyapunov equations with upper triangular solutions|

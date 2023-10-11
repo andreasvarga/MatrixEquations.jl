@@ -6,16 +6,18 @@
 cgls
 ```
 
-## Continuous-time Lyapunov-like Matrix Equations
+## Continuous-time Lyapunov and Lyapunov-like Matrix Equations
 
 ```@docs
+lyapci
+lyapdi
 tlyapci
 hlyapci
 tulyapci
 hulyapci
 ```
 
-## Sylvester and Sylvester-like Matrix Equation
+## Sylvester and Sylvester-like Matrix Equations
 
 ```@docs
 gtsylvi

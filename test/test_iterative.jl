@@ -165,11 +165,6 @@ using IterativeSolvers
         @time x2 = lsmr(L, e);
         @test norm(L*x2-e)/norm(x2) < reltol
 
-
-
-
-
-   
         m = 3; n = 5; mx = 2; nx = 4; la = 2; lc = 1
         Ty = Float64
         reltol = 1.e-7
@@ -236,7 +231,19 @@ using IterativeSolvers
     C = Cs; D = Ds; E = Matrix(Es); 
     L = gsylvop(A,B,C,D)
     @time X, info = gtsylvi(A,B,C,D,E; reltol = 1.e-8, maxiter = 5000);
-    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4         
+    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4     
+    
+    
+    n = 5
+    Ty = Float64
+    reltol = √eps(real(Ty))
+    A = rand(Ty,n,n); C = Hermitian(rand(Ty,n,n));
+    X, info = lyapci(A, C)
+    @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   
+
+    X, info = lyapdi(A, C)
+    @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   
+
    
  
 end

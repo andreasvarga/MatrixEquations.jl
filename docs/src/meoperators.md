@@ -26,8 +26,10 @@ sylvsysop
 invsylvsysop
 ```
 
-## Matrix Transposition Operator
+## Elementary Matrix Operators
 
 ```@docs
 trmatop
+eliminationop
+duplicationop
 ```

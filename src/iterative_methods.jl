@@ -1,4 +1,68 @@
 """
+    lyapci(A, C; abstol, reltol, maxiter) -> (X,info)
+
+Compute for a square `A` and a hermitian/symmetric `C` a solution `X` of the continuous Lyapunov matrix equation
+
+                A*X + X*A' + C = 0.
+
+A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
+to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
+The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+"""
+function lyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+    n = LinearAlgebra.checksquare(A)
+    LinearAlgebra.checksquare(C) == n ||
+        throw(DimensionMismatch("C must be a square matrix of dimension $n"))
+    sym = isreal(A) && isreal(C) && issymmetric(C) 
+    her = ishermitian(C)
+    LT = lyapop(A; her = sym)
+    if sym 
+       xt, info = cgls(LT,-triu2vec(C); abstol, reltol, maxiter)
+    else
+       xt, info = cgls(LT,-vec(C); abstol, reltol, maxiter)
+    end
+    info.flag == 1 || @warn "convergence issues: info = $info"
+    if sym
+       return vec2triu(xt,her = true), info
+    else
+       Xt = reshape(xt,n,n); 
+       return her ? (Xt+Xt')/2 : Xt, info
+    end
+end
+"""
+    lyapdi(A, C; abstol, reltol, maxiter) -> (X,info)
+
+Compute for a square `A` and a hermitian/symmetric `C` a solution `X` of the discrete Lyapunov matrix equation
+
+                AXA' - X + C = 0.
+
+A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
+to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
+The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+"""
+function lyapdi(A::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+    n = LinearAlgebra.checksquare(A)
+    LinearAlgebra.checksquare(C) == n ||
+        throw(DimensionMismatch("C must be a square matrix of dimension $n"))
+    sym = isreal(A) && isreal(C) && issymmetric(C) 
+    her = ishermitian(C)
+    LT = lyapop(A; disc = true, her = sym)
+    if sym 
+       xt, info = cgls(LT,-triu2vec(C); abstol, reltol, maxiter)
+    else
+       xt, info = cgls(LT,-vec(C); abstol, reltol, maxiter)
+    end
+    info.flag == 1 || @warn "convergence issues: info = $info"
+    if sym
+       return vec2triu(xt,her = true), info
+    else
+       Xt = reshape(xt,n,n); 
+       return her ? (Xt+Xt')/2 : Xt, info
+    end
+end
+"""
     gtsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
 
 Compute a solution `X` of the generalized T-Sylvester matrix equation

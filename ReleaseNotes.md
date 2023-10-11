@@ -2,7 +2,14 @@
 
 ## Version 2.3.0
 
-Minor release containing updated and renamed functions `tulyapc!` and `hulyapc!` to cover singular input matrices, new functions to define some T/H-Lyapunov and T-Sylvester operators, a new function `cgls` which implements the conjugate gradient method [`CGLS`](https://web.stanford.edu/group/SOL/software/cgls/) to solve linear equations and linear least-squares problems with matrix and linear operator arguments, and several functions to solve Lyapunov-like and Sylvester-like matrix equations using conjugate gradient based iterative techniques.  
+Minor release containing the following changes:
+* renamed functions `tulyapc!` and `hulyapc!` to cover singular input matrices
+* new functions to define some  _T/H-Lyapunov_ and  _generalized T/H-Sylvester_ operators
+* a new function `cgls` which implements the conjugate gradient method [`CGLS`](https://web.stanford.edu/group/SOL/software/cgls/) to solve linear equations and linear least-squares problems with matrix and linear operator arguments
+* new functions to solve Lyapunov, Lyapunov-like, Sylvester and Sylvester-like matrix equations using conjugate gradient based iterative techniques
+* new operators to handle half-vector operations, such as, the _elimination_ and _duplication_ operators  
+* enhanced _transpose_ (_commutation_) operator
+* explicit definitions of 3-term `mul!` operations for transpose/adjoint of Lyapunov operators
 
 ## Version 2.2.11
 
