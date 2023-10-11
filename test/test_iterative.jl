@@ -201,6 +201,16 @@ using IterativeSolvers
         end
     end
 
+    A = [I,Matrix(rand(4,4))]
+    B = [I, Matrix(rand(4,4))]
+    C = [I,Matrix(rand(4,4))] 
+    D = [I,Matrix(rand(4,4))] 
+    E = rand(4,4); 
+    L = gsylvop(A,B,C,D)
+    @time X, info = gtsylvi(A,B,C,D,E; reltol = 1.e-8);
+    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4     
+
+
     m = 3; n = 5; mx = 2; nx = 4; la = 2; lc = 1
     Ty = Float64
     reltol = √eps(real(Ty))
@@ -231,18 +241,32 @@ using IterativeSolvers
     C = Cs; D = Ds; E = Matrix(Es); 
     L = gsylvop(A,B,C,D)
     @time X, info = gtsylvi(A,B,C,D,E; reltol = 1.e-8, maxiter = 5000);
-    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4     
-    
+    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4   
+      
     
     n = 5
     Ty = Float64
-    reltol = √eps(real(Ty))
-    A = rand(Ty,n,n); C = Hermitian(rand(Ty,n,n));
-    X, info = lyapci(A, C)
-    @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   
+    Ty = ComplexF64
+    Ty = BigFloat
+    @testset "Matrix{$Ty}" for Ty in (Float64, ComplexF64, BigFloat, Complex{BigFloat}, Double64, Complex{Double64})
+        reltol = √eps(real(Ty))
+        A = rand(Ty,n,n); 
+        C = Hermitian(rand(Ty,n,n)); # Hermitian case
+        X, info = lyapci(A, C)
+        @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
+        X, info = lyapdi(A, C) 
+        @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   && ishermitian(X)
+    
+    
+        C = rand(Ty,n,n);            # non-Hermitian case
+        X, info = lyapci(A, C)
+        @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   
+        X, info = lyapdi(A, C)
+        @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   
+    
+    end
 
-    X, info = lyapdi(A, C)
-    @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   
+
 
    
  

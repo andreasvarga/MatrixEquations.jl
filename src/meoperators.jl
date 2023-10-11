@@ -48,7 +48,7 @@ The corresponding commutation matrix (see [here](https://en.wikipedia.org/wiki/C
 can be generated as `Matrix(M)`.
 """
 function trmatop(A)
-    trmatop(size(A))
+    trmatop{eltype(A)}(size(A))
 end
 """
     M = eliminationop(n)
@@ -70,6 +70,8 @@ struct eliminationop{T} <: LinearMaps.LinearMap{T}
    end
 end
 Base.size(A::eliminationop) = (n = A.dim; return (div(n*(n+1),2), n*n))
+LinearAlgebra.adjoint(A::eliminationop{T}) where {T} = LinearAlgebra.transpose(A)
+
 
 function LinearMaps._unsafe_mul!(y::AbstractVector, A::eliminationop, x::AbstractVector)
    # X = reshape(x, A.dim, A.dim)
@@ -102,24 +104,24 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.TransposeMap{
     end
    return x
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.AdjointMap{T,<:eliminationop{T}}, y::AbstractVector) where {T}
-   # X = vec2triu(y)
-   n = AT.lmap.dim
-   ZERO = zero(eltype(y))
-   @inbounds begin
-      k = 1
-      for j = 1:n
-          for i = 1:j
-              x[(i-1)*n + j] = y[k]
-              k += 1
-          end
-          for i = j+1:n
-              x[(i-1)*n + j] = ZERO
-          end
-      end
-    end
-   return x
-end
+# function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.AdjointMap{T,<:eliminationop{T}}, y::AbstractVector) where {T}
+#    # X = vec2triu(y)
+#    n = AT.lmap.dim
+#    ZERO = zero(eltype(y))
+#    @inbounds begin
+#       k = 1
+#       for j = 1:n
+#           for i = 1:j
+#               x[(i-1)*n + j] = y[k]
+#               k += 1
+#           end
+#           for i = j+1:n
+#               x[(i-1)*n + j] = ZERO
+#           end
+#       end
+#     end
+#    return x
+# end
 
 eliminationop(A) = eliminationop{eltype(A)}(LinearAlgebra.checksquare(A))
 
@@ -145,6 +147,8 @@ struct duplicationop{T} <: LinearMaps.LinearMap{T}
    end
 end
 Base.size(A::duplicationop) = (n = A.dim; return (n*n, div(n*(n+1),2)))
+LinearAlgebra.adjoint(A::duplicationop{T}) where {T} = LinearAlgebra.transpose(A)
+
 
 function LinearMaps._unsafe_mul!(y::AbstractVector, A::duplicationop, x::AbstractVector)
    # y[:] = vec2triu(x, her = true)
@@ -180,22 +184,22 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.TransposeMap{
    end
    return x
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.AdjointMap{T,<:duplicationop{T}}, y::AbstractVector) where {T}
-   n = AT.lmap.dim
-   # Y = reshape(y, n, n)
-   # x[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
-   @inbounds begin
-      k = 1
-      for j = 1:n
-         for i = 1:j
-            #x[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
-            x[k] = i == j ? y[(j-1)*n + j] : y[(i-1)*n + j] + y[(j-1)*n + i]
-            k += 1
-         end
-      end
-   end
-   return x
-end
+# function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.AdjointMap{T,<:duplicationop{T}}, y::AbstractVector) where {T}
+#    n = AT.lmap.dim
+#    # Y = reshape(y, n, n)
+#    # x[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
+#    @inbounds begin
+#       k = 1
+#       for j = 1:n
+#          for i = 1:j
+#             #x[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
+#             x[k] = i == j ? y[(j-1)*n + j] : y[(i-1)*n + j] + y[(j-1)*n + i]
+#             k += 1
+#          end
+#       end
+#    end
+#    return x
+# end
 
 duplicationop(A) = duplicationop{eltype(A)}(LinearAlgebra.checksquare(A))
 

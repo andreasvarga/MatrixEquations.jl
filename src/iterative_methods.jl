@@ -17,6 +17,7 @@ function lyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(
     sym = isreal(A) && isreal(C) && issymmetric(C) 
     her = ishermitian(C)
     LT = lyapop(A; her = sym)
+    
     if sym 
        xt, info = cgls(LT,-triu2vec(C); abstol, reltol, maxiter)
     else

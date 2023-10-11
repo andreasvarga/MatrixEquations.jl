@@ -81,6 +81,8 @@ Tccssyminv = invlyapop(acs,her=true);
 @test size(Tcr) == size(Tcr') == size(Tcrinv)
 Ln = eliminationop(n); MLn = Matrix(Ln)
 Dn = duplicationop(n); MDn = Matrix(Dn)
+@test MLn == Matrix(eliminationop(ar))
+@test MDn == Matrix(duplicationop(ar))
 @test MPn == MDn*MDn' + MLn'*MLn*MPn*MLn'*MLn - I
 @test (Ln'*Ln*Π*Ln'*Ln)*vec(ar) == vec(Diagonal(ar))
 
