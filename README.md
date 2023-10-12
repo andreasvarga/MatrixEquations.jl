@@ -4,7 +4,7 @@
 [![DocBuild](https://github.com/andreasvarga/MatrixEquations.jl/workflows/CI/badge.svg)](https://github.com/andreasvarga/MatrixEquations.jl/actions)
 [![codecov.io](https://codecov.io/gh/andreasvarga/MatrixEquations.jl/coverage.svg?branch=master)](https://codecov.io/gh/andreasvarga/MatrixEquations.jl?branch=master)
 [![stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/stable/)
-[![dev](https://img.shields.io/badge/docs-latest-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/dev/)
+[![dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/dev/)
 [![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/MatrixEquations.jl/blob/master/LICENSE.md)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
@@ -69,8 +69,8 @@ The current version of the package includes the following functions:
 
 **Iterative solution of linear matrix equations**
 
-* **lyapci** Iterative solution of the continuous Lyapunov equation `AX+XA'+C = 0`.
-* **lyapdi**  Iterative solution of the discrete Lyapunov equation `AXA'-X+C = 0`.
+* **lyapci** Iterative solution of the continuous Lyapunov equations `AX+XA'+C = 0` and `AXE'+EXA'+C = 0`.
+* **lyapdi**  Iterative solution of the discrete Lyapunov equations `AXA'-X+C = 0` and `AXA'-EXE'+C = 0`.
 * **tlyapci** Iterative solution of the continuous T-Lyapunov equations `A*X+X^⊤*A^⊤ = C` and `A*X^⊤+X*A^⊤ = C`.
 * **hlyapci** Iterative solution of the continuous H-Lyapunov equations `A*X+X'*A' = C` and `A*X'+X*A' = C`.
 * **tulyapci** Iterative solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.

@@ -54,7 +54,7 @@ end
     M = eliminationop(n)
     M = eliminationop(A)
 
-Define the elimination operator of all `n×n` matrices to select their upper triangular parts or for all square matrices of size of `A`.  
+Define the elimination operator of all `n×n` matrices to select their upper triangular parts or of all square matrices of size of `A`.  
 See [here](https://en.wikipedia.org/wiki/Duplication_and_elimination_matrices) for the 
 definition of an elimination matrix for the selection of lower triangular parts.
 """
@@ -130,7 +130,7 @@ eliminationop(A) = eliminationop{eltype(A)}(LinearAlgebra.checksquare(A))
     M = duplicationop(A)
 
 Define the duplication operator of all `n×n` matrices to reconstruct a hermitian matrix from its upper triangular elements 
-or for all square matrices of size of `A`.
+or of all square matrices of size of `A`.
 See [here](https://en.wikipedia.org/wiki/Duplication_and_elimination_matrices) for the 
 definition of a duplication matrix from the lower triangular parts.
 
@@ -571,7 +571,6 @@ end
 function mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix; dual = false)
    require_one_based_indexing(y, A, X)
    # A*X + X*A'
-   #display(X)
    n = size(A, 1)
    if dual 
       #Y = A*X+X*A'
@@ -666,10 +665,10 @@ function GeneralizedLyapunovMap(A::AbstractMatrix, E::AbstractMatrix, ::CD = Con
    return GeneralizedLyapunovMap{T,typeof(A),typeof(E),CD}(A, E, her)
 end
 
-LinearAlgebra.adjoint(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
-   GeneralizedLyapunovMap(L.A', L.E', CD(), L.her)
-LinearAlgebra.transpose(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
-   GeneralizedLyapunovMap(L.A', L.E', CD(), L.her)
+# LinearAlgebra.adjoint(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+#    GeneralizedLyapunovMap(L.A', L.E', CD(), L.her)
+# LinearAlgebra.transpose(L::GeneralizedLyapunovMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+#    GeneralizedLyapunovMap(L.A', L.E', CD(), L.her)
 
 """
     L = lyapop(A, E; disc = false, her = false)
@@ -720,6 +719,45 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,
    end
    return y
 end
+function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,GeneralizedLyapunovMap{T,TA,TE,Discrete}}, y::AbstractVector) where  {T,TA,TE}
+   n = size(L.lmap.A, 1)
+   T1 = promote_type(T, eltype(y))
+   if L.lmap.her
+      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+      # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
+      muldsym!(x, L.lmap.A', L.lmap.E', Y, dual = true)
+   else
+      # (x .= (L.A'*Y*L.A - L.E'*X*L.E)[:])
+      X = reshape(x, n, n)
+      Y = reshape(convert(AbstractVector{T1}, y), n, n)
+      temp = similar(Y, (n, n))
+      mul!(temp, Y, L.lmap.A)
+      mul!(X, L.lmap.A', temp)
+      mul!(temp, Y, L.lmap.E)
+      mul!(X, L.lmap.E', temp, -1, 1)
+   end
+   return x
+end
+function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,GeneralizedLyapunovMap{T,TA,TE,Discrete}}, y::AbstractVector) where  {T,TA,TE}
+   n = size(L.lmap.A, 1)
+   T1 = promote_type(T, eltype(y))
+   if L.lmap.her
+      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+      # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
+      muldsym!(x, L.lmap.A', L.lmap.E', Y, dual = true)
+   else
+      # (x .= (L.A'*Y*L.A - L.E'*X*L.E)[:])
+      X = reshape(x, n, n)
+      Y = reshape(convert(AbstractVector{T1}, y), n, n)
+      temp = similar(Y, (n, n))
+      mul!(temp, Y, L.lmap.A)
+      mul!(X, L.lmap.A', temp)
+      mul!(temp, Y, L.lmap.E)
+      mul!(X, L.lmap.E', temp, -1, 1)
+   end
+   return x
+end
+
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where {T}
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
@@ -738,47 +776,126 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,
    end
    return y
 end
-function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix)
+function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,GeneralizedLyapunovMap{T,TA,TE,Continuous}}, y::AbstractVector) where  {T,TA,TE}
+   n = size(L.lmap.A, 1)
+   T1 = promote_type(T, eltype(y))
+   if L.lmap.her
+      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+      #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
+      mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
+   else
+      X = reshape(x, n, n)
+      Y = reshape(convert(AbstractVector{T1}, y), n, n)
+      temp = similar(Y, (n, n))
+      # (x[:] = (L.A'*Y*L.E + L.E'*Y*L.A)[:])
+      mul!(temp, L.lmap.E', Y)
+      mul!(X, temp, L.lmap.A)
+      mul!(temp, Y, L.lmap.E)
+      mul!(X, L.lmap.A', temp, 1, 1)
+   end
+   return x
+end
+function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,GeneralizedLyapunovMap{T,TA,TE,Continuous}}, y::AbstractVector) where  {T,TA,TE}
+   n = size(L.lmap.A, 1)
+   T1 = promote_type(T, eltype(y))
+   if L.lmap.her
+      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+      #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
+      mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
+   else
+      X = reshape(x, n, n)
+      Y = reshape(convert(AbstractVector{T1}, y), n, n)
+      temp = similar(Y, (n, n))
+      # (x[:] = (L.A'*Y*L.E + L.E'*Y*L.A)[:])
+      mul!(temp, L.lmap.E', Y)
+      mul!(X, temp, L.lmap.A)
+      mul!(temp, Y, L.lmap.E)
+      mul!(X, L.lmap.A', temp, 1, 1)
+   end
+   return x
+end
+
+
+function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix; dual = false)
    require_one_based_indexing(y, A)
    # AXE' + EXA'
    n = size(A, 1)
    Y = similar(X, n, n)
-   ZERO = zero(eltype(y))
-   # Y = XE'
-   mul!(Y, X, E')
-   # AY + Y'A'
-   @inbounds  begin
-      k = 1
-      for j = 1:n
-         for i = 1:j
-            temp = ZERO
-            for l = 1:n
-               temp += A[i,l] * Y[l,j] + conj(Y[l,i] * A[j,l])
+   if dual 
+      #Y = AXE' + EXA'
+      Y = similar(X, n, n)
+      temp = similar(Y, (n, n))
+      mul!(temp, E, X)
+      mul!(Y, temp, A')
+      mul!(temp, X, E')
+      mul!(Y, A, temp, 1, 1)
+      # y[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
+      @inbounds begin
+         k = 1
+         for j = 1:n
+            for i = 1:j
+               y[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
+               k += 1
             end
-            y[k] = temp
-            k += 1
+         end
+      end
+   else
+      ZERO = zero(eltype(y))
+      # Y = XE'
+      mul!(Y, X, E')
+      # AY + Y'A'
+      @inbounds  begin
+         k = 1
+         for j = 1:n
+            for i = 1:j
+               temp = ZERO
+               for l = 1:n
+                  temp += A[i,l] * Y[l,j] + conj(Y[l,i] * A[j,l])
+               end
+               y[k] = temp
+               k += 1
+            end
          end
       end
    end
    return y
 end
-function muldsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix)
+function muldsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix; dual = false)
    require_one_based_indexing(y)
    # AXA' - EXE'
    n = size(A, 1)
-   # t = triu(X)-diag(X)/2
-   t = UpperTriangular(X) - Diagonal(X[diagind(X)] ./ 2)
    Y = similar(X, n, n)
-   # Y = A*t*A' - E*t*E'
-   mul!(Y, A * t, A')
-   mul!(Y, E * t, E', -1, 1)
-   # Y + Y'
-   @inbounds  begin
-      k = 1
-      for j = 1:n
-         for i = 1:j
-            y[k] = Y[i,j] + conj(Y[j,i])
-            k += 1
+   if dual 
+      #Y = AXA' - EXE'
+      temp = similar(Y, (n, n))
+      mul!(temp, A, X)
+      mul!(Y, temp, A')
+      mul!(temp, X, E')
+      mul!(Y, E, temp, -1, 1)
+      # y[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
+      @inbounds begin
+         k = 1
+         for j = 1:n
+            for i = 1:j
+               y[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
+               k += 1
+            end
+         end
+      end
+   else
+      # t = triu(X)-diag(X)/2
+      t = UpperTriangular(X) - Diagonal(X[diagind(X)] ./ 2)
+      # Y = A*t*A' - E*t*E'
+      mul!(Y, A * t, A')
+      mul!(Y, E * t, E', -1, 1)
+      # Y + Y'
+      @inbounds  begin
+         k = 1
+         for j = 1:n
+            for i = 1:j
+               y[k] = Y[i,j] + conj(Y[j,i])
+               k += 1
+            end
          end
       end
    end

@@ -10,7 +10,7 @@ using SparseArrays
 using IterativeSolvers
 
 
-@testset "Small full systems" begin
+@testset "Iterative solvers" begin
     n = 10
     T = ComplexF32
     T = Double64
@@ -250,19 +250,31 @@ using IterativeSolvers
     Ty = BigFloat
     @testset "Matrix{$Ty}" for Ty in (Float64, ComplexF64, BigFloat, Complex{BigFloat}, Double64, Complex{Double64})
         reltol = √eps(real(Ty))
-        A = rand(Ty,n,n); 
-        C = Hermitian(rand(Ty,n,n)); # Hermitian case
+        A = rand(Ty,n,n); E = rand(Ty,n,n);  
+        Q = rand(Ty,n,n); C = Hermitian(Q);           
+        # Hermitian case
         X, info = lyapci(A, C)
         @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
         X, info = lyapdi(A, C) 
         @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   && ishermitian(X)
-    
-    
-        C = rand(Ty,n,n);            # non-Hermitian case
-        X, info = lyapci(A, C)
-        @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   
-        X, info = lyapdi(A, C)
-        @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   
+       
+        # non-Hermitian case
+        X, info = lyapci(A, Q)
+        @test norm(A*X+X*A'+Q)/norm(X)  < 1.e-4   
+        X, info = lyapdi(A, Q)
+        @test norm(A*X*A' -X+Q)/norm(X)  < 1.e-4   
+
+        # Hermitian case
+        X, info = lyapci(A, E, C)
+        @test norm(A*X*E'+E*X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
+        X, info = lyapdi(A, E, C) 
+        @test norm(A*X*A' -E*X*E'+C)/norm(X)  < 1.e-4   && ishermitian(X)
+       
+         # non-Hermitian case
+        X, info = lyapci(A, E,  Q)
+        @test norm(A*X*E'+E*X*A'+Q)/norm(X)  < 1.e-4   
+        X, info = lyapdi(A, E, Q)
+        @test norm(A*X*A' - E*X*E'+Q)/norm(X)  < 1.e-4   
     
     end
 
