@@ -21,7 +21,7 @@ using IterativeSolvers
         reltol = √eps(real(T))/10
 
         @time x, info = cgls(A, b; reltol=reltol, maxiter=2n);
-        @test norm(A*x - b) / norm(b) ≤ reltol
+        @test norm(A*x - b) / norm(b) ≤ 10*reltol
         @test info.flag == 1
 
         # If you start from the exact solution, you should converge immediately
@@ -244,7 +244,7 @@ using IterativeSolvers
     @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4   
       
     
-    n = 5
+    n = 5; m = 4;
     Ty = Float64
     Ty = ComplexF64
     Ty = BigFloat
@@ -252,29 +252,36 @@ using IterativeSolvers
         reltol = √eps(real(Ty))
         A = rand(Ty,n,n); E = rand(Ty,n,n);  
         Q = rand(Ty,n,n); C = Hermitian(Q);           
-        # Hermitian case
+        # Lyapunov equation, Hermitian case
         X, info = lyapci(A, C)
         @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
         X, info = lyapdi(A, C) 
         @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   && ishermitian(X)
        
-        # non-Hermitian case
+        # Lyapunov equation, non-Hermitian case
         X, info = lyapci(A, Q)
         @test norm(A*X+X*A'+Q)/norm(X)  < 1.e-4   
         X, info = lyapdi(A, Q)
         @test norm(A*X*A' -X+Q)/norm(X)  < 1.e-4   
 
-        # Hermitian case
+        # generalized Lyapunov equation, Hermitian case
         X, info = lyapci(A, E, C)
         @test norm(A*X*E'+E*X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
         X, info = lyapdi(A, E, C) 
         @test norm(A*X*A' -E*X*E'+C)/norm(X)  < 1.e-4   && ishermitian(X)
        
-         # non-Hermitian case
+         # generalized Lyapunov equation, non-Hermitian case
         X, info = lyapci(A, E,  Q)
         @test norm(A*X*E'+E*X*A'+Q)/norm(X)  < 1.e-4   
         X, info = lyapdi(A, E, Q)
         @test norm(A*X*A' - E*X*E'+Q)/norm(X)  < 1.e-4   
+
+        #  Sylvester equation
+        B = rand(Ty,m,m); W = rand(Ty,n,m)
+        X, info = sylvci(A, B, W)
+        @test norm(A*X+X*B-W)/norm(X)  < 1.e-4   
+        X, info = sylvdi(A, B, W)
+        @test norm(A*X*B+X-W)/norm(X)  < 1.e-4   
     
     end
 

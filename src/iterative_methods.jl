@@ -48,7 +48,6 @@ function lyapci(A::AbstractMatrix{T}, E::AbstractMatrix{T}, C::AbstractMatrix{T}
     n = LinearAlgebra.checksquare(A)
     LinearAlgebra.checksquare(C) == n ||
        throw(DimensionMismatch("C must be a square matrix of dimension $n"))
-    isequal(E,I) && size(E,1) == n && (return lyapci(A, C; abstol, reltol, maxiter))
     LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
     sym = isreal(A) && isreal(E) && isreal(C) && issymmetric(C) 
     her = ishermitian(C)
@@ -116,7 +115,6 @@ function lyapdi(A::AbstractMatrix{T}, E::AbstractMatrix{T}, C::AbstractMatrix{T}
     n = LinearAlgebra.checksquare(A)
     LinearAlgebra.checksquare(C) == n ||
        throw(DimensionMismatch("C must be a square matrix of dimension $n"))
-    isequal(E,I) && size(E,1) == n && (return lyapdi(A, C; abstol, reltol, maxiter))
     LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a square matrix of dimension $n"))
     sym = isreal(A) && isreal(E) && isreal(C) && issymmetric(C) 
     her = ishermitian(C)
@@ -135,9 +133,55 @@ function lyapdi(A::AbstractMatrix{T}, E::AbstractMatrix{T}, C::AbstractMatrix{T}
        return her ? (Xt+Xt')/2 : Xt, info
     end
 end
+lyapci(A::AbstractMatrix{T}, E::UniformScaling{Bool}, C::AbstractMatrix{T}; kwargs...) where {T} = lyapci(A, C; kwargs...)
+lyapdi(A::AbstractMatrix{T}, E::UniformScaling{Bool}, C::AbstractMatrix{T}; kwargs...) where {T} = lyapdi(A, C; kwargs...)
 
 """
-    gtsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
+    X = sylvci(A,B,C)
+
+Solve the continuous Sylvester matrix equation
+
+                AX + XB = C ,
+
+where `A` and `B` are square matrices. 
+
+A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
+to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
+The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+"""
+function sylvci(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+    m, n = size(C);
+    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+    LT = sylvop(A, B)   
+    xt, info = cgls(LT,vec(C); abstol, reltol, maxiter)
+    return reshape(xt,m,n), info
+end
+"""
+    X = sylvdi(A,B,C)
+
+Solve the discrete Sylvester matrix equation
+
+                AXB + X = C ,
+
+where `A` and `B` are square matrices. 
+
+A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
+to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
+The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+
+"""
+function sylvdi(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+    m, n = size(C);
+    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+    LT = sylvop(A, B; disc = true)   
+    xt, info = cgls(LT,vec(C); abstol, reltol, maxiter)
+    return reshape(xt,m,n), info
+end
+
+"""
+                gtsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
 
 Compute a solution `X` of the generalized T-Sylvester matrix equation
 

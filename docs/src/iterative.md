@@ -20,6 +20,8 @@ hulyapci
 ## Sylvester and Sylvester-like Matrix Equations
 
 ```@docs
+sylvci
+sylvdi
 gtsylvi
 ghsylvi
 ```

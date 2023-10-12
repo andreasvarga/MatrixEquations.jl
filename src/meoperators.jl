@@ -1288,6 +1288,29 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:An
    mul!(Y, L.A * X, L.B, true, true)
    return y
 end
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{<:Any,SylvesterMap{T,<:Any,<:Any,Discrete}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A, 1)
+   n = size(LT.lmap.B, 1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
+   X = reshape(x, (m, n))
+   # X = A' * Y * B' + X
+   copyto!(x, y)
+   mul!(X, LT.lmap.A' * Y, LT.lmap.B', true, true)
+   return x
+end
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{<:Any,SylvesterMap{T,<:Any,<:Any,Discrete}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A, 1)
+   n = size(LT.lmap.B, 1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
+   X = reshape(x, (m, n))
+   # X = A' * Y * B' + X
+   copyto!(x, y)
+   mul!(X, LT.lmap.A' * Y, LT.lmap.B', true, true)
+   return x
+end
+
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where T
    m = size(L.A, 1)
    n = size(L.B, 1)
@@ -1299,6 +1322,29 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:An
    mul!(Y, X, L.B, true, true)
    return y
 end
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{<:Any,SylvesterMap{T,<:Any,<:Any,Continuous}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A, 1)
+   n = size(LT.lmap.B, 1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
+   X = reshape(x, (m, n))
+   # X = A' * Y + Y * B'
+   mul!(X, L.A', Y)
+   mul!(X, X, L.B', true, true)
+   return x
+end
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{<:Any,SylvesterMap{T,<:Any,<:Any,Continuous}}, y::AbstractVector) where {T}
+   m = size(LT.lmap.A, 1)
+   n = size(LT.lmap.B, 1)
+   T1 = promote_type(T, eltype(y))
+   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
+   X = reshape(x, (m, n))
+   # X = A' * Y + Y * B'
+   mul!(X, L.A', Y)
+   mul!(X, X, L.B', true, true)
+   return x
+end
+
 
 struct InverseSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,CD} <: SylvesterMatrixEquationsMaps{T}
    A::TA
