@@ -66,8 +66,9 @@ The current version of the package includes the following functions:
 | **[`hlyapci`](@ref)** |Iterative solution of the continuous H-Lyapunov equations|
 | **[`tulyapci`](@ref)** |Iterative solution of the continuous T-Lyapunov equations with upper triangular solutions|
 | **[`hulyapci`](@ref)** |Iterative solution of the continuous H-Lyapunov equations with upper triangular solutions|
-| **[`sylvci`](@ref)** | Iterative solution of the (continuous) Sylvester equations|
-| **[`sylvdi`](@ref)** | Iterative solution of the (discrete) Sylvester equations |
+| **[`sylvci`](@ref)** |Iterative solution of the (continuous) Sylvester equations|
+| **[`sylvdi`](@ref)** |Iterative solution of the (discrete) Sylvester equations |
+| **[`gsylvi`](@ref)** |Iterative solution of the generalized Sylvester equations|
 | **[`gtsylvi`](@ref)** |Iterative solution of the generalized T-Sylvester equations|
 | **[`ghsylvi`](@ref)** |Iterative solution of the generalized H-Sylvester equations|
 | **[`cgls`](@ref)** |The conjugate gradient method for nonsymmetric linear equations and least squares problems|

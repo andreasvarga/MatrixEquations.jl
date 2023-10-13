@@ -452,6 +452,7 @@ function Base.size(L::LyapunovMap)
    return (N, N)
 end
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapunovMap{T,TA,Discrete}, x::AbstractVector) where {T,TA}
+   require_one_based_indexing(y, x)
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    if L.her
@@ -467,58 +468,28 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapunovMap{T,TA,Discrete
    end
    return y
 end
-# function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,LyapunovMap{T,TA,Discrete}}, y::AbstractVector) where  {T,TA}
-#    n = size(L.lmap.A, 1)
-#    T1 = promote_type(T, eltype(y))
-#    if L.lmap.her
-#       Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-#       # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
-#       muldsym!(x, L.lmap.A', Y, dual = true)
-#    else
-#       # (x .= (L.A'*Y*L.A - Y)[:])
-#       mul!(x, -1, y)
-#       Y = reshape(convert(AbstractVector{T1}, y), n, n)
-#       X = reshape(x, n, n)
-#       mul!(X, L.lmap.A'*Y, L.lmap.A, true, true)
-#    end
-#    return x
-# end
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,LyapunovMap{T,TA,Discrete}}, y::AbstractVector) where  {T,TA}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
-      muldsym!(x, L.lmap.A', Y, dual = true)
-   else
-      # (x .= (L.A'*Y*L.A - Y)[:])
-      mul!(x, -1, y)
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      X = reshape(x, n, n)
-      mul!(X, L.lmap.A'*Y, L.lmap.A, true, true)
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, L::$ttype{T,LyapunovMap{T,TA,Discrete}}, y::AbstractVector) where  {T,TA}
+      require_one_based_indexing(y, x)
+      n = size(L.lmap.A, 1)
+      T1 = promote_type(T, eltype(y))
+      if L.lmap.her
+         Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+         # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
+         muldsym!(x, L.lmap.A', Y, dual = true)
+      else
+         # (x .= (L.A'*Y*L.A - Y)[:])
+         mul!(x, -1, y)
+         Y = reshape(convert(AbstractVector{T1}, y), n, n)
+         X = reshape(x, n, n)
+         mul!(X, L.lmap.A'*Y, L.lmap.A, true, true)
+      end
+      return x
    end
-   return x
 end
-
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,LyapunovMap{T,TA,Discrete}}, y::AbstractVector) where  {T,TA}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      #Y = vec2triu(convert(AbstractVector{T1}, y), her=true)
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
-      muldsym!(x, L.lmap.A', Y, dual = true)
-   else
-      # (x .= (L.A'*Y*L.A - Y)[:])
-      mul!(x, -1, y)
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      X = reshape(x, n, n)
-      mul!(X, L.lmap.A'*Y, L.lmap.A, true, true)
-   end
-   return x
-end
-
+   
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapunovMap{T,TA,Continuous}, x::AbstractVector) where {T,TA}
+   require_one_based_indexing(y, x)
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    if L.her
@@ -534,40 +505,26 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapunovMap{T,TA,Continuo
    end
    return y
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,LyapunovMap{T,TA,Continuous}}, y::AbstractVector) where  {T,TA}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
-      mulcsym!(x, L.lmap.A', Y, dual = true)
-   else
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      # (x[:] = (L.A'*Y + Y*L.A)[:])
-      X = reshape(x, n, n)
-      mul!(X, Y, L.lmap.A)
-      mul!(X, L.lmap.A', Y, true, true)
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, L::$ttype{T,LyapunovMap{T,TA,Continuous}}, y::AbstractVector) where  {T,TA}
+      require_one_based_indexing(y, x)
+      n = size(L.lmap.A, 1)
+      T1 = promote_type(T, eltype(y))
+      if L.lmap.her
+         Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+         #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
+         mulcsym!(x, L.lmap.A', Y, dual = true)
+      else
+         Y = reshape(convert(AbstractVector{T1}, y), n, n)
+         # (x[:] = (L.A'*Y + Y*L.A)[:])
+         X = reshape(x, n, n)
+         mul!(X, Y, L.lmap.A)
+         mul!(X, L.lmap.A', Y, true, true)
+      end
+      return x
    end
-   return x
 end
-
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,LyapunovMap{T,TA,Continuous}}, y::AbstractVector) where  {T,TA}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
-      mulcsym!(x, L.lmap.A', Y, dual = true)
-   else
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      # (x[:] = (L.A'*Y + Y*L.A)[:])
-      X = reshape(x, n, n)
-      mul!(X, Y, L.lmap.A)
-      mul!(X, L.lmap.A', Y, true, true)
-   end
-   return x
-end
-
+   
 function mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix; dual = false)
    require_one_based_indexing(y, A, X)
    # A*X + X*A'
@@ -700,6 +657,7 @@ function Base.size(L::GeneralizedLyapunovMap)
    return (N, N)
 end
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,<:Any,<:Any,Discrete}, x::AbstractVector) where {T}
+   require_one_based_indexing(y, x)
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    if L.her
@@ -719,46 +677,30 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,
    end
    return y
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,GeneralizedLyapunovMap{T,TA,TE,Discrete}}, y::AbstractVector) where  {T,TA,TE}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
-      muldsym!(x, L.lmap.A', L.lmap.E', Y, dual = true)
-   else
-      # (x .= (L.A'*Y*L.A - L.E'*X*L.E)[:])
-      X = reshape(x, n, n)
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      temp = similar(Y, (n, n))
-      mul!(temp, Y, L.lmap.A)
-      mul!(X, L.lmap.A', temp)
-      mul!(temp, Y, L.lmap.E)
-      mul!(X, L.lmap.E', temp, -1, 1)
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, L::$ttype{T,GeneralizedLyapunovMap{T,TA,TE,Discrete}}, y::AbstractVector) where  {T,TA,TE}
+      require_one_based_indexing(y, x)
+      n = size(L.lmap.A, 1)
+      T1 = promote_type(T, eltype(y))
+      if L.lmap.her
+         Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+         # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
+         muldsym!(x, L.lmap.A', L.lmap.E', Y, dual = true)
+      else
+         # (x .= (L.A'*Y*L.A - L.E'*X*L.E)[:])
+         X = reshape(x, n, n)
+         Y = reshape(convert(AbstractVector{T1}, y), n, n)
+         temp = similar(Y, (n, n))
+         mul!(temp, Y, L.lmap.A)
+         mul!(X, L.lmap.A', temp)
+         mul!(temp, Y, L.lmap.E)
+         mul!(X, L.lmap.E', temp, -1, 1)
+      end
+      return x
    end
-   return x
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,GeneralizedLyapunovMap{T,TA,TE,Discrete}}, y::AbstractVector) where  {T,TA,TE}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      # x[:] = triu2vec(L.lmap.A'*Y*L.lmap.A - Y)
-      muldsym!(x, L.lmap.A', L.lmap.E', Y, dual = true)
-   else
-      # (x .= (L.A'*Y*L.A - L.E'*X*L.E)[:])
-      X = reshape(x, n, n)
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      temp = similar(Y, (n, n))
-      mul!(temp, Y, L.lmap.A)
-      mul!(X, L.lmap.A', temp)
-      mul!(temp, Y, L.lmap.E)
-      mul!(X, L.lmap.E', temp, -1, 1)
-   end
-   return x
-end
-
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where {T}
+   require_one_based_indexing(y, x)
    n = size(L.A, 1)
    T1 = promote_type(T, eltype(x))
    if L.her
@@ -776,46 +718,28 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedLyapunovMap{T,
    end
    return y
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.TransposeMap{T,GeneralizedLyapunovMap{T,TA,TE,Continuous}}, y::AbstractVector) where  {T,TA,TE}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
-      mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
-   else
-      X = reshape(x, n, n)
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      temp = similar(Y, (n, n))
-      # (x[:] = (L.A'*Y*L.E + L.E'*Y*L.A)[:])
-      mul!(temp, L.lmap.E', Y)
-      mul!(X, temp, L.lmap.A)
-      mul!(temp, Y, L.lmap.E)
-      mul!(X, L.lmap.A', temp, 1, 1)
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, L::$ttype{T,GeneralizedLyapunovMap{T,TA,TE,Continuous}}, y::AbstractVector) where  {T,TA,TE}
+      require_one_based_indexing(y, x)
+      n = size(L.lmap.A, 1)
+      T1 = promote_type(T, eltype(y))
+      if L.lmap.her
+         Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+         #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
+         mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
+      else
+         X = reshape(x, n, n)
+         Y = reshape(convert(AbstractVector{T1}, y), n, n)
+         temp = similar(Y, (n, n))
+         # (x[:] = (L.A'*Y*L.E + L.E'*Y*L.A)[:])
+         mul!(temp, L.lmap.E', Y)
+         mul!(X, temp, L.lmap.A)
+         mul!(temp, Y, L.lmap.E)
+         mul!(X, L.lmap.A', temp, 1, 1)
+      end
+      return x
    end
-   return x
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, L::LinearMaps.AdjointMap{T,GeneralizedLyapunovMap{T,TA,TE,Continuous}}, y::AbstractVector) where  {T,TA,TE}
-   n = size(L.lmap.A, 1)
-   T1 = promote_type(T, eltype(y))
-   if L.lmap.her
-      Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-      #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
-      mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
-   else
-      X = reshape(x, n, n)
-      Y = reshape(convert(AbstractVector{T1}, y), n, n)
-      temp = similar(Y, (n, n))
-      # (x[:] = (L.A'*Y*L.E + L.E'*Y*L.A)[:])
-      mul!(temp, L.lmap.E', Y)
-      mul!(X, temp, L.lmap.A)
-      mul!(temp, Y, L.lmap.E)
-      mul!(X, L.lmap.A', temp, 1, 1)
-   end
-   return x
-end
-
-
 function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix; dual = false)
    require_one_based_indexing(y, A)
    # AXE' + EXA'
@@ -1258,10 +1182,10 @@ function SylvesterMap(A::AbstractMatrix, B::AbstractMatrix, ::CD = Continuous())
    return SylvesterMap{T,typeof(A),typeof(B),CD}(A, B)
 end
 
-LinearAlgebra.adjoint(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
-   SylvesterMap(L.A', L.B', CD())
-LinearAlgebra.transpose(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
-   SylvesterMap(L.A', L.B', CD())
+# LinearAlgebra.adjoint(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+#    SylvesterMap(L.A', L.B', CD())
+# LinearAlgebra.transpose(L::SylvesterMap{<:Any,<:Any,<:Any,CD}) where {CD} =
+#    SylvesterMap(L.A', L.B', CD())
 
 """
     M = sylvop(A, B; disc = false)
@@ -1278,6 +1202,7 @@ function sylvop(A::Number, B::Number; disc=false)
 end
 Base.size(L::SylvesterMap) = (N = size(L.A, 1) * size(L.B, 1); return (N, N))
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:Any,Discrete}, x::AbstractVector) where T
+   require_one_based_indexing(y, x)
    m = size(L.A, 1)
    n = size(L.B, 1)
    T1 = promote_type(T, eltype(x))
@@ -1288,30 +1213,23 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:An
    mul!(Y, L.A * X, L.B, true, true)
    return y
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{<:Any,SylvesterMap{T,<:Any,<:Any,Discrete}}, y::AbstractVector) where {T}
-   m = size(LT.lmap.A, 1)
-   n = size(LT.lmap.B, 1)
-   T1 = promote_type(T, eltype(y))
-   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
-   X = reshape(x, (m, n))
-   # X = A' * Y * B' + X
-   copyto!(x, y)
-   mul!(X, LT.lmap.A' * Y, LT.lmap.B', true, true)
-   return x
-end
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{<:Any,SylvesterMap{T,<:Any,<:Any,Discrete}}, y::AbstractVector) where {T}
-   m = size(LT.lmap.A, 1)
-   n = size(LT.lmap.B, 1)
-   T1 = promote_type(T, eltype(y))
-   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
-   X = reshape(x, (m, n))
-   # X = A' * Y * B' + X
-   copyto!(x, y)
-   mul!(X, LT.lmap.A' * Y, LT.lmap.B', true, true)
-   return x
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, LT::$ttype{T,SylvesterMap{T,TA,TB,Discrete}}, y::AbstractVector) where {T,TA,TB}
+      require_one_based_indexing(y, x)
+      m = size(LT.lmap.A, 1)
+      n = size(LT.lmap.B, 1)
+      T1 = promote_type(T, eltype(y))
+      Y = reshape(convert(AbstractVector{T1}, y), (m, n))
+      X = reshape(x, (m, n))
+      # X = A' * Y * B' + X
+      copyto!(x, y)
+      mul!(X, LT.lmap.A' * Y, LT.lmap.B', true, true)
+      return x
+   end
 end
 
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:Any,Continuous}, x::AbstractVector) where T
+   require_one_based_indexing(y, x)
    m = size(L.A, 1)
    n = size(L.B, 1)
    T1 = promote_type(T, eltype(x))
@@ -1322,29 +1240,20 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::SylvesterMap{T,<:Any,<:An
    mul!(Y, X, L.B, true, true)
    return y
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{<:Any,SylvesterMap{T,<:Any,<:Any,Continuous}}, y::AbstractVector) where {T}
-   m = size(LT.lmap.A, 1)
-   n = size(LT.lmap.B, 1)
-   T1 = promote_type(T, eltype(y))
-   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
-   X = reshape(x, (m, n))
-   # X = A' * Y + Y * B'
-   mul!(X, L.A', Y)
-   mul!(X, X, L.B', true, true)
-   return x
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, LT::$ttype{T,SylvesterMap{T,TA,TB,Continuous}}, y::AbstractVector) where {T,TA,TB}
+      require_one_based_indexing(y, x)
+      m = size(LT.lmap.A, 1)
+      n = size(LT.lmap.B, 1)
+      T1 = promote_type(T, eltype(y))
+      Y = reshape(convert(AbstractVector{T1}, y), (m, n))
+      X = reshape(x, (m, n))
+      # X = A' * Y + Y * B'
+      mul!(X, LT.lmap.A', Y)
+      mul!(X, Y, LT.lmap.B', true, true)
+      return x
+   end
 end
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{<:Any,SylvesterMap{T,<:Any,<:Any,Continuous}}, y::AbstractVector) where {T}
-   m = size(LT.lmap.A, 1)
-   n = size(LT.lmap.B, 1)
-   T1 = promote_type(T, eltype(y))
-   Y = reshape(convert(AbstractVector{T1}, x), (m, n))
-   X = reshape(x, (m, n))
-   # X = A' * Y + Y * B'
-   mul!(X, L.A', Y)
-   mul!(X, X, L.B', true, true)
-   return x
-end
-
 
 struct InverseSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,CD} <: SylvesterMatrixEquationsMaps{T}
    A::TA
@@ -1451,10 +1360,10 @@ struct GeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <:
    end
 end
 
-LinearAlgebra.adjoint(L::GeneralizedSylvesterMap{T}) where T =
-   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
-LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T =
-   GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
+# LinearAlgebra.adjoint(L::GeneralizedSylvesterMap{T}) where T =
+#    GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
+# LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T =
+#    GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
 
 """
     M = sylvop(A, B, C, D)
@@ -1465,6 +1374,7 @@ sylvop(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatri
    GeneralizedSylvesterMap(A, B, C, D)
 Base.size(L::GeneralizedSylvesterMap) = (N = size(L.A, 1) * size(L.B, 1); return (N, N))
 function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedSylvesterMap{T}, x::AbstractVector) where T
+   require_one_based_indexing(y, x)
    m = size(L.A, 1)
    n = size(L.B, 1)
    T1 = promote_type(T, eltype(x))
@@ -1477,6 +1387,23 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::GeneralizedSylvesterMap{T
    mul!(temp, L.C, X)
    mul!(Y, temp, L.D, 1, 1)
    return y
+end
+for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
+   @eval function LinearMaps._unsafe_mul!(x::AbstractVector, LT::$ttype{T,GeneralizedSylvesterMap{T,TA,TB,TC,TD}}, y::AbstractVector) where {T,TA,TB,TC,TD}
+      require_one_based_indexing(y, x)
+      m = size(LT.lmap.A, 1)
+      n = size(LT.lmap.B, 1)
+      T1 = promote_type(T, eltype(y))
+      Y = reshape(convert(AbstractVector{T1}, y), (m, n))
+      X = reshape(x, (m, n))
+      temp = similar(Y, (m, n))
+      # X = A' * Y * B' + C' * Y * D'
+      mul!(temp, LT.lmap.A', Y)
+      mul!(X, temp, LT.lmap.B', true, false)
+      mul!(temp, LT.lmap.C', Y)
+      mul!(X, temp, LT.lmap.D', true, true)
+      return x
+   end
 end
 
 struct InverseGeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <: AbstractMatrix,TD <: AbstractMatrix} <: SylvesterMatrixEquationsMaps{T}

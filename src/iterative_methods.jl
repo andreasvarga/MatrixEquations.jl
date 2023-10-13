@@ -10,7 +10,7 @@ to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` o
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function lyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function lyapci(A::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
     LinearAlgebra.checksquare(C) == n ||
         throw(DimensionMismatch("C must be a square matrix of dimension $n"))
@@ -44,7 +44,7 @@ to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` o
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function lyapci(A::AbstractMatrix{T}, E::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function lyapci(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
     LinearAlgebra.checksquare(C) == n ||
        throw(DimensionMismatch("C must be a square matrix of dimension $n"))
@@ -78,7 +78,7 @@ to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` o
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function lyapdi(A::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function lyapdi(A::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
     LinearAlgebra.checksquare(C) == n ||
         throw(DimensionMismatch("C must be a square matrix of dimension $n"))
@@ -111,7 +111,7 @@ to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` o
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function lyapdi(A::AbstractMatrix{T}, E::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function lyapdi(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
     LinearAlgebra.checksquare(C) == n ||
        throw(DimensionMismatch("C must be a square matrix of dimension $n"))
@@ -133,8 +133,8 @@ function lyapdi(A::AbstractMatrix{T}, E::AbstractMatrix{T}, C::AbstractMatrix{T}
        return her ? (Xt+Xt')/2 : Xt, info
     end
 end
-lyapci(A::AbstractMatrix{T}, E::UniformScaling{Bool}, C::AbstractMatrix{T}; kwargs...) where {T} = lyapci(A, C; kwargs...)
-lyapdi(A::AbstractMatrix{T}, E::UniformScaling{Bool}, C::AbstractMatrix{T}; kwargs...) where {T} = lyapdi(A, C; kwargs...)
+lyapci(A::AbstractMatrix, E::UniformScaling{Bool}, C::AbstractMatrix; kwargs...) = lyapci(A, C; kwargs...)
+lyapdi(A::AbstractMatrix, E::UniformScaling{Bool}, C::AbstractMatrix; kwargs...) = lyapdi(A, C; kwargs...)
 
 """
     X = sylvci(A,B,C)
@@ -150,7 +150,7 @@ to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` o
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function sylvci(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function sylvci(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     m, n = size(C);
     [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
     LT = sylvop(A, B)   
@@ -172,16 +172,40 @@ The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `r
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 
 """
-function sylvdi(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T}; abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function sylvdi(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     m, n = size(C);
     [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
     LT = sylvop(A, B; disc = true)   
     xt, info = cgls(LT,vec(C); abstol, reltol, maxiter)
     return reshape(xt,m,n), info
 end
+"""
+    X = gsylvi(A,B,C,D,E)
+
+Solve the generalized Sylvester matrix equation
+
+    AXB + CXD = E ,
+
+where `A`, `B`, `C` and `D` are square matrices. 
+
+A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
+to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
+The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+"""
+function gsylvi(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
+    m, n = size(E);
+    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
+        throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
+    LT = sylvop(A,B,C,D)
+    xt, info = cgls(LT,vec(E); abstol, reltol, maxiter)
+    info.flag == 1 || @warn "convergence issues: info = $info"
+    return reshape(xt,m,n), info
+end
+
 
 """
-                gtsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
+     gtsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
 
 Compute a solution `X` of the generalized T-Sylvester matrix equation
 
@@ -212,7 +236,7 @@ function gtsylvi(A::Vector{TA}, B::Vector{TB}, C::Vector{TC}, D::Vector{TD}, E::
     return reshape(xt,LT.mx,LT.nx), info
 end
 """
-    ghsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
+     ghsylvi(A, B, C, D, E; mx, nx, abstol, reltol, maxiter) -> (X,info)
 
 Compute a solution `X` of the generalized H-Sylvester matrix equation
 

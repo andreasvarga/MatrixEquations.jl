@@ -77,6 +77,7 @@ The current version of the package includes the following functions:
 * **hulyapci** Iterative solution of the continuous H-Lyapunov equations `U*X'+X*U' = C` and `U'*X+X'*U = C` for `U` and `X` upper triangular.
 * **sylvci** Iterative solution of the (continuous) Sylvester equation `AX+XB = C`.
 * **sylvdi** Iterative solution of the (discrete) Sylvester equation `AXB+X = C`.
+* **gsylvi** Iterative solution of the generalized Sylvester equation `AXB+CXD = E`.
 * **gtsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X^⊤*D_j = E`.
 * **ghsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X'*D_j = E`.
 * **cgls** The conjugate gradient method for nonsymmetric linear equations and least squares problems.

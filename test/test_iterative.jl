@@ -271,7 +271,7 @@ using IterativeSolvers
         @test norm(A*X*A' -E*X*E'+C)/norm(X)  < 1.e-4   && ishermitian(X)
        
          # generalized Lyapunov equation, non-Hermitian case
-        X, info = lyapci(A, E,  Q)
+        X, info = lyapci(A, E, Q)
         @test norm(A*X*E'+E*X*A'+Q)/norm(X)  < 1.e-4   
         X, info = lyapdi(A, E, Q)
         @test norm(A*X*A' - E*X*E'+Q)/norm(X)  < 1.e-4   
@@ -283,6 +283,12 @@ using IterativeSolvers
         X, info = sylvdi(A, B, W)
         @test norm(A*X*B+X-W)/norm(X)  < 1.e-4   
     
+        #  generalized Sylvester equation
+        C = rand(Ty,n,n); D = rand(Ty,m,m)
+        X, info = gsylvi(A, B, C, D, W)
+        @test norm(A*X*B+C*X*D-W)/norm(X)  < 1.e-4   
+        X, info = gsylvi(A, B', C', D, W)
+        @test norm(A*X*B'+C'*X*D-W)/norm(X)  < 1.e-4   
     end
 
 

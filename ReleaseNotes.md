@@ -9,7 +9,7 @@ Minor release containing the following changes:
 * new functions to solve Lyapunov, Lyapunov-like, Sylvester and Sylvester-like matrix equations using conjugate gradient based iterative techniques
 * new operators to handle half-vector operations, such as, the _elimination_ and _duplication_ operators  
 * enhanced _transpose_ (_commutation_) operator
-* explicit definitions of 3-term `mul!` operations for transpose/adjoint of Lyapunov operators
+* explicit definitions of 3-term `mul!` operations for transpose/adjoint of Lyapunov and Sylvester operators
 
 ## Version 2.2.11
 

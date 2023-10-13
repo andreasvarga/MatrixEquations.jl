@@ -19,7 +19,7 @@ export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormali
 export lanv2, ladiv, lag2, lacn2!
 export _lanv2, _safemin, _lag2, _ladiv
 export lyapc, lyapd, lyapcs!, lyapds!, tlyapc, tulyapc!, hlyapc, hulyapc! 
-export cgls, lyapci, lyapdi, tlyapci, sylvci, sylvdi, hlyapci, tulyapci, hulyapci, gtsylvi, ghsylvi
+export cgls, lyapci, lyapdi, tlyapci, hlyapci, tulyapci, hulyapci, sylvci, sylvdi, gsylvi, gtsylvi, ghsylvi
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvcs!, sylvcs1!, sylvcs2!, sylvds!, gsylvs!

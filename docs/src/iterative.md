@@ -22,6 +22,7 @@ hulyapci
 ```@docs
 sylvci
 sylvdi
+gsylvi
 gtsylvi
 ghsylvi
 ```
