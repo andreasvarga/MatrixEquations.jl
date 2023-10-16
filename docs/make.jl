@@ -7,7 +7,7 @@ makedocs(warnonly = true,
   authors  = "Andreas Varga",
   format   = Documenter.HTML(prettyurls = false),
   pages    = [
-     "Home"   => "index.md",
+     "Overview"   => "index.md",
      "Library" => [
         "lyapunov.md",
         "plyapunov.md",

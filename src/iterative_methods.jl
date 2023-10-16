@@ -267,53 +267,72 @@ function ghsylvi(A::Vector{TA}, B::Vector{TB}, C::Vector{TC}, D::Vector{TD}, E::
     return reshape(xt,LT.mx,LT.nx), info
 end
 """
-    tlyapci(A, C; adj = false, abstol, reltol, maxiter) -> (X,info)
+    tlyapci(A, C, isig = +1; adj = false, abstol, reltol, maxiter) -> (X,info)
 
-Compute for a rectangular `A` and a symmetric `C` a solution `X` of the continuous T-Lyapunov matrix equation
+Compute a solution `X` of the continuous T-Lyapunov matrix equation
 
-                A*X +transpose(X)*transpose(A) = C   if adj = false, 
+                A*X +isig*transpose(X)*transpose(A) = C   if adj = false, 
 
 or
 
-                A*transpose(X) + X*transpose(A) = C   if adj = true.
+                A*transpose(X) + isig*X*transpose(A) = C   if adj = true,
+
+where for `isig = 1`, `C` is a symmetric matrix and for `isig = -1`, `C` is a skew-symmetric matrix.                     
 
 For a matrix `A`, a least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined T-Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
 the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function tlyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}; adj = false,  abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function tlyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}, isig::Int = 1; adj = false,  abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
     m = LinearAlgebra.checksquare(C)
     ma, n = size(A)
     ma == m || throw(DimensionMismatch("A and C have incompatible dimensions"))
-    issymmetric(C) || throw(ArgumentError("C must be symmetric"))
-    LT = tlyapop(A; adj)
-    xt, info = cgls(LT,vec(C); abstol, reltol, maxiter)
+    abs(isig) == 1 || error(" isig must be either 1 or -1")
+    if isig == 1
+       issymmetric(C) || error("C must be symmetric for isig = 1")
+       # temporary fix to avoid false results for DoubleFloats 
+       # C == transpose(C) || error("C must be symmetric for isig = 1")
+    else
+       iszero(C+transpose(C)) || error("C must be skew-symmetric for isig = -1")
+    end
+    LT = lyaplikeop(A; adj, isig, htype = false)
+    xt, info = cgls(LT, vec(C); abstol, reltol, maxiter)
     info.flag == 1 || @warn "convergence issues: info = $info"
     return adj ? reshape(xt,m,n) : reshape(xt,n,m), info
 end
 """
-    hlyapci(A, C; adj = false, abstol, reltol, maxiter) -> (X,info)
+    hlyapci(A, C, isig = +1; adj = false, abstol, reltol, maxiter) -> (X,info)
 
-Compute for a rectangular `A` and a hermitian `C` a solution `X` of the continuous H-Lyapunov matrix equation
 
-                A*X +X'*A' = C   if adj = false, 
+Compute a solution `X` of the continuous H-Lyapunov matrix equation
+
+                A*X + isig*X'*A' = C   if adj = false, 
 
 or
 
-                A*X' + X*A' = C   if adj = true.
+                A*X' + isig*X*A' = C   if adj = true,
+
+where for `isig = 1`, `C` is a hermitian matrix and for `isig = -1`, `C` is a skew-hermitian matrix.                     
 
 For a matrix `A`, a least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined T-Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution. 
 The keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
 """
-function hlyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}; adj = false,  abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
+function hlyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}, isig::Int = 1; adj = false,  abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
     m = LinearAlgebra.checksquare(C)
     ma, n = size(A)
     ma == m || throw(DimensionMismatch("A and C have incompatible dimensions"))
-    ishermitian(C) || throw(ArgumentError("C must be hermitian"))
-    LT = hlyapop(A; adj)
+    abs(isig) == 1 || error(" isig must be either 1 or -1")
+    if isig == 1
+        ishermitian(C) || error("C must be hermitian for isig = 1")
+       # temporary fix to avoid false results for DoubleFloats 
+       # C == C' || error("C must be hermitian for isig = 1")
+    else
+       iszero(C+C') || error("C must be skew-hermitian for isig = -1")
+    end
+    LT = lyaplikeop(A; adj, isig, htype = true)
     xt, info = cgls(LT,vec(C); abstol, reltol, maxiter)
     info.flag == 1 || @warn "convergence issues: info = $info"
     return adj ? reshape(xt,m,n) : reshape(xt,n,m), info
@@ -324,11 +343,12 @@ end
 
 Compute for an upper triangular `U` and a symmetric `Q` an upper triangular solution `X` of the continuous T-Lyapunov matrix equation
 
-                U*transpose(X) + X*transpose(U) = Q   if adj = false, 
+      transpose(U)*X + transpose(X)*U = Q   if adj = false,
 
-or
+or 
 
-                transpose(U)*X + transpose(X)*U = Q   if adj = true.
+      U*transpose(X) + X*transpose(U) = Q   if adj = true. 
+
 
 For a `n×n` upper triangular matrix `U`, a least-squares upper-triangular solution `X` is determined using a conjugate-gradient based iterative method applied 
 to a suitably defined T-Lyapunov linear operator `L:X -> Y`, which maps upper triangular matrices `X`
@@ -341,7 +361,7 @@ function tulyapci(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false,  abst
     n == LinearAlgebra.checksquare(Q) || throw(DimensionMismatch("U and Q have incompatible dimensions"))
     istriu(U) || throw(ArgumentError("U must be upper triangular"))
     issymmetric(Q) || throw(ArgumentError("Q must be symmetric"))
-    LT = tulyapop(adj ? U : transpose(U))
+    LT = tulyaplikeop(U; adj)
     xt, info = cgls(LT,triu2vec(Q); abstol, reltol, maxiter)
     info.flag == 1 || @warn "convergence issues: info = $info"
     return vec2triu(xt), info
@@ -351,11 +371,11 @@ end
 
 Compute for an upper triangular `U` and a hermitian `Q` an upper triangular solution `X` of the continuous H-Lyapunov matrix equation
 
-                U*X' + X*U' = Q   if adj = false, 
+                U'*X + X'*U = Q   if adj = false, 
 
 or
 
-                U'*X + X'*U = Q   if adj = true.
+                U*X' + X*U' = Q    if adj = true.
 
 For a `n×n` upper triangular matrix `U`, a least-squares upper-triangular solution `X` is determined using a conjugate-gradient based iterative method applied 
 to a suitably defined T-Lyapunov linear operator `L:X -> Y`, which maps upper triangular matrices `X`
@@ -367,8 +387,8 @@ function hulyapci(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false,  abst
     n = LinearAlgebra.checksquare(U)
     n == LinearAlgebra.checksquare(Q) || throw(DimensionMismatch("U and Q have incompatible dimensions"))
     istriu(U) || throw(ArgumentError("U must be upper triangular"))
-    ishermitian(Q) || throw(ArgumentError("Q must be symmetric"))
-    LT = hulyapop(adj ? U : U')
+    ishermitian(Q) || throw(ArgumentError("Q must be hermitian"))
+    LT = hulyaplikeop(U; adj)
     xt, info = cgls(LT,triu2vec(Q); abstol, reltol, maxiter)
     info.flag == 1 || @warn "convergence issues: info = $info"
     return vec2triu(xt), info

@@ -44,6 +44,8 @@ using IterativeSolvers
       
         X, info = tulyapci(U, Q, adj = false, reltol=1.e-14, maxiter=1000); 
         @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
+
+        
     
         Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
      
@@ -132,7 +134,7 @@ using IterativeSolvers
     @testset "Generalized T/H-Sylvester"  begin   
         a = [rand(2,3)]; b = [I];  c = [I]; d = [a[1]'];
         L = gsylvop(a,b,c,d;nx=2)
-        L1 = tlyapop(a[1])
+        L1 = lyaplikeop(a[1])
         @test Matrix(L) == Matrix(L1)
         @test Matrix(L') == Matrix(L1')
 

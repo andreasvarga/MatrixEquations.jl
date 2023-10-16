@@ -104,25 +104,6 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.TransposeMap{
     end
    return x
 end
-# function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.AdjointMap{T,<:eliminationop{T}}, y::AbstractVector) where {T}
-#    # X = vec2triu(y)
-#    n = AT.lmap.dim
-#    ZERO = zero(eltype(y))
-#    @inbounds begin
-#       k = 1
-#       for j = 1:n
-#           for i = 1:j
-#               x[(i-1)*n + j] = y[k]
-#               k += 1
-#           end
-#           for i = j+1:n
-#               x[(i-1)*n + j] = ZERO
-#           end
-#       end
-#     end
-#    return x
-# end
-
 eliminationop(A) = eliminationop{eltype(A)}(LinearAlgebra.checksquare(A))
 
 """
@@ -184,229 +165,231 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.TransposeMap{
    end
    return x
 end
-# function LinearMaps._unsafe_mul!(x::AbstractVector, AT::LinearMaps.AdjointMap{T,<:duplicationop{T}}, y::AbstractVector) where {T}
-#    n = AT.lmap.dim
-#    # Y = reshape(y, n, n)
-#    # x[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
-#    @inbounds begin
-#       k = 1
-#       for j = 1:n
-#          for i = 1:j
-#             #x[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
-#             x[k] = i == j ? y[(j-1)*n + j] : y[(i-1)*n + j] + y[(j-1)*n + i]
-#             k += 1
-#          end
-#       end
-#    end
-#    return x
-# end
-
 duplicationop(A) = duplicationop{eltype(A)}(LinearAlgebra.checksquare(A))
 
 
 
-struct TLyapMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+struct LyapLikeMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete,TH<:TtypeOrHtype} <: LyapunovMatrixEquationsMaps{T}
    A::TA
    adj::Bool
-   function TLyapMap{T,TA,CD}(A::TA, adj=false) where {T,TA<:AbstractMatrix{T},CD}
-      return new{T,TA,CD}(A, adj)
+   isig::Int
+   function LyapLikeMap{T,TA,CD,TH}(A::TA; isig = 1, adj=false) where {T,TA<:AbstractMatrix{T},CD,TH}
+      abs(isig) == 1 || throw(ArgumentError("only 1 or -1 values allowed for isig; got isig = $isig"))
+      return new{T,TA,CD,TH}(A, adj, isig)
    end
 end
-TLyapMap(A::TA, ::CD = Continuous(), adj::Bool = false) where {T,TA<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
-   TLyapMap{T,TA,CD}(A, adj)
-#LinearAlgebra.transpose(L::TLyapunovMap{<:Any,<:Any,CD}) where {CD} = TLyapunovMap(L.U', CD(), !L.adj)
+LyapLikeMap(A::TA, ::CD = Continuous(), ::TH = Ttype(); adj::Bool = false, isig::Int = 1) where {T,TA<:AbstractMatrix{T},CD<:ContinuousOrDiscrete,TH<:TtypeOrHtype} =
+   LyapLikeMap{T,TA,CD,TH}(A; adj, isig)
 
-function Base.size(L::TLyapMap)
+function Base.size(L::LyapLikeMap)
    m, n = size(L.A)
    return (m*m, m*n)
 end
 
 """
-    L = tlyapop(A; adj = false)
+    L = lyaplikeop(A; isig = 1, adj = false, htype = false)
 
-Define, for an `m x n` matrix `A`, the continuous T-Lyapunov operator `L:X -> A*X+transpose(X)*transpose(A)` 
-if `adj = false` and  `L:X -> A*transpose(X)+X*transpose(A)` if `adj = true`. 
+For a matrix `A`, define for `adj = false` the continuous T-Lyapunov operator `L:X -> A*X+isig*transpose(X)*transpose(A)` if `htype = false`
+or the continuous H-Lyapunov operator `L:X -> A*X+isig*X'*A'` if `htype = true`, or 
+define for `adj = true` the continuous T-Lyapunov operator `L:X -> A*transpose(X)+X*transpose(A)` if `htype = false`,
+or the continuous H-Lyapunov operator  `L:X -> A*X'+isig*X*A'` if `htype = true`. 
 """
-tlyapop(A::AbstractMatrix; disc=false, adj=false) = TLyapMap(A, ifelse(disc, Discrete(), Continuous()), adj)
-
-function LinearMaps._unsafe_mul!(y::AbstractVector, L::TLyapMap{T,TA,Continuous}, x::AbstractVector) where {T,TA}
+function lyaplikeop(A::AbstractMatrix; disc=false, adj=false, isig = 1, htype = false)
+    LyapLikeMap(A, ifelse(disc, Discrete(), Continuous()), ifelse(htype, Htype(), Ttype()); adj, isig)
+end
+function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapLikeMap{T,TA,Continuous,Ttype}, x::AbstractVector) where {T,TA}
    m, n = size(L.A)
    T1 = promote_type(T, eltype(x))
    X = L.adj ? reshape(convert(AbstractVector{T1}, x), m, n) : reshape(convert(AbstractVector{T1}, x), n, m)
    Y = L.adj ? L.A*transpose(X) : L.A*X
-   y[:] .= (Y+transpose(Y))[:]
+   y[:] .= L.isig == 1 ? (Y+transpose(Y))[:] : (Y-transpose(Y))[:]
    return y
 end
 
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:TLyapMap{T}}, y::AbstractVector) where {T}
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:LyapLikeMap{T,<:Any,Continuous,Ttype}}, y::AbstractVector) where {T}
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   x[:] = LT.lmap.adj ? ((Y+transpose(Y))*LT.lmap.A)[:] : (transpose(LT.lmap.A)*(Y+transpose(Y)))[:]
+   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : Y-transpose(Y)
+   x[:] = LT.lmap.adj ? (temp*LT.lmap.A)[:] : (transpose(LT.lmap.A)*temp)[:]
    return x
 end
 
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:TLyapMap{T}}, y::AbstractVector) where {T}
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:LyapLikeMap{T,<:Any,Continuous,Ttype}}, y::AbstractVector) where {T}
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   x[:] = LT.lmap.adj ? ((Y+transpose(Y))*conj(LT.lmap.A))[:] : (LT.lmap.A'*(Y+transpose(Y)))[:]
+   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : Y-transpose(Y)
+   x[:] = LT.lmap.adj ? (temp*conj(LT.lmap.A))[:] : (LT.lmap.A'*temp)[:]
    return x
 end
 
-# 
-struct HLyapMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
-   A::TA
-   adj::Bool
-   function HLyapMap{T,TA,CD}(A::TA, adj=false) where {T,TA<:AbstractMatrix{T},CD}
-      return new{T,TA,CD}(A, adj)
-   end
-end
-HLyapMap(A::TA, ::CD = Continuous(), adj::Bool = false) where {T,TA<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
-   HLyapMap{T,TA,CD}(A, adj)
-#LinearAlgebra.transpose(L::HLyapunovMap{<:Any,<:Any,CD}) where {CD} = HLyapunovMap(L.U', CD(), !L.adj)
-
-function Base.size(L::HLyapMap)
-   m, n = size(L.A)
-   return (m*m, m*n)
-end
-"""
-    L = hlyapop(A; adj = false)
-
-Define, for an `m x n` matrix `A`, the continuous T-Lyapunov operator `L:X -> A*X+X'*A'` 
-if `adj = false` and  `L:X -> A*X'+X*A'` if `adj = true`. 
-"""
-function hlyapop(A::AbstractMatrix; disc=false, adj=false)
-    HLyapMap(A, ifelse(disc, Discrete(), Continuous()), adj)
-end
-function LinearMaps._unsafe_mul!(y::AbstractVector, L::HLyapMap{T,TA,Continuous}, x::AbstractVector) where {T,TA}
+function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapLikeMap{T,TA,Continuous,Htype}, x::AbstractVector) where {T,TA}
    m, n = size(L.A)
    T1 = promote_type(T, eltype(x))
    X = L.adj ? reshape(convert(AbstractVector{T1}, x), m, n) : reshape(convert(AbstractVector{T1}, x), n, m)
    Y = L.adj ? L.A*X' : L.A*X
-   y[:] .= (Y+Y')[:]
+   y[:] .= L.isig == 1 ? (Y+Y')[:] : (Y-Y')[:]
    return y
 end
 
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:HLyapMap{T}}, y::AbstractVector) where {T}
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:LyapLikeMap{T,<:Any,Continuous,Htype}}, y::AbstractVector) where {T}
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   x[:] = LT.lmap.adj ? ((Y+transpose(Y))*LT.lmap.A)[:] : (transpose(LT.lmap.A)*(Y+transpose(Y)))[:]
+   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : Y-transpose(Y)
+   x[:] = LT.lmap.adj ? (temp*LT.lmap.A)[:] : (transpose(LT.lmap.A)*temp)[:]
    return x
 end
 
-function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:HLyapMap{T}}, y::AbstractVector) where {T}
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:LyapLikeMap{T,<:Any,Continuous,Htype}}, y::AbstractVector) where {T}
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   x[:] = LT.lmap.adj ? ((Y+Y')*LT.lmap.A)[:] : (LT.lmap.A'*(Y+Y'))[:]
+   temp = LT.lmap.isig ==1 ? Y+Y' : Y-Y'
+   x[:] = LT.lmap.adj ? (temp*LT.lmap.A)[:] : (LT.lmap.A'*temp)[:]
    return x
 end
 
 
-struct UTTLyapunovMap{T,TU <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+struct UTLyapLikeMap{T,TU <: AbstractMatrix,CD <: ContinuousOrDiscrete,TH<:TtypeOrHtype} <: LyapunovMatrixEquationsMaps{T}
    U::TU
    adj::Bool
-   function UTTLyapunovMap{T,TU,CD}(U::TU, adj=false) where {T,TU<:AbstractMatrix{T},CD}
+   function UTLyapLikeMap{T,TU,CD,TH}(U::TU, adj=false) where {T,TU<:AbstractMatrix{T},CD,TH}
       LinearAlgebra.checksquare(U)
-      (!adj && istriu(U.parent)) || (adj && istriu(U)) || error("U must be upper triangular")
-      return new{T,TU,CD}(U, adj)
+      istriu(U) || error("U must be upper triangular")
+      #(!adj && istriu(U.parent)) || (adj && istriu(U)) || error("U must be upper triangular")
+      return new{T,TU,CD,TH}(U, adj)
    end
 end
 
-UTTLyapunovMap(U::TU, ::CD = Continuous(), adj::Bool = false) where {T,TU<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
-   UTTLyapunovMap{T,TU,CD}(U, adj)
+UTLyapLikeMap(U::TU, ::CD = Continuous(), ::TH = Ttype(); adj::Bool = false) where {T,TU<:AbstractMatrix{T},CD<:ContinuousOrDiscrete,TH<:TtypeOrHtype} =
+   UTLyapLikeMap{T,TU,CD,TH}(U, adj)
 
-function Base.size(L::UTTLyapunovMap)
+function Base.size(L::UTLyapLikeMap)
    n = size(L.U, 1)
    N = Int(n * (n + 1) / 2)
    return (N, N)
 end
 
 """
-    L = tulyapop(U)
+    L = tulyaplikeop(U; adj = false)
 
-Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*X+transpose(X)*transpose(U)`.
-
-    L = tulyapop(transpose(U))
-
-Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*transpose(X)+X*transpose(U)`.
+Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> transpose(U)*X+transpose(X)*U`, if `adj = false`,
+or `L:X -> U*transpose(X)+X*transpose(U)` if `adj = true`.
 """
-function tulyapop(U::AbstractMatrix; disc=false)
-   UTTLyapunovMap(U, ifelse(disc, Discrete(), Continuous()), !(typeof(U) <: Transpose))
+function tulyaplikeop(U::AbstractMatrix; disc=false, adj = false)
+   UTLyapLikeMap(U, ifelse(disc, Discrete(), Continuous()), Ttype(); adj )
 end
-function LinearMaps._unsafe_mul!(y::AbstractVector, L::UTTLyapunovMap{T,TU,Continuous}, x::AbstractVector) where {T,TU}
+"""
+    L = hulyaplikeop(U; adj = false)
+
+Define, for an upper triangular matrix `U`, the continuous H-Lyapunov operator `L:X -> U'*X+X'*U`, if `adj = false`,
+`L:X -> U*X'+X*U'` if `adj = true`. 
+"""
+function hulyaplikeop(U::AbstractMatrix; disc=false, adj = false)
+   UTLyapLikeMap(U, ifelse(disc, Discrete(), Continuous()), Htype(); adj)
+end
+
+function LinearMaps._unsafe_mul!(y::AbstractVector, L::UTLyapLikeMap{T,TU,Continuous,Ttype}, x::AbstractVector) where {T,TU}
    T1 = promote_type(T, eltype(x))
    X = vec2triu(convert(AbstractVector{T1}, x), her=false)
-   Y = L.adj ? L.U*transpose(X) : L.U*X
+   Y = L.adj ? L.U*transpose(X) : transpose(L.U)*X
    y[:] .= triu2vec(Y+transpose(Y))
    return y
 end
 
-function LinearMaps._unsafe_mul!(y::AbstractVector, LT::LinearMaps.TransposeMap{T,<:UTTLyapunovMap{T}}, x::AbstractVector) where {T}
+#LinearAlgebra.adjoint(L::UTLyapLikeMap{T,TU,Continuous,Ttype}) where {T,TU}= LinearAlgebra.transpose(L)
+#LinearAlgebra.transpose(L::UTLyapLikeMap{T,TU,Continuous,Ttype}) where {T,TU}= LinearAlgebra.adjoint(L)
+
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:UTLyapLikeMap{T,<:Any,Continuous,Ttype}}, y::AbstractVector) where {T}
    n = size(LT.lmap.U,2)
-   T1 = promote_type(T, eltype(x))
-   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
-   y[:] = LT.lmap.adj ? triu2vec((X+transpose(X))*LT.lmap.U) : triu2vec(transpose(LT.lmap.U)*(X+transpose(X)))
-   return y
+   T1 = promote_type(T, eltype(y))
+   Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+   x[:] = LT.lmap.adj ? triu2vec((Y+transpose(Y))*LT.lmap.U) : triu2vec(LT.lmap.U*(Y+transpose(Y)))
+   #x[:] = LT.lmap.adj ? triu2vec(Y*LT.lmap.U+Y'*conj(LT.lmap.U)) : triu2vec(LT.lmap.U*Y+conj(LT.lmap.U)*Y')
+   return x
 end
-function LinearMaps._unsafe_mul!(y::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTTLyapunovMap{T}}, x::AbstractVector) where {T}
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTLyapLikeMap{T,<:Any,Continuous,Ttype}}, y::AbstractVector) where {T}
    n = size(LT.lmap.U,2)
+   T1 = promote_type(T, eltype(y))
+   Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+   #x[:] = LT.lmap.adj ? triu2vec((Y+Y')*conj(LT.lmap.U)) : triu2vec(conj(LT.lmap.U)*(Y+Y'))
+   x[:] = LT.lmap.adj ? triu2vec((Y+transpose(Y))*conj(LT.lmap.U)) : triu2vec(conj(LT.lmap.U)*(Y+transpose(Y)))
+   return x
+end
+
+function LinearMaps._unsafe_mul!(y::AbstractVector, L::UTLyapLikeMap{T,TU,Continuous,Htype}, x::AbstractVector) where {T,TU}
    T1 = promote_type(T, eltype(x))
    X = vec2triu(convert(AbstractVector{T1}, x), her=false)
-   y[:] = LT.lmap.adj ? triu2vec((X+transpose(X))*+conj(LT.lmap.U)) : triu2vec(LT.lmap.U'*(X+transpose(X)))
-   return y
-end
-
-struct UTHLyapunovMap{T,TU <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
-   U::TU
-   adj::Bool
-   function UTHLyapunovMap{T,TU,CD}(U::TU, adj=false) where {T,TU<:AbstractMatrix{T},CD}
-      LinearAlgebra.checksquare(U)
-      (!adj && istriu(U.parent)) || (adj && istriu(U)) || error("U must be upper triangular")
-      return new{T,TU,CD}(U, adj)
-   end
-end
-
-UTHLyapunovMap(U::TU, ::CD = Continuous(), adj::Bool = false) where {T,TU<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
-   UTHLyapunovMap{T,TU,CD}(U, adj)
-
-#LinearAlgebra.transpose(L::UTHLyapunovMap{<:Any,<:Any,CD}) where {CD} = LinearAlgebra.adjoint(L)
-
-function Base.size(L::UTHLyapunovMap)
-   n = size(L.U, 1)
-   N = Int(n * (n + 1) / 2)
-   return (N, N)
-end
-
-"""
-    L = hulyapop(U)
-
-Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*X+X'*U'`.
-
-    L = hulyapop(U')
-
-Define, for an upper triangular matrix `U`, the continuous T-Lyapunov operator `L:X -> U*X'+X*U'`. 
-"""
-function hulyapop(U::AbstractMatrix; disc=false)
-   UTHLyapunovMap(U, ifelse(disc, Discrete(), Continuous()), !(typeof(U) <: Adjoint))
-end
-function LinearMaps._unsafe_mul!(y::AbstractVector, L::UTHLyapunovMap{T,TU,Continuous}, x::AbstractVector) where {T,TU}
-   T1 = promote_type(T, eltype(x))
-   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
-   Y = L.adj ? L.U*X' : L.U*X
+   Y = L.adj ? L.U*X' : L.U'*X
    y[:] .= triu2vec(Y+Y')
    return y
 end
 
-function LinearMaps._unsafe_mul!(y::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTHLyapunovMap{T}}, x::AbstractVector) where {T}
+# function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{T,<:UTLyapLikeMap{T,TU,Continuous,Htype}}, y::AbstractVector) where {T,TU}
+#    n = size(LT.lmap.U,2)
+#    T1 = promote_type(T, eltype(y))
+#    Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+#    x[:] = LT.lmap.adj ? triu2vec(Y*LT.lmap.U+Y'*conj(LT.lmap.U)) : triu2vec(LT.lmap.U*Y+conj(LT.lmap.U)*Y')
+#    return x
+# end
+
+function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTLyapLikeMap{T,TU,Continuous,Htype}}, y::AbstractVector) where {T,TU}
    n = size(LT.lmap.U,2)
-   T1 = promote_type(T, eltype(x))
-   X = vec2triu(convert(AbstractVector{T1}, x), her=false)
-   y[:] = LT.lmap.adj ? triu2vec((X+X')*LT.lmap.U) : triu2vec(LT.lmap.U'*(X+X'))
-   return y
+   T1 = promote_type(T, eltype(y))
+   Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+  # the following ensures Matrix(L') == Matrix(L)' 
+   #x[:] = LT.lmap.adj ? triu2vec(Y*LT.lmap.U+Y'*conj(LT.lmap.U)) : triu2vec(LT.lmap.U*Y+conj(LT.lmap.U)*Y')
+   x[:] = LT.lmap.adj ? triu2vec((Y+Y')*LT.lmap.U) : triu2vec(LT.lmap.U*(Y+Y'))
+   return x
 end
+# function LinearMaps._unsafe_mul!(y::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTHLyapunovMap{T}}, x::AbstractVector) where {T}
+#    n = size(LT.lmap.U,2)
+#    T1 = promote_type(T, eltype(x))
+#    X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+#    y[:] = LT.lmap.adj ? triu2vec((X+X')*LT.lmap.U) : triu2vec(LT.lmap.U'*(X+X'))
+#    return y
+# end
+
+
+
+# struct UTLyapLikeMap{T,TU <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
+#    U::TU
+#    adj::Bool
+#    function UTLyapLikeMap{T,TU,CD}(U::TU, adj=false) where {T,TU<:AbstractMatrix{T},CD}
+#       LinearAlgebra.checksquare(U)
+#       (!adj && istriu(U.parent)) || (adj && istriu(U)) || error("U must be upper triangular")
+#       return new{T,TU,CD}(U, adj)
+#    end
+# end
+
+# UTLyapLikeMap(U::TU, ::CD = Continuous(), adj::Bool = false) where {T,TU<:AbstractMatrix{T},CD<:ContinuousOrDiscrete} =
+#    UTLyapLikeMap{T,TU,CD}(U, adj)
+
+# #LinearAlgebra.transpose(L::UTLyapLikeMap{<:Any,<:Any,CD}) where {CD} = LinearAlgebra.adjoint(L)
+
+# function Base.size(L::UTLyapLikeMap)
+#    n = size(L.U, 1)
+#    N = Int(n * (n + 1) / 2)
+#    return (N, N)
+# end
+
+# function LinearMaps._unsafe_mul!(y::AbstractVector, L::UTLyapLikeMap{T,<:Any,Continuous,Htype}, x::AbstractVector) where {T,TU}
+#    T1 = promote_type(T, eltype(x))
+#    X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+#    Y = L.adj ? L.U*X' : L.U*X
+#    y[:] .= triu2vec(Y+Y')
+#    return y
+# end
+
+# function LinearMaps._unsafe_mul!(y::AbstractVector, LT::LinearMaps.AdjointMap{T,<:UTLyapLikeMap{T}}, x::AbstractVector) where {T}
+#    n = size(LT.lmap.U,2)
+#    T1 = promote_type(T, eltype(x))
+#    X = vec2triu(convert(AbstractVector{T1}, x), her=false)
+#    y[:] = LT.lmap.adj ? triu2vec((X+X')*LT.lmap.U) : triu2vec(LT.lmap.U'*(X+X'))
+#    return y
+# end
 
 struct LyapunovMap{T,TA <: AbstractMatrix,CD <: ContinuousOrDiscrete} <: LyapunovMatrixEquationsMaps{T}
    A::TA
@@ -1359,11 +1342,6 @@ struct GeneralizedSylvesterMap{T,TA <: AbstractMatrix,TB <: AbstractMatrix,TC <:
       return new{T,typeof(A),typeof(B),typeof(C),typeof(D)}(A, B, C, D)
    end
 end
-
-# LinearAlgebra.adjoint(L::GeneralizedSylvesterMap{T}) where T =
-#    GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
-# LinearAlgebra.transpose(L::GeneralizedSylvesterMap{T}) where T =
-#    GeneralizedSylvesterMap(L.A', L.B', L.C', L.D')
 
 """
     M = sylvop(A, B, C, D)

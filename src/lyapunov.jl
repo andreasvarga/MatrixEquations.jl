@@ -2236,13 +2236,13 @@ end
 """
     X = tulyapc!(U, Q; adj = false)
 
-Compute for a nonsingular upper triangular `U` and a symmetric `Q` an upper triangular solution `X` of the continuous T-Lyapunov matrix equation
+Compute for an upper triangular `U` and a symmetric `Q` an upper triangular solution `X` of the continuous T-Lyapunov matrix equation
 
-                U*transpose(X) + X*transpose(U) = Q   if adj = false, 
+                transpose(U)*X + transpose(X)*U = Q  if adj = false, 
 
 or
 
-                transpose(U)*X + transpose(X)*U = Q   if adj = true.
+                U*transpose(X) + X*transpose(U) = Q   if adj = true.
 
 The solution `X` overwrites the matrix `Q`, while `U` is unchanged.
 
@@ -2261,6 +2261,21 @@ function tulyapc!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false, absto
    issymmetric(Q) || throw(ArgumentError("Q must be symmetric"))
    if !any(iszero.(diag(U))) 
       if adj
+         # U*transpose(X) + X*transpose(U) = Q
+         for i in n:-1:1
+            for j in n:-1:1
+                if i < j
+                   Q[i, j] -= transpose(view(U, i, j:n))*view(Q, j, j:n)
+                elseif i == j
+                   Q[i, j] /= 2
+                else
+                   Q[i, j] = 0
+                end
+            end
+            Ut = transpose(LinearAlgebra.UpperTriangular(view(U, i:n, i:n)))
+            LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
+        end
+     else
          # transpose(U)*X + transpose(X)*U = Q
          for j in 1:n
             for i in 1:n
@@ -2275,24 +2290,9 @@ function tulyapc!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false, absto
             Ut = transpose(LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j)))
             LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
          end
-      else
-         # U*transpose(X) + X*transpose(U) = Q
-         for i in n:-1:1
-             for j in n:-1:1
-                 if i < j
-                    Q[i, j] -= transpose(view(U, i, j:n))*view(Q, j, j:n)
-                 elseif i == j
-                    Q[i, j] /= 2
-                 else
-                    Q[i, j] = 0
-                 end
-             end
-             Ut = transpose(LinearAlgebra.UpperTriangular(view(U, i:n, i:n)))
-             LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
-         end
       end
    else
-      LT = tulyapop(adj ? U : transpose(U))
+      LT = tulyaplikeop(U; adj)
       xt, info = MatrixEquations.cgls(LT,triu2vec(Q); abstol, reltol, maxiter)
       info.flag == 1 || @warn "convergence issues: info = $info"
       Q[:] = vec2triu(xt)
@@ -2302,13 +2302,13 @@ end
 """
     X = hulyapc!(U, Q; adj = false)
 
-Compute for a nonsingular upper triangular `U` and a hermitian `Q` an upper triangular solution `X` of the continuous H-Lyapunov matrix equation
+Compute for an upper triangular `U` and a hermitian `Q` an upper triangular solution `X` of the continuous H-Lyapunov matrix equation
 
-                U*X' + X*U' = Q   if adj = false, 
+                U'*X + X'*U = Q   if adj = false, 
 
 or
 
-                U'*X + X'*U = Q   if adj = true.
+                U*X' + X*U' = Q   if adj = true.
 
 The solution `X` overwrites the matrix `Q`, while `U` is unchanged.
 
@@ -2327,38 +2327,38 @@ function hulyapc!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false, absto
    ishermitian(Q) || throw(ArgumentError("Q must be hermitian"))
    if !any(iszero.(diag(U))) 
       if adj
-         # U'*X + X'*U = Q
-         for j in 1:n
-             for i in 1:n
-                 if i < j
-                    Q[i, j] -= view(Q, 1:i, i)'*view(U, 1:i, j)
-                 elseif i == j
-                    Q[i, j] /= 2
-                 else
-                    Q[i, j] = 0
-                 end
-             end
-             Ut = LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j))'
-             LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
-         end
-      else
          # U*X' + X*U' = Q
          for i in n:-1:1
-             for j in n:-1:1
-                 if i < j
-                    Q[i, j] -= view(Q, j, j:n)'*view(U, i, j:n)
-                 elseif i == j
-                    Q[i, j] /= 2
-                 else
-                    Q[i, j] = 0
-                 end
-             end
-             Ut = LinearAlgebra.UpperTriangular(view(U, i:n, i:n))'
-             LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
-         end
-      end
+            for j in n:-1:1
+                if i < j
+                   Q[i, j] -= view(Q, j, j:n)'*view(U, i, j:n)
+                elseif i == j
+                   Q[i, j] /= 2
+                else
+                   Q[i, j] = 0
+                end
+            end
+            Ut = LinearAlgebra.UpperTriangular(view(U, i:n, i:n))'
+            LinearAlgebra.rdiv!(view(Q, i:i, i:n), Ut)
+        end
+     else
+         # U'*X + X'*U = Q
+         for j in 1:n
+            for i in 1:n
+                if i < j
+                   Q[i, j] -= view(Q, 1:i, i)'*view(U, 1:i, j)
+                elseif i == j
+                   Q[i, j] /= 2
+                else
+                   Q[i, j] = 0
+                end
+            end
+            Ut = LinearAlgebra.UpperTriangular(view(U, 1:j, 1:j))'
+            LinearAlgebra.ldiv!(Ut, view(Q, 1:j, j))
+        end
+     end
    else
-      LT = hulyapop(adj ? U : U')
+      LT = hulyaplikeop(U; adj)
       xt, info = cgls(LT,triu2vec(Q); abstol, reltol, maxiter)
       info.flag == 1 || @warn "convergence issues: info = $info"
       Q[:] = vec2triu(xt)

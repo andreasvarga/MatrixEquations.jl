@@ -1,17 +1,16 @@
 # Linear Operators Related to Matrix Equation Solvers
 
-## Lyapunov Operators
+## Lyapunov and Lyapunov-like Operators
 
 ```@docs
 lyapop
 invlyapop
-tlyapop
-hlyapop
-tulyapop
-hulyapop
+lyaplikeop
+tulyaplikeop
+hulyaplikeop
 ```
 
-## Sylvester Operators
+## Sylvester and Sylvester-like Operators
 
 ```@docs
 sylvop

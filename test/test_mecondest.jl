@@ -5,23 +5,13 @@ using LinearMaps
 using MatrixEquations
 using Test
 
-# function check_ctranspose(op::LinearMaps.LinearMap{T}) where {T <: Union{AbstractFloat, Complex}}
-#    (m, n) = size(op)
-#    x = rand(T,n)
-#    y = rand(T,m)
-#    yAx = dot(y, op * x)
-#    xAty = dot(x, op' * y)
-#    ε = eps(real(eltype(op)))
-#    return abs(yAx - conj(xAty)) < (abs(yAx) + ε) * ε^(1 / 3)
-# end
-function check_ctranspose(op::LinearMaps.LinearMap) 
+function check_ctranspose(op::LinearMaps.LinearMap{T}) where {T <: Union{AbstractFloat, Complex}}
    (m, n) = size(op)
-   T1 = promote_type(Float64,eltype(op))
-   x = rand(T1,n)
-   y = rand(T1,m)
+   x = rand(T,n)
+   y = rand(T,m)
    yAx = dot(y, op * x)
    xAty = dot(x, op' * y)
-   ε = eps(real(T1))
+   ε = eps(real(eltype(op)))
    return abs(yAx - conj(xAty)) < (abs(yAx) + ε) * ε^(1 / 3)
 end
    
@@ -58,14 +48,14 @@ Tcrssym = lyapop(as,her=true);
 Tcrssyminv = invlyapop(as,her=true);
 
 # define some T/H-Lyapunov operators for upper triangular arguments
-Ttur = tulyapop(ur)
-Ttaur = tulyapop(transpose(ur))
-Ttuc = tulyapop(uc)
-Ttauc = tulyapop(transpose(uc))
-Thur = hulyapop(ur)
-Thaur = hulyapop(ur')
-Thuc = hulyapop(uc)
-Thauc = hulyapop(uc')
+Ttur = tulyaplikeop(ur,adj = true)
+Ttaur = tulyaplikeop(ur,adj = false)
+Ttuc = tulyaplikeop(uc,adj = true)
+Ttauc = tulyaplikeop(uc,adj = false)
+Thur = hulyaplikeop(ur,adj = true)
+Thaur = hulyaplikeop(ur,adj = false)
+Thuc = hulyaplikeop(uc,adj = true)
+Thauc = hulyaplikeop(uc,adj = false)
 
 
 Tcc = lyapop(ac);
