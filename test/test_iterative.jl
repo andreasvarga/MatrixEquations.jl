@@ -45,13 +45,13 @@ using IterativeSolvers
         X, info = tulyapci(U, Q, adj = false, reltol=1.e-14, maxiter=1000); 
         @test norm(transpose(U)*X + transpose(X)*U - Q)/norm(X) < reltol 
 
-        
-    
+           
         Q = Matrix(Symmetric(U*transpose(X0) + X0*transpose(U)))
      
         X, info = tulyapci(U,Q,adj = true, reltol=1.e-14,maxiter=1000); 
         @test norm(U*transpose(X) + X*transpose(U)- Q)/norm(X) < reltol 
     
+
         # complex case
         U = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); U[1,1] = 0; U[n,n] = 0; 
         X0 = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); X0[1,1] = 0; X0[n,n] = 0
@@ -87,46 +87,88 @@ using IterativeSolvers
             A = rand(Ty,m,n);
             X0 = rand(Ty,n,m);
             C = Matrix(Symmetric(A*X0 + transpose(X0)*transpose(A)))
-            X, info = tlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
+            @time X, info = tlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
             @test norm(A*X + transpose(X)*transpose(A) - C)/norm(X) < reltol 
+
+            Y = A*X0; C = Y - transpose(Y);
+            @time X, info = tlyapci(A, C, -1; adj = false, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*X - transpose(X)*transpose(A) - C)/norm(X) < reltol 
+
+
             X0 = rand(Ty,m,n);
             C = Matrix(Symmetric(A*transpose(X0)+X0*transpose(A)))
-            X, info = tlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
+            @time X, info = tlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
             @test norm(A*transpose(X)+X*transpose(A) - C)/norm(X) < reltol 
+
+            Y = A*transpose(X0); C = Y - transpose(Y);
+            @time X, info = tlyapci(A, C, -1; adj = true, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*transpose(X)-X*transpose(A) - C)/norm(X) < reltol 
+
 
             # complex case
             A = rand(Ty,m,n)+im*rand(Ty,m,n); 
             X0 =rand(Ty,n,m)+im*rand(Ty,n,m); 
             C = Matrix(Symmetric(A*X0 + transpose(X0)*transpose(A)))
-            X, info = tlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
+            @time X, info = tlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
             @test norm(A*X + transpose(X)*transpose(A) - C)/norm(X) < reltol 
+
+            Y = A*X0; C = Y - transpose(Y);
+            @time X, info = tlyapci(A, C, -1; adj = false, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*X - transpose(X)*transpose(A) - C)/norm(X) < reltol 
+
+
             X0 =rand(Ty,m,n)+im*rand(Ty,m,n); 
             C = Matrix(Symmetric(A*transpose(X0)+X0*transpose(A)))
-            X, info = tlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
+            @time X, info = tlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
             @test norm(A*transpose(X)+X*transpose(A) - C)/norm(X) < reltol 
+
+            Y = A*transpose(X0); C = Y - transpose(Y);
+            @time X, info = tlyapci(A, C, -1; adj = true, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*transpose(X)-X*transpose(A) - C)/norm(X) < reltol 
+
 
             # H-Lyapunov
             # real case
             A = rand(Ty,m,n);
             X0 = rand(Ty,n,m);
             C = Matrix(Hermitian(A*X0 + X0'*A'))
-            X, info = hlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
+            @time X, info = hlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
             @test norm(A*X +X'*A' - C)/norm(X) < reltol 
+
+            Y = A*X0; C = Y - Y';
+            @time X, info = hlyapci(A, C, -1; adj = false, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*X - X'*A' - C)/norm(X) < reltol 
+
             X0 = rand(Ty,m,n);
             C = Matrix(Hermitian(A*X0'+X0*A'))
-            X, info = hlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
+            @time X, info = hlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
             @test norm(A*X'+X*A' - C)/norm(X) < reltol 
+
+            Y = A*X0';  C = Y - Y';
+            @time X, info = hlyapci(A, C, -1; adj = true, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*X'-X*A' - C)/norm(X) < reltol 
+
 
             # complex case
             A = rand(Ty,m,n)+im*rand(Ty,m,n); 
             X0 =rand(Ty,n,m)+im*rand(Ty,n,m); 
             C = Matrix(Hermitian(A*X0 + X0'*A'))
-            X, info = hlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
+            @time X, info = hlyapci(A, C, adj = false, reltol=1.e-14, maxiter=1000); 
             @test norm(A*X +X'*A' - C)/norm(X) < reltol 
+
+            Y = A*X0; C = Y - Y';
+            @time X, info = hlyapci(A, C, -1; adj = false, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*X - X'*A' - C)/norm(X) < reltol 
+
+
             X0 = rand(Ty,m,n)+im*rand(Ty,m,n); 
             C = Matrix(Hermitian(A*X0'+X0*A'))
-            X, info = hlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
+            @time X, info = hlyapci(A, C, adj = true, reltol=1.e-14, maxiter=1000); 
             @test  norm(A*X'+X*A' - C)/norm(X) < reltol 
+
+            Y = A*X0';  C = Y - Y';
+            @time X, info = hlyapci(A, C, -1; adj = true, reltol=1.e-14, maxiter=1000); 
+            @test norm(A*X'-X*A' - C)/norm(X) < reltol 
 
         end
     end

@@ -210,7 +210,7 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : Y-transpose(Y)
+   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : (LT.lmap.adj ? transpose(Y)-Y : Y-transpose(Y))
    x[:] = LT.lmap.adj ? (temp*LT.lmap.A)[:] : (transpose(LT.lmap.A)*temp)[:]
    return x
 end
@@ -219,7 +219,7 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : Y-transpose(Y)
+   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : (LT.lmap.adj ? transpose(Y)-Y : Y-transpose(Y))
    x[:] = LT.lmap.adj ? (temp*conj(LT.lmap.A))[:] : (LT.lmap.A'*temp)[:]
    return x
 end
@@ -237,7 +237,7 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.TransposeMap{
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : Y-transpose(Y)
+   temp = LT.lmap.isig ==1 ? Y+transpose(Y) : (LT.lmap.adj ? transpose(Y)-Y : Y-transpose(Y))
    x[:] = LT.lmap.adj ? (temp*LT.lmap.A)[:] : (transpose(LT.lmap.A)*temp)[:]
    return x
 end
@@ -246,7 +246,7 @@ function LinearMaps._unsafe_mul!(x::AbstractVector, LT::LinearMaps.AdjointMap{T,
    m = size(LT.lmap.A,1)
    T1 = promote_type(T, eltype(y))
    Y = reshape(convert(AbstractVector{T1}, y), m, m)
-   temp = LT.lmap.isig ==1 ? Y+Y' : Y-Y'
+   temp = LT.lmap.isig ==1 ? Y+Y' : (LT.lmap.adj ? Y'-Y : Y-Y')
    x[:] = LT.lmap.adj ? (temp*LT.lmap.A)[:] : (LT.lmap.A'*temp)[:]
    return x
 end
