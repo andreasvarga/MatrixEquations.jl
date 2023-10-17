@@ -395,7 +395,7 @@ function hulyapci(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false,  abst
 end
 
 """
-     cgls(A, b; shift, tol, maxiter, x0) -> (x, info)
+     cgls(A, b; shift, abstol, reltol, maxiter, x0) -> (x, info)
 
 Solve `Ax = b` or minimize `norm(Ax-b)` using `CGLS`, the conjugate gradient method for unsymmetric linear equations and least squares problems. 
 `A` can be specified either as a rectangular matrix or as a linear operator, as defined in the `LinearMaps` package.  
@@ -404,7 +404,7 @@ The keyword argument `shift` specifies a regularization parameter as `shift = s`
 `s = 0` (default), then `CGLS` is Hestenes and Stiefel's specialized form of the
 conjugate-gradient method for least-squares problems. If `s ≠ 0`, the system `(A'*A + s*I)*b = A'*b` is solved. 
 
-A tolerance `tol` can be specified for stopping the iterative process (default: `tol = 1.e-6`).
+An absolute tolerance `abstol` and a relative tolerance `reltol`can be specified for stopping the iterative process (default: `abstol = 0`, `reltol = 1.e-6`).
 
 The maximum number of iterations can be specified using `maxiter` (default: `maxiter = max(size(A),20)`).
 
@@ -424,10 +424,9 @@ The resulting named tuple `info` contains `(flag, resNE, iter) `, with convergen
 
 This function is a translation of the MATLAB implementation of `CGLS`, the conjugate gradient method for nonsymmetric linear equations and least squares problems
 [`https://web.stanford.edu/group/SOL/software/cgls/`](https://web.stanford.edu/group/SOL/software/cgls/). 
-The author of the code is Michael Saunders, with contributions from
-Per Christian Hansen, Folkert Bleichrodt and Christopher Fougner.    
+The author of the code is Michael Saunders, with contributions from Per Christian Hansen, Folkert Bleichrodt and Christopher Fougner.    
 
-_Note:_  Two alternative solvers `lsqr` and `lsmr` available in the [`IterativeSolvers`](https://github.com/JuliaLinearAlgebra/IterativeSolvers.jl) package can be also employed. 
+_Note:_  Two alternative solvers `lsqr` and `lsmr`, available in the [`IterativeSolvers`](https://github.com/JuliaLinearAlgebra/IterativeSolvers.jl) package, can also be employed. 
 For example, the following call to `lsqr` can be alternatively used:
         
       using IterativeSolvers
