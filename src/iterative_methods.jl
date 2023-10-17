@@ -404,7 +404,7 @@ The keyword argument `shift` specifies a regularization parameter as `shift = s`
 `s = 0` (default), then `CGLS` is Hestenes and Stiefel's specialized form of the
 conjugate-gradient method for least-squares problems. If `s ≠ 0`, the system `(A'*A + s*I)*b = A'*b` is solved. 
 
-An absolute tolerance `abstol` and a relative tolerance `reltol`can be specified for stopping the iterative process (default: `abstol = 0`, `reltol = 1.e-6`).
+An absolute tolerance `abstol` and a relative tolerance `reltol` can be specified for stopping the iterative process (default: `abstol = 0`, `reltol = 1.e-6`).
 
 The maximum number of iterations can be specified using `maxiter` (default: `maxiter = max(size(A),20)`).
 
