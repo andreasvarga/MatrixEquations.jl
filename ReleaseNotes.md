@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.3.1
+Patch release to optimize array allocations in the function `cgls`.  
+
 ## Version 2.3.0
 
 Minor release containing the following changes:

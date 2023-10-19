@@ -399,6 +399,7 @@ end
 
 Solve `Ax = b` or minimize `norm(Ax-b)` using `CGLS`, the conjugate gradient method for unsymmetric linear equations and least squares problems. 
 `A` can be specified either as a rectangular matrix or as a linear operator, as defined in the `LinearMaps` package.  
+It is desirable that `eltype(A) == eltype(b)`, otherwise errors may result or additional allocations may occur in operator-vector products. 
 
 The keyword argument `shift` specifies a regularization parameter as `shift = s`. If
 `s = 0` (default), then `CGLS` is Hestenes and Stiefel's specialized form of the
@@ -434,15 +435,35 @@ For example, the following call to `lsqr` can be alternatively used:
 
 where `kwargs` contains solver-specific keyword arguments. A similar call to  `lsmr` can be used.    
 """
-function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20), x0 = zeros(size(A,2))) 
-     
+function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20), x0 = zeros(eltype(b),size(A,2))) 
+   
+   m, n = size(A) 
+   length(b) == m || error("Inconsistent problem size")
    T = eltype(A)
-   x = copy(x0)
-   r = b - A*x
-   s = A'*r-shift*x
+   T == eltype(b) || @warn "eltype(A) ≠ eltype(b). This could lead to errors or additional allocations in operator-vector products."
+  
+   # allocate vectors 
+   x = Vector{T}(undef,n)
+   p = Vector{T}(undef,n)
+   s = Vector{T}(undef,n)
+   r = Vector{T}(undef,m)
+   q = Vector{T}(undef,m)
+
+   #x = copy(x0)
+   x .= x0
+   if norm(b) == 0
+      return x, (flag = 1, resNE = 0, iter = 1)
+   end
+   
+   r .= b
+   #r = b - A*x
+   mul!(r,A,x,-1,1)
+   mul!(s,A',r)
+   shift == 0 || axpy!(-shift, x, s)
+   #s = A'*r-shift*x
       
    # Initialize
-   p      = s
+   p      .= s
    norms0 = norm(s)
    gamma  = norms0^2
    normx  = norm(x)
@@ -460,24 +481,30 @@ function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1
        
        k += 1
        
-       q = A*p;
+       #q = A*p;
+       mul!(q, A, p)
           
        delta = norm(q)^2  +  shift*norm(p)^2
        delta < 0 && (indefinite = 1)
        delta == 0 && (delta = eps(real(float(T))))
        alpha = gamma / delta
        
-       x     = x + alpha*p
-       r     = r - alpha*q
+       #x     = x + alpha*p
+       axpy!(alpha,p,x)
+       #r     = r - alpha*q
+       axpy!(-alpha,q,r)
           
-       s = A'*r - shift*x
-      
+       #s = A'*r - shift*x
+       mul!(s,A',r)
+       shift == 0 || axpy!(-shift, x, s)
+          
        norms  = norm(s)
        gamma1 = gamma
        gamma  = norms^2
        beta   = gamma / gamma1
-       p      = s + beta*p
-       
+       #p      = s + beta*p
+       axpby!(one(T),s,beta,p)
+
        # Convergence
        normx = norm(x)
        xmax  = max(xmax, normx)
