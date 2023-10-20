@@ -435,33 +435,36 @@ For example, the following call to `lsqr` can be alternatively used:
 
 where `kwargs` contains solver-specific keyword arguments. A similar call to  `lsmr` can be used.    
 """
-function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20), x0 = zeros(eltype(b),size(A,2))) 
+function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20), x0 = missing ) 
    
    m, n = size(A) 
    length(b) == m || error("Inconsistent problem size")
    T = eltype(A)
    T == eltype(b) || @warn "eltype(A) ≠ eltype(b). This could lead to errors or additional allocations in operator-vector products."
+   ismissing(x0) || T == eltype(x0) || @warn "eltype(A) ≠ eltype(x0). This could lead to errors or additional allocations in operator-vector products."
   
-   # allocate vectors 
-   x = Vector{T}(undef,n)
-   p = Vector{T}(undef,n)
-   s = Vector{T}(undef,n)
-   r = Vector{T}(undef,m)
-   q = Vector{T}(undef,m)
 
-   #x = copy(x0)
-   x .= x0
-   if norm(b) == 0
-      return x, (flag = 1, resNE = 0, iter = 1)
+   if iszero(b)
+      return zeros(T,n), (flag = 1, resNE = zero(T), iter = 1)
    end
+   T1 = typeof(one(eltype(b))/one(T))
+   # allocate vectors 
+   x = Vector{T1}(undef,n)
+   p = Vector{T1}(undef,n)
+   s = Vector{T1}(undef,n)
+   r = Vector{T1}(undef,m)
+   q = Vector{T1}(undef,m)
+
+   ismissing(x0) ? x .= zero(T1) : x .= x0
    
    r .= b
    #r = b - A*x
    mul!(r,A,x,-1,1)
+
+   #s = A'*r-shift*x
    mul!(s,A',r)
    shift == 0 || axpy!(-shift, x, s)
-   #s = A'*r-shift*x
-      
+       
    # Initialize
    p      .= s
    norms0 = norm(s)
@@ -473,6 +476,7 @@ function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1
    
    indefinite = 0
    resNE = 0
+   ONE = one(T1)
    
    #--------------------------------------------------------------------------
    # Main loop
@@ -486,7 +490,7 @@ function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1
           
        delta = norm(q)^2  +  shift*norm(p)^2
        delta < 0 && (indefinite = 1)
-       delta == 0 && (delta = eps(real(float(T))))
+       delta == 0 && (delta = eps(real(float(T1))))
        alpha = gamma / delta
        
        #x     = x + alpha*p
@@ -503,7 +507,7 @@ function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1
        gamma  = norms^2
        beta   = gamma / gamma1
        #p      = s + beta*p
-       axpby!(one(T),s,beta,p)
+       axpby!(ONE,s,beta,p)
 
        # Convergence
        normx = norm(x)
