@@ -409,7 +409,7 @@ An absolute tolerance `abstol` and a relative tolerance `reltol` can be specifie
 
 The maximum number of iterations can be specified using `maxiter` (default: `maxiter = max(size(A),20)`).
 
-An initial guess for the solution can be specified using the keyword argument vector `x0` (default: `x0 = 0`). 
+An initial guess for the solution can be specified using the keyword argument vector `x0` (default: `x0 = missing`). 
 
 The resulting named tuple `info` contains `(flag, resNE, iter) `, with convergence related information, as follows: 
 
@@ -437,95 +437,209 @@ where `kwargs` contains solver-specific keyword arguments. A similar call to  `l
 """
 function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20), x0 = missing ) 
    
-   m, n = size(A) 
-   length(b) == m || error("Inconsistent problem size")
-   T = eltype(A)
-   T == eltype(b) || @warn "eltype(A) ≠ eltype(b). This could lead to errors or additional allocations in operator-vector products."
-   ismissing(x0) || T == eltype(x0) || @warn "eltype(A) ≠ eltype(x0). This could lead to errors or additional allocations in operator-vector products."
-  
-
-   if iszero(b)
-      return zeros(T,n), (flag = 1, resNE = zero(T), iter = 1)
-   end
-   T1 = typeof(one(eltype(b))/one(T))
-   # allocate vectors 
-   x = Vector{T1}(undef,n)
-   p = Vector{T1}(undef,n)
-   s = Vector{T1}(undef,n)
-   r = Vector{T1}(undef,m)
-   q = Vector{T1}(undef,m)
-
-   ismissing(x0) ? x .= zero(T1) : x .= x0
+    m, n = size(A) 
+    length(b) == m || error("Inconsistent problem size")
+    T = eltype(A)
+    T == eltype(b) || @warn "eltype(A) ≠ eltype(b). This could lead to errors or additional allocations in operator-vector products."
+    ismissing(x0) || T == eltype(x0) || @warn "eltype(A) ≠ eltype(x0). This could lead to errors or additional allocations in operator-vector products."
    
-   r .= b
-   #r = b - A*x
-   mul!(r,A,x,-1,1)
+ 
+    if iszero(b)
+       return zeros(T,n), (flag = 1, resNE = zero(T), iter = 1)
+    end
+    T1 = typeof(one(eltype(b))/one(T))
+    # allocate vectors 
+    x = Vector{T1}(undef,n)
+    WS = (Vector{T1}(undef,n),Vector{T1}(undef,n),Vector{T1}(undef,m),Vector{T1}(undef,m))
+ 
+    # the following may fail if eltype(x0) is not a subtype of eltype(x)
+    ismissing(x0) ? x .= zero(T1) : x .= x0
+    return cgls!(x, WS, A, b; shift, abstol, reltol, maxiter) 
+end 
+function cgls!(x, WS, A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20) ) 
+    """
+       cgls!(x, WS, A, b; shift, abstol, reltol, maxiter) -> (x, info)
 
-   #s = A'*r-shift*x
-   mul!(s,A',r)
-   shift == 0 || axpy!(-shift, x, s)
-       
-   # Initialize
-   p      .= s
-   norms0 = norm(s)
-   gamma  = norms0^2
-   normx  = norm(x)
-   xmax   = normx
-   k      = 0
-   flag   = 0
-   
-   indefinite = 0
-   resNE = 0
-   ONE = one(T1)
-   
-   #--------------------------------------------------------------------------
-   # Main loop
-   #--------------------------------------------------------------------------
-   while (k < maxiter) && (flag == 0)
-       
-       k += 1
-       
-       #q = A*p;
-       mul!(q, A, p)
-          
-       delta = norm(q)^2  +  shift*norm(p)^2
-       delta < 0 && (indefinite = 1)
-       delta == 0 && (delta = eps(real(float(T1))))
-       alpha = gamma / delta
-       
-       #x     = x + alpha*p
-       axpy!(alpha,p,x)
-       #r     = r - alpha*q
-       axpy!(-alpha,q,r)
-          
-       #s = A'*r - shift*x
-       mul!(s,A',r)
-       shift == 0 || axpy!(-shift, x, s)
-          
-       norms  = norm(s)
-       gamma1 = gamma
-       gamma  = norms^2
-       beta   = gamma / gamma1
-       #p      = s + beta*p
-       axpby!(ONE,s,beta,p)
-
-       # Convergence
-       normx = norm(x)
-       xmax  = max(xmax, normx)
-       #flag  = Int((norms <= norms0 * tol) || (normx * tol >= 1))
-       flag  = Int((norms <= max(norms0 * reltol, abstol)) || (normx * reltol >= 1))
-       
-       # Output
-       resNE = norms / norms0; 
-       isnan(resNE) && (resNE = zero(norms))
-
-   end # while
-   
-   iter = k;
-   
-   shrink = normx/xmax;
-   if k == maxiter;        flag = 2; end
-   if indefinite > 0;      flag = 3; end
-   if shrink <= sqrt(reltol); flag = 4; end
-   return x, (flag = flag, resNE = resNE, iter = iter)
+    Solve `Ax = b` or minimize `norm(Ax-b)` using `CGLS`, the conjugate gradient method for unsymmetric linear equations and least squares problems. 
+    The initial guess `x`, will be updated in-place. For an `m×n` operator `A`, `WS` is a prealocated working space provided as a tuple of vectors `(p,s,r,q)` of 
+    dimensions `(n,n,m,m)`, respectively. See [`cgls`](@ref) for the description of the keyword parameters.  
+    """
+    T1 = eltype(x)
+    # recover allocated vectors 
+    (p, s, r, q) = WS 
+    adjointA = adjoint(A)
+    
+    r .= b
+    #r = b - A*x
+    mul!(r,A,x,-1,1)
+ 
+    #s = A'*r-shift*x
+    mul!(s,adjointA,r)
+    shift == 0 || axpy!(-shift, x, s)
+        
+    # Initialize
+    p      .= s
+    norms0 = norm(s)
+    gamma  = norms0^2
+    normx  = norm(x)
+    xmax   = normx
+    k      = 0
+    flag   = 0
+    
+    indefinite = 0
+    resNE = 0
+    ONE = one(T1)
+    
+    #--------------------------------------------------------------------------
+    # Main loop
+    #--------------------------------------------------------------------------
+    while (k < maxiter) && (flag == 0)
+        
+        k += 1
+        
+        #q = A*p;
+        mul!(q, A, p)
+           
+        delta = norm(q)^2  +  shift*norm(p)^2
+        delta < 0 && (indefinite = 1)
+        delta == 0 && (delta = eps(real(float(T1))))
+        alpha = gamma / delta
+        
+        #x     = x + alpha*p
+        axpy!(alpha,p,x)
+        #r     = r - alpha*q
+        axpy!(-alpha,q,r)
+           
+        #s = A'*r - shift*x
+        mul!(s,adjointA,r)
+        shift == 0 || axpy!(-shift, x, s)
+           
+        norms  = norm(s)
+        gamma1 = gamma
+        gamma  = norms^2
+        beta   = gamma / gamma1
+        #p      = s + beta*p
+        axpby!(ONE,s,beta,p)
+ 
+        # Convergence
+        normx = norm(x)
+        xmax  = max(xmax, normx)
+        #flag  = Int((norms <= norms0 * tol) || (normx * tol >= 1))
+        flag  = Int((norms <= max(norms0 * reltol, abstol)) || (normx * reltol >= 1))
+        
+        # Output
+        resNE = norms / norms0; 
+        isnan(resNE) && (resNE = zero(norms))
+ 
+    end # while
+    
+    iter = k;
+    
+    shrink = normx/xmax;
+    if k == maxiter;        flag = 2; end
+    if indefinite > 0;      flag = 3; end
+    if shrink <= sqrt(reltol); flag = 4; end
+    return x, (flag = flag, resNE = resNE, iter = iter)
 end
+# function cgls(A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(size(A,1),size(A,2),20), x0 = missing ) 
+#     """
+#        cgls(A, b; shift, abstol, reltol, maxiter, x0) -> (x, info)
+
+#     Solve `Ax = b` or minimize `norm(Ax-b)` using `CGLS`, the conjugate gradient method for unsymmetric linear equations and least squares problems. 
+#     Comment out to obtain the original translation of the MATLAB implementation of `CGLS`.
+#     """
+   
+#     m, n = size(A) 
+#     length(b) == m || error("Inconsistent problem size")
+#     T = eltype(A)
+#     T == eltype(b) || @warn "eltype(A) ≠ eltype(b). This could lead to errors or additional allocations in operator-vector products."
+#     ismissing(x0) || T == eltype(x0) || @warn "eltype(A) ≠ eltype(x0). This could lead to errors or additional allocations in operator-vector products."
+   
+ 
+#     if iszero(b)
+#        return zeros(T,n), (flag = 1, resNE = zero(T), iter = 1)
+#     end
+#     T1 = typeof(one(eltype(b))/one(T))
+#     # allocate vectors 
+#     x = Vector{T1}(undef,n)
+#     p = Vector{T1}(undef,n)
+#     s = Vector{T1}(undef,n)
+#     r = Vector{T1}(undef,m)
+#     q = Vector{T1}(undef,m)
+ 
+#     # the following may fail if eltype(x0) is not a subtype of eltype(x)
+#     ismissing(x0) ? x .= zero(T1) : x .= x0
+    
+#     r .= b
+#     #r = b - A*x
+#     mul!(r,A,x,-1,1)
+ 
+#     #s = A'*r-shift*x
+#     mul!(s,A',r)
+#     shift == 0 || axpy!(-shift, x, s)
+        
+#     # Initialize
+#     p      .= s
+#     norms0 = norm(s)
+#     gamma  = norms0^2
+#     normx  = norm(x)
+#     xmax   = normx
+#     k      = 0
+#     flag   = 0
+    
+#     indefinite = 0
+#     resNE = 0
+#     ONE = one(T1)
+    
+#     #--------------------------------------------------------------------------
+#     # Main loop
+#     #--------------------------------------------------------------------------
+#     while (k < maxiter) && (flag == 0)
+        
+#         k += 1
+        
+#         #q = A*p;
+#         mul!(q, A, p)
+           
+#         delta = norm(q)^2  +  shift*norm(p)^2
+#         delta < 0 && (indefinite = 1)
+#         delta == 0 && (delta = eps(real(float(T1))))
+#         alpha = gamma / delta
+        
+#         #x     = x + alpha*p
+#         axpy!(alpha,p,x)
+#         #r     = r - alpha*q
+#         axpy!(-alpha,q,r)
+           
+#         #s = A'*r - shift*x
+#         mul!(s,A',r)
+#         shift == 0 || axpy!(-shift, x, s)
+           
+#         norms  = norm(s)
+#         gamma1 = gamma
+#         gamma  = norms^2
+#         beta   = gamma / gamma1
+#         #p      = s + beta*p
+#         axpby!(ONE,s,beta,p)
+ 
+#         # Convergence
+#         normx = norm(x)
+#         xmax  = max(xmax, normx)
+#         #flag  = Int((norms <= norms0 * tol) || (normx * tol >= 1))
+#         flag  = Int((norms <= max(norms0 * reltol, abstol)) || (normx * reltol >= 1))
+        
+#         # Output
+#         resNE = norms / norms0; 
+#         isnan(resNE) && (resNE = zero(norms))
+ 
+#     end # while
+    
+#     iter = k;
+    
+#     shrink = normx/xmax;
+#     if k == maxiter;        flag = 2; end
+#     if indefinite > 0;      flag = 3; end
+#     if shrink <= sqrt(reltol); flag = 4; end
+#     return x, (flag = flag, resNE = resNE, iter = iter)
+# end
+ 
