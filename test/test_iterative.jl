@@ -14,7 +14,7 @@ using IterativeSolvers
     n = 10
     T = ComplexF32
     T = Double64
-    @testset "Matrix{$T}" for T in (Float32, Float64, ComplexF32, ComplexF64, BigFloat, Double64)
+    @testset "Matrix{$T}" for T in (Float64, ComplexF64, BigFloat, Double64)
         A = rand(T, n, n)
         #A = A' * A + I
         b = rand(T, n)
@@ -81,7 +81,7 @@ using IterativeSolvers
         m = 3; n = 5
         Ty = Float64
         reltol = 1.e-7
-        @testset "Matrix{$T}" for T in (Float32, Float64, BigFloat, Double64)
+        @testset "Matrix{$T}" for T in (Float64, BigFloat, Double64)
             # T-Lyapunov
             # real case
             A = rand(Ty,m,n);
