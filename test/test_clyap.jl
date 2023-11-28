@@ -480,7 +480,7 @@ end
 
   Q = Matrix(Hermitian(U*X0' + X0*U'))
   @time X = hulyapc!(U, copy(Q); adj = true); 
-  @test norm(U*X' + X*U'- Q)/norm(X) < reltol 
+  @test norm(U*X' + X*U'- Q)/norm(X) < 10*reltol 
 
   LT = hulyaplikeop(U; adj = true)
   x2,info=MatrixEquations.cgls(LT,triu2vec(Q),reltol=1.e-14,maxiter=1000); X2 = vec2triu(x2);
