@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.3.2
+Version bump to correct setting of `liblapack`.  
+
 ## Version 2.3.1
 Patch release to optimize array allocations in the function `cgls`.  
 

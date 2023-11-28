@@ -1,17 +1,24 @@
 module LapackUtil
 
-#const liblapack = VERSION < v"1.7" ? Base.liblapack_name : "libblastrampoline"
-const liblapack = Base.liblapack_name
-
 
 import LinearAlgebra.BLAS.@blasfunc
 
+using LinearAlgebra
 import LinearAlgebra: BlasFloat, BlasInt, BlasReal, BlasComplex, LAPACKException,
     DimensionMismatch, SingularException, PosDefException, chkstride1, checksquare
 
 using Base: iszero, has_offset_axes
 
 export tgsyl!, lanv2, ladiv, lag2, lacn2!
+
+@static if VERSION < v"1.7"
+    using LinearAlgebra.LAPACK: liblapack
+elseif VERSION < v"1.9"
+    const liblapack = "libblastrampoline"
+else
+    const liblapack = LinearAlgebra.libblastrampoline
+end
+
 
 function chklapackerror(ret::BlasInt)
    ret == 0 && return
