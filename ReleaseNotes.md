@@ -1,5 +1,12 @@
 # Release Notes
 
+## Version 2.4.0 (planned)
+
+Minor release containing the following enhancements:
+* implementation of several scaling options for continuous-time Riccati equations
+* implementation of several scaling options for discrete-time Riccati equations (WIP)
+
+
 ## Version 2.3.2
 Version bump to correct setting of `liblapack`.  
 

@@ -1,5 +1,5 @@
 """
-    arec(A, G, Q = 0; as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
+    arec(A, G, Q = 0; scaling = 'B', as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the continuous-time
@@ -9,6 +9,12 @@ algebraic Riccati equation
 
 where `G` and `Q` are hermitian/symmetric matrices or uniform scaling operators.
 Scalar-valued `G` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I` and `Q*I`.
+The Schur method of [1] is used. 
+
+To enhance the accuracy of computations, a block scaling of matrices `G` and `Q` is performed 
+using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(G)`.
+Alternative scaling can be performed using the options `scaling = 'S', for a special structure preserving scaling, and 
+`scaling = 'G', for a general eigenvalue computation oriented scaling. Scaling can be disabled with the choice `scaling = 'N'.
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
@@ -17,8 +23,9 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 `Z = [ U; V ]` is an orthogonal basis for the stable/anti-stable deflating subspace such that `X = V/U`.
 
 `Reference:`
-Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
-IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
+
+[1] Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
+    IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 
 # Example
 ```jldoctest
@@ -64,7 +71,7 @@ julia> eigvals(A-G*X)
 ```
 """
 function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex} = zero(eltype(A));
-              as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+              scaling = 'B', as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(G), eltype(Q) )
     if typeof(G) <: AbstractArray
@@ -89,8 +96,10 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     eltype(Q) == T || (typeof(Q) <: AbstractMatrix ? Q = convert(Matrix{T},Q) : Q = convert(T,Q.λ)*I)
 
     n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0) )
-
-    S = schur([A  -G; -Q  -copy(A')])
+    
+    # use block scaling if appropriate
+    H, Sx, Sxi = balham(A, G, Q; scaling)
+    S = schur!(H)
 
     as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
     n == count(select) || error("The Hamiltonian matrix is not dichotomic")
@@ -100,6 +109,7 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     ix = 1:n
     F = _LUwithRicTest(S.Z[ix, ix],rtol)
     x = S.Z[n+1:n2, ix]/F
+    lmul!(Sx,x); rmul!(x,Sxi)
     return  (x+x')/2, S.values[ix], S.Z[:,ix]
 end
 function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
@@ -113,7 +123,7 @@ function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
    end
 end
 """
-    arec(A, B, R, Q, S; as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z)
+    arec(A, B, R, Q, S; scaling = 'B', as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z)
 
 Computes `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the continuous-time
@@ -124,6 +134,13 @@ algebraic Riccati equation
 where `R` and `Q` are hermitian/symmetric matrices or uniform scaling operators such that `R` is nonsingular.
 Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling operators `R*I` and `Q*I`.
 `S`, if not specified, is set to `S = zeros(size(B))`.
+The Schur method of [1] is used. 
+
+To enhance the accuracy of computations, a block scaling of matrices `R`, `Q` and `S` 
+is performed using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(B)^2/norm(R)`.
+Alternative scaling can be performed using the options `scaling = 'S', for a special structure preserving scaling, and 
+`scaling = 'G', for a general eigenvalue computation oriented scaling. Experimentally, if `orth = true`, two scaling procedures 
+can be activated using the options `scaling = 'D' and `scaling = 'T'. Scaling can be disabled with the choice `scaling = 'N'.
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
@@ -134,8 +151,9 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 An orthogonal basis Z can be determined, with an increased computational cost, by setting `orth = true`.
 
 `Reference:`
-Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
-IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
+
+[1] Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
+    IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 
 # Example
 ```jldoctest
@@ -187,12 +205,13 @@ julia> eigvals(A-B*F)
 """
 function arec(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
    Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B));
-   as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false)
+   scaling = 'B', as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false)
    if orth
-      return garec(A, I, B, 0, R, Q, S; as = as, rtol = rtol)
+      X, EVALS, F, Z = garec(A, I, B, 0, R, Q, S; scaling, as, rtol)
    else
-      return arec(A, B, 0, R, Q, S; as = as, rtol = rtol)
+      X, EVALS, F, Z = arec(A, B, 0, R, Q, S; scaling, as, rtol)
    end
+   return X, EVALS, F, Z
 end
 """
     arec(A, B, G, R, Q, S; as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z)
@@ -205,6 +224,12 @@ algebraic Riccati equation
 
 where `G`, `R` and `Q` are hermitian/symmetric matrices or uniform scaling operators such that `R` is nonsingular.
 Scalar-valued `G`, `R` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I`, `R*I` and `Q*I`.
+
+To enhance the accuracy of computations, a block oriented scaling of matrices `G`, `Q`, `R` and `S` is performed 
+using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > max(norm(G), norm(B)^2/norm(R))`.
+Alternative scaling can be performed using the options `scaling = 'S', for a special structure preserving scaling, and 
+`scaling = 'G', for a general eigenvalue computation oriented scaling. If `orth = true`, two experimental scaling procedures 
+can be activated using the options `scaling = 'D' and `scaling = 'T'. Scaling can be disabled with the choice `scaling = 'N'.
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
@@ -220,14 +245,14 @@ IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
 """
 function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,UniformScaling,Real,Complex},
               R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex},
-              S::AbstractVecOrMat; as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false)
-    orth && (return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol))
+              S::AbstractVecOrMat; scaling = 'B', as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false)
+   orth && (return garec(A, I, B, G, R, Q, S; scaling, as, rtol))
 
-    n = LinearAlgebra.checksquare(A)
-    T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
-    typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
-    n == nb || throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
-    if typeof(G) <: AbstractArray
+   n = LinearAlgebra.checksquare(A)
+   T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
+   typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
+   n == nb || throw(DimensionMismatch("B must be a matrix with row dimension $n or a vector of length $n"))
+   if typeof(G) <: AbstractArray
       (LinearAlgebra.checksquare(G) == n && ishermitian(G)) ||
           throw(DimensionMismatch("G must be a symmetric/hermitian matrix of dimension $n"))
    else
@@ -303,7 +328,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
       #G = utqu(Dinv,Bu')
       G += utqu(Dinv,Bu')
       if S0flag
-         sol = arec(A,G,Q; as = as, rtol = rtol)
+         sol = arec(A, G, Q; scaling, as, rtol)
          w2 = SR.Z*Dinv*Bu'
          f = w2*sol[1]
          z = [sol[3]; w2*(sol[3])[n+1:end,:]]
@@ -311,7 +336,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
          Su = S*SR.Z
          #Q -= Su*Dinv*Su'
          Q -= utqu(Dinv,Su')
-         sol = arec(A-Bu*Dinv*Su',G,Q; as = as, rtol = rtol)
+         sol = arec(A-Bu*Dinv*Su', G, Q; scaling, as, rtol)
          w1 = SR.Z*Dinv*Su'
          w2 = SR.Z*Dinv*Bu'
          f = w1+w2*sol[1]
@@ -322,11 +347,11 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
    else
       # use implicit form
       @warn "R nearly singular: using the orthogonal reduction method"
-      return garec(A, I, B, G, R, Q, S; as = as, rtol = rtol)
+      return garec(A, I, B, G, R, Q, S; scaling, as, rtol)
    end
 end
 """
-    garec(A, E, G, Q = 0; as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
+    garec(A, E, G, Q = 0; scaling = 'B', as = false, rtol::Real = nϵ) -> (X, EVALS, Z)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized continuous-time
@@ -337,6 +362,12 @@ algebraic Riccati equation
 where `G` and `Q` are hermitian/symmetric matrices or uniform scaling operators and `E` is a nonsingular matrix.
 Scalar-valued `G` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I` and `Q*I`.
 
+The generalized Schur method of [1] is used. 
+To enhance the accuracy of computations, a block oriented scaling of matrices `G` and `Q` is performed  
+using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(G)`.
+Alternative scaling can be performed using the options `scaling = 'S', for a special structure preserving scaling, and 
+`scaling = 'G', for a general eigenvalue computation oriented scaling. Scaling can be disabled with the choice `scaling = 'N'.
+
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
 
@@ -344,13 +375,14 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 `Z = [ U; V ]` is an orthogonal basis for the stable/anti-stable deflating subspace such that `X = V/(EU)`.
 
 `Reference:`
-W.F. Arnold, III and A.J. Laub,
-Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
-Proc. IEEE, 72:1746-1754, 1984.
+
+[1] W.F. Arnold, III and A.J. Laub,
+    Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
+    Proc. IEEE, 72:1746-1754, 1984.
 """
 function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Union{AbstractMatrix,UniformScaling,Real,Complex},
                Q::Union{AbstractMatrix,UniformScaling,Real,Complex} = zero(eltype(A));
-               as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+               scaling = 'B', as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(G), eltype(Q) )
     eident = (E == I)
@@ -391,26 +423,23 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     #       L -s P := [  A  -G ]  - s [ E  0  ]
     #                 [ -Q  -A']      [ 0  E' ]
     #  is determined and the solution X is computed as X = Z21*inv(E*Z11).
-    L = [ A -G; -Q -A']
-    P = [ E zeros(T,n,n); zeros(T,n,n) E']
+    # use block scaling if appropriate
+    L, P, Sx, Sxi = MatrixEquations.balham(A, E, G, Q; scaling)
     LPS = schur(L,P)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
-    n == count(select) ||
-       error("The Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
+    n == count(select) || error("The Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
     ordschur!(LPS, select)
     i1 = 1:n
     i2 = n+1:2n
     F = _LUwithRicTest(LPS.Z[i1, i1],rtol)
-    if eident
-       x = LPS.Z[i2,i1]/F
-    else
-       x = LPS.Z[i2,i1]/(E*LPS.Z[i1,i1])
-    end
+    x = LPS.Z[i2,i1]/F
+    lmul!(Sx,x); rmul!(x,Sxi)
+    eident || (x = x/E)
 
     return  (x+x')/2, LPS.values[i1], LPS.Z[:,i1]
 end
 """
-    garec(A, E, B, R, Q, S; as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
+    garec(A, E, B, R, Q, S; scaling = 'B', as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized continuous-time
@@ -421,7 +450,14 @@ algebraic Riccati equation
 where `R` and `Q` are hermitian/symmetric matrices such that `R` is nonsingular, and
 `E` is a nonsingular matrix.
 Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling operators `R*I` and `Q*I`.
-`S`, if not specified, is set to `S = zeros(size(B))`.
+`S`, if not specified, is set to `S = zeros(size(B))`. 
+
+The generalized Schur method of [1] is used. 
+To enhance the accuracy of computations, a block oriented scaling of matrices `R,` `Q` and `S` is performed 
+using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(B)^2/norm(R)`.
+Alternative scaling can be performed using the options `scaling = 'S', for a special structure preserving scaling, and 
+`scaling = 'G', for a general eigenvalue computation oriented scaling. Two experimental scaling procedures 
+can be activated using the options `scaling = 'D' and `scaling = 'T'. Scaling can be disabled with the choice `scaling = 'N'.
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
@@ -491,11 +527,11 @@ julia> eigvals(A-B*F,E)
 """
 function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
    Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B));
-   as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
-   garec(A, E, B, 0, R, Q, S; as = as, rtol = rtol)
+   scaling = 'G', as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+   garec(A, E, B, 0, R, Q, S; scaling, as, rtol)
 end
 """
-    garec(A, E, B, G, R, Q, S; as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
+    garec(A, E, B, G, R, Q, S; scaling = 'B', as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized continuous-time
@@ -506,6 +542,13 @@ algebraic Riccati equation
 where `G`, `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular, and
 `E` is a nonsingular matrix.
 Scalar-valued `G`, `R` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I`, `R*I` and `Q*I`.
+
+The generalized Schur method of [1] is used. 
+To enhance the accuracy of computations, a block oriented scaling of matrices `G,` `R,` `Q` and `S` is performed 
+using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > max(norm(G), norm(B)^2/norm(R))`.
+Alternative scaling can be performed using the options `scaling = 'S', for a special structure preserving scaling, and 
+`scaling = 'G', for a general eigenvalue computation oriented scaling. Two experimental scaling procedures 
+can be activated using the options `scaling = 'D' and `scaling = 'T'. Scaling can be disabled with the choice `scaling = 'N'.
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
@@ -522,7 +565,7 @@ Proc. IEEE, 72:1746-1754, 1984.
 function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat,
                G::Union{AbstractMatrix,UniformScaling,Real,Complex}, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
                Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat;
-               as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+               scaling = 'B', as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
@@ -581,21 +624,24 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     #               [  S'  B'   R ]      [ 0  0  0 ]
     # is determined and the solution X and feedback F are computed as
     #          X = Z21*inv(E*Z11),   F = -Z31*inv(Z11).
-
+    H, J, Sx, Sxi, Sr = balham(A, E, B, G, R, Q, S; scaling)
     #deflate m simple infinite eigenvalues
     n2 = n+n;
-    W = qr(Matrix([S; B; R]));
+    iric = 1:n2
+    i1 = 1:n
+    i2 = n+1:n2
+    i3 = n2+1:n2+m
+    #W = qr(Matrix([S; B; R]));
+    W = qr!(copy(H[i3,:]'))
     cond(W.R) * epsm  < 1 || error("The extended Hamiltonian/skew-Hamiltonian pencil is not regular")
 
     #z = W.Q[:,m+1:m+n2]
     z = W.Q*[fill(false,m,n2); I ]
 
-    iric = 1:n2
-    i1 = 1:n
-    i2 = n+1:n2
-    i3 = n2+1:n2+m
-    L11 = [ A -G B; -Q -A' -S]*z
-    P11 = [ E*z[i1,:]; E'*z[i2,:] ]
+    #L11 = [ A -G B; -Q -A' -S]*z
+    L11 = H[iric,:]*z
+    #P11 = [ E*z[i1,:]; E'*z[i2,:] ]
+    P11 = J[iric,:]*z
     LPS = schur(L11,P11)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
     n == count(select) ||
@@ -607,13 +653,13 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     F = _LUwithRicTest(z[i1,i1],rtol)
     if eident
        x = z[n+1:end,i1]/F
-       f = -x[n+1:end,:]
-       x = x[i1,:]
+       f = -x[n+1:end,:]; lmul!(Sr,f); rmul!(f,Sxi)
+       x = x[i1,:]; lmul!(Sx,x); rmul!(x,Sxi)
     else
-       f = -z[i3,i1]/F
-       x = z[i2,i1]/(E*z[i1,i1])
+       f = -z[i3,i1]/F; lmul!(Sr,f); rmul!(f,Sxi)
+       #x = z[i2,i1]/(E*z[i1,i1])
+       x = z[i2,i1]/F; lmul!(Sx,x); rmul!(x,Sxi); x = x/E
     end
-
     return  (x+x')/2, LPS.values[i1] , f, z[:,i1]
 end
 
@@ -870,3 +916,522 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     end
     return  (x+x')/2, clseig, f, z[:,i1]
 end
+function balham(A, G, Q; scaling = 'B')
+   n = size(A,1)
+   H = [A -G; -Q -A']
+   if scaling == 'N'
+      return H, I, I
+   elseif scaling == 'B'
+      qs = sqrt(opnorm(Q,1))
+      gs = sqrt(opnorm(G,1))
+      scaling = (qs > gs) & (gs > 0)
+      if scaling
+         scal = qs/gs  
+         scalsr = sqrt(scal)  
+         return [A  -G*scal; -Q/scal  -copy(A')], scalsr*I, scalsr*I
+      else    
+         return H, I, I
+      end
+   else
+      D = lsbalance!(H).diag
+      #@show norm(inv(Diagonal(D))*[A -G; -Q -A']*Diagonal(D)-H)
+      if scaling == 'S'
+         s = log2.(D); # unconstrained balancing diag(D1,D2)
+         # Impose that diagonal scaling must be of the form diag(D,1./D)  
+         sx = round.(Int,(-s[1:n]+s[n+1:n+n])/2); # D = sqrt(D1/D2)
+         Sx = Diagonal(2. .^(sx)) 
+         At = Sx*A/Sx
+         return [At  -Sx*G*Sx; -Sx\(Q/Sx)  -copy(At')], Sx, Sx
+      else
+         return H, Diagonal(D[n+1:2n]), inv(Diagonal(D[1:n])) 
+      end
+   end
+end
+function balham(A, E, G, Q; scaling = 'B') 
+   n = size(A,1); n2 = 2n
+   T = eltype(A)
+   H = [A -G; -Q -A']; J = [E zeros(T,n,n); zeros(T,n,n) E']
+   if scaling == 'N'
+      return H, J, I, I
+   elseif scaling == 'B'
+      i1 = 1:n; i2 = n+1:n2
+      qs = sqrt(opnorm(view(H,i2,i1),1))
+      gs = sqrt(opnorm(view(H,i1,i2),1))
+      scaling = (qs > gs) & (gs > 0)
+      if scaling
+         scal = qs/gs  
+         scalsr = sqrt(scal)  
+         return [A  -G*scal; -Q/scal  -copy(A')], J, scalsr*I, scalsr*I
+      else    
+         return H, J, I, I
+      end
+   elseif scaling == 'S'
+      i1 = 1:n; i2 = n+1:2n
+      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      if nh > 0 && nj > 0
+         M = nj * abs.(H) + nh * abs.(J);
+      else
+         M = abs.(H) + abs.(J);
+      end     
+      s = lsbalance!(M).diag
+      s = log2.(s); # unconstrained balancing diag(D1,D2,DR)
+      # Impose the constraint that diagonal scalings must be of the form 
+      # diag(D,1./D,DR). 
+      sx = round.(Int,(-s[1:n]+s[n+1:n+n])/2); # D=sqrt(D1/D2)
+      Sx = Diagonal(2. .^(sx)) 
+      At = Sx*A/Sx; Et = Sx*E/Sx;
+      return [At  -Sx*G*Sx; -Sx\(Q/Sx)  -copy(At')], [Et zeros(n,n); zeros(n,n) Et'], Sx, Sx
+   else
+      D1, D2 = regbalance!(H, J; tol = 0.1)
+      return H, J, Diagonal(D2.diag[n+1:2n]), inv(Diagonal(D2.diag[1:n])) 
+   end
+end
+function balham(A, E, B, G, R, Q, S; scaling = 'B') 
+   n, m = size(B,1), size(B,2); n2 = 2n
+   T = eltype(A)
+   H = [A -G B; -Q -A' -S; S' B' R] 
+   J = [E zeros(T,n,n+m); zeros(T,n,n) E' zeros(T,n,m); zeros(m,n2+m)]
+   if scaling == 'N' 
+      return H, J, I, I, I
+   elseif scaling == 'B'
+      i1 = 1:n; i2 = n+1:n2; i3 = n2+1:n2+m
+      qs = sqrt(opnorm(view(H,i2,i1),1)) + sqrt(opnorm(view(H,i2,i3),1))
+      gs = sqrt(opnorm(view(H,i1,i2),1)) + norm(B,1)/sqrt(norm(view(H,i3,i3),1))
+      if (qs > gs) && (gs > 0)
+         scal = qs/gs  
+         scalsr = sqrt(scal)  
+         ldiv!(scal,view(H,i2,i1)); lmul!(scal,view(H,i1,i2)) # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,view(H,i2,i3)); ldiv!(scal,view(H,i3,i1)) # S -> S/scal 
+         ldiv!(scal,view(H,i3,i3))                            # R -> R/scal
+         return H, J, scalsr*I, scalsr*I, (1/scalsr)*I
+      else    
+         return H, J, I, I, I
+      end
+   elseif scaling == 'D'
+      i1 = 1:n; i2 = n+1:n2; i3 = n2+1:n2+m
+      j2 = 1:n2
+      Sr = I(m)
+      S1,  = lsbalance!(view(H,j2,j2),view(J,j2,j2),view(H,j2,i3),view(H,i3,j2); tol = 0.001)
+      s1 = S1.diag[i1]; s2 = S1.diag[i2];
+      sx = round.(Int,(log2.(s1)-log2.(s2))/2); # D=sqrt(D1/D2)
+      Sx = Diagonal(2. .^(sx)) 
+      # perform preliminary scaling
+      At = Sx*A/Sx; Et = Sx*E/Sx; Bt = Sx*B*Sr; St = Sx\(S*Sr); Rt = Sr*R*Sr; Qt = Sx\(Q/Sx); Gt = Sx*G*Sx; 
+      # update Sr if appropriate
+      rs = max(norm(Bt,1),norm(St,1))/norm(Rt,1); #rs = 2. ^(round(Int,log2(rs)));  
+      Sr = Sr/rs;  
+      Bt = Sx*B*Sr; St = Sx\(S*Sr); Rt = Sr*R*Sr; 
+      H = [At -Gt Bt; -Qt  -At' -St; St' Bt' Rt] 
+      #J = [Et zeros(T,n,n+m); zeros(T,n,n) Et' zeros(T,n,m); zeros(m,n2+m)]  
+      copyto!(view(J,i1,i1),Et); adjoint!(view(J,i2,i2),Et)
+      return H, J, Sx, Sx, Sr
+   elseif scaling == 'T'
+      i1 = 1:n; i2 = n+1:n2; i3 = n2+1:n2+m
+      j2 = 1:n2
+      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      if nh > 0 && nj > 0
+         M = abs.(H) + nh/nj * abs.(J);
+      else
+         M = abs.(H) + abs.(J);
+      end     
+      Sr = I(m)
+      S1 = lsbalance!(view(M,j2,j2),view(M,j2,i3),view(M,i3,j2))
+      s1 = S1.diag[i2]; s2 = S1.diag[i1];
+      sx = round.(Int,(log2.(s1)-log2.(s2))/2); # D=sqrt(D1/D2)
+      Sx = Diagonal(2. .^(sx)) 
+      # perform preliminary scaling
+      At = Sx*A/Sx; Et = Sx*E/Sx; Bt = Sx*B*Sr; St = Sx\(S*Sr); Rt = Sr*R*Sr; Qt = Sx\(Q/Sx); Gt = Sx*G*Sx; 
+      # update Sr if appropriate
+      rs = max(norm(Bt,1),norm(St,1))/norm(Rt,1); #rs = 2. ^(round(Int,log2(rs)));  
+      Sr = Sr/rs;  
+      Bt = Sx*B*Sr; St = Sx\(S*Sr); Rt = Sr*R*Sr; 
+      H = [At -Gt Bt; -Qt  -At' -St; St' Bt' Rt] 
+      #J = [Et zeros(T,n,n+m); zeros(T,n,n) Et' zeros(T,n,m); zeros(m,n2+m)]  
+      copyto!(view(J,i1,i1),Et); adjoint!(view(J,i2,i2),Et)
+      return H, J, Sx, Sx, Sr
+   elseif scaling == 'S'
+      i1 = 1:n; i2 = n+1:n2; i3 = n2+1:n2+m
+      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      if nh > 0 && nj > 0
+         M = abs.(H) + nh/nj * abs.(J);
+      else
+         M = abs.(H) + abs.(J);
+      end     
+      s = lsbalance!(M).diag
+      Sr = Diagonal(s[n2+1:end])
+      s = log2.(s); # unconstrained balancing diag(D1,D2,DR)
+      sx = round.(Int,(-s[i1]+s[i2])/2); # D=sqrt(D1/D2)
+      s = 2. .^[sx ; -sx ; -s[i3]]
+      Sr = Diagonal(s[i3])
+
+      # Impose the constraint that diagonal scalings must be of the form diag(D,1./D,DR). 
+      Sx = Diagonal(2. .^(sx)) 
+      At = Sx*A/Sx; Et = Sx*E/Sx; Bt = Sx*B*Sr; St = Sx\(S*Sr); Rt = Sr*R*Sr; Qt = Sx\(Q/Sx); Gt = Sx*G*Sx; 
+      rs = max(norm(Bt,1),norm(St,1))/sqrt(norm(Rt,1)); Sr = Sr/rs;  
+      Bt = Sx*B*Sr; St = Sx\(S*Sr); Rt = Sr*R*Sr; 
+      H = [At -Gt Bt; -Qt  -At' -St; St' Bt' Rt] 
+      #J = [Et zeros(T,n,n+m); zeros(T,n,n) Et' zeros(T,n,m); zeros(m,n2+m)]  
+      copyto!(view(J,i1,i1),Et); adjoint!(view(J,i2,i2),Et)
+      return H, J, Sx, Sx, Sr
+   else
+      i1 = 1:n; i2 = n+1:n2; i3 = n2+1:n2+m
+      _, D2 = regbalance!(H, J; tol = 0.001, maxiter = 1000, pow2 = false)
+      return H, J, Diagonal(D2.diag[i2]), inv(Diagonal(D2.diag[i1])), Diagonal(D2.diag[i3]) 
+   end
+end
+# qS1, lsbalance!, regbalance! from MatrixPencils.jl package 
+function qS1(M)    
+"""
+    qs = qS1(M) 
+
+Compute the 1-norm based scaling quality `qs = qS(abs(M))` of a matrix `M`, 
+where `qS(⋅)` is the scaling quality measure defined in Definition 5.5 of [1] for 
+nonnegative matrices. Nonzero rows and columns in `M` are allowed.   
+
+[1] F.M.Dopico, M.C.Quintana and P. van Dooren, 
+    "Diagonal scalings for the eigenstructure of arbitrary pencils", SIMAX, 43:1213-1237, 2022. 
+"""
+    (size(M,1) == 0 || size(M,2) == 0) && (return one(real(eltype(M))))
+    temp = sum(abs,M,dims=1)
+    tmax = maximum(temp)
+    rmax = tmax == 0 ? one(real(eltype(M))) : tmax/minimum(temp[temp .!= 0])
+    temp = sum(abs,M,dims=2)
+    tmax = maximum(temp)
+    cmax = tmax == 0 ? one(real(eltype(M))) : tmax/minimum(temp[temp .!= 0])
+    return max(rmax,cmax)
+end
+qS1(M::UniformScaling) = 1
+function lsbalance!(A::AbstractMatrix{T1}, B::AbstractVecOrMat{T1}, C::AbstractMatrix{T1}; 
+                   withB = true, withC = true, maxred = 16) where {T1}
+"""
+     lsbalance!(A, B, C; withB = true, withC = true, maxred = 16) -> D
+
+Reduce the 1-norm of a system matrix 
+
+             S =  ( A  B )
+                  ( C  0 )
+
+corresponding to a standard system triple `(A,B,C)` by balancing. 
+This involves a diagonal similarity transformation `inv(D)*A*D` 
+to make the rows and columns of 
+
+                  diag(inv(D),I) * S * diag(D,I)
+     
+as close in norm as possible.
+     
+The balancing can be optionally performed on the following 
+particular system matrices:   
+
+        S = A, if withB = false and withC = false ,
+        S = ( A  B ), if withC = false,     or    
+        S = ( A ), if withB = false .
+            ( C )      
+
+The keyword argument `maxred = s` specifies the maximum allowed reduction in the 1-norm of
+`S` (in an iteration) if zero rows or columns are present. 
+`s` must be a positive power of `2`, otherwise  `s` is rounded to the nearest power of 2.   
+
+_Note:_ This function is a translation of the SLICOT routine `TB01ID.f`, which 
+represents an extensiom of the LAPACK family `*GEBAL.f` and also includes  
+the fix proposed in [1]. 
+
+[1]  R.James, J.Langou and B.Lowery. "On matrix balancing and eigenvector computation."
+     ArXiv, 2014, http://arxiv.org/abs/1401.5766
+"""
+    n = LinearAlgebra.checksquare(A)
+    n1, m = size(B,1), size(B,2)
+    n1 == n || throw(DimensionMismatch("A and B must have the same number of rows"))
+    n == size(C,2) || throw(DimensionMismatch("A and C must have the same number of columns"))
+    T = real(T1)
+    ZERO = zero(T)
+    ONE = one(T)
+    SCLFAC = T(2.)
+    FACTOR = T(0.95); 
+    maxred > ONE || throw(ArgumentError("maxred must be greater than 1, got maxred = $maxred"))
+    MAXR = T(maxred)
+    MAXR = T(2.) ^round(Int,log2(MAXR))
+    # Compute the 1-norm of the required part of matrix S and exit if it is zero.
+    SNORM = ZERO
+    for j = 1:n
+        CO = sum(abs,view(A,:,j))
+        withC && (CO += sum(abs,view(C,:,j)))
+        SNORM = max( SNORM, CO )
+    end
+    if withB
+       for j = 1:m 
+           SNORM = max( SNORM, sum(abs,view(B,:,j)) )
+       end
+    end
+    D = fill(ONE,n)
+    SNORM == ZERO && (return D)
+
+    SFMIN1 =  T <: BlasFloat ? safemin(T) / eps(T) : safemin(Float64) / eps(Float64)
+    SFMAX1 = ONE / SFMIN1
+    SFMIN2 = SFMIN1*SCLFAC
+    SFMAX2 = ONE / SFMIN2
+
+    SRED = maxred
+    SRED <= ZERO && (SRED = MAXR)
+
+    MAXNRM = max( SNORM/SRED, SFMIN1 )
+
+    # Balance the system matrix.
+
+    # Iterative loop for norm reduction.
+    NOCONV = true
+    while NOCONV
+        NOCONV = false
+        for i = 1:n
+            Aci = view(A,:,i)
+            Ari = view(A,i,:)
+            Ci = view(C,:,i)
+            Bi = view(B,i,:)
+
+            CO = norm(Aci)
+            RO = norm(Ari)
+            CA = abs(argmax(abs,Aci))
+            RA = abs(argmax(abs,Ari))
+
+            if withC
+               CO = hypot(CO, norm(Ci))
+               CA = max(CA,abs(argmax(abs,Ci)))
+            end
+            if withB
+                RO = hypot(RO, norm(Bi))
+                RA = max( RA, abs(argmax(abs,Bi)))
+            end
+            #  Special case of zero CO and/or RO.
+            CO == ZERO && RO == ZERO && continue
+            if CO == ZERO 
+               RO <= MAXNRM && continue
+               CO = MAXNRM
+            end
+            if RO == ZERO
+               CO <= MAXNRM && continue
+               RO = MAXNRM
+            end
+
+            #  Guard against zero CO or RO due to underflow.
+            G = RO / SCLFAC
+            F = ONE
+            S = CO + RO
+            while ( CO < G && max( F, CO, CA ) < SFMAX2 && min( RO, G, RA ) > SFMIN2 ) 
+                F  *= SCLFAC
+                CO *= SCLFAC
+                CA *= SCLFAC
+                G  /= SCLFAC
+                RO /= SCLFAC
+                RA /= SCLFAC   
+            end
+            G = CO / SCLFAC
+
+            while ( G >= RO && max( RO, RA ) < SFMAX2 && min( F, CO, G, CA ) > SFMIN2 )
+                F  /= SCLFAC
+                CO /= SCLFAC
+                CA /= SCLFAC
+                G  /= SCLFAC
+                RO *= SCLFAC
+                RA *= SCLFAC
+            end
+
+            # Now balance.
+            CO+RO >= FACTOR*S && continue
+            if F < ONE && D[i] < ONE 
+               F*D[i] <= SFMIN1 && continue
+            end
+            if F > ONE && D[i] > ONE 
+               D[i] >= SFMAX1 / F  && continue
+            end
+            G = ONE / F
+            D[i] *= F
+            NOCONV = true
+       
+            lmul!(G,Ari)
+            rmul!(Aci,F)
+            lmul!(G,Bi)
+            rmul!(Ci,F)
+        end
+    end
+    return Diagonal(D)
+end   
+lsbalance!(A::AbstractMatrix{T1}; maxred = 16) where {T1} = lsbalance!(A,zeros(T1,size(A,1),0),zeros(T1,0,size(A,2)); maxred, withB=false, withC=false)  
+function lsbalance!(A::AbstractMatrix{T}, E::Union{AbstractMatrix{T},UniformScaling{Bool}}, B::AbstractVecOrMat{T}, C::AbstractMatrix{T}; 
+                    withB = true, withC = true, maxred = 16, maxiter = 100, tol = 1, pow2 = true) where {T}
+"""
+     lsbalance!(A, E, B, C; withB = true, withC = true, pow2, maxiter = 100, tol = 1) -> (D1,D2)
+
+Reduce the 1-norm of the matrix 
+
+             S =  ( abs(A)+abs(E)  abs(B) )
+                  (    abs(C)        0    )
+
+corresponding to a descriptor system triple `(A-λE,B,C)` by row and column balancing. 
+This involves diagonal similarity transformations `D1*(A-λE)*D2` applied
+iteratively to `abs(A)+abs(E)` to make the rows and columns of 
+                             
+                  diag(D1,I)  * S * diag(D2,I)
+     
+as close in norm as possible.
+     
+The balancing can be performed optionally on the following 
+particular system matrices:   
+
+        S = abs(A)+abs(E), if withB = false and withC = false ,
+        S = ( abs(A)+abs(E)  abs(B) ), if withC = false,     or    
+        S = ( abs(A)+abs(E) ), if withB = false .
+            (   abs(C)     )       
+
+The keyword argument `maxiter = k` specifies the maximum number of iterations `k` 
+allowed in the balancing algorithm. 
+
+The keyword argument `tol = τ`, with `τ ≤ 1`,  specifies the tolerance used in the stopping criterion.   
+
+If the keyword argument `pow2 = true` is specified, then the components of the resulting 
+optimal `D1` and `D2` are replaced by their nearest integer powers of 2, in which case the 
+scaling of matrices is done exactly in floating point arithmetic. 
+If `pow2 = false`, the optimal values `D1` and `D2` are returned.
+
+_Note:_ This function is an extension of the MATLAB function `rowcolsums.m` of [1]. 
+
+[1] F.M.Dopico, M.C.Quintana and P. van Dooren, 
+    "Diagonal scalings for the eigenstructure of arbitrary pencils", SIMAX, 43:1213-1237, 2022. 
+"""
+   radix = real(T)(2.)
+   emat = (typeof(E) <: AbstractMatrix)
+   eident = !emat || isequal(E,I) 
+   n = LinearAlgebra.checksquare(A)
+   emat && (n,n) != size(E) && throw(DimensionMismatch("A and E must have the same dimensions"))
+   n == size(B,1) || throw(DimensionMismatch("A and B must have compatible dimensions"))
+   n == size(C,2) || throw(DimensionMismatch("A and C must have compatible dimensions"))
+
+   n == 0 && (return Diagonal(T[]), Diagonal(T[]))
+ 
+   if eident 
+      D = lsbalance!(A, B, C; withB, withC, maxred)
+      return inv(D), D
+   else
+      MA = abs.(A)+abs.(E)   
+      MB = abs.(B)   
+      MC = abs.(C)   
+      r = fill(real(T)(n),n); c = copy(r)
+      # Scale the matrix to have total sum(sum(M))=sum(c)=sum(r);
+      sumcr = sum(c) 
+      sumM = sum(MA) 
+      withB && (sumM += sum(MB))
+      withC && (sumM += sum(MC))
+      sc = sumcr/sumM
+      lmul!(1/sc,c); lmul!(1/sc,r)
+      t = sqrt(sumcr/sumM); Dl = Diagonal(fill(t,n)); Dr = Diagonal(fill(t,n))
+      # Scale left and right to make row and column sums equal to r and c
+      conv = false
+      for i = 1:maxiter
+          conv = true
+          cr = sum(MA,dims=1)
+          withC && (cr .+= sum(MC,dims=1))
+          dr = Diagonal(reshape(cr,n)./c)
+          rdiv!(MA,dr); rdiv!(MC,dr) 
+          er = minimum(dr.diag)/maximum(dr) 
+          rdiv!(Dr,dr)
+          cl = sum(MA,dims=2)
+          withB && (cl .+= sum(MB,dims=2))
+          dl = Diagonal(reshape(cl,n)./r)
+          ldiv!(dl,MA); ldiv!(dl,MB)
+          el = minimum(dl.diag)/maximum(dl) 
+          rdiv!(Dl,dl)
+         #  @show i, er, el
+          max(1-er,1-el) < tol/2 && break
+          conv = false
+      end
+      conv || (@warn "the iterative algorithm did not converge in $maxiter iterations")
+      # Finally scale the two scalings to have equal maxima
+      scaled = sqrt(maximum(Dr)/maximum(Dl))
+      rmul!(Dl,scaled); rmul!(Dr,1/scaled)
+      if pow2
+         Dl = Diagonal(radix .^(round.(Int,log2.(Dl.diag))))
+         Dr = Diagonal(radix .^(round.(Int,log2.(Dr.diag))))
+      end
+      lmul!(Dl,A); rmul!(A,Dr)
+      lmul!(Dl,E); rmul!(E,Dr)
+      lmul!(Dl,B)
+      rmul!(C,Dr)
+      return Dl, Dr  
+   end
+end
+function regbalance!(A::AbstractMatrix{T}, E::AbstractMatrix{T}; maxiter = 100, tol = 1, pow2 = true) where {T}
+"""
+     regbalance!(A, E; maxiter = 100, tol = 1, pow2 = true) -> (Dl,Dr)
+
+Balance the regular pair `(A,E)` by reducing the 1-norm of the matrix `M := abs(A)+abs(E)`
+by row and column balancing. 
+This involves diagonal similarity transformations `Dl*(A-λE)*Dr` applied
+iteratively to `M` to make the rows and columns of `Dl*M*Dr` as close in norm as possible.
+The [Sinkhorn–Knopp algorithm](https://en.wikipedia.org/wiki/Sinkhorn%27s_theorem) is used 
+to reduce `M` to a doubly stochastic matrix. 
+
+The resulting `Dl` and `Dr` are diagonal scaling matrices.  
+If the keyword argument `pow2 = true` is specified, then the components of the resulting 
+optimal `Dl` and `Dr` are replaced by their nearest integer powers of 2. 
+If `pow2 = false`, the optimal values `Dl` and `Dr` are returned.
+The resulting `Dl*A*Dr` and `Dl*E*Dr` overwrite `A` and `E`, respectively
+    
+The keyword argument `tol = τ`, with `τ ≤ 1`,  specifies the tolerance used in the stopping criterion. 
+The iterative process is stopped as soon as the incremental scalings are `tol`-close to the identity. 
+
+The keyword argument `maxiter = k` specifies the maximum number of iterations `k` 
+allowed in the balancing algorithm. 
+
+_Note:_ This function is based on the MATLAB function `rowcolsums.m` of [1], modified such that
+the scaling operations are directly applied to `A` and `E`.  
+
+[1] F.M.Dopico, M.C.Quintana and P. van Dooren, 
+    "Diagonal scalings for the eigenstructure of arbitrary pencils", SIMAX, 43:1213-1237, 2022. 
+"""
+   n = LinearAlgebra.checksquare(A)
+   (n,n) != size(E) && throw(DimensionMismatch("A and E must have the same dimensions"))
+
+   n <= 1 && (return Diagonal(ones(T,n)), Diagonal(ones(T,n)))
+   TR = real(T)
+   radix = TR(2.)
+   t = TR(n)
+   pow2 && (t = radix^(round(Int,log2(t)))) 
+   c = fill(t,n); 
+   # Scale the matrix M = abs(A)+abs(E) to have total sum(sum(M)) = sum(c)
+   sumcr = sum(c) 
+   sumM = sum(abs,A) + sum(abs,E)
+   sc = sumcr/sumM
+   pow2 && (sc = radix^(round(Int,log2(sc)))) 
+   t = sqrt(sc) 
+   ispow2(t) || (sc *= 2; t = sqrt(sc))
+   lmul!(sc,A); lmul!(sc,E)
+   Dl = Diagonal(fill(t,n)); Dr = Diagonal(fill(t,n))
+
+   # Scale left and right to make row and column sums equal to r and c
+   conv = false
+   for i = 1:maxiter
+       conv = true
+       cr = sum(abs,A,dims=1) + sum(abs,E,dims=1) 
+       dr = pow2 ? Diagonal(radix .^(round.(Int,log2.(reshape(cr,n)./c)))) : Diagonal(reshape(cr,n)./c)
+       rdiv!(A,dr); rdiv!(E,dr) 
+       er = minimum(dr.diag)/maximum(dr) 
+       rdiv!(Dr,dr)
+       cl = sum(abs,A,dims=2) + sum(abs,E,dims=2)
+       dl = pow2 ? Diagonal(radix .^(round.(Int,log2.(reshape(cl,n)./c)))) : Diagonal(reshape(cl,n)./c)
+       ldiv!(dl,A); ldiv!(dl,E)
+       el = minimum(dl.diag)/maximum(dl) 
+       rdiv!(Dl,dl)
+       max(1-er,1-el) < tol/2 && break
+       conv = false
+   end
+   conv || (@warn "the iterative algorithm did not converge in $maxiter iterations")
+   # Finally scale the two scalings to have equal maxima
+   scaled = sqrt(maximum(Dr)/maximum(Dl))
+   pow2 && (scaled = radix^(round(Int,log2(scaled)))) 
+   rmul!(Dl,scaled); rmul!(Dr,1/scaled)
+   return Dl, Dr  
+end
+
+
+

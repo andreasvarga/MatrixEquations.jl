@@ -9,6 +9,29 @@ println("Test_riccati")
 
 @testset "Testing algebraic Riccati equation solvers" begin
 
+# some continuous-time problems which need scaling
+A = [ 0.0        0.0        -0.00135213   0.0
+      0.0        0.0         0.0         -0.000755718
+      0.0531806  0.0         0.0          0.0378156
+      0.0        0.0531806  -0.0709927    0.0];
+B = [ 1.0  0.0
+ 0.0  1.0
+ 0.0  0.0
+ 0.0  0.0]; 
+Q = [ 0.0  0.0  0.0        0.0
+ 0.0  0.0  0.0        0.0
+ 0.0  0.0  1.17474e9  0.0
+ 0.0  0.0  0.0        4.14026e9]; 
+R = [100.0    0.0
+   0.0  100.0];
+G = B*inv(R)*B'; G = (G+G)/2   
+E = [0.3145695364503345 0.28299421375349765 0.7751430938038222 0.3817600131380937; 
+0.6175205621578082 0.9791019859058574 0.6388662440424374 0.36327849747268603; 
+0.13292183504367217 0.9319918486921431 0.15347895705946646 0.1378470943397626; 
+0.1411783703336893 0.6496471027507487 0.7764461576953698 0.2687776918944005];
+reltol = sqrt(eps())
+
+
 # only double precision tests are performed
 
 #for (Ty,n,p,m) in ((Float64, 30, 10, 10), (Float32, 5, 3, 3))
@@ -16,7 +39,7 @@ for (Ty,n,p,m) in ((Float64, 20, 10, 10),  (Float64, 5, 3, 1))
 
 Random.seed!(21235)
 
-#(Ty,n,p,m) = (Float64, 30, 10, 10)
+#(Ty,n,p,m) = (Float64, 20, 10, 10)
 #(Ty,n,p,m) = (Float64, 2, 1, 1)
 
 ar = randn(Ty,n,n)
@@ -39,7 +62,8 @@ cc = rand(Ty,p,n)+im*rand(Ty,p,n)
 bc = rand(Ty,n,m)+im*rand(Ty,n,m)
 rr1 = rand(Ty,m,m)
 rc1 = rand(Ty,m,m)+im*rand(Ty,m,m)
-Ty == Float64 ? rtol = n*n*sqrt(eps(1.)) : rtol = n*sqrt(eps(1.f0))
+#Ty == Float64 ? rtol = n*n*sqrt(eps(1.)) : rtol = n*sqrt(eps(1.f0))
+rtol = n*n*sqrt(eps(1.)) 
 
 qc = cc'*cc
 Qr = cr'*cr
@@ -136,6 +160,35 @@ end
 end
 
 
+# without scaling
+@time X, clseig = arec(A,G,Q; scaling = 'N')
+rezn = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test !(rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol)
+
+# with block scaling
+@time X, clseig = arec(A,G,Q; scaling = 'B')
+rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test  rezb < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+# with special scaling
+@time X, clseig = arec(A,G,Q; scaling = 'S')
+rezs = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezs < rezb && norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X)) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+# with general scaling
+@time X, clseig = arec(A,G,Q; scaling = 'G')
+rezg = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezg < rezb && norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X)) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+
 @testset "Generalized continuous Riccati equation ($Ty, n = $n, m = $m)" begin
 
 @time x, clseig = garec(ar,er,gr,Qr)
@@ -172,6 +225,38 @@ norm(sort(real(clseig))-sort(real(eigvals(ar-x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-x))))/norm(clseig)  < rtol
 
 end
+
+# without scaling
+#E = rand(4,4)
+
+@time X, clseig = garec(A,E,G,Q; scaling = 'N')
+rezn = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X))
+@test !(rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X*E,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X*E,E))))/norm(clseig)  < reltol)
+
+# with block scaling
+@time X, clseig = garec(A,E,G,Q; scaling = 'B')
+rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)); ev = eigvals(A-G*X*E,E)
+@test rezb < reltol &&
+norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
+
+# with special scaling
+@time X, clseig = garec(A,E,G,Q; scaling = 'S');
+rezs = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)) 
+ev = eigvals(A-G*X*E,E)
+@test rezs < reltol && rezs < rezb && 
+norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
+
+# with special scaling
+@time X, clseig = garec(A,E,G,Q; scaling = 'G')
+rezg = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)) 
+ev = eigvals(A-G*X*E,E)
+@test rezg < reltol && rezg < rezb && 
+norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 
 
 
@@ -268,6 +353,52 @@ ar1 = rand(Ty,2,2); br1 = rand(Ty,2,2); gr1 = 0*I; r1 = [1.e5 0; 0 1.e-5]; q1 = 
 
 end
 
+# without scaling
+@time X, clseig, F = arec(A, B, R, Q; scaling = 'N')
+rezn = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test !( rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol)
+
+# with scaling
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'B')
+rezb1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezb1 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'B', orth = true)
+rezb2 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezb2 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'S')
+rezs1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezs1 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'S', orth = true)
+rezs2 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezs2 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'G')
+rezg1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezg1 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'G', orth = true)
+rezg2 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezg2 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+
+
 @testset "Generalized continuous control Riccati equation ($Ty, n = $n, m = $m)" begin
 
 @time x, clseig, f = garec(ar,er,br,rr,Qr,sr)
@@ -330,6 +461,50 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f-g*x*er,er))))/norm(clseig)  < 
 
 
 end
+
+# without scaling
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'N')
+rezn = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X))
+@test !( rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol)
+
+# with scaling
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'B')
+rezb  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
+@test rezb < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+# with scaling
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'S')
+rezs  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
+@test rezs < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+
+# with scaling
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'G')
+rezg  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
+@test rezg < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+# with scaling
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'D')
+rezd  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
+@test rezd < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+# with scaling
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'T')
+rezt  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
+@test rezt < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
 
 
 @testset "Discrete control Riccati equation ($Ty, n = $n, m = $m)" begin
