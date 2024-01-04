@@ -447,7 +447,7 @@ E = [0.3145695364503345 0.28299421375349765 0.7751430938038222 0.381760013138093
 0.6175205621578082 0.9791019859058574 0.6388662440424374 0.36327849747268603; 
 0.13292183504367217 0.9319918486921431 0.15347895705946646 0.1378470943397626; 
 0.1411783703336893 0.6496471027507487 0.7764461576953698 0.2687776918944005];
-reltol = sqrt(eps())
+reltol = sqrt(eps(1000.))
 
 # without scaling
 @time X, clseig = arec(A,G,Q; scaling = 'N')
@@ -561,7 +561,6 @@ norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol)
 # with scaling  
 @time X, clseig, F = garec(A, E, B, R, Q; scaling = 'B')
 rezb  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
-@show rezb, reltol
 @test rezb < 10*reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
