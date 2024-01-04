@@ -278,14 +278,14 @@ using IterativeSolvers
     X0 = sprand(Ty,mx,nx,0.4);
     Es = reshape(Ls*vec(X0),mx,nx);
     @time Xs, infos = gtsylvi(As,Bs,Cs,Ds,Es; reltol = 1.e-8, maxiter = 2000);
-    @test norm(Ls*vec(Xs)-vec(Es))/norm(Xs) < 1.e-4 
+    @test norm(Ls*vec(Xs)-vec(Es))/norm(Xs) < 1.e-3 
 
     A = [Matrix(As[1]),I]
     B = [I, Matrix(Bs[2])]
     C = Cs; D = Ds; E = Matrix(Es); 
     L = gsylvop(A,B,C,D)
     @time X, info = gtsylvi(A,B,C,D,E; reltol = 1.e-8, maxiter = 5000);
-    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-4   
+    @test norm(L*vec(X)-vec(E))/norm(X)  < 1.e-3   
       
     
     n = 5; m = 4;

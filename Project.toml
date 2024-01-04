@@ -10,7 +10,7 @@ LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
 [compat]
 LinearAlgebra = "1"
 LinearMaps = "3.3"
-julia = "1.6"
+julia = "1.8"
 
 [extras]
 DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"

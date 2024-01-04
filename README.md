@@ -12,7 +12,7 @@
 
 ## Compatibility
 
-Julia 1.6 and higher.
+Julia 1.8 and higher.
 
 ## How to Install
 
