@@ -870,7 +870,7 @@ xt = norm(X-Xr)/norm(X)
 @time X, clseig, F = ared(A,B,R,Q; scaling = 'G')
 rezg = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xg = norm(X-Xr)/norm(X)
-@test rezg < rezb && xg < xb
+@test rezg < rezn && xg < xn
 
 end
 
