@@ -684,7 +684,6 @@ rezg = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
-E = I(3);
 @time X, clseig = garec(A,E,G,Q; scaling = 'S')
 rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)) 
 ev = eigvals(A-G*X*E,E)
