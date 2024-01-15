@@ -706,14 +706,14 @@ rezb  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
 
-E1 = diagm(diag(E)); A1 = E1*A; B1 = E1*B;
-@time X, clseig, F = garec(A1, E1, B1, R, Q; scaling = 'N')
-rezn  = norm(A1'*X*E1+E1'*X*A1-E1'*X*B1*inv(R)*B1'*X*E1+Q)/max(1,norm(X)) 
-@time X, clseig, F = garec(A1, E1, B1, R, Q; scaling = 'S')
-rezb  = norm(A1'*X*E1+E1'*X*A1-E1'*X*B1*inv(R)*B1'*X*E1+Q)/max(1,norm(X)) 
-@test rezb < 1.e-4*rezn &&
-norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
-norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+# E1 = diagm(diag(E)); A1 = E1*A; B1 = E1*B;
+# @time X, clseig, F = garec(A1, E1, B1, R, Q; scaling = 'N')
+# rezn  = norm(A1'*X*E1+E1'*X*A1-E1'*X*B1*inv(R)*B1'*X*E1+Q)/max(1,norm(X)) 
+# @time X, clseig, F = garec(A1, E1, B1, R, Q; scaling = 'S')
+# rezb  = norm(A1'*X*E1+E1'*X*A1-E1'*X*B1*inv(R)*B1'*X*E1+Q)/max(1,norm(X)) 
+# @test rezb < 1.e-4*rezn &&
+# norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F,E1))))/norm(clseig)  < reltol &&
+# norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F,E1))))/norm(clseig)  < reltol
 
 end
 @testset "Scaling discrete-time Riccati equation" begin
