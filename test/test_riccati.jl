@@ -4,6 +4,8 @@ using Random
 using LinearAlgebra
 using MatrixEquations
 using Test
+using GenericSchur
+using GenericLinearAlgebra
 
 println("Test_riccati")
 
@@ -426,7 +428,7 @@ end
 end
 
 @testset "Scaling continuous-time Riccati equation" begin
-    #
+    
 # some continuous-time problems which need scaling
 A = [ 0.0        0.0        -0.00135213   0.0
       0.0        0.0         0.0         -0.000755718
@@ -463,17 +465,24 @@ rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
+# extended precision with block scaling
+@time X, clseig = arec(BigFloat.(A),G,Q; scaling = 'B')
+rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test  rezb < 1.e-60*reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
 # with special scaling
 @time X, clseig = arec(A,G,Q; scaling = 'S')
 rezs = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
-@test rezs < rezb && norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X)) < reltol &&
+@test rezs < reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
 # with general scaling
 @time X, clseig = arec(A,G,Q; scaling = 'G')
 rezg = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
-@test rezg < rezb && norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X)) < reltol &&
+@test rezg < reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
@@ -486,8 +495,16 @@ norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X*E,E))))/norm(clseig)  < reltol)
 
 # with block scaling
 @time X, clseig = garec(A,E,G,Q; scaling = 'B')
-rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)); ev = eigvals(A-G*X*E,E)
+rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X))
+ev = eigvals(A-G*X*E,E)
 @test rezb < reltol &&
+norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
+
+@time X, clseig = garec(BigFloat.(A),E,G,Q; scaling = 'B')
+rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X))
+ev = schur(complex(A-G*X*E),complex(E)).values
+@test rezb < 1.e-60*reltol &&
 norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 
@@ -495,7 +512,7 @@ norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 @time X, clseig = garec(A,E,G,Q; scaling = 'S');
 rezs = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)) 
 ev = eigvals(A-G*X*E,E)
-@test rezs < reltol && rezs < rezb && 
+@test rezs < reltol &&  
 norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 
@@ -503,7 +520,7 @@ norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 @time X, clseig = garec(A,E,G,Q; scaling = 'G')
 rezg = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)) 
 ev = eigvals(A-G*X*E,E)
-@test rezg < reltol && rezg < rezb && 
+@test rezg < reltol && 
 norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 
@@ -521,11 +538,30 @@ rezb1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
 
+@time X, clseig, F = arec(BigFloat.(A),B,R,Q; scaling = 'B')
+rezb1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezb1 < 1.e-60*reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
 @time X, clseig, F = arec(A,B,R,Q; scaling = 'B', orth = true)
 rezb2 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
 @test  rezb2 < reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(BigFloat.(A),complex(B),R,Q; scaling = 'B', orth = true)
+rezb2 = norm(A'*X+X*A-X*B*inv(BigFloat.(R))*B'*X+Q)/max(1,norm(X))
+@test  rezb2 < 1.e-60*reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(BigFloat.(A),B,R,Q; scaling = 'B', orth = true)
+rezb2 = norm(A'*X+X*A-X*B*inv(BigFloat.(R))*B'*X+Q)/max(1,norm(X))
+@test  rezb2 < 1.e-60*reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
 
 @time X, clseig, F = arec(A,B,R,Q; scaling = 'S')
 rezs1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
@@ -592,6 +628,249 @@ rezt  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X))
 @test rezt < reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+
+# Example 2 from Petkov et al. 1998 (MATLAB scaling in icare fails to produce accurate result)
+# k = 6
+# A = BigFloat.(diagm([10^k; 2*10^k; 3*10^k])); Q = diagm([BigFloat(10.) ^(-k);1; 10^k])
+# G = diagm([BigFloat(10.) ^(-k);BigFloat(10.) ^(-k); BigFloat(10.) ^(-k)]); B = BigFloat.(I(3)); R = BigFloat.(diagm([10^k; 10^k; 10^k]))
+
+# x = [(A[i,i]+sqrt(A[i,i]^2+Q[i,i]*G[i,i]))/G[i,i] for i in 1:3]
+# Xr = diagm(x)
+# rez = norm(A'*Xr+Xr*A-Xr*G*Xr+Q)/max(1,norm(Xr))
+
+reltol = sqrt(eps(1000.))
+k = 6
+A = diagm([10^k; 2*10^k; 3*10^k]); Q = diagm([10. ^(-k);1; 10^k])
+G = diagm([10. ^(-k);10. ^(-k); 10. ^(-k)]); B = I(3); R = diagm([10^k; 10^k; 10^k])
+E = [0.229087  0.569477  0.4308
+0.187523  0.569036  0.342814
+0.792381  0.690077  0.202204];
+
+x = [(A[i,i]+sqrt(A[i,i]^2+Q[i,i]*G[i,i]))/G[i,i] for i in 1:3]
+Xr = diagm(x)
+rez = norm(A'*Xr+Xr*A-Xr*G*Xr+Q)/max(1,norm(Xr))
+
+# without scaling
+@time X, clseig = arec(A,G,Q; scaling = 'N')
+rezn = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test !(rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol)
+
+# with scaling
+@time X, clseig = arec(A,G,Q; scaling = 'B')
+rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezb < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+@time X, clseig = arec(BigFloat.(A),G,Q; scaling = 'B')
+rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test  rezb < 1.e-60*reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+
+@time X, clseig = arec(A,G,Q; scaling = 'S')
+rezs = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezs < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+@time X, clseig = arec(A,G,Q; scaling = 'G', pow2 = true)
+rezg = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezg < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+E = I(3);
+@time X, clseig = garec(A,E,G,Q; scaling = 'S')
+rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X)) 
+ev = eigvals(A-G*X*E,E)
+@test rezb < 100*reltol &&
+norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
+
+@time X, clseig, F = arec(A,B,R,Q; scaling = 'S')
+rezb1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
+@test  rezb1 < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
+
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'N')
+rezn  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X))
+
+@time X, clseig, F = garec(A, E, B, R, Q; scaling = 'B')
+rezb  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
+@test rezb < 1.e-4*rezn &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+E1 = diagm(diag(E)); A1 = E1*A; B1 = E1*B;
+@time X, clseig, F = garec(A1, E1, B1, R, Q; scaling = 'N')
+rezn  = norm(A1'*X*E1+E1'*X*A1-E1'*X*B1*inv(R)*B1'*X*E1+Q)/max(1,norm(X)) 
+@time X, clseig, F = garec(A1, E1, B1, R, Q; scaling = 'S')
+rezb  = norm(A1'*X*E1+E1'*X*A1-E1'*X*B1*inv(R)*B1'*X*E1+Q)/max(1,norm(X)) 
+@test rezb < 1.e-4*rezn &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
+
+end
+@testset "Scaling discrete-time Riccati equation" begin
+
+# discrete-time
+# 
+A = [ 0.0        0.0        -0.00135213   0.0
+      0.0        0.0         0.0         -0.000755718
+      0.0531806  0.0         0.0          0.0378156
+      0.0        0.0531806  -0.0709927    0.0];
+B = [ 1.0  0.0
+ 0.0  1.0
+ 0.0  0.0
+ 0.0  0.0]; 
+Q = [ 0.0  0.0  0.0        0.0
+ 0.0  0.0  0.0        0.0
+ 0.0  0.0  1.17474e9  0.0
+ 0.0  0.0  0.0        4.14026e9]; 
+R = [100.0    0.0
+   0.0  100.0];
+G = B*inv(R)*B'; G = (G+G)/2   
+E = [0.3145695364503345 0.28299421375349765 0.7751430938038222 0.3817600131380937; 
+0.6175205621578082 0.9791019859058574 0.6388662440424374 0.36327849747268603; 
+0.13292183504367217 0.9319918486921431 0.15347895705946646 0.1378470943397626; 
+0.1411783703336893 0.6496471027507487 0.7764461576953698 0.2687776918944005];
+reltol = sqrt(eps(1000.))
+
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'N')
+rezn = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test !(rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol)
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'B')
+rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezb < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'S')
+rezs = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezs < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'D')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezd < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'T')
+rezt = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezt < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'G')
+rezg = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezg < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+# Example 1  Gudmundsson et al. 1992
+k = 6; 
+V = I-2*ones(3)*ones(3)'/3; A0 = diagm([0; 1; 3])
+A = V*A0*V
+B = I(3); R = 10. ^k*I(3)
+Q = 10. ^6*I(3); Xr = V*(10. ^k*diagm([1;(1+sqrt(5))/2; (9+sqrt(85))/2]))*V
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'N')
+rezn = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test !(rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol && 
+norm(X-Xr) < reltol)
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'B')
+rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezb < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'S')
+rezs = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezs < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'D')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezd < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'R')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezd < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'T')
+rezt = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezt < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'G')
+rezg = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+@test rezb < reltol && norm(X-Xr)/norm(X) < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))  < reltol
+
+
+# Example 2  Gudmundsson et al. 1992 (modified)
+A = [0 100; 0 0]; B = [0;1;;]; R = [1;;]; Q = 100*I(2); Xr = 100*[1 0; 0 10001]
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'N')
+rezn = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xn = norm(X-Xr)/norm(X)
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'B')
+rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xb = norm(X-Xr)/norm(X)
+@test rezb < rezn && xb < xn
+
+@time X, clseig, F = ared(BigFloat.(A),B,R,Q; scaling = 'B')
+rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xb = norm(X-Xr)/norm(X)
+@test rezb < rezn && xb < xn
+
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'S')
+rezs = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xs = norm(X-Xr)/norm(X)
+@test rezs < rezn && xs < xn
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'D')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xd = norm(X-Xr)/norm(X)
+@test rezd < rezn && xd < xn
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'R')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xd = norm(X-Xr)/norm(X)
+@test rezd < rezn && xd < xn
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'T')
+rezt = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xt = norm(X-Xr)/norm(X)
+@test rezt < rezn && xt < xn
+
+@time X, clseig, F = ared(A,B,R,Q; scaling = 'G')
+rezg = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xg = norm(X-Xr)/norm(X)
+@test rezg < rezb && xg < xb
 
 end
 

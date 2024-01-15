@@ -1,11 +1,10 @@
 # Release Notes
 
-## Version 2.4.0 (planned)
+## Version 2.4.0 
 
 Minor release containing the following enhancements:
-* implementation of several scaling options for continuous-time Riccati equations
-* implementation of several scaling options for discrete-time Riccati equations (WIP)
-
+* implementation of several scaling options for all Riccati equation solvers;
+* support for arbitrary floating-point types in all Riccati equation solvers. 
 
 ## Version 2.3.2
 Version bump to correct setting of `liblapack`.  
@@ -16,13 +15,13 @@ Patch release to optimize array allocations in the function `cgls`.
 ## Version 2.3.0
 
 Minor release containing the following changes:
-* renamed functions `tulyapc!` and `hulyapc!` to cover singular input matrices
-* new functions to define some  _T/H-Lyapunov_ and  _generalized T/H-Sylvester_ operators
-* a new function `cgls` which implements the conjugate gradient method [`CGLS`](https://web.stanford.edu/group/SOL/software/cgls/) to solve linear equations and linear least-squares problems with matrix and linear operator arguments
-* new functions to solve Lyapunov, Lyapunov-like, Sylvester and Sylvester-like matrix equations using conjugate gradient based iterative techniques
-* new operators to handle half-vector operations, such as, the _elimination_ and _duplication_ operators  
-* enhanced _transpose_ (_commutation_) operator
-* explicit definitions of 3-term `mul!` operations for transpose/adjoint of Lyapunov and Sylvester operators
+* renamed functions `tulyapc!` and `hulyapc!` to cover singular input matrices;
+* new functions to define some  _T/H-Lyapunov_ and  _generalized T/H-Sylvester_ operators;
+* a new function `cgls` which implements the conjugate gradient method [`CGLS`](https://web.stanford.edu/group/SOL/software/cgls/) to solve linear equations and linear least-squares problems with matrix and linear operator arguments;
+* new functions to solve Lyapunov, Lyapunov-like, Sylvester and Sylvester-like matrix equations using conjugate gradient based iterative techniques;
+* new operators to handle half-vector operations, such as, the _elimination_ and _duplication_ operators;  
+* enhanced _transpose_ (_commutation_) operator;
+* explicit definitions of 3-term `mul!` operations for transpose/adjoint of Lyapunov and Sylvester operators.
 
 ## Version 2.2.11
 
@@ -34,13 +33,11 @@ Patch release to fix issue [MatrixPencils#11](https://github.com/andreasvarga/Ma
 
 ## Version 2.2.9
 
-Patch release with generic functions to solve various 
-Lyapunov-like and Sylvester-like equations using Kronecker product based expansions (not suited for large problems).  
+Patch release with generic functions to solve various Lyapunov-like and Sylvester-like equations using Kronecker product based expansions (not suited for large problems).  
 
 ## Version 2.2.8
 
-Patch release with two new functions to solve Lyapunov-like equations and several experimental functions to solve various 
-Lyapunov-like and Sylvester-like equations using Kronecker product based expansions (not suited for large problems).  
+Patch release with two new functions to solve Lyapunov-like equations and several experimental functions to solve various Lyapunov-like and Sylvester-like equations using Kronecker product based expansions (not suited for large problems).  
 
 ## Version 2.2.7
 
