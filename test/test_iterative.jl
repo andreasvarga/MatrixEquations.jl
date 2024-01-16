@@ -265,6 +265,7 @@ using IterativeSolvers
     D = [sprand(Ty,mx,n,0.5) for i in 1:la]
     L = gsylvop(A,B,C,D)
     X0 = sprand(Ty,mx,nx,0.4);
+    iszero(X0) && (X0[1,1] = one(Ty))
     # solve with cgls for an exact solution
     E = reshape(L*vec(X0),m,n);
     X, info = gtsylvi(A,B,C,D,E; reltol = reltol/10)
@@ -276,6 +277,7 @@ using IterativeSolvers
     Cs = []; Ds = [];
     Ls = gsylvop(As,Bs,Cs,Ds)
     X0 = sprand(Ty,mx,nx,0.4);
+    iszero(X0) && (X0[1,1] = one(Ty))
     Es = reshape(Ls*vec(X0),mx,nx);
     @time Xs, infos = gtsylvi(As,Bs,Cs,Ds,Es; reltol = 1.e-8, maxiter = 2000);
     @test norm(Ls*vec(Xs)-vec(Es))/norm(Xs) < 1.e-3 

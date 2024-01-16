@@ -159,7 +159,7 @@ Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling
 `S`, if not specified, is set to `S = zeros(size(B))`.
 The Schur method of [1] is used. 
 
-To enhance the accuracy of computations, a block scaling of matrices `G` and `Q` is performed, if  
+To enhance the accuracy of computations, a block scaling of matrices `R`, `Q`  and `S` is performed, if  
 the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(Q) > norm(B)^2/norm(R)`.
 A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
 An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
@@ -257,7 +257,7 @@ Scalar-valued `G`, `R` and `Q` are interpreted as appropriately sized uniform sc
 For well conditioned `R`, the Schur method of [1] is used. For ill-conditioned `R` or if `orth = true`, 
 the generalized Schur method of [2] is used. 
 
-To enhance the accuracy of computations, a block oriented scaling of matrices `G`, `Q`, `R` and `S` is performed 
+To enhance the accuracy of computations, a block oriented scaling of matrices `G`, `R`, `Q` and `S` is performed 
 using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > max(norm(G), norm(B)^2/norm(R))`.
 A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
 An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
@@ -424,7 +424,7 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 
 `EVALS` is a vector containing the (stable or anti-stable) generalized eigenvalues of the pair `(A-GXE,E)`.
 
-`Z = [U; V]` is an orthogonal basis for the stable/anti-stable deflating subspace such that `X = Sx*(V/U)*Sxi/E`, 
+`Z = [U; V]` is an orthogonal basis for the stable/anti-stable deflating subspace such that `X = (Sx*(V/U)*Sxi)/E`, 
 where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx` and `scalinfo.Sxi`, respectively.
 
@@ -450,7 +450,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
        sol = garec(complex(A),complex(E),complex(G),complex(Q); scaling, pow2, as, rtol)
-       return real(sol[1]), sol[2], Matrix(qr([real(sol[3]) imag(sol[3])]).Q), sol[4]
+       return real(sol[1]), sol[2], Matrix(qr([real(sol[3]) imag(sol[3])]).Q)[:,1:size(A,1)], sol[4]
     end
 
     n = LinearAlgebra.checksquare(A)
@@ -542,7 +542,7 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 `F` is the stabilizing/anti-stabilizing gain matrix `F = R^(-1)(B'XE+S')`.
 
 `Z = [U; V; W]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace 
-such that `X = Sx*(V/U)*Sxi` and  `F = -Sr*(W/U)*Sxi`, 
+such that `X = (Sx*(V/U)*Sxi)/E` and  `F = -Sr*(W/U)*Sxi`, 
 where `Sx`, `Sxi` and `Sr` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx`, `scalinfo.Sxi` and `scalinfo.Sr`, respectively.
 
@@ -640,7 +640,7 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 `F` is the stabilizing/anti-stabilizing gain matrix `F = R^(-1)(B'XE+S')`.
 
 `Z = [U; V; W]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace 
-such that `X = Sx*(V/U)*Sxi` and  `F = -Sr*(W/U)*Sxi`, 
+such that `X = (Sx*(V/U)*Sxi)/E` and  `F = -Sr*(W/U)*Sxi`, 
 where `Sx`, `Sxi` and `Sr` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx`, `scalinfo.Sxi` and `scalinfo.Sr`, respectively.
 
@@ -660,7 +660,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
        sol = garec(complex(A),complex(E),complex(B),complex(G),complex(R),complex(Q),complex(S); scaling, pow2, as, rtol)
-       return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q), sol[5]
+       return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
     end
 
     n = LinearAlgebra.checksquare(A)
@@ -880,7 +880,7 @@ and `ϵ` is the _machine epsilon_ of the element type of `A`.
 `F` is the stabilizing/anti-stabilizing gain matrix `F = (R+B'XB)^(-1)(B'XA+S')`.
 
 `Z = [U; V; W]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace 
-such that `X = Sx*(V/U)*Sxi` and  `F = -Sr*(W/U)*Sxi`, 
+such that `X = (Sx*(V/U)*Sxi)/E` and  `F = -Sr*(W/U)*Sxi`, 
 where `Sx`, `Sxi` and `Sr` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx`, `scalinfo.Sxi` and `scalinfo.Sr`, respectively.
 
@@ -952,7 +952,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
        sol = gared(complex(A),complex(E),complex(B),complex(R),complex(Q),complex(S); scaling, pow2, as, rtol)
-       return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q), sol[5]
+       return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
     end
 
     n = LinearAlgebra.checksquare(A)

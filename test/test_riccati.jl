@@ -501,12 +501,13 @@ ev = eigvals(A-G*X*E,E)
 norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
 
-@time X, clseig = garec(BigFloat.(A),E,G,Q; scaling = 'B')
+@time X, clseig, Z, scalinfo = garec(BigFloat.(A),E,G,Q; scaling = 'B')
 rezb = norm(A'*X*E+E'*X*A-E'*X*G*X*E+Q)/max(1,norm(X))
 ev = schur(complex(A-G*X*E),complex(E)).values
 @test rezb < 1.e-60*reltol &&
 norm(sort(real(clseig))-sort(real(ev)))/norm(clseig)  < reltol &&
-norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol
+norm(sort(imag(clseig))-sort(imag(ev)))/norm(clseig)  < reltol &&
+norm((scalinfo.Sx*(Z[5:8,:]/Z[1:4,:])*scalinfo.Sxi)/BigFloat.(E)-X)/norm(X) < reltol 
 
 # with special scaling
 @time X, clseig = garec(A,E,G,Q; scaling = 'S');
@@ -556,13 +557,14 @@ rezb2 = norm(A'*X+X*A-X*B*inv(BigFloat.(R))*B'*X+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
 
-@time X, clseig, F = arec(BigFloat.(A),B,R,Q; scaling = 'B', orth = true)
+@time X, clseig, F, Z, scalinfo = arec(BigFloat.(A),B,R,Q; scaling = 'B', orth = true)
 rezb2 = norm(A'*X+X*A-X*B*inv(BigFloat.(R))*B'*X+Q)/max(1,norm(X))
 @test  rezb2 < 1.e-60*reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-B*F))))/norm(clseig)  < reltol &&
-norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol
-
-
+norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F))))/norm(clseig)  < reltol &&
+norm((scalinfo.Sx*(Z[5:8,:]/Z[1:4,:])*scalinfo.Sxi)-X)/norm(X) < reltol &&
+norm(-(scalinfo.Sr*(Z[9:10,:]/Z[1:4,:])*scalinfo.Sxi)-F)/norm(F) < reltol 
+ 
 @time X, clseig, F = arec(A,B,R,Q; scaling = 'S')
 rezs1 = norm(A'*X+X*A-X*B*inv(R)*B'*X+Q)/max(1,norm(X))
 @test  rezs1 < reltol &&
