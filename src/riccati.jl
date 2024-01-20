@@ -1,5 +1,5 @@
 """
-    arec(A, G, Q = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ) -> (X, EVALS, Z, scalinfo)
+    arec(A, G, Q = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the continuous-time
@@ -15,6 +15,8 @@ To enhance the accuracy of computations, a block scaling of matrices `G` and `Q`
 the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(Q) > norm(G)`.
 A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
 An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting. 
 Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
@@ -83,7 +85,7 @@ julia> eigvals(A-G*X)
 ```
 """
 function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex} = zero(eltype(A));
-              scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+              scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
     n = LinearAlgebra.checksquare(A)
     T = promote_type( eltype(A), eltype(G), eltype(Q) )
     if typeof(G) <: AbstractArray
@@ -110,7 +112,7 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0) )
     
     # perform scaling if appropriate
-    H, Sx, Sxi = balham(A, G, Q; scaling, pow2)
+    H, Sx, Sxi = balham(A, G, Q; scaling, pow2, nrm)
     S = schur!(H)
 
     as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
@@ -146,7 +148,7 @@ function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
    end
 end
 """
-    arec(A, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z, scalinfo)
+    arec(A, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, orth = false, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the continuous-time
@@ -162,8 +164,10 @@ The Schur method of [1] is used.
 To enhance the accuracy of computations, a block scaling of matrices `R`, `Q`  and `S` is performed, if  
 the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(Q) > norm(B)^2/norm(R)`.
 A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
-An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
-Similar, experimental structure preserving scalings can be performed using the options `scaling = 'D'` 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
+Experimental structure preserving scalings can be performed using the options `scaling = 'D'` 
 or `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
@@ -235,15 +239,15 @@ julia> eigvals(A-B*F)
 """
 function arec(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
    Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B));
-   scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false)
+   scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false, nrm = 1)
    if orth
-      return garec(A, I, B, 0, R, Q, S; scaling, pow2, as, rtol)
+      return garec(A, I, B, 0, R, Q, S; scaling, pow2, as, rtol, nrm)
    else
-      return arec(A, B, 0, R, Q, S; scaling, pow2, as, rtol)
+      return arec(A, B, 0, R, Q, S; scaling, pow2, as, rtol, nrm)
    end
 end
 """
-    arec(A, B, G, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, orth = false) -> (X, EVALS, F, Z, scalinfo)
+    arec(A, B, G, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, orth = false, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
 Computes `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the continuous-time
@@ -260,9 +264,12 @@ the generalized Schur method of [2] is used.
 To enhance the accuracy of computations, a block oriented scaling of matrices `G`, `R`, `Q` and `S` is performed 
 using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > max(norm(G), norm(B)^2/norm(R))`.
 A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
-An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
 If `orth = true`, two experimental scaling procedures 
-can be activated using the options `scaling = 'D'` and `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
+can be activated using the options `scaling = 'D'` and `scaling = 'T'`. 
+Scaling can be disabled with the choice `scaling = 'N'`.
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A`.
@@ -288,8 +295,8 @@ An orthogonal basis `Z` can be determined, with an increased computational cost,
 """
 function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,UniformScaling,Real,Complex},
               R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex},
-              S::AbstractVecOrMat; scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false)
-   orth && (return garec(A, I, B, G, R, Q, S; scaling, pow2, as, rtol))
+              S::AbstractVecOrMat; scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), orth = false, nrm = 1)
+   orth && (return garec(A, I, B, G, R, Q, S; scaling, pow2, as, rtol, nrm))
 
    T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
 
@@ -376,7 +383,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
       #G = utqu(Dinv,Bu')
       G += utqu(Dinv,Bu')
       if S0flag
-         sol = arec(A, G, Q; scaling, pow2, as, rtol)
+         sol = arec(A, G, Q; scaling, nrm, pow2, as, rtol)
          w2 = SR.Z*Dinv*Bu'
          f = w2*sol[1]
          z = [sol[3]; w2*(sol[3])[n+1:end,:]]
@@ -384,7 +391,7 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
          Su = S*SR.Z
          #Q -= Su*Dinv*Su'
          Q -= utqu(Dinv,Su')
-         sol = arec(A-Bu*Dinv*Su', G, Q; scaling, pow2, as, rtol)
+         sol = arec(A-Bu*Dinv*Su', G, Q; scaling, nrm, pow2, as, rtol)
          w1 = SR.Z*Dinv*Su'
          w2 = SR.Z*Dinv*Bu'
          f = w1+w2*sol[1]
@@ -395,12 +402,12 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
    else
       # use implicit form
       @warn "R nearly singular: using the orthogonal reduction method"
-      return garec(A, I, B, G, R, Q, S; scaling, pow2, as, rtol)
+      return garec(A, I, B, G, R, Q, S; scaling, nrm, pow2, as, rtol)
    end
 end
 Base.complex(A::UniformScaling) = Base.complex(A.λ)*I
 """
-    garec(A, E, G, Q = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ) -> (X, EVALS, Z, scalinfo)
+    garec(A, E, G, Q = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized continuous-time
@@ -415,7 +422,9 @@ The generalized Schur method of [1] is used.
 To enhance the accuracy of computations, a block scaling of matrices `G` and `Q` is performed, if  
 the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(Q) > norm(G)`.
 A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
-An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
 Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
@@ -443,13 +452,13 @@ This approach is not numerically suited when `R` is ill-conditioned and/or `B` h
 """
 function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Union{AbstractMatrix,UniformScaling,Real,Complex},
                Q::Union{AbstractMatrix,UniformScaling,Real,Complex} = zero(eltype(A));
-               scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+               scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
     T = promote_type( eltype(A), eltype(G), eltype(Q) )
     T <: BlasFloat  || (T = promote_type(Float64,T))
 
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
-       sol = garec(complex(A),complex(E),complex(G),complex(Q); scaling, pow2, as, rtol)
+       sol = garec(complex(A),complex(E),complex(G),complex(Q); scaling, nrm, pow2, as, rtol)
        return real(sol[1]), sol[2], Matrix(qr([real(sol[3]) imag(sol[3])]).Q)[:,1:size(A,1)], sol[4]
     end
 
@@ -497,7 +506,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     #                 [ -Q  -A']      [ 0  E' ]
     #  is determined and the solution X is computed as X = Z21*inv(E*Z11).
     # use block scaling if appropriate
-    L, P, Sx, Sxi = balham(A, E, G, Q; scaling)
+    L, P, Sx, Sxi = balham(A, E, G, Q; scaling, nrm)
     LPS = schur(L,P)
     as ? select = real.(LPS.α ./ LPS.β) .> 0 : select = real.(LPS.α ./ LPS.β) .< 0
     n == count(select) || error("The Hamiltonian/skew-Hamiltonian pencil is not dichotomic")
@@ -513,7 +522,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     return  (x+x')/2, LPS.values[i1], LPS.Z[:,i1], scalinfo
 end
 """
-    garec(A, E, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z, scalinfo)
+    garec(A, E, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized continuous-time
@@ -529,9 +538,12 @@ The generalized Schur method of [1] is used.
 
 To enhance the accuracy of computations, a block oriented scaling of matrices `R,` `Q` and `S` is performed 
 using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(B)^2/norm(R)`.
-Alternative scaling can be performed using the options `scaling = 'S'`, for a special structure preserving scaling, and 
-`scaling = 'G'`, for a general eigenvalue computation oriented scaling. Two experimental scaling procedures 
-can be activated using the options `scaling = 'D'` and `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
+Experimental structure preserving scalings can be performed using the options `scaling = 'D'` 
+or `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
@@ -608,11 +620,11 @@ julia> eigvals(A-B*F,E)
 """
 function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
    Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B));
-   scaling = 'G', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
-   garec(A, E, B, 0, R, Q, S; scaling, pow2, as, rtol)
+   scaling = 'G', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
+   garec(A, E, B, 0, R, Q, S; scaling, pow2, as, rtol, nrm)
 end
 """
-    garec(A, E, B, G, R, Q, S; scaling = 'B', pw2 = false, as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z, scalinfo)
+    garec(A, E, B, G, R, Q, S; scaling = 'B', pw2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized continuous-time
@@ -623,13 +635,16 @@ algebraic Riccati equation
 where `G`, `Q` and `R` are hermitian/symmetric matrices such that `R` is nonsingular, and
 `E` is a nonsingular matrix.
 Scalar-valued `G`, `R` and `Q` are interpreted as appropriately sized uniform scaling operators `G*I`, `R*I` and `Q*I`.
-
 The generalized Schur method of [1] is used. 
+
 To enhance the accuracy of computations, a block oriented scaling of matrices `G,` `R,` `Q` and `S` is performed 
 using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > max(norm(G), norm(B)^2/norm(R))`.
-Alternative scaling can be performed using the options `scaling = 'S'`, for a special structure preserving scaling, and 
-`scaling = 'G'`, for a general eigenvalue computation oriented scaling. Two experimental scaling procedures 
-can be activated using the options `scaling = 'D'` and `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
+Experimental structure preserving scalings can be performed using the options `scaling = 'D'` 
+or `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
@@ -653,14 +668,14 @@ as `scalinfo.Sx`, `scalinfo.Sxi` and `scalinfo.Sr`, respectively.
 function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat,
                G::Union{AbstractMatrix,UniformScaling,Real,Complex}, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
                Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat;
-               scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+               scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
     T = promote_type( eltype(A), eltype(B), eltype(G), eltype(Q), eltype(R), eltype(S) )
     T <: BlasFloat  || (T = promote_type(Float64,T))
    
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
-       sol = garec(complex(A),complex(E),complex(B),complex(G),complex(R),complex(Q),complex(S); scaling, pow2, as, rtol)
-       return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
+       sol = garec(complex(A),complex(E),complex(B),complex(G),complex(R),complex(Q),complex(S); scaling, pow2, as, rtol, nrm)
+       return real(sol[1]), isreal(sol[2]) ? real(sol[2]) : sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
     end
 
     n = LinearAlgebra.checksquare(A)
@@ -724,7 +739,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     #               [  S'  B'   R ]      [ 0  0  0 ]
     # is determined and the solution X and feedback F are computed as
     #          X = Z21*inv(E*Z11),   F = -Z31*inv(Z11).
-    H, J, Sx, Sxi, Sr = balham(A, E, B, G, R, Q, S; scaling, pow2)
+    H, J, Sx, Sxi, Sr = balham(A, E, B, G, R, Q, S; scaling, pow2, nrm)
     # deflate m simple infinite eigenvalues
     n2 = n+n;
     iric = 1:n2
@@ -766,7 +781,7 @@ end
 
 
 """
-    ared(A, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z, scalinfo)
+    ared(A, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the discrete-time algebraic Riccati equation
@@ -779,9 +794,12 @@ Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling
 
 To enhance the accuracy of computations, a block oriented scaling of matrices `R,` `Q` and `S` is performed 
 using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(B)^2/norm(R)`.
-Alternative scaling can be performed using the options `scaling = 'S'`, for a special structure preserving scaling, and 
-`scaling = 'G'`, for a general eigenvalue computation oriented scaling. Experimental scaling procedures 
-can be activated using the options `scaling = 'D'`, `scaling = 'R'` and `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
+Experimental structure preserving scalings can be performed using the options `scaling = 'D'`, `scaling = 'R'` and `scaling = 'T'`. 
+Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
@@ -849,11 +867,11 @@ julia> eigvals(A-B*F)
 """
 function ared(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,UniformScaling,Real,Complex},
               Q::Union{AbstractMatrix,UniformScaling,Real,Complex}, S::AbstractVecOrMat = zeros(eltype(B),size(B));
-              scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
-    gared(A, I, B, R, Q, S; scaling, pow2, as, rtol)
+              scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
+    gared(A, I, B, R, Q, S; scaling, nrm, pow2, as, rtol)
 end
 """
-    gared(A, E, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ) -> (X, EVALS, F, Z, scalinfo)
+    gared(A, E, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
 Compute `X`, the hermitian/symmetric stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the generalized discrete-time
@@ -867,9 +885,12 @@ Scalar-valued `R` and `Q` are interpreted as appropriately sized uniform scaling
 
 To enhance the accuracy of computations, a block oriented scaling of matrices `R,` `Q` and `S` is performed 
 using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(B)^2/norm(R)`.
-Alternative scaling can be performed using the options `scaling = 'S'`, for a special structure preserving scaling, and 
-`scaling = 'G'`, for a general eigenvalue computation oriented scaling. Experimental scaling procedures 
-can be activated using the options `scaling = 'D'`, `scaling = 'R'` and `scaling = 'T'`. Scaling can be disabled with the choice `scaling = 'N'`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+An alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
+Experimental structure preserving scalings can be performed using the options `scaling = 'D'`, `scaling = 'R'` and `scaling = 'T'`. 
+Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
@@ -946,12 +967,13 @@ julia> eigvals(A-B*F,E)
 """
 function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::AbstractVecOrMat,
                R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::Union{AbstractMatrix,UniformScaling,Real,Complex},
-               S::AbstractVecOrMat = zeros(eltype(B),size(B)); scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))))
+               S::AbstractVecOrMat = zeros(eltype(B),size(B)); scaling = 'B', pow2 = false, as = false, 
+               rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
     T = promote_type( eltype(A), eltype(B), eltype(R), eltype(Q), eltype(S) )
     T <: BlasFloat  || (T = promote_type(Float64,T))
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
-       sol = gared(complex(A),complex(E),complex(B),complex(R),complex(Q),complex(S); scaling, pow2, as, rtol)
+       sol = gared(complex(A),complex(E),complex(B),complex(R),complex(Q),complex(S); scaling, nrm, pow2, as, rtol)
        return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
     end
 
@@ -1005,7 +1027,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     #                   [ S'   0    R ]      [ 0 -B' 0 ]
     #  is computed and the solution X and feedback F are computed as
     #          X = Z21*inv(E*Z11),   F = Z31*inv(Z11).
-    H, J, Sx, Sxi, Sr = balsympl(A, E, B, R, Q, S; scaling, pow2)
+    H, J, Sx, Sxi, Sr = balsympl(A, E, B, R, Q, S; scaling, pow2, nrm)
     n2 = n+n;
     iric = 1:n2
     i1 = 1:n
@@ -1055,7 +1077,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     scalinfo = (Sx = Sx, Sxi = Sxi, Sr = Sr)
     return  (x+x')/2, clseig, f, z[:,i1], scalinfo
 end
-function balham(A, G, Q; scaling = 'B', pow2 = false)
+function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
    # Scaling function to be used in conjunction with arec(A,G,Q)
    H = [A -G; -Q -A']
    scaling == 'N' && (return H, I, I)
@@ -1093,7 +1115,7 @@ function balham(A, G, Q; scaling = 'B', pow2 = false)
       s = log2.(d) 
       # impose that diagonal scaling has the form diag(Sx,1./Sx)  
       sx = round.(Int,(-s[i1]+s[i2])/2); # Sx = sqrt(D1/D2)
-      Sx = Diagonal(2. .^(sx)) 
+      Sx = Diagonal(radix.^(sx)) 
       lmul!(Sx,Gt); rmul!(Gt,Sx)  # Gt <- Sx*Gt*Sx
       ldiv!(Sx,Qt); rdiv!(Qt,Sx)  # Qt <- Sx\(Qt/Sx)
       qs = sqrt(opnorm(Qt,1))
@@ -1108,6 +1130,48 @@ function balham(A, G, Q; scaling = 'B', pow2 = false)
       lmul!(Sx,At1); rdiv!(At1,Sx) 
       ldiv!(Sx,At2); rmul!(At2,Sx) 
       return H, Sx, Sx
+   elseif scaling == 'K'
+      # structure preserving scaling enhanced, if appropriate, with block scaling
+      M = abs.(H)
+      ind = [i2;i1]  
+      dl, dr = symscal!(view(M,ind,:); nrm, maxiter = 1000)
+      s = log2.(dr) 
+      # impose that diagonal scaling has the form diag(Sx,1./Sx)  
+      sx = round.(Int,(-s[i1]+s[i2])/2); # Sx = sqrt(D1/D2)
+      Sx = Diagonal(radix.^(sx)) 
+      lmul!(Sx,Gt); rmul!(Gt,Sx)  # Gt <- Sx*Gt*Sx
+      ldiv!(Sx,Qt); rdiv!(Qt,Sx)  # Qt <- Sx\(Qt/Sx)
+
+      qs = sqrt(opnorm(Qt,1))
+      gs = sqrt(opnorm(Gt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         lmul!(scalsr,Sx)
+         lmul!(scal,Gt); ldiv!(scal,Qt)
+      end      
+      lmul!(Sx,At1); rdiv!(At1,Sx) 
+      ldiv!(Sx,At2); rmul!(At2,Sx) 
+      return H, Sx, Sx
+
+
+      Dl = Diagonal(dl); Dr = Diagonal(dr)
+      lmul!(Dl,view(H,ind,:)); rmul!(H,Dr)
+      lmul!(Dl,view(J,ind,:)); rmul!(J,Dr)
+
+      qs = sqrt(opnorm(Qt,1))
+      gs = sqrt(opnorm(Gt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         lmul!(scalsr,view(Dr.diag,i2)); ldiv!(scalsr,view(Dr.diag,i1))
+      end
+
+      return H, J, Diagonal(Dr.diag[i2]), inv(Diagonal(Dr.diag[i1])) 
+
    elseif scaling == 'G'
       # unconstrained balancing with D = diag(D1,D2)
       d = lsbalance!(H).diag
@@ -1126,7 +1190,7 @@ function balham(A, G, Q; scaling = 'B', pow2 = false)
       return H, I, I
    end
 end
-function balham(A, E, G, Q; scaling = 'B', pow2 = false) 
+function balham(A, E, G, Q; scaling = 'B', pow2 = false, nrm = 1) 
    # Scaling function to be used in conjunction with garec(A,E,G,Q)
    n = size(A,1); 
    T = eltype(A)
@@ -1135,6 +1199,8 @@ function balham(A, E, G, Q; scaling = 'B', pow2 = false)
    n2 = 2n; i1 = 1:n; i2 = n+1:n2
    Gt = view(H,i1,i2)
    Qt = view(H,i2,i1)
+   TR = real(T)
+   radix = TR(2.)
    if scaling == 'B'
       qs = sqrt(opnorm(Qt,1))
       gs = sqrt(opnorm(Gt,1))
@@ -1160,7 +1226,7 @@ function balham(A, E, G, Q; scaling = 'B', pow2 = false)
       s = log2.(d); # unconstrained balancing diag(D1,D2)
       sx = round.(Int,(-s[i1]+s[i2])/2);
       # impose that diagonal scaling has the form diag(Sx,1./Sx)  
-      D = Diagonal(2. .^[sx ; -sx])
+      D = Diagonal(radix.^[sx ; -sx])
       lmul!(D,H); rdiv!(H,D)
       lmul!(D,J); rdiv!(J,D)
       Sx = Diagonal(D.diag[i1]) # Sx = sqrt(D2/D1)
@@ -1176,6 +1242,34 @@ function balham(A, E, G, Q; scaling = 'B', pow2 = false)
          lmul!(scal,Gt); ldiv!(scal,Qt)
       end         
       return H, J, Sx, Sx
+   elseif scaling == 'K'
+      # structure preserving scaling enhanced, if appropriate, with block scaling
+      # nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      # nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      # if nh > 0 && nj > 0
+      #    M = nj * abs.(H) + nh/nj * abs.(J);
+      # else
+      #    M = abs.(H) + abs.(J);
+      # end   
+      M = abs.(H) + abs.(J)
+      ind = [i2;i1]  
+      dl, dr = symscal!(view(M,ind,:); nrm, maxiter = 1000)
+      pow2 && (dr .= radix .^(round.(Int,log2.(dr))); dl = dr) 
+      Dl = Diagonal(dl); Dr = Diagonal(dr)
+      lmul!(Dl,view(H,ind,:)); rmul!(H,Dr)
+      lmul!(Dl,view(J,ind,:)); rmul!(J,Dr)
+
+      qs = sqrt(opnorm(Qt,1))
+      gs = sqrt(opnorm(Gt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         lmul!(scalsr,view(Dr.diag,i2)); ldiv!(scalsr,view(Dr.diag,i1))
+      end
+
+      return H, J, Diagonal(Dr.diag[i2]), inv(Diagonal(Dr.diag[i1])) 
    elseif scaling == 'G'
       # general scaling enhanced, if appropriate, with a block scaling
       _, D2 = regbalance!(H, J; tol = 0.1)
@@ -1194,7 +1288,7 @@ function balham(A, E, G, Q; scaling = 'B', pow2 = false)
       return H, J, I, I
    end
 end
-function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false) 
+function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false, nrm = 1) 
    # Scaling function to be used in conjunction with garec(A, E, B, G, R, Q, S)
    #                   [  A   -G    B ]      [ E  0  0 ]
    #          H -z J = [ -Q   -A'  -S ]  - z [ 0  E' 0 ]
@@ -1206,12 +1300,14 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
    J = [E zeros(T,n,n+m); zeros(T,n,n) E' zeros(T,n,m); zeros(T,m,n2+m)]
    scaling == 'N' && (return H, J, I, I, I)
    i1 = 1:n; i2 = n+1:n2; i3 = n2+1:n2+m; j2 = 1:n2
+   At = view(H,i1,i1)
+   Bt = view(H,i1,i3)
    Gt = view(H,i1,i2)
    Qt = view(H,i2,i1)
    St = view(H,i2,i3)
    St2 = view(H,i3,i1)
    Rt = view(H,i3,i3)
-   Bt = view(H,i1,i3)
+   Et = view(J,i1,i1)  
    T = eltype(H)
    TR = real(T)
    radix = TR(2.)
@@ -1232,8 +1328,8 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
       end
    elseif scaling == 'S'
       # structure preserving scaling enhanced, if appropriate, with block scaling
-      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
-      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      nh = norm(At-Diagonal(At),1) 
+      nj = norm(Et-Diagonal(Et),1) 
       if nh > 0 && nj > 0
          M = abs.(H) + nh/nj * abs.(J);
       else
@@ -1245,11 +1341,11 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
       sx = round.(Int,(-s[i1]+s[i2])/2); 
       sr = -s[i3]
       # impose that diagonal scaling has the form diag(Sx,1./Sx, Sr)  
-      D = Diagonal(2. .^[sx ; -sx ; sr])
+      D = Diagonal(radix.^[sx ; -sx ; sr])
       lmul!(D,H); rdiv!(H,D)
       lmul!(D,J); rdiv!(J,D)
-      Sx = Diagonal(2. .^sx) # Sx = sqrt(D2/D1)
-      Sr = Diagonal(2. .^sr)
+      Sx = Diagonal(radix.^sx) # Sx = sqrt(D2/D1)
+      Sr = Diagonal(radix.^sr)
 
       # check if block scaling is appropriate
       qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St,1))
@@ -1297,8 +1393,8 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
       return H, J, Diagonal(D2.diag[i2]), inv(Diagonal(D2.diag[i1])), Diagonal(sr) 
    elseif scaling == 'T'
       # standard system oriented structure preserving scaling enhanced, if appropriate, with block scaling
-      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
-      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      nh = norm(At-Diagonal(At),1) 
+      nj = norm(Et-Diagonal(Et),1) 
       if nh > 0 && nj > 0
          M = abs.(H) + nh/nj * abs.(J);
       else
@@ -1308,10 +1404,10 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
       S = lsbalance!(view(M,j2,j2),view(M,j2,i3),view(M,i3,j2))
       sx = round.(Int,(log2.(S.diag[i2])-log2.(S.diag[i1]))/2); 
       sr = ones(T,m)     
-      D = Diagonal(2. .^[sx ; -sx])
+      D = Diagonal(radix.^[sx ; -sx])
       lmul!(D,view(H,j2,:)); rdiv!(view(H,:,j2),D)
       lmul!(D,view(J,j2,j2)); rdiv!(view(J,j2,j2),D)
-      Sx = Diagonal(2. .^sx) # Sx = sqrt(S2/S1)
+      Sx = Diagonal(radix.^sx) # Sx = sqrt(S2/S1)
 
       qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St,1))
       gs = sqrt(opnorm(Gt,1)) + norm(Bt,1)/sqrt(norm(Rt,1))
@@ -1333,6 +1429,36 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
       end
       Sr = Diagonal(sr)
       return H, J, Sx, Sx, Sr
+   elseif scaling == 'K'
+      # symmetric scaling enhanced, if appropriate, with a block scaling
+      nh = norm(At-Diagonal(At),1) 
+      nj = norm(Et-Diagonal(Et),1) 
+      if nh > 0 && nj > 0
+         M = abs.(H) + (nh/nj) * abs.(J)
+      else
+         M = abs.(H) + abs.(J)
+      end     
+      ind = [i2;i1;i3]  
+      dl, dr = symscal!(view(M,ind,:); nrm, maxiter = 1000)
+      pow2 && (dr .= radix .^(round.(Int,log2.(dr))); dl = dr) 
+
+      Dl = Diagonal(dl); Dr = Diagonal(dr)
+      lmul!(Dl,view(H,ind,:)); rmul!(H,Dr)
+      lmul!(Dl,view(J,ind,:)); rmul!(J,Dr)
+
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St,1))
+      gs = sqrt(opnorm(Gt,1)) + norm(Bt,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,St); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,view(Dr.diag,i2)); ldiv!(scalsr,view(Dr.diag,i1))
+         ldiv!(scalsr,view(Dr.diag,i3))
+      end
+      return H, J, Diagonal(Dr.diag[i2]), inv(Diagonal(Dr.diag[i1])), Diagonal(Dr.diag[i3])   
    elseif scaling == 'G'
       # general scaling enhanced, if appropriate, with a block scaling
       _, D2 = regbalance!(H, J; tol = 0.001, maxiter = 1000, pow2)
@@ -1354,7 +1480,7 @@ function balham(A, E, B, G, R, Q, S; scaling = 'B', pow2 = false)
       return H, J, I, I, I
    end
 end
-function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false) 
+function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false, nrm = 1) 
    # Scaling function to be used in conjunction with gared(A, E, B, R, Q, S)
    n, m = size(B,1), size(B,2); n2 = 2n
    T = eltype(A)
@@ -1401,11 +1527,11 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
       sx = round.(Int,(-s[i1]+s[i2])/2); 
       sr = -s[i3]
       # impose that diagonal scaling has the form diag(Sx,1./Sx, Sr)  
-      D = Diagonal(2. .^[sx ; -sx ; sr])
+      D = Diagonal(radix.^[sx ; -sx ; sr])
       lmul!(D,H); rdiv!(H,D)
       lmul!(D,J); rdiv!(J,D)
-      Sx = Diagonal(2. .^sx) # Sx = sqrt(D2/D1)
-      Sr = Diagonal(2. .^sr)
+      Sx = Diagonal(radix.^sx) # Sx = sqrt(D2/D1)
+      Sr = Diagonal(radix.^sr)
 
 
       # check if block scaling is appropriate
@@ -1426,6 +1552,30 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
          lmul!(rs,view(H,i3,:)); rmul!(view(H,:,i3),rs); lmul!(rs,view(J,i3,:)); lmul!(rs,Sr)
       end
       return H, J, Sx, Sx, Sr
+   elseif scaling == 'K'
+      # symmetric scaling enhanced, if appropriate, with a block scaling
+      M = abs.(H) + abs.(J)
+      ind = [i2;i1;i3]  
+      dl, dr, info = symscal!(view(M,ind,:); nrm, maxiter = 1000)
+      pow2 && (dr .= radix .^(round.(Int,log2.(dr))); dl = dr) 
+
+      Dl = Diagonal(dl); Dr = Diagonal(dr)
+      lmul!(Dl,view(H,ind,:)); rmul!(H,Dr)
+      lmul!(Dl,view(J,ind,:)); rmul!(J,Dr)
+
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St,1))
+      gs = norm(Bt,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,St); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,view(Dr.diag,i2)); ldiv!(scalsr,view(Dr.diag,i1))
+         ldiv!(scalsr,view(Dr.diag,i3))
+      end
+      return H, J, Diagonal(Dr.diag[i2]), inv(Diagonal(Dr.diag[i1])), Diagonal(Dr.diag[i3])   
    elseif scaling == 'D'
       # descriptor system oriented general scaling enhanced, if appropriate, with block scaling
       sr = ones(T,m)
@@ -1439,7 +1589,7 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
          scal = qs/gs  
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
-         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
          ldiv!(scal,St); ldiv!(scal,St2) # S -> S/scal 
          ldiv!(scal,Rt)                  # R -> R/scal
          lmul!(scalsr,view(D2.diag,i2)); ldiv!(scalsr,view(D2.diag,i1)); 
@@ -1460,8 +1610,8 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
       S1,  = lsbalance!(view(Ht,j2,j2),view(Jt,j2,j2),view(Ht,j2,i3),view(Ht,i3,j2); tol = 0.001)
 
       sx = round.(Int,(log2.(S1.diag[i1])-log2.(S1.diag[i2]))/2); # D=sqrt(D1/D2)
-      Sx = Diagonal(2. .^(sx)) 
-      D = Diagonal(2. .^[sx ; -sx])
+      Sx = Diagonal(radix.^(sx)) 
+      D = Diagonal(radix.^[sx ; -sx])
       lmul!(D,view(H,j2,:)); rdiv!(view(H,:,j2),D)
       lmul!(D,view(J,j2,j2)); rdiv!(view(J,:,j2),D)
 
@@ -1471,7 +1621,7 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
          scal = qs/gs  
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
-         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
          ldiv!(scal,St); ldiv!(scal,St2) # S -> S/scal 
          ldiv!(scal,Rt)                  # R -> R/scal
          lmul!(scalsr,Sx); ldiv!(scalsr,sr)
@@ -1496,8 +1646,8 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
       sr = ones(T,m)
       S1 = lsbalance!(view(M,j2,j2),view(M,j2,i3),view(M,i3,j2))
       sx = round.(Int,(log2.(S1.diag[i2])-log2.(S1.diag[i1]))/2); # D=sqrt(D1/D2)
-      Sx = Diagonal(2. .^(sx)) 
-      D = Diagonal(2. .^[sx ; -sx])
+      Sx = Diagonal(radix.^(sx)) 
+      D = Diagonal(radix.^[sx ; -sx])
       lmul!(D,view(H,j2,:)); rdiv!(view(H,:,j2),D)
       lmul!(D,view(J,j2,j2)); rdiv!(view(J,:,j2),D)
 
@@ -1529,7 +1679,7 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false)
          scal = qs/gs  
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
-         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
          ldiv!(scal,St); ldiv!(scal,St2) # S -> S/scal 
          ldiv!(scal,Rt)                  # R -> R/scal
          lmul!(scalsr,view(D2.diag,i2)); ldiv!(scalsr,view(D2.diag,i1)); 
@@ -1889,6 +2039,46 @@ the scaling operations are directly applied to `A` and `E`.
    pow2 && (scaled = radix^(round(Int,log2(scaled)))) 
    rmul!(Dl,scaled); rmul!(Dr,1/scaled)
    return Dl, Dr  
+end
+"""
+    symscal!(M; maxiter = 100, tol = 1.e-3, nrm = 1) -> (dleft,dright)
+
+Perform the symmetry preserving algorithm to scale 
+a non-negative `m×n` matrix `M` such that
+ 
+     Md := diag(dleft)*M*diag(dright)
+
+has all row and column norms equal to one. The employed norms can be selected 
+via the keyword argument `nrm`. Presently only `nrm = 1` (default) and `nrm = Inf` are supported.
+The iterative process is stopped as soon as the incremental
+scalings are tol-close to the identity. The keyword argument `tol` is the
+tolerance for the transformation updates. 
+
+The resulting `Md` overwrites the input matrix `M`, and `dleft` and `dright` are 
+the diagonals of the left and right scalings. 
+`Md` results symmetric provided `M` is a symmetric matrix, and in this case `dleft = dright`.
+
+The scaling algorithm has been proposed in [1]. 
+
+[1] Authors: P. A. Knight, D. Ruiz and B. Uçar.
+    A Symmetry Preserving Algorithm for Matrix Scaling. 
+    SIAM Journal on Matrix Analysis and Applications, 35:931-955, 2014. 
+"""
+function symscal!(M::AbstractMatrix{T}; maxiter = 100, tol = 1.e-3, nrm = 1) where {T}
+    m, n = size(M) 
+    dl = ones(T,m); dr = ones(T,n)
+    for i = 1:maxiter
+        r = [sqrt(norm(view(M,j,:),nrm)) for j in 1:m]
+        c = [sqrt(norm(view(M,:,j),nrm)) for j in 1:n]
+        if norm(1 .- r,Inf) < tol && norm(1 .- c,Inf) < tol 
+           info = (flag = 1, iter = i)
+           return dl, dr, info
+        end
+        ldiv!(Diagonal(r),M); rdiv!(M,Diagonal(c))
+        dl ./= r; dr ./= c
+    end
+    info = (flag = 2, iter = maxiter)
+    return dl, dr, info
 end
 
 
