@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.4.2
+Version bump to fix type piracy detected by Aqua.  
+
 ## Version 2.4.1
 Patch release which implements a new structure exploiting scaling option for all Riccati equation solvers. 
 This scaling preserves the Hamiltonian/symplectic matrix structures and is based on a symmetric matrix

@@ -405,7 +405,9 @@ function arec(A::AbstractMatrix, B::AbstractVecOrMat, G::Union{AbstractMatrix,Un
       return garec(A, I, B, G, R, Q, S; scaling, nrm, pow2, as, rtol)
    end
 end
-Base.complex(A::UniformScaling) = Base.complex(A.λ)*I
+tocomplex(A::LinearAlgebra.UniformScaling) = complex(A.λ)*I
+tocomplex(A::AbstractArray) = complex(A)
+tocomplex(A::Number) = complex(A)
 """
     garec(A, E, G, Q = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, Z, scalinfo)
 
@@ -458,7 +460,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
 
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
-       sol = garec(complex(A),complex(E),complex(G),complex(Q); scaling, nrm, pow2, as, rtol)
+       sol = garec(tocomplex(A),tocomplex(E),tocomplex(G),tocomplex(Q); scaling, nrm, pow2, as, rtol)
        return real(sol[1]), sol[2], Matrix(qr([real(sol[3]) imag(sol[3])]).Q)[:,1:size(A,1)], sol[4]
     end
 
@@ -674,7 +676,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
    
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
-       sol = garec(complex(A),complex(E),complex(B),complex(G),complex(R),complex(Q),complex(S); scaling, pow2, as, rtol, nrm)
+       sol = garec(tocomplex(A),tocomplex(E),tocomplex(B),tocomplex(G),tocomplex(R),tocomplex(Q),tocomplex(S); scaling, pow2, as, rtol, nrm)
        return real(sol[1]), isreal(sol[2]) ? real(sol[2]) : sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
     end
 
@@ -973,7 +975,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     T <: BlasFloat  || (T = promote_type(Float64,T))
     # use complex version because the generalized Schur form decomposition available only for complex data 
     if !(T <: BlasFloat || T <: Complex) 
-       sol = gared(complex(A),complex(E),complex(B),complex(R),complex(Q),complex(S); scaling, nrm, pow2, as, rtol)
+       sol = gared(tocomplex(A),tocomplex(E),tocomplex(B),tocomplex(R),tocomplex(Q),tocomplex(S); scaling, nrm, pow2, as, rtol)
        return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
     end
 
