@@ -5,8 +5,8 @@
 [![codecov.io](https://codecov.io/gh/andreasvarga/MatrixEquations.jl/coverage.svg?branch=master)](https://codecov.io/gh/andreasvarga/MatrixEquations.jl?branch=master)
 [![stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/stable/)
 [![dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/dev/)
-[![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/MatrixEquations.jl/blob/master/LICENSE.md)
-[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl) 
+[![Downloads](https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FMatrixEquations&query=total_requests&suffix=%2Fmonth&label=Downloads)](http://juliapkgstats.com/pkg/MatrixEquations)
 
 **Solution of Lyapunov, Sylvester and Riccati matrix equations using [Julia](http://julialang.org)**
 
