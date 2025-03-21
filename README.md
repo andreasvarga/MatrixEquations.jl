@@ -8,11 +8,11 @@
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl) 
 [![Downloads](https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FMatrixEquations&query=total_requests&suffix=%2Fmonth&label=Downloads)](http://juliapkgstats.com/pkg/MatrixEquations)
 
-**Solution of Lyapunov, Sylvester and Riccati matrix equations using [Julia](http://julialang.org)**
+**Solution of Lyapunov, Sylvester and Riccati matrix equations using Julia**
 
 ## Compatibility
 
-Julia 1.8 and higher.
+Julia 1.10 and higher.
 
 ## How to Install
 
