@@ -25,28 +25,44 @@ a = 1f0-2f0im; b = 2f0; @time x = lyapd(a,b)
 
 try
    x = lyapd(ones(1,1),ones(1,1))
-   @test false
-catch
+   if norm(x,Inf) > 1.e10
+      @test true
+   else
+      @test false
+   end
+ catch
    @test true
 end  
 
 try
    x = lyapd([0 1;  -1 0 ],ones(2,2))  
-   @test false
+   if norm(x,Inf) > 1.e10
+      @test true
+   else
+      @test false
+   end
 catch
    @test true
 end  
  
 try
    x = lyapd([0.5 1;  0 2],ones(2,2))
-   @test false
+   if norm(x,Inf) > 1.e10
+      @test true
+   else
+      @test false
+   end
 catch
    @test true
 end  
  
 try
    x = lyapd([1 1 1 1;  -1 1 0 1; 0 0 0.5 0.5; 0 0 -0.5 0.5],ones(4,4)) 
-   @test false
+   if norm(x,Inf) > 1.e10
+      @test true
+   else
+      @test false
+   end
 catch
    @test true
 end  

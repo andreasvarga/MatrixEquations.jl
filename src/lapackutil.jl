@@ -1,15 +1,14 @@
 module LapackUtil
 
-
 import LinearAlgebra.BLAS.@blasfunc
 
 using LinearAlgebra
 import LinearAlgebra: BlasFloat, BlasInt, BlasReal, BlasComplex, LAPACKException,
-    DimensionMismatch, SingularException, PosDefException, chkstride1, checksquare
+    DimensionMismatch, SingularException, PosDefException, chkstride1, checksquare, require_one_based_indexing
 
 using Base: iszero, has_offset_axes
 
-export tgsyl!, lanv2, ladiv, lag2, lacn2!
+export tgsyl!, lanv2, ladiv, lag2, lacn2!, trsyl3!
 
 @static if VERSION < v"1.7"
     using LinearAlgebra.LAPACK: liblapack
@@ -24,6 +23,132 @@ function chklapackerror(ret::BlasInt)
    ret == 0 && return
    ret < 0 ? throw(ArgumentError("invalid argument #$(-ret) to LAPACK call")) : throw(LAPACKException(ret))
 end
+function chktrans(trans::AbstractChar)
+    if !(trans == 'N' || trans == 'C' || trans == 'T')
+        throw(ArgumentError(lazy"trans argument must be 'N' (no transpose), 'T' (transpose), or 'C' (conjugate transpose), got '$trans'"))
+    end
+    trans
+end
+
+
+for (fn, elty) in ((:dtrsyl3_, :Float64),
+    (:strsyl3_, :Float32))
+@eval begin
+  function trsyl3!(transa::AbstractChar, transb::AbstractChar, A::AbstractMatrix{$elty},
+                B::AbstractMatrix{$elty}, C::AbstractMatrix{$elty}, isgn::Int=1)
+    require_one_based_indexing(A, B, C)
+    chktrans(transa)
+    chktrans(transb)
+    chkstride1(A, B, C)
+    m, n = checksquare(A), checksquare(B)
+    lda = max(1, stride(A, 2))
+    ldb = max(1, stride(B, 2))
+    m1, n1 = size(C)
+    if m != m1 || n != n1
+        throw(DimensionMismatch(lazy"dimensions of A, ($m,$n), and C, ($m1,$n1), must match"))
+    end
+    ldc = max(1, stride(C, 2))
+    scale = Ref{$elty}()
+    info  = Ref{BlasInt}()
+    iwork = Vector{BlasInt}(undef, 1)
+    swork  = Matrix{$elty}(undef, 2, 1)
+    liwork = BlasInt(-1)    
+    ldswork = BlasInt(-1)
+    for i = 1:2  
+        # first call returns liwork as iwork[1] and 
+        # ldswork as swork[1,1] and ncols as swork[2,1]
+        # SUBROUTINE DTRSYL3( TRANA, TRANB, ISGN, M, N, A, LDA, B, LDB, C, LDC, 
+        #                     SCALE, IWORK, LIWORK, SWORK, LDSWORK, INFO )
+        ccall((@blasfunc($fn), liblapack), Cvoid,
+          (Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt},
+           Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
+           Ptr{$elty}, Ptr{BlasInt}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ref{BlasInt}, Clong, Clong),
+           transa, transb, isgn, m, n,
+           A, lda, B, ldb, C, ldc,
+           scale, iwork, liwork, swork, ldswork, info, 1, 1)
+       chklapackerror(info[])
+       if i == 1
+          liwork = iwork[1]
+          iwork = Vector{BlasInt}(undef, liwork)
+          ldswork = max(2,BlasInt(real(swork[1,1])))
+          ncol = BlasInt(real(swork[2,1]))
+          swork  = Matrix{$elty}(undef, ldswork, ncol)
+       end
+    end
+    return C, scale[]
+  end
+end
+end
+for (fn, elty, relty) in ((:ztrsyl3_, :ComplexF64, :Float64),
+    (:ctrsyl3_, :ComplexF32, :Float32))
+@eval begin
+  function trsyl3!(transa::AbstractChar, transb::AbstractChar, A::AbstractMatrix{$elty},
+                B::AbstractMatrix{$elty}, C::AbstractMatrix{$elty}, isgn::Int=1)
+    require_one_based_indexing(A, B, C)
+    chktrans(transa)
+    chktrans(transb)
+    chkstride1(A, B, C)
+    m, n = checksquare(A), checksquare(B)
+    lda = max(1, stride(A, 2))
+    ldb = max(1, stride(B, 2))
+    m1, n1 = size(C)
+    if m != m1 || n != n1
+        throw(DimensionMismatch(lazy"dimensions of A, ($m,$n), and C, ($m1,$n1), must match"))
+    end
+    ldc = max(1, stride(C, 2))
+    scale = Ref{$relty}()
+    info  = Ref{BlasInt}()
+    swork  = Matrix{$relty}(undef, 2, 1)
+    ldswork = BlasInt(-1)
+    for i = 1:2  
+        # first call returns liwork as iwork[1] and 
+        # ldswork as swork[1,1] and ncols as swork[2,1]
+        # SUBROUTINE ZTRSYL3( TRANA, TRANB, ISGN, M, N, A, LDA, B, LDB,
+        #                     C, LDC, SCALE, SWORK, LDSWORK, INFO )
+        ccall((@blasfunc($fn), liblapack), Cvoid,
+          (Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt},
+           Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
+           Ptr{$relty}, Ptr{$relty}, Ref{BlasInt}, Ref{BlasInt}, Clong, Clong),
+           transa, transb, isgn, m, n,
+           A, lda, B, ldb, C, ldc,
+           scale, swork, ldswork, info, 1, 1)
+       chklapackerror(info[])
+       if i == 1
+          ldswork = BlasInt(real(swork[1,1]))
+          ncol = BlasInt(real(swork[2,1]))
+          swork  = Matrix{$relty}(undef, ldswork, ncol)
+       end
+    end
+    return C, scale[]
+  end
+end
+end
+"""
+    trsyl3!(transa, transb, A, B, C, isgn=1) -> (C, scale)
+
+Solves the Sylvester matrix equation `A * X +/- X * B = scale*C` where `A` and
+`B` are both quasi-upper triangular. If `transa = N`, `A` is not modified.
+If `transa = T`, `A` is transposed. If `transa = C`, `A` is conjugate
+transposed. Similarly for `transb` and `B`. If `isgn = 1`, the equation
+`A * X + X * B = scale * C` is solved. If `isgn = -1`, the equation
+`A * X - X * B = scale * C` is solved.
+
+Returns `X` (overwriting `C`) and `scale`.
+
+The block-algorithm of [1] and [2] is used. 
+
+References:
+[1] E. S. Quintana-Orti and R. A. Van De Geijn (2003). Formal derivation of
+    algorithms: The triangular Sylvester equation, ACM Transactions
+    on Mathematical Software (TOMS), volume 29, pages 218-243.
+
+[2] A. Schwarz and C. C. Kjelgaard Mikkelsen (2020). Robust Task-Parallel
+    Solution of the Triangular Sylvester Equation. Lecture Notes in
+    Computer Science, vol 12043, pages 82-92, Springer.
+
+"""
+trsyl3!(transa::AbstractChar, transb::AbstractChar, A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, isgn::Int=1)
+
 
 
 for (fn, elty, relty) in ((:dtgsyl_, :Float64, :Float64),
@@ -35,6 +160,7 @@ for (fn, elty, relty) in ((:dtgsyl_, :Float64, :Float64),
                         D::AbstractMatrix{$elty}, E::AbstractMatrix{$elty}, F::AbstractMatrix{$elty})
             @assert !has_offset_axes(A, B, C, D, E, F)
             chkstride1(A, B, C, D, E, F)
+            chktrans(trans)
             m, n = checksquare(A, B)
             lda = max(1, stride(A, 2))
             ldb = max(1, stride(B, 2))

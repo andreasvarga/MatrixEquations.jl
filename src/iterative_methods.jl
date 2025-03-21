@@ -8,7 +8,7 @@ Compute for a square `A` and a hermitian/symmetric `C` a solution `X` of the con
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function lyapci(A::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
@@ -42,7 +42,7 @@ where `A` and `E` are square real or complex matrices and `C` is a square matrix
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function lyapci(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
@@ -76,7 +76,7 @@ Compute for a square `A` and a hermitian/symmetric `C` a solution `X` of the dis
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function lyapdi(A::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
@@ -109,7 +109,7 @@ where `A` and `E` are square real or complex matrices and `C` is a square matrix
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function lyapdi(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     n = LinearAlgebra.checksquare(A)
@@ -148,7 +148,7 @@ where `A` and `B` are square matrices.
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function sylvci(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     m, n = size(C);
@@ -169,7 +169,7 @@ where `A` and `B` are square matrices.
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 
 """
 function sylvdi(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
@@ -191,7 +191,7 @@ where `A`, `B`, `C` and `D` are square matrices.
 A least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function gsylvi(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, D::AbstractMatrix, E::AbstractMatrix; abstol = zero(float(real(eltype(A)))), reltol = sqrt(eps(float(real(eltype(A))))), maxiter = 1000) 
     m, n = size(E);
@@ -253,7 +253,7 @@ if they cannot be inferred from the data.
 A least-squares solution `X` is determined using a conjugate-gradient based iterative method applied 
 to a suitably defined T-Sylvester linear operator `L:X -> Y` such that `L(X) = E` or `norm(L(X) - E)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 
 _Note:_ For the derivation of the adjoint equation see reference [1], which also served as motivation to implement a general linear matrix equation solver in Julia.  
 
@@ -282,7 +282,7 @@ where for `isig = 1`, `C` is a symmetric matrix and for `isig = -1`, `C` is a sk
 For a matrix `A`, a least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined T-Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution and 
-the keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+the keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function tlyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}, isig::Int = 1; adj = false,  abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
     m = LinearAlgebra.checksquare(C)
@@ -318,7 +318,7 @@ where for `isig = 1`, `C` is a hermitian matrix and for `isig = -1`, `C` is a sk
 For a matrix `A`, a least-squares solution `X` is determined using a conjugate gradient based iterative method applied 
 to a suitably defined T-Lyapunov linear operator `L:X -> Y` such that `L(X) = C` or `norm(L(X) - C)` is minimized. 
 The keyword arguments `abstol` (default: `abstol = 0`) and `reltol` (default: `reltol = sqrt(eps())`) can be used to provide the desired tolerance for the accuracy of the computed solution. 
-The keyword argument `maxiter` can be used to set the maximum number of iterations (default: maxiter = 1000). 
+The keyword argument `maxiter` can be used to set the maximum number of iterations (default: `maxiter = 1000`). 
 """
 function hlyapci(A::AbstractMatrix{T}, C::AbstractMatrix{T}, isig::Int = 1; adj = false,  abstol = zero(float(real(T))), reltol = sqrt(eps(float(real(T)))), maxiter = 1000) where {T}
     m = LinearAlgebra.checksquare(C)
@@ -642,4 +642,3 @@ end
 #     if shrink <= sqrt(reltol); flag = 4; end
 #     return x, (flag = flag, resNE = resNE, iter = iter)
 # end
- 

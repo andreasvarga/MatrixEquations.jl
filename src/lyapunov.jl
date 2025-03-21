@@ -1247,7 +1247,6 @@ function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScalin
       end
    end
 end
-
 """
     lyapds!(A, C; adj = false)
 

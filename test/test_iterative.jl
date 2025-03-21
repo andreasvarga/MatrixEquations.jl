@@ -10,6 +10,20 @@ using SparseArrays
 using IterativeSolvers
 
 
+
+@testset "LR-ADI iterative solvers" begin
+stab = false
+n = 30; r = 5; B = [rand(r,2);zeros(n-r,2)]; 
+A = triu(rand(n,n)); E = triu(rand(n,n));
+while maximum(real(eigvals(A,E))) >= 0   
+    AA = triu(rand(n,n)); E = triu(rand(n,n)); A = E*AA-n*E; 
+end  
+
+Z, info = plyapci(A, E, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, num_desired = 6)    
+
+
+end
+
 @testset "Iterative solvers" begin
     n = 10
     T = ComplexF32
@@ -337,10 +351,6 @@ using IterativeSolvers
         X, info = gsylvi(A, B', C', D, W)
         @test norm(A*X*B'+C'*X*D-W)/norm(X)  < 1.e-4   
     end
-
-
-
-   
  
 end
 

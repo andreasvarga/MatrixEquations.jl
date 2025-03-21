@@ -26,28 +26,44 @@ a = 1f0-2f0im; b = 2f0; @time x = lyapc(a,b)
 
 try
   x = lyapc(zeros(1,1),ones(1,1))
-  @test false
+  if norm(x,Inf) > 1.e10
+    @test true
+  else
+    @test false
+  end
 catch
   @test true
 end  
 
 try
   x = lyapc([0 1;  -1 0 ],ones(2,2))
-  @test false
+  if norm(x,Inf) > 1.e10
+     @test true
+  else
+     @test false
+  end
 catch
   @test true
 end  
 
 try
   x = lyapc([1 1;  0 -1],ones(2,2))
-  @test false
+  if norm(x,Inf) > 1.e10
+     @test true
+  else
+     @test false
+  end
 catch
   @test true
 end  
 
 try
   x = lyapc([1 1 1 1;  -1 1 0 1; 0 0 -1 1; 0 0 -1 -1],ones(4,4))
-  @test false
+  if norm(x,Inf) > 1.e10
+     @test true
+  else
+     @test false
+  end
 catch
   @test true
 end  
@@ -93,11 +109,14 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(ar,qc);
 @test norm(ar*x+x*ar'+qc)/norm(x)/norm(ar) < reltol
 
+if Ty != Float32
+  # Fix for missing strsyl3 in OpenBLAS   
 @time x = lyapc(ar,Qnh);
 @test norm(ar*x+x*ar'+Qnh)/norm(x)/norm(ar)  < reltol
 
 @time x = lyapc(ar',Qnh);
 @test norm(ar'*x+x*ar+Qnh)/norm(x)/norm(ar)  < reltol
+end
 
 @time x = lyapc(ac,qnh);
 @test norm(ac*x+x*ac'+qnh)/norm(x)/norm(ac)  < reltol

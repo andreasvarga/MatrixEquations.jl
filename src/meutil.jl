@@ -326,7 +326,7 @@ end
    #
    #  fail = luslv!(A,B)
    #
-   # This function is a speed-oriented implementation of a Gaussion-elimination based
+   # This function is a speed-oriented implementation of a Gaussian-elimination based
    # solver of small order linear equations of the form A*X = B. The computed solution X
    # overwrites the vector B, while the resulting A contains in its upper triangular part,
    # the upper triangular factor U of its LU decomposition.

@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.4.3
+New wrappers for BLAS Level 3 based LAPACK family *trsylv3 of solvers for Sylvester equation. Updating the standard Sylvester solver sylvc to use the new wrappers (instead the *trsyl family of solvers).    
+
 ## Version 2.4.2
 Version bump to fix type piracy detected by Aqua.  
 
