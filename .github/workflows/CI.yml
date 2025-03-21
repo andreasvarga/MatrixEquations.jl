@@ -43,7 +43,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v2
+      - uses: actions/cache@latest
         env:
           cache-name: cache-artifacts
         with:
