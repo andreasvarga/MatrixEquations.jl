@@ -30,11 +30,12 @@ jobs:
       fail-fast: false
       matrix:
         version:
+          - "lts"
           - '1' 
           # - 'nightly' 
         os: 
           - ubuntu-latest
-          # - windows-latest
+          - windows-latest
         arch:
           - x64
     steps:

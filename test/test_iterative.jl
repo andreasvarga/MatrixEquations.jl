@@ -8,18 +8,68 @@ using DoubleFloats
 using Test
 using SparseArrays
 using IterativeSolvers
+using JLD2
 
 
 
-# @testset "LR-ADI iterative solvers" begin
-# stab = false
-# n = 30; r = 5; B = [rand(r,2);zeros(n-r,2)]; 
+# # @testset "LR-ADI iterative solvers" begin
+# n = 30; r = 5; B = [rand(r,2);zeros(n-r,2)]; C = [zeros(3,n-r) rand(3,r)];
 # A = triu(rand(n,n)); E = triu(rand(n,n));
 # while maximum(real(eigvals(A,E))) >= 0   
 #     AA = triu(rand(n,n)); E = triu(rand(n,n)); A = E*AA-n*E; 
 # end  
 
-# Z, info = plyapci(A, E, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, num_desired = 6)    
+# @time Z, info = plyapci(A, E, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+# @test norm(A*Z*Z'*E'+E*Z*Z'*A'+B*B') < 1.e-7
+# @time Z, info = plyapci(A', E', C'; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+# @test norm(A'*Z*Z'*E+E'*Z*Z'*A+C'*C) < 1.e-7
+
+# @time Z, info = plyapci(UpperTriangular(A), UpperTriangular(E), B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+# @test norm(A*Z*Z'*E'+E*Z*Z'*A'+B*B') < 1.e-7
+# @time Z, info = plyapci(UpperTriangular(A)', UpperTriangular(E)', C'; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+# @test norm(A'*Z*Z'*E+E'*Z*Z'*A+C'*C) < 1.e-7
+
+# Ad = Diagonal(A); Ed = Diagonal(E);
+# @time Z, info = plyapci(Ad, Ed, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+# @test norm(Ad*Z*Z'*Ed'+Ed*Z*Z'*Ad'+B*B') < 1.e-7
+
+
+# A1 = [-0.01 -200; 200 0.001]
+# A2 = [-0.2 -300; 300 -0.1]
+# A3 = [-0.02 -500; 500 0]
+# A4 = [-0.01 -520; 520 -0.01]
+# A = cat(A1, A2, A3, A4, Diagonal(-1:-1:-400), dims=Val((1,2)));
+# B = ones(408,1); C = ones(1,408);
+# @time Z, info = MatrixEquations.plyapci(A, B; abstol = 1e-12, reltol = 0.e-5, 
+#           maxiter = 100, shifts = missing, nshifts = 6); 
+# @time Y, info = MatrixEquations.plyapci(A', C'; abstol = 1e-12, reltol = 0.e-5, 
+#           maxiter = 100, shifts = info.used_shifts, nshifts = 6); 
+# @test norm(A*Z*Z'+Z*Z'*A'+B*B') < 1.e-7 && norm(A'*Y*Y'+Y*Y'*A+C'*C) < 1.e-7
+# nr = rank(Y'*Z);
+# println("Reduced model order = $nr")
+
+# As = sparse(A);
+# @time Zs, infos = MatrixEquations.plyapci(As, B; abstol = 1e-12, reltol = 0.e-5, 
+#           maxiter = 100, shifts = missing, nshifts = 6); 
+# @time Ys, infos = MatrixEquations.plyapci(As', C'; abstol = 1e-12, reltol = 0.e-5, 
+#           maxiter = 100, shifts = info.used_shifts, nshifts = 6); 
+# @test norm(As*Zs*Zs'+Zs*Zs'*As'+B*B') < 1.e-7 && norm(As'*Ys*Ys'+Ys*Ys'*As+C'*C) < 1.e-7
+# nrs = rank(Ys'*Zs);
+# println("Reduced model order = $nrs")
+
+# @test norm(Z*Z'-Zs*Zs') < 1.e-10 && nr == nrs
+
+# Ab = BandedMatrix(As)
+# @time Zb, infob = MatrixEquations.plyapci(Ab, B; abstol = 1e-12, reltol = 0.e-5, 
+#           maxiter = 100, shifts = missing, nshifts = 6); 
+# @time Yb, infob = MatrixEquations.plyapci(Ab', C'; abstol = 1e-12, reltol = 0.e-5, 
+#           maxiter = 100, shifts = info.used_shifts, nshifts = 6); 
+
+# @test norm(Ab*Zb*Zb'+Zb*Zb'*Ab'+B*B') < 1.e-7 && norm(Ab'*Yb*Yb'+Yb*Yb'*Ab+C'*C) < 1.e-7
+# nrb = rank(Yb'*Zb);
+# println("Reduced model order = $nrb")
+
+# @test norm(Z*Z'-Zb*Zb') < 1.e-10 && nr == nrb
 
 
 # end
