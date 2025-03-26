@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.4.4
+Back to using the standard Sylvester solver sylvc with the old wrappers (the *trsyl family of solvers), until issue [#150](https://github.com/JuliaLinearAlgebra/libblastrampoline/issues/150) will be fixed.
+
 ## Version 2.4.3
 New wrappers for BLAS Level 3 based LAPACK family *trsylv3 of solvers for Sylvester equation. Updating the standard Sylvester solver sylvc to use the new wrappers (instead the *trsyl family of solvers).    
 

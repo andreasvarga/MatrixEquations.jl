@@ -586,8 +586,8 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    try
       trans = T1 <: Complex ? 'C' : 'T'
-      #C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
-      C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+      C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+      #C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
       rmul!(C, inv(scale))
       return C[:,:]
    catch err
