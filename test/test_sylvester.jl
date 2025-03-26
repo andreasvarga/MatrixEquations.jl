@@ -60,11 +60,11 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvc(2,3,cr)
 @test norm(2*x+x*3-cr)/norm(x) < reltol
 
-if Ty != Float32
+#if Ty != Float32
    # Fix for missing strsyl3 in OpenBLAS   
    @time x = sylvc(ar,br,cr)
    @test norm(ar*x+x*br-cr)/norm(x) < reltol
-end
+#end
 
 @time x = sylvckr(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
@@ -86,7 +86,7 @@ end
 @time x = sylvc(ar,bc,cr)
 @test norm(ar*x+x*bc-cr)/norm(x) < reltol
 
-if Ty != Float32
+#if Ty != Float32
    # Fix for missing strsyl3 in OpenBLAS   
    @time x = sylvc(ar',br,cr)
    @test norm(ar'*x+x*br-cr)/norm(x) < reltol
@@ -96,7 +96,7 @@ if Ty != Float32
 
    @time x = sylvc(ar',br',cr)
    @test norm(ar'*x+x*br'-cr)/norm(x) < reltol
-end
+#end
 
 @time x = sylvc(ac,bc',cc)
 @test norm(ac*x+x*bc'-cc)/norm(x) < reltol
