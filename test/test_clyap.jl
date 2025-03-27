@@ -70,8 +70,8 @@ end
 
 for Ty in (Float64, Float32, BigFloat, Double64)
 
-ar = rand(Ty,n,n);
-ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+ar = rand(Ty,n,n); ars = Symmetric(ar);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); ach = Hermitian(ac); acd = Diagonal(ac);
 c = rand(Ty,n,n)+im*rand(Ty,n,n);
 qnh = rand(Ty,n,n)+im*rand(Ty,n,n);
 #qc = c'*c;
@@ -82,6 +82,16 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 @time x = lyapc(ac,qc);
 @test norm(ac*x+x*ac'+qc)/norm(x)/norm(ac) < reltol
+
+@time x = lyapc(ach,qc);
+@test norm(ach*x+x*ach+qc)/norm(x)/norm(ach) < reltol
+
+@time x = lyapc(acd,qc);
+@test norm(acd*x+x*acd+qc)/norm(x)/norm(acd) < reltol
+
+@time x = lyapc(acd',qc);
+@test norm(acd'*x+x*acd+qc)/norm(x)/norm(acd) < reltol
+
 
 α = 3+im; # α = im  # SingularException
 @time x = lyapc(α*I,qc);
@@ -96,6 +106,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 @time x = lyapc(ar,Qr)
 @test norm(ar*x+x*ar'+Qr)/norm(x)/norm(ar)  < reltol
+
+@time x = lyapc(ars,Qr)
+@test norm(ars*x+x*ars'+Qr)/norm(x)/norm(ars)  < reltol
 
 @time x = lyapc(ar',Qr)
 @test norm(ar'*x+x*ar+Qr)/norm(x)/norm(ar) < reltol
@@ -116,6 +129,10 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 
 @time x = lyapc(ar',Qnh);
 @test norm(ar'*x+x*ar+Qnh)/norm(x)/norm(ar)  < reltol
+
+@time x = lyapc(ars,Qnh);
+@test norm(ars*x+x*ars+Qnh)/norm(x)/norm(ars)  < reltol
+
 #end
 
 @time x = lyapc(ac,qnh);

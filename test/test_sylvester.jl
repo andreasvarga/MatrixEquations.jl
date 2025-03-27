@@ -36,10 +36,10 @@ for Ty in (Float64, Float32, BigFloat, Double64)
 #  for Ty in (Float64, Float32)
 
 
-ar = rand(Ty,n,n)
-ac = ar+im*rand(Ty,n,n)
-br = rand(Ty,m,m)
-bc = br+im*rand(Ty,m,m)
+ar = rand(Ty,n,n); ars = Symmetric(ar);
+ac = ar+im*rand(Ty,n,n); ach = Hermitian(ac);
+br = rand(Ty,m,m); brs = Symmetric(br);
+bc = br+im*rand(Ty,m,m);  bch = Hermitian(bc);
 cr = rand(Ty,n,m)
 cc = cr+im*rand(Ty,n,m)
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
@@ -66,12 +66,17 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
 #end
 
+@time x = sylvc(ars,brs,cr)
+@test norm(ars*x+x*brs-cr)/norm(x) < reltol
 
 @time x = sylvckr(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
 
 @time x = sylvc(ac,bc,cc)
 @test norm(ac*x+x*bc-cc)/norm(x) < reltol
+
+@time x = sylvc(ach,bch,cc)
+@test norm(ach*x+x*bch-cc)/norm(x) < reltol
 
 if Ty <: LinearAlgebra.BlasFloat
       @time x = sylvester(ar,br,cr)

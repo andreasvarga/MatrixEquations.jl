@@ -71,9 +71,9 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    #T2 <: BlasFloat || T2 <: Complex || (return real(sylvc(complex(A),complex(B),complex(C))))
    #T2 <: Complex || (return real(sylvc(complex(A),complex(B),complex(C))))
 
-   eltype(A) == T2 || (A = convert(Matrix{T2},A))
-   eltype(B) == T2 || (B = convert(Matrix{T2},B))
-   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   eltype(A) == T2 || (A = convert(AbstractMatrix{T2},A))
+   eltype(B) == T2 || (B = convert(AbstractMatrix{T2},B))
+   eltype(C) == T2 || (C = convert(AbstractMatrix{T2},C))
 
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
@@ -584,6 +584,17 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+   if isdiag(A) && isdiag(B)
+      m, n = size(C);
+      [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+      for i = 1:m
+         for j = 1:n
+            C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+         end
+      end
+      return C[:,:]
+   end      
    try
       trans = T1 <: Complex ? 'C' : 'T'
       C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
@@ -606,7 +617,16 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
-  
+   if isdiag(A) && isdiag(B)
+      for i = 1:m
+         for j = 1:n
+            C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+         end
+      end
+      return C[:,:]
+   end      
+ 
    ONE = one(T1)
 
    # determine the structure of the generalized real Schur forms of A and B
@@ -767,6 +787,15 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+   if isdiag(A) && isdiag(B)
+      for i = 1:m
+         for j = 1:n
+            C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+         end
+      end
+      return C[:,:]
+   end      
    if !adjA && !adjB
       # """
       # The (K,L)th element of X is determined starting from

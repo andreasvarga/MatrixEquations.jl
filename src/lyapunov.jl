@@ -60,16 +60,20 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
 
    T2 = promote_type(eltype(A), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
-   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
-   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   eltype(A) == T2 || (adj ? A = convert(AbstractMatrix{T2},A.parent)' : A = convert(AbstractMatrix{T2},A))
+   eltype(C) == T2 || (C = convert(AbstractMatrix{T2},C))
 
-   # Reduce A to Schur form and transform C
-   if adj
-      AS, Q = schur(A.parent)
+   if ishermitian(A)
+      # Reduce A to diagonal form and transform C
+      AS, Q = schur(Hermitian(A))
    else
-      AS, Q = schur(A)
+      # Reduce A to Schur form and transform C
+      if adj
+         AS, Q = schur(A.parent)
+      else
+         AS, Q = schur(A)
+      end
    end
-
    #X = Q'*C*Q
    if her
       X = utqu(C,Q)
@@ -446,6 +450,17 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
+   if isdiag(A) 
+      for i = 1:n
+         C[i,i] = -C[i,i]/(2*A[i,i])
+         for j = i+1:n
+            C[i,j] = -C[i,j]/(A[i,i]+A[j,j])
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+            C[j,i] = C[i,j]
+         end
+      end
+      return C[:,:]
+   end      
 
    ONE = one(T1)
    ZERO = zero(T1)
@@ -722,6 +737,28 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
+   if isdiag(A) 
+      if adj 
+         for i = 1:n
+            C[i,i] = -C[i,i]/(2*real(A[i,i]))
+            for j = i+1:n
+               C[i,j] = -C[i,j]/(A[i,i]'+A[j,j])
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               C[j,i] = C[i,j]'
+            end
+         end
+      else
+         for i = 1:n
+            C[i,i] = -C[i,i]/(2*real(A[i,i]))
+            for j = i+1:n
+               C[i,j] = -C[i,j]/(A[i,i]+A[j,j]')
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               C[j,i] = C[i,j]'
+            end
+         end
+      end   
+      return C[:,:]
+   end      
 
    if adj
       # """
