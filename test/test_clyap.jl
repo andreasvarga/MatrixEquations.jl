@@ -87,7 +87,7 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @test norm(ach*x+x*ach+qc)/norm(x)/norm(ach) < reltol
 
 @time x = lyapc(acd,qc);
-@test norm(acd*x+x*acd+qc)/norm(x)/norm(acd) < reltol
+@test norm(acd*x+x*acd'+qc)/norm(x)/norm(acd) < reltol
 
 @time x = lyapc(acd',qc);
 @test norm(acd'*x+x*acd+qc)/norm(x)/norm(acd) < reltol
