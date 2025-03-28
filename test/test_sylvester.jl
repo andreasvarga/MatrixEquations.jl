@@ -36,12 +36,12 @@ for Ty in (Float64, Float32, BigFloat, Double64)
 #  for Ty in (Float64, Float32)
 
 
-ar = rand(Ty,n,n); ars = Symmetric(ar);
-ac = ar+im*rand(Ty,n,n); ach = Hermitian(ac);
-br = rand(Ty,m,m); brs = Symmetric(br);
-bc = br+im*rand(Ty,m,m);  bch = Hermitian(bc);
-cr = rand(Ty,n,m)
-cc = cr+im*rand(Ty,n,m)
+ar = rand(Ty,n,n); ars = Symmetric(ar); ard = Diagonal(ar);
+ac = ar+im*rand(Ty,n,n); ach = Hermitian(ac); acd = Diagonal(ac);
+br = rand(Ty,m,m); brs = Symmetric(br); brd = Diagonal(br);
+bc = br+im*rand(Ty,m,m);  bch = Hermitian(bc); bcd = Diagonal(bc);
+cr = rand(Ty,n,m);
+cc = cr+im*rand(Ty,n,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 
@@ -60,14 +60,14 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvc(2,3,cr)
 @test norm(2*x+x*3-cr)/norm(x) < reltol
 
-# Fix for missing strsyl3 in OpenBLAS   
-#if Ty != Float32
 @time x = sylvc(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
-#end
 
 @time x = sylvc(ars,brs,cr)
 @test norm(ars*x+x*brs-cr)/norm(x) < reltol
+
+@time x = sylvc(ard,brd,cr)
+@test norm(ard*x+x*brd-cr)/norm(x) < reltol
 
 @time x = sylvckr(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
@@ -77,6 +77,10 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 @time x = sylvc(ach,bch,cc)
 @test norm(ach*x+x*bch-cc)/norm(x) < reltol
+
+@time x = sylvc(acd,bcd,cc)
+@test norm(acd*x+x*bcd-cc)/norm(x) < reltol
+
 
 if Ty <: LinearAlgebra.BlasFloat
       @time x = sylvester(ar,br,cr)
@@ -92,20 +96,20 @@ end
 @time x = sylvc(ar,bc,cr)
 @test norm(ar*x+x*bc-cr)/norm(x) < reltol
 
-#if Ty != Float32
-   # Fix for missing strsyl3 in OpenBLAS   
-   @time x = sylvc(ar',br,cr)
-   @test norm(ar'*x+x*br-cr)/norm(x) < reltol
+@time x = sylvc(ar',br,cr)
+@test norm(ar'*x+x*br-cr)/norm(x) < reltol
 
-   @time x = sylvc(ar,br',cr)
-   @test norm(ar*x+x*br'-cr)/norm(x) < reltol
+@time x = sylvc(ar,br',cr)
+@test norm(ar*x+x*br'-cr)/norm(x) < reltol
 
-   @time x = sylvc(ar',br',cr)
-   @test norm(ar'*x+x*br'-cr)/norm(x) < reltol
-#end
+@time x = sylvc(ar',br',cr)
+@test norm(ar'*x+x*br'-cr)/norm(x) < reltol
 
 @time x = sylvc(ac,bc',cc)
 @test norm(ac*x+x*bc'-cc)/norm(x) < reltol
+
+@time x = sylvc(acd,bcd',cc)
+@test norm(acd*x+x*bcd'-cc)/norm(x) < reltol
 
 @time x = sylvc(ac',bc,cc)
 @test norm(ac'*x+x*bc-cc)/norm(x) < reltol
@@ -139,10 +143,10 @@ end
 
 for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n);
-ac = ar+im*rand(Ty,n,n);
-br = rand(Ty,m,m);
-bc = br+im*rand(Ty,m,m);
+ar = rand(Ty,n,n); ard = Diagonal(ar);
+ac = ar+im*rand(Ty,n,n); acd = Diagonal(ac);
+br = rand(Ty,m,m); brd = Diagonal(br);
+bc = br+im*rand(Ty,m,m); bcd = Diagonal(bc);
 cr = rand(Ty,n,m);
 cc = cr+im*rand(Ty,n,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
@@ -152,10 +156,11 @@ acs, = schur(ac);
 bcs, = schur(bc);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
-if Ty != Float32
-   # Fix for missing strsyl3 in OpenBLAS   
 y = copy(cr); @time sylvcs!(as,bs,y)
 @test norm(as*y+y*bs-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(ard,brd,y)
+@test norm(ard*y+y*brd-cr)/norm(y) < reltol
 
 y = copy(cr); @time sylvcs!(as,bs,y,adjA=true)
 @test norm(as'*y+y*bs-cr)/norm(y) < reltol
@@ -165,19 +170,32 @@ y = copy(cr); @time sylvcs!(as,bs,y,adjB=true)
 
 y = copy(cr); @time sylvcs!(as,bs,y,adjA=true,adjB=true)
 @test norm(as'*y+y*bs'-cr)/norm(y) < reltol
-end
+
 
 y = copy(cc); @time sylvcs!(acs,bcs,y)
 @test norm(acs*y+y*bcs-cc)/norm(y) < reltol
 
+y = copy(cc); @time sylvcs!(acd,bcd,y)
+@test norm(acd*y+y*bcd-cc)/norm(y) < reltol
+
 y = copy(cc); @time sylvcs!(acs,bcs,y,adjA=true)
 @test norm(acs'*y+y*bcs-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(acd,bcd,y,adjA=true)
+@test norm(acd'*y+y*bcd-cc)/norm(y) < reltol
 
 y = copy(cc); @time sylvcs!(acs,bcs,y,adjB=true)
 @test norm(acs*y+y*bcs'-cc)/norm(y) < reltol
 
+y = copy(cc); @time sylvcs!(acd,bcd,y,adjB=true)
+@test norm(acd*y+y*bcd'-cc)/norm(y) < reltol
+
 y = copy(cc); @time sylvcs!(acs,bcs,y,adjA=true,adjB=true)
 @test norm(acs'*y+y*bcs'-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvcs!(acd,bcd,y,adjA=true,adjB=true)
+@test norm(acd'*y+y*bcd'-cc)/norm(y) < reltol
+
 
 end
 end
@@ -204,10 +222,10 @@ end
 for Ty in (Float64, Float32, BigFloat, Double64)
 #  for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = ar+im*rand(Ty,n,n)
-br = -rand(Ty,m,m)
-bc = br-im*rand(Ty,m,m)
+ar = rand(Ty,n,n); ars = Symmetric(ar); ard = Diagonal(ar);
+ac = ar+im*rand(Ty,n,n); ach = Hermitian(ac); acd = Diagonal(ac);
+br = rand(Ty,m,m); brs = Symmetric(br); brd = Diagonal(br);
+bc = br+im*rand(Ty,m,m);  bch = Hermitian(bc); bcd = Diagonal(bc);
 cr = rand(Ty,n,m)
 cc = cr+im*rand(Ty,n,m)
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
@@ -234,6 +252,12 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvd(ar,br,cr)
 @test norm(ar*x*br+x-cr)/norm(x) < reltol
 
+@time x = sylvd(ars,brs,cr)
+@test norm(ars*x*brs+x-cr)/norm(x) < reltol
+
+@time x = sylvd(ard,brd,cr)
+@test norm(ard*x*brd+x-cr)/norm(x) < reltol
+
 @time x = sylvd(ar',br,cr)
 @test norm(ar'*x*br+x-cr)/norm(x) < reltol
 
@@ -245,6 +269,12 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 @time x = sylvd(ac,bc,cc)
 @test norm(ac*x*bc+x-cc)/norm(x) < reltol
+
+@time x = sylvd(ach,bch,cc)
+@test norm(ach*x*bch+x-cc)/norm(x) < reltol
+
+@time x = sylvd(acd,bcd,cc)
+@test norm(acd*x*bcd+x-cc)/norm(x) < reltol
 
 @time x = sylvd(ac,bc',cc)
 @test norm(ac*x*bc'+x-cc)/norm(x) < reltol
@@ -265,10 +295,10 @@ end
 for Ty in (Float64, Float32, BigFloat, Double64)
 #for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n);
-ac = ar+im*rand(Ty,n,n);
-br = rand(Ty,m,m)/10;
-bc = br-im*rand(Ty,m,m);
+ar = rand(Ty,n,n); ard = Diagonal(ar);
+ac = ar+im*rand(Ty,n,n); acd = Diagonal(ac);
+br = rand(Ty,m,m); brd = Diagonal(br);
+bc = br-im*rand(Ty,m,m); bcd = Diagonal(bc);
 cr = rand(Ty,n,m);
 cc = cr+im*rand(Ty,n,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
@@ -282,6 +312,9 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 y = copy(cr); @time sylvds!(as,bs,y)
 @test norm(as*y*bs+y-cr)/norm(y) < reltol
 
+y = copy(cr); @time sylvds!(ard,brd,y)
+@test norm(ard*y*brd+y-cr)/norm(y) < reltol
+
 y = copy(cr); @time sylvds!(as,bs,y,adjA=true)
 @test norm(as'*y*bs+y-cr)/norm(y) < reltol
 
@@ -294,14 +327,26 @@ y = copy(cr); @time sylvds!(as,bs,y,adjA=true,adjB=true)
 y = copy(cc); @time sylvds!(acs,bcs,y)
 @test norm(acs*y*bcs+y-cc)/norm(y) < reltol
 
+y = copy(cc); @time sylvds!(acd,bcd,y)
+@test norm(acd*y*bcd+y-cc)/norm(y) < reltol
+
 y = copy(cc); @time sylvds!(acs,bcs,y,adjA=true)
 @test norm(acs'*y*bcs+y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds!(acd,bcd,y,adjA=true)
+@test norm(acd'*y*bcd+y-cc)/norm(y) < reltol
 
 y = copy(cc); @time sylvds!(acs,bcs,y,adjB=true)
 @test norm(acs*y*bcs'+y-cc)/norm(y) < reltol
 
+y = copy(cc); @time sylvds!(acd,bcd,y,adjB=true)
+@test norm(acd*y*bcd'+y-cc)/norm(y) < reltol
+
 y = copy(cc); @time sylvds!(acs,bcs,y,adjA=true,adjB=true)
 @test norm(acs'*y*bcs'+y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds!(acd,bcd,y,adjA=true,adjB=true)
+@test norm(acd'*y*bcd'+y-cc)/norm(y) < reltol
 
 end
 end

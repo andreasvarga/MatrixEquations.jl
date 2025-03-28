@@ -71,8 +71,8 @@ end
 for Ty in (Float64, Float32, BigFloat, Double64)
 # for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n)
-ac = rand(Ty,n,n)+im*rand(Ty,n,n)
+ar = rand(Ty,n,n); ars = Symmetric(ar);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); ach = Hermitian(ac); acd = Diagonal(ac); 
 c = rand(Ty,n,n)+im*rand(Ty,n,n)
 #qc = c'*c
 qc = Matrix(Hermitian(c'*c));
@@ -81,6 +81,16 @@ Ty == Float64 ? reltol = eps(float(10000)) : reltol = eps(10000*n*one(Ty))
 
 @time x = lyapd(ac,qc);
 @test norm(ac*x*ac'-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time x = lyapd(ach,qc);
+@test norm(ach*x*ach-x+qc)/norm(x)/max(1.,norm(ach)^2) < reltol
+
+@time x = lyapd(acd,qc);
+@test norm(acd*x*acd'-x+qc)/norm(x)/max(1.,norm(acd)^2) < reltol
+
+@time x = lyapd(acd',qc);
+@test norm(acd'*x*acd-x+qc)/norm(x)/max(1.,norm(acd)^2) < reltol
+
 
 α = 3+im; # α = 1; #SingularException
 @time x = lyapd(α*I,qc);
@@ -271,8 +281,8 @@ end
 for Ty in (Float64, Float32, BigFloat, Double64)
 # for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n);
-ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+ar = rand(Ty,n,n);ard = Diagonal(ar);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); acd = Diagonal(ac);
 er = rand(Ty,n,n);
 ec = er+im*rand(Ty,n,n);
 es = triu(er);
@@ -291,6 +301,10 @@ x = copy(Qr)
 @test norm(as*x*as'+Qr-x)/norm(x)/max(norm(as)^2,1.) < reltol
 
 x = copy(Qr)
+@time lyapds!(ard,x);
+@test norm(ard*x*ard+Qr-x)/norm(x)/max(norm(ard)^2,1.) < reltol
+
+x = copy(Qr)
 @time lyapds!(as,x,adj=true);
 @test norm(as'*x*as+Qr-x)/norm(x)/max(norm(as)^2,1.) < reltol
 
@@ -300,7 +314,16 @@ x = copy(qc)
 
 x = copy(qc)
 @time lyapds!(acs,I,x);
-@test norm(acs*x*acs'+qc-x)/norm(x)/max(norm(acs)^2,norm(ecs)^2) < reltol
+@test norm(acs*x*acs'+qc-x)/norm(x)/norm(acs)^2  < reltol
+
+x = copy(qc)
+@time lyapds!(acd,x);
+@test norm(acd*x*acd'+qc-x)/norm(x)/norm(acd)^2 < reltol
+
+x = copy(qc)
+@time lyapds!(acd,x,adj=true);
+@test norm(acd'*x*acd+qc-x)/norm(x)/norm(acd)^2 < reltol
+
 
 x = copy(qc)
 @time lyapds!(acs,ecs,x,adj=true);

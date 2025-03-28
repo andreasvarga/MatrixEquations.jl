@@ -75,17 +75,32 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    eltype(B) == T2 || (B = convert(AbstractMatrix{T2},B))
    eltype(C) == T2 || (C = convert(AbstractMatrix{T2},C))
 
+   if isdiag(A) && isdiag(B)
+      return sylvcs!(A, B, copy(C))
+   end
+
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
-   if adjA
-      RA, QA = schur(A.parent)
+   if ishermitian(A) && ishermitian(B)
+      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+         RA, QA = schur(Hermitian(A))
+         RB, QB = schur(Hermitian(B))
+      else
+         # fallback for GenericSchur on nightly platforms
+         RA, QA = schur(A)
+         RB, QB = schur(B)
+      end
    else
-      RA, QA = schur(A)
-   end
-   if adjB
-      RB, QB = schur(B.parent)
-   else
-      RB, QB = schur(B)
+      if adjA
+         RA, QA = schur(A.parent)
+      else
+         RA, QA = schur(A)
+      end
+      if adjB
+         RB, QB = schur(B.parent)
+      else
+         RB, QB = schur(B)
+      end
    end
 
    Y = QA' * C * QB
@@ -176,17 +191,32 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    eltype(B) == T2 || (B = convert(Matrix{T2},B))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
 
+   if isdiag(A) && isdiag(B)
+      return sylvds!(A, B, copy(C))
+   end
+
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
-   if adjA
-      RA, QA = schur(A.parent)
+   if ishermitian(A) && ishermitian(B)
+      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+         RA, QA = schur(Hermitian(A))
+         RB, QB = schur(Hermitian(B))
+      else
+         # fallback for GenericSchur on nightly platforms
+         RA, QA = schur(A)
+         RB, QB = schur(B)
+      end
    else
-      RA, QA = schur(A)
-   end
-   if adjB
-      RB, QB = schur(B.parent)
-   else
-      RB, QB = schur(B)
+      if adjA
+         RA, QA = schur(A.parent)
+      else
+         RA, QA = schur(A)
+      end
+      if adjB
+         RB, QB = schur(B.parent)
+      else
+         RB, QB = schur(B)
+      end
    end
 
    Y = QA' * C * QB
@@ -584,21 +614,47 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+   m, n = size(C);
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    if isdiag(A) && isdiag(B)
-      m, n = size(C);
-      [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
-      for i = 1:m
-         for j = 1:n
-            C[i,j] = C[i,j]/(A[i,i]+B[j,j])
-            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+      if T1 <: Real || (!adjA && !adjB)
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      elseif !adjA && adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]+B[j,j]')
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      elseif adjA && !adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]'+B[j,j])
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      else
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]'+B[j,j]')
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
          end
       end
       return C[:,:]
    end      
    try
       trans = T1 <: Complex ? 'C' : 'T'
-      C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
-      #C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+      @static if VERSION < v"1.12"
+         C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+      else
+         C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+      end
       rmul!(C, inv(scale))
       return C[:,:]
    catch err
@@ -788,10 +844,33 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    if isdiag(A) && isdiag(B)
-      for i = 1:m
-         for j = 1:n
-            C[i,j] = C[i,j]/(A[i,i]+B[j,j])
-            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+      if !adjA && !adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      elseif !adjA && adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]+B[j,j]')
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      elseif adjA && !adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]'+B[j,j])
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      else
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]'+B[j,j]')
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
          end
       end
       return C[:,:]
@@ -1205,8 +1284,21 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
-   (m, 2) == size(W) || throw(DimensionMismatch("W must be an $m x 2 matrix"))
+   m, n = size(C);
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    ONE = one(T1)
+   if isdiag(A) && isdiag(B)
+      for i = 1:m
+         for j = 1:n
+            C[i,j] = C[i,j]/(A[i,i]*B[j,j]+ONE)
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α*β = -1")
+         end
+      end
+      return C[:,:]
+   end      
+
+   (m, 2) == size(W) || throw(DimensionMismatch("W must be an $m x 2 matrix"))
+
 
    # determine the structure of the real Schur form of A
    ba, pa = sfstruct(A)
@@ -1423,6 +1515,39 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
   
    ONE = one(T1)
+   if isdiag(A) && isdiag(B)
+      if !adjA && !adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]*B[j,j]+ONE)
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      elseif !adjA && adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]*B[j,j]'+ONE)
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      elseif adjA && !adjB
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]'*B[j,j]+ONE)
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      else
+         for i = 1:m
+            for j = 1:n
+               C[i,j] = C[i,j]/(A[i,i]'*B[j,j]'+ONE)
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+            end
+         end
+      end
+      return C[:,:]
+   end     
+
    ZERO = zero(T1)
    if !adjA && !adjB
       # """

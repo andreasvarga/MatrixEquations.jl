@@ -63,9 +63,21 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    eltype(A) == T2 || (adj ? A = convert(AbstractMatrix{T2},A.parent)' : A = convert(AbstractMatrix{T2},A))
    eltype(C) == T2 || (C = convert(AbstractMatrix{T2},C))
 
+   if isdiag(A) 
+      if her
+         return lyapcs!(A, copy(C))
+      else
+         return sylvcs!(A, A, copy(C))
+      end
+   end
+
    if ishermitian(A)
       # Reduce A to diagonal form and transform C
-      AS, Q = schur(Hermitian(A))
+      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+         AS, Q = schur(Hermitian(A))
+      else
+         AS, Q = schur(A)
+      end
    else
       # Reduce A to Schur form and transform C
       if adj
@@ -280,14 +292,32 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
 
    T2 = promote_type(eltype(A), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
-   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
-   eltype(C) == T2 || (C = convert(Matrix{T2},C))
+   eltype(A) == T2 || (adj ? A = convert(AbstractMatrix{T2},A.parent)' : A = convert(AbstractMatrix{T2},A))
+   eltype(C) == T2 || (C = convert(AbstractMatrix{T2},C))
 
-   # Reduce A to Schur form and transform C
-   if adj
-      AS, Q = schur(A.parent)
+   if isdiag(A) 
+      if her
+         return lyapds!(A, copy(C))
+      else
+         return sylvds!(-A, A, copy(C))
+      end
+   end
+
+
+   if ishermitian(A)
+      # Reduce A to diagonal form and transform C
+      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+         AS, Q = schur(Hermitian(A))
+      else
+         AS, Q = schur(A)
+      end
    else
-      AS, Q = schur(A)
+      # Reduce A to Schur form and transform C
+      if adj
+         AS, Q = schur(A.parent)
+      else
+         AS, Q = schur(A)
+      end
    end
    #X = Q'*C*Q
    if her
@@ -1301,8 +1331,19 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
+   ONE = one(T1)  
+   if isdiag(A) 
+      for i = 1:n
+         C[i,i] = -C[i,i]/(A[i,i]*A[i,i]-ONE)
+         for j = i+1:n
+            C[i,j] = -C[i,j]/(A[i,i]*A[j,j]-ONE)
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+            C[j,i] = C[i,j]
+         end
+      end
+      return C[:,:]
+   end      
 
-   ONE = one(T1)
 
    # determine the dimensions of the diagonal blocks of real Schur form
 
@@ -1634,8 +1675,29 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
-
    ONE = one(T1)
+   if isdiag(A) 
+      if adj 
+         for i = 1:n
+            C[i,i] = -C[i,i]/(abs(A[i,i])^2-ONE)
+            for j = i+1:n
+               C[i,j] = -C[i,j]/(A[i,i]'*A[j,j]-ONE)
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               C[j,i] = C[i,j]'
+            end
+         end
+      else
+         for i = 1:n
+            C[i,i] = -C[i,i]/(abs(A[i,i])^2-ONE)
+            for j = i+1:n
+               C[i,j] = -C[i,j]/(A[i,i]*A[j,j]'-ONE)
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               C[j,i] = C[i,j]'
+            end
+         end
+      end   
+      return C[:,:]
+   end      
 
    # Compute the hermitian solution
    if adj

@@ -1,7 +1,7 @@
 # Release Notes
 
 ## Version 2.4.5
-Enhanced Lyapunov solver `lyapc` and Sylvester solver `sylvc` to efficiently handle symmetric/hermitian inputs.  
+Enhanced Lyapunov solvers `lyapc` and `lyapd` and Sylvester solvers `sylvc` and `sylvd` to efficiently handle symmetric/Hermitian/diagonal inputs.  
 
 ## Version 2.4.4
 Back to using the standard Sylvester solver sylvc with the old wrappers (the *trsyl family of solvers), until issue [#150](https://github.com/JuliaLinearAlgebra/libblastrampoline/issues/150) will be fixed.

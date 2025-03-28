@@ -285,8 +285,8 @@ end
 for Ty in (Float64, Float32, BigFloat, Double64)
 # for Ty in (Float64, Float32)
 
-ar = rand(Ty,n,n);
-ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+ar = rand(Ty,n,n); ard = Diagonal(ar); 
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); acd = Diagonal(ac);
 er = rand(Ty,n,n);
 ec = er+im*rand(Ty,n,n);
 es = triu(er);
@@ -304,6 +304,7 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 x = copy(qc)
 @time lyapcs!(acs,ecs,x);
 @test norm(acs*x*ecs'+ecs*x*acs'+qc)/norm(x)/norm(acs)/norm(ecs) < reltol
+
 
 x = copy(qc)
 @time lyapcs!(acs,I,x);
@@ -330,6 +331,11 @@ x = copy(Qr)
 @time lyapcs!(as,x);
 @test norm(as*x+x*as'+Qr)/norm(x)/norm(as) < reltol
 
+x = copy(Qr)
+@time lyapcs!(ard,x);
+@test norm(ard*x+x*ard+Qr)/norm(x)/norm(ard) < reltol
+
+
 if Ty == Float64
 try
   x = convert(Matrix{Complex{Float32}},copy(qc))
@@ -348,10 +354,16 @@ x = copy(qc)
 @time lyapcs!(acs,x);
 @test norm(acs*x+x*acs'+qc)/norm(x)/norm(acs) < reltol
 
+x = copy(qc)
+@time lyapcs!(acd,x);
+@test norm(acd*x+x*acd'+qc)/norm(x)/norm(acd) < reltol
 
 x = copy(qc)
 @time lyapcs!(acs,x,adj=true);
 @test norm(acs'*x+x*acs+qc)/norm(x)/norm(acs) < reltol
+
+x = copy(qc); @time lyapcs!(acd,x,adj=true);
+@test norm(acd'*x+x*acd+qc)/norm(x)/norm(acd) < reltol
 
 x = copy(Qr)
 @time lyapcs!(as,x);
