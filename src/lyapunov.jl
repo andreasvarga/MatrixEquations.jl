@@ -1671,15 +1671,15 @@ function lyapdsylv2!(adj::Bool,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractM
    return C
 end
 function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Complex}
-# function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:BlasComplex}
    n = LinearAlgebra.checksquare(A)
    (LinearAlgebra.checksquare(C) == n && ishermitian(C)) ||
       throw(DimensionMismatch("C must be a $n x $n hermitian matrix"))
    ONE = one(T1)
+   RONE = real(ONE)
    if isdiag(A) 
       if adj 
          for i = 1:n
-            C[i,i] = -C[i,i]/(abs(A[i,i])^2-ONE)
+            C[i,i] = -C[i,i]/(abs(A[i,i])^2-RONE)
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]'*A[j,j]-ONE)
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
@@ -1688,7 +1688,7 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
          end
       else
          for i = 1:n
-            C[i,i] = -C[i,i]/(abs(A[i,i])^2-ONE)
+            C[i,i] = -C[i,i]/(abs(A[i,i])^2-RONE)
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]*A[j,j]'-ONE)
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")

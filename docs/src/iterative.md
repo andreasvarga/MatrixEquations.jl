@@ -10,6 +10,7 @@ cgls
 
 ```@docs
 lyapci
+plyapci
 lyapdi
 tlyapci
 hlyapci

@@ -1,13 +1,17 @@
 # Release Notes
 
+## Version 2.5.0
+Version bump to enforce compatibility with Julia's LTS version.
+New iterative solvers for positive continuous-time Lyapunov equations based on low-rank ADI methods. 
+
 ## Version 2.4.5
 Enhanced Lyapunov solvers `lyapc` and `lyapd` and Sylvester solvers `sylvc` and `sylvd` to efficiently handle symmetric/Hermitian/diagonal inputs.  
 
 ## Version 2.4.4
-Back to using the standard Sylvester solver sylvc with the old wrappers (the *trsyl family of solvers), until issue [#150](https://github.com/JuliaLinearAlgebra/libblastrampoline/issues/150) will be fixed.
+Back to using the standard Sylvester solver `sylvc` with the old wrappers (the `*trsyl` family of solvers), until issue [#150](https://github.com/JuliaLinearAlgebra/libblastrampoline/issues/150) will be fixed.
 
 ## Version 2.4.3
-New wrappers for BLAS Level 3 based LAPACK family *trsylv3 of solvers for Sylvester equation. Updating the standard Sylvester solver sylvc to use the new wrappers (instead the *trsyl family of solvers).    
+New wrappers for BLAS Level 3 based LAPACK family `*trsylv3` of solvers for Sylvester equation. Updating the standard Sylvester solver `sylvc` to use the new wrappers (instead the `*trsyl` family of solvers).    
 
 ## Version 2.4.2
 Version bump to fix type piracy detected by Aqua.  

@@ -61,6 +61,7 @@ The current version of the package includes the following functions:
 | Function | Description |
 | :--- | :--- |
 | **[`lyapci`](@ref)** |Iterative solution of continuous Lyapunov equations|
+| **[`plyapci`](@ref)** |Iterative solution of low-rank non-negative continuous Lyapunov equations|
 | **[`lyapdi`](@ref)** |Iterative solution of discrete Lyapunov equations|
 | **[`tlyapci`](@ref)** |Iterative solution of the continuous T-Lyapunov equations|
 | **[`hlyapci`](@ref)** |Iterative solution of the continuous H-Lyapunov equations|
