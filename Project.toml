@@ -13,6 +13,7 @@ DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 GenericSchur = "c145ed77-6b09-5dd9-b285-bf645a82121e"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
@@ -23,6 +24,7 @@ DoubleFloats = "1.3"
 GenericLinearAlgebra = "0.3"
 GenericSchur = "0.5"
 IterativeSolvers = "0.9"
+JLD2 = "0.4"
 LinearAlgebra = "1"
 LinearMaps = "3.3"
 Random = "1"
@@ -30,6 +32,5 @@ SparseArrays = "1"
 Test = "1"
 julia = "1.10"
 
-
 [targets]
-test = ["Random", "Test", "GenericSchur", "GenericLinearAlgebra", "DoubleFloats", "IterativeSolvers", "SparseArrays","BandedMatrices"]
+test = ["BandedMatrices", "GenericSchur", "GenericLinearAlgebra", "DoubleFloats", "IterativeSolvers", "JLD2", "Random", "SparseArrays", "Test"]

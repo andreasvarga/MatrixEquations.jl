@@ -9,7 +9,8 @@ using Test
 using SparseArrays
 using IterativeSolvers
 using BandedMatrices
-# using JLD2
+using LinearMaps
+using JLD2
 
 
 
@@ -34,6 +35,8 @@ Ad = Diagonal(A); Ed = Diagonal(E);
 @time Z, info = plyapci(Ad, Ed, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
 @test norm(Ad*Z*Z'*Ed'+Ed*Z*Z'*Ad'+B*B') < 1.e-7
 
+@time Z, info = plyapci(Ad, Ed, B; cyclic = true, abstol = 1e-12, reltol = 0, maxiter = 100, shifts = info.used_shifts[1])    
+@test norm(Ad*Z*Z'*Ed'+Ed*Z*Z'*Ad'+B*B') < 1.e-7
 
 A1 = [-0.01 -200; 200 0.001]
 A2 = [-0.2 -300; 300 -0.1]
@@ -72,6 +75,38 @@ println("Reduced model order = $nrb")
 
 @test norm(Z*Z'-Zb*Zb') < 1.e-10 && nr == nrb
 
+cd(joinpath(pkgdir(MatrixEquations),"test"))
+
+A, E, B, C, D = load("mirror315.jld2","A","E","B","C","D");
+A1 = A-0.0001*E; 
+@time Z, info = MatrixEquations.plyapci(A1, E, B; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = missing, nshifts = 6); 
+@time Y, info = MatrixEquations.plyapci(A1', E', C'; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = info.used_shifts, nshifts = 6); 
+@test norm(A1*Z*Z'*E'+E*Z*Z'*A1'+B*B') < 1.e-7 && norm(A1'*Y*Y'*E+E'*Y*Y'*A1+C'*C) < 1.e-7
+nr = rank(Y'*Z);
+println("Reduced model order = $nr")
+
+As = sparse(A1); Es  = sparse(E); 
+@time Zs, infos = MatrixEquations.plyapci(As, Es, B; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = missing, nshifts = 6); 
+@time Ys, infos = MatrixEquations.plyapci(As', Es', C'; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = infos.used_shifts, nshifts = 6); 
+@test norm(As*Zs*Zs'*Es'+Es*Zs*Zs'*As'+B*B') < 1.e-7 && norm(As'*Ys*Ys'*Es+Es'*Ys*Ys'*As+C'*C) < 1.e-7
+nrs = rank(Ys'*Zs);
+println("Reduced model order = $nrs")
+
+@test norm(Z*Z'-Zs*Zs') < 1.e-10 && nr == nrs
+
+Ab = BandedMatrix(As); Eb = BandedMatrix(Es);
+@time Zb, infos = MatrixEquations.plyapci(Ab, Eb, B; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = missing, nshifts = 6); 
+@time Yb, infos = MatrixEquations.plyapci(Ab', Eb', C'; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = infos.used_shifts, nshifts = 6); 
+@test norm(Ab*Zb*Zb'*Eb'+Eb*Zb*Zb'*Ab'+B*B') < 1.e-7 && norm(Ab'*Yb*Yb'*Eb+Eb'*Yb*Yb'*Ab+C'*C) < 1.e-7
+nrb = rank(Yb'*Zb);
+println("Reduced model order = $nrb")
+@test norm(Z*Z'-Zb*Zb') < 1.e-10 && nr == nrb
 
 end
 

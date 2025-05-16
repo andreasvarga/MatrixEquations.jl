@@ -474,7 +474,6 @@ function subopt_select(RV, nshifts=length(RV))
     #  This is the function heuristic, borrowed from the DifferentialRiccatiEquations.jl package.
     s(t, P) = prod(abs(t - p) / abs(t + p) for p in P)
     length(RV) >= nshifts || throw(ArgumentError("length(RV) must be at least nshifts = $nshifts "))
-
     p0 = argmin(RV) do p
         maximum(s(t, (p,)) for t in RV)
     end
