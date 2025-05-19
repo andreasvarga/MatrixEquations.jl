@@ -28,7 +28,7 @@ export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr,
 export opnorm1, opnorm1est, oprcondest, opsepest
 export lyapop, invlyapop, sylvop, invsylvop, sylvsysop, invsylvsysop, trmatop, eliminationop, duplicationop
 export tulyaplikeop, hulyaplikeop, lyaplikeop, gsylvop
-export plyapci
+export plyapci, plyapdi
 
 include("meutil.jl")
 include("sylvester.jl")

@@ -15,6 +15,64 @@ using JLD2
 
 
 @testset "LR-ADI iterative solvers" begin
+
+# discrete case    
+n = 300; r = 5; B = [rand(r,2);zeros(n-r,2)]; C = [zeros(3,n-r) rand(3,r)];
+A = triu(rand(n,n)); E = triu(rand(n,n));
+while maximum(abs.(eigvals(A,E))) >= 1   
+    AA = triu(rand(n,n)); E = triu(rand(n,n)); A = AA/n 
+end  
+
+@time Z, info = plyapdi(A, E, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+@test norm(A*Z*Z'*A'-E*Z*Z'*E'+B*B') < 1.e-7 && rank(Z) == r
+@time Z, info = plyapdi(A', E', C'; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+@test norm(A'*Z*Z'*A-E'*Z*Z'*E+C'*C) < 1.e-7 && rank(Z) == r
+
+A1 = [-0.01 -200; 200 0.001]
+A2 = [-0.2 -300; 300 -0.1]
+A3 = [-0.02 -500; 500 0]
+A4 = [-0.01 -520; 520 -0.01]
+A = cat(A1, A2, A3, A4, Diagonal(-1:-1:-400), dims=Val((1,2)))/600;
+B = ones(408,1); C = ones(1,408);
+
+@time Z, info = plyapdi(A, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = [-0.0016; -0.0033], cyclic = true, nshifts = 6)    
+@test norm(A*Z*Z'*A'-Z*Z'+B*B') < 1.e-7 
+@time Y, info = plyapdi(A', C'; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = info.used_shifts, nshifts = 6)    
+@test norm(A'*Y*Y'*A-Y*Y'+C'*C) < 1.e-7 
+
+# using automatic shift generation
+@time Z, info = plyapdi(A, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+@test norm(A*Z*Z'*A'-Z*Z'+B*B') < 1.e-7 
+@time Z, info = plyapdi(A', C'; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+@test norm(A'*Z*Z'*A-Z*Z'+C'*C) < 1.e-7 
+
+Ts = 100;
+A1 = exp([-0.01 -200; 200 0.001]*Ts)
+A2 = exp([-0.2 -300; 300 -0.1]*Ts)
+A3 = exp([-0.02 -500; 500 0]*Ts)
+A4 = exp([-0.01 -520; 520 -0.01]*Ts)
+A = cat(A1, A2, A3, A4, Diagonal(exp.((-1:-1:-400).*Ts)), dims=Val((1,2)));
+B = ones(408,1); C = ones(1,408);
+
+@time Z, info = plyapdi(A, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+@test norm(A*Z*Z'*A'-Z*Z'+B*B') < 1.e-7 
+@time Y, info = plyapdi(A', C'; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6)    
+@test norm(A'*Y*Y'*A-Y*Y'+C'*C) < 1.e-7 
+
+
+cd(joinpath(pkgdir(MatrixEquations),"test"))
+A, E, B, C, D = load("mirror315.jld2","A","E","B","C","D");
+@time Z, info = MatrixEquations.plyapdi(A, E, B; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = missing, nshifts = 6); 
+@time Y, info = MatrixEquations.plyapdi(A', E', C'; abstol = 1e-12, reltol = 0.e-5, 
+          maxiter = 100, shifts = info.used_shifts, nshifts = 6); 
+@test norm(A*Z*Z'*A'-E*Z*Z'*E'+B*B') < 1.e-7 && norm(A'*Y*Y'*A-E'*Y*Y'*E+C'*C) < 1.e-7
+nr = rank(Y'*Z);
+println("Reduced model order = $nr")
+
+
+
+# continuous case    
 n = 30; r = 5; B = [rand(r,2);zeros(n-r,2)]; C = [zeros(3,n-r) rand(3,r)];
 A = triu(rand(n,n)); E = triu(rand(n,n));
 while maximum(real(eigvals(A,E))) >= 0   
@@ -75,7 +133,6 @@ println("Reduced model order = $nrb")
 
 @test norm(Z*Z'-Zb*Zb') < 1.e-10 && nr == nrb
 
-cd(joinpath(pkgdir(MatrixEquations),"test"))
 
 A, E, B, C, D = load("mirror315.jld2","A","E","B","C","D");
 A1 = A-0.0001*E; 

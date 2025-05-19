@@ -12,6 +12,7 @@ cgls
 lyapci
 plyapci
 lyapdi
+plyapdi
 tlyapci
 hlyapci
 tulyapci
