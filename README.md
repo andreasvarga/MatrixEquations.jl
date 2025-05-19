@@ -72,6 +72,7 @@ The current version of the package includes the following functions:
 * **lyapci** Iterative solution of the continuous Lyapunov equations `AX+XA'+C = 0` and `AXE'+EXA'+C = 0`.
 * **plyapci** Iterative solution of the low-rank positive continuous Lyapunov equations `AX+XA'+BB' = 0` and `AXE'+EXA'+BB' = 0`.
 * **lyapdi**  Iterative solution of the discrete Lyapunov equations `AXA'-X+C = 0` and `AXA'-EXE'+C = 0`.
+* **plyapdi** Iterative solution of the low-rank positive discrete Lyapunov equations `AXA'-X+BB' = 0` and `AXA'-EXE'+BB' = 0`.
 * **tlyapci** Iterative solution of the continuous T-Lyapunov equations `A*X+X^⊤*A^⊤ = C` and `A*X^⊤+X*A^⊤ = C`.
 * **hlyapci** Iterative solution of the continuous H-Lyapunov equations `A*X+X'*A' = C` and `A*X'+X*A' = C`.
 * **tulyapci** Iterative solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.

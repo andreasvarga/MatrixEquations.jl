@@ -2,7 +2,7 @@
 
 ## Version 2.5.0
 Version bump to enforce compatibility with Julia's LTS version.
-New iterative solvers for positive continuous-time Lyapunov equations based on low-rank ADI methods. 
+New iterative solvers for positive Lyapunov equations based on low-rank ADI methods. 
 
 ## Version 2.4.5
 Enhanced Lyapunov solvers `lyapc` and `lyapd` and Sylvester solvers `sylvc` and `sylvd` to efficiently handle symmetric/Hermitian/diagonal inputs.  
