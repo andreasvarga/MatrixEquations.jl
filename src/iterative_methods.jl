@@ -85,7 +85,7 @@ The named tuple `info` contains information related to the execution of the LR-A
 `info.res_fact` contains the norm of the residual factor; 
 `info.res` contains, if `loginf = true`, the vector of normalized residual norms (normalized with respect to the norm of the initial approximation);
 `info.rc` contains, if `loginf = true`, the vector of norms of relative changes in building the solution;
-`info.used_shift` caontains the vector of used shifts.
+`info.used_shift` contains the vector of used shifts.
 
 The keyword argument `abstol` (default: `abstol = 1e-12`) is the tolerance used for convergence test
 on the normalized residuals, while the keyword argument
@@ -510,7 +510,7 @@ The named tuple `info` contains information related to the execution of the LR-A
 `info.res_fact` contains the norm of the residual factor; 
 `info.res` contains, if `loginf = true`, the vector of normalized residual norms (normalized with respect to the norm of the initial approximation);
 `info.rc` contains, if `loginf = true`, the vector of norms of relative changes in building the solution;
-`info.used_shift` caontains the vector of used shifts.
+`info.used_shift` contains the vector of used shifts.
 
 The keyword argument `abstol` (default: `abstol = 1e-12`) is the tolerance used for convergence test
 on the normalized residuals, while the keyword argument
