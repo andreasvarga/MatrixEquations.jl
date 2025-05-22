@@ -391,13 +391,13 @@ function projection_shifts(A, E, V, W, p_old; nshifts = 6)
             else # complex conjugated pair of shifts
                 rpc = real(p_old[h])
                 ipc = imag(p_old[h])
-                beta = rpc / ipc
+                β = rpc / ipc
                 T[h:h + 1, h:h + 1] = [3*rpc -ipc
-                                       ipc*(1 + 4 * beta^2) -rpc]
+                                       ipc*(1 + 4 * β^2) -rpc]
                 if !isempty(is)
-                    T[h:h +  1, is] = [4*rpc; 4*rpc*beta] * ones(1, length(is))
+                    T[h:h +  1, is] = [4*rpc; 4*rpc*β] * ones(1, length(is))
                 end
-                D = cat(D, 2*sqrt(-rpc)*[1  0; beta sqrt(1 + beta^2)], dims=Val((1,2)))
+                D = cat(D, 2*sqrt(-rpc)*[1  0; β sqrt(1 + β^2)], dims=Val((1,2)))
                 h = h + 2;
             end
         end
@@ -673,37 +673,37 @@ function plyapdi(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}
             V = (EE-conj(pc)*AA)\W 
         end
 
-        alpha = real(pc); beta = imag(pc)  
+        α = real(pc); β = imag(pc)  
         if isreal(pc) 
-            tau = 1-alpha^2
+            τ = 1-α^2
             # update the factor
-            #Z[:, (m - 1) * k + 1:m * k] = sqrt(tau) * V     
-            Z[:, jZ+1:jZ+mb] .= sqrt(tau) .* V     
+            #Z[:, (m - 1) * k + 1:m * k] = sqrt(τ) * V     
+            Z[:, jZ+1:jZ+mb] .= sqrt(τ) .* V     
             jZ += mb
             # update low-rank residual
             if withE
-               mul!(W,EE,V,tau/alpha,-1/alpha)
+               mul!(W,EE,V,τ/α,-1/α)
             else
-               W .= (tau/alpha) .* V .- (1/alpha) .* W
+               W .= (τ/α) .* V .- (1/α) .* W
             end
             psave[k] = pc
         else
-            as2 = alpha^2+beta^2;  tau = 1-as2  
+            as2 = α^2+β^2;   τ = 1-as2  
             # perform a double step with the known solution for the conjugate shift
-            theta = alpha/beta
-            mu = sqrt(tau/(1+as2))  
+            θ = α/β
+            mu = sqrt(τ/(1+as2))  
             Z1 = view(Z,:,jZ+1:jZ+mb)
             Z2 = view(Z,:,jZ+mb+1:jZ+mb2)
-            Z1 .= sqrt(1-as2^2) .* real.(V) .+ (theta*mu*(1-as2)) .* imag.(V)
-            Z2 .=  (mu*abs(pc^2-1)/beta) .* imag.(V)
+            Z1 .= sqrt(1-as2^2) .* real.(V) .+ (θ*mu*(1-as2)) .* imag.(V)
+            Z2 .=  (mu*abs(pc^2-1)/β) .* imag.(V)
             jZ +=mb2
     
             # update low-rank residual for double step
             if withE
-               temp .= (as2-1/as2).*real.(V) .- (theta*tau^2/as2) .* imag.(V)
+               temp .= (as2-1/as2).*real.(V) .- (θ*τ^2/as2) .* imag.(V)
                mul!(W,EE,temp,1,1/as2)
             else
-                W .= (1/as2) .* W .+ (as2-1/as2).*real.(V) .- (theta*tau^2/as2) .* imag.(V)
+                W .= (1/as2) .* W .+ (as2-1/as2).*real.(V) .- (θ*τ^2/as2) .* imag.(V)
             end
             psave[k] = pc
             psave[k+1] = conj(pc)
@@ -1260,12 +1260,12 @@ function cgls!(x, WS, A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(
         delta = norm(q)^2  +  shift*norm(p)^2
         delta < 0 && (indefinite = 1)
         delta == 0 && (delta = eps(real(float(T1))))
-        alpha = gamma / delta
+        α = gamma / delta
         
-        #x     = x + alpha*p
-        axpy!(alpha,p,x)
-        #r     = r - alpha*q
-        axpy!(-alpha,q,r)
+        #x     = x + α*p
+        axpy!(α,p,x)
+        #r     = r - α*q
+        axpy!(-α,q,r)
            
         #s = A'*r - shift*x
         mul!(s,adjointA,r)
@@ -1274,9 +1274,9 @@ function cgls!(x, WS, A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(
         norms  = norm(s)
         gamma1 = gamma
         gamma  = norms^2
-        beta   = gamma / gamma1
-        #p      = s + beta*p
-        axpby!(ONE,s,beta,p)
+        β   = gamma / gamma1
+        #p      = s + β*p
+        axpby!(ONE,s,β,p)
  
         # Convergence
         normx = norm(x)

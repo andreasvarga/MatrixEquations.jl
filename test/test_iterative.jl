@@ -70,7 +70,9 @@ A, E, B, C, D = load("mirror315.jld2","A","E","B","C","D");
 nr = rank(Y'*Z);
 println("Reduced model order = $nr")
 
-
+n = 50000; A = BandedMatrix(1 => 0.49*ones(n-1),-1 => -0.49*ones(n-1)); B = [I;zeros(n-2,2)];
+@time Z, info = plyapdi(A, B; abstol = 1e-12, reltol = 0, maxiter = 100, shifts = missing, nshifts = 6);
+@test info.res_fact < 1.e-6 
 
 # continuous case    
 n = 30; r = 5; B = [rand(r,2);zeros(n-r,2)]; C = [zeros(3,n-r) rand(3,r)];
