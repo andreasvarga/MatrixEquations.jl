@@ -73,7 +73,7 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
 
    if ishermitian(A)
       # Reduce A to diagonal form and transform C
-      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+      if VERSION < v"1.12" || T2 <: BlasFloat
          AS, Q = schur(Hermitian(A))
       else
          AS, Q = schur(A)
@@ -306,7 +306,7 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
 
    if ishermitian(A)
       # Reduce A to diagonal form and transform C
-      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+      if VERSION < v"1.12" || T2 <: BlasFloat
          AS, Q = schur(Hermitian(A))
       else
          AS, Q = schur(A)

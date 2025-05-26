@@ -82,7 +82,7 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if ishermitian(A) && ishermitian(B)
-      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+      if VERSION < v"1.12" || T2 <: BlasFloat
          RA, QA = schur(Hermitian(A))
          RB, QB = schur(Hermitian(B))
       else
@@ -198,7 +198,7 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if ishermitian(A) && ishermitian(B)
-      @static if VERSION < v"1.12" || T2 <: BlasFloat     
+      if VERSION < v"1.12" || T2 <: BlasFloat
          RA, QA = schur(Hermitian(A))
          RB, QB = schur(Hermitian(B))
       else
