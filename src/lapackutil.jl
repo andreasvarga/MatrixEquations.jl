@@ -138,6 +138,7 @@ Returns `X` (overwriting `C`) and `scale`.
 The block-algorithm of [1] and [2] is used. 
 
 References:
+
 [1] E. S. Quintana-Orti and R. A. Van De Geijn (2003). Formal derivation of
     algorithms: The triangular Sylvester equation, ACM Transactions
     on Mathematical Software (TOMS), volume 29, pages 218-243.

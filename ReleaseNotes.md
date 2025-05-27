@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.5.1
+Version bump to enforce compatibility with last version of `GenericSchur`.
+
 ## Version 2.5.0
 Version bump to enforce compatibility with Julia's LTS version.
 New iterative solvers for positive Lyapunov equations based on low-rank ADI methods. 

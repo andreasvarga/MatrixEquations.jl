@@ -82,14 +82,16 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if ishermitian(A) && ishermitian(B)
-      @static if VERSION < v"1.12" || T2 <: BlasFloat     
-         RA, QA = schur(Hermitian(A))
-         RB, QB = schur(Hermitian(B))
-      else
-         # fallback for GenericSchur on nightly platforms
-         RA, QA = schur(A)
-         RB, QB = schur(B)
-      end
+      RA, QA = schur(Hermitian(A))
+      RB, QB = schur(Hermitian(B))
+      # @static if VERSION < v"1.12" || T2 <: BlasFloat     
+      #    RA, QA = schur(Hermitian(A))
+      #    RB, QB = schur(Hermitian(B))
+      # else
+      #    # fallback for GenericSchur on nightly platforms
+      #    RA, QA = schur(A)
+      #    RB, QB = schur(B)
+      # end
    else
       if adjA
          RA, QA = schur(A.parent)
@@ -198,14 +200,16 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
    adjA = isa(A,Adjoint)
    adjB = isa(B,Adjoint)
    if ishermitian(A) && ishermitian(B)
-      @static if VERSION < v"1.12" || T2 <: BlasFloat     
-         RA, QA = schur(Hermitian(A))
-         RB, QB = schur(Hermitian(B))
-      else
-         # fallback for GenericSchur on nightly platforms
-         RA, QA = schur(A)
-         RB, QB = schur(B)
-      end
+      RA, QA = schur(Hermitian(A))
+      RB, QB = schur(Hermitian(B))
+      # @static if VERSION < v"1.12" || T2 <: BlasFloat     
+      #    RA, QA = schur(Hermitian(A))
+      #    RB, QB = schur(Hermitian(B))
+      # else
+      #    # fallback for GenericSchur on nightly platforms
+      #    RA, QA = schur(A)
+      #    RB, QB = schur(B)
+      # end
    else
       if adjA
          RA, QA = schur(A.parent)
