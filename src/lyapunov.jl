@@ -74,11 +74,6 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    if ishermitian(A)
       # Reduce A to diagonal form and transform C
       AS, Q = schur(Hermitian(A))
-      # @static if VERSION < v"1.12" || T2 <: BlasFloat     
-      #    AS, Q = schur(Hermitian(A))
-      # else
-      #    AS, Q = schur(A)
-      # end
    else
       # Reduce A to Schur form and transform C
       if adj
@@ -308,11 +303,6 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix)
    if ishermitian(A)
       # Reduce A to diagonal form and transform C
       AS, Q = schur(Hermitian(A))
-      # @static if VERSION < v"1.12" || T2 <: BlasFloat     
-      #    AS, Q = schur(Hermitian(A))
-      # else
-      #    AS, Q = schur(A)
-      # end
    else
       # Reduce A to Schur form and transform C
       if adj
@@ -2257,7 +2247,7 @@ function tlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
     eltype(A) == T2 || (A = convert(Matrix{T2},A))
     eltype(C) == T2 || (C = convert(Matrix{T2},C))
     if fast 
-       @static VERSION < v"1.7.0" ? F = qr(A, Val(true)) : F = qr(A, ColumnNorm())
+       F = qr(A, ColumnNorm())
        tol = max(atol, rtol*norm(F.R,Inf))
        r = count(x -> abs(x) > tol, diag(F.R))
        Ct = F.Q'*C*conj(Matrix(F.Q))
@@ -2315,7 +2305,7 @@ function hlyapc(A, C, isig = 1; fast::Bool = true, atol::Real = 0.0, rtol::Real 
    eltype(A) == T2 || (A = convert(Matrix{T2},A))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
    if fast 
-      @static VERSION < v"1.7.0" ? F = qr(A, Val(true)) : F = qr(A, ColumnNorm())
+      F = qr(A, ColumnNorm())
       tol = max(atol, rtol*norm(F.R,Inf))
       r = count(x -> abs(x) > tol, diag(F.R))
       Ct = F.Q'*C*F.Q
