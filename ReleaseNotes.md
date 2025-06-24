@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.5.2
+Fix improper error message for some singular Lyapunov equations. 
+
 ## Version 2.5.1
 Version bump to enforce compatibility with last version of `GenericSchur`.
 

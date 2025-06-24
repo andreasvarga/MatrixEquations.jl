@@ -475,6 +475,7 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    if isdiag(A) 
       for i = 1:n
          C[i,i] = -C[i,i]/(2*A[i,i])
+         isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) = 0")
          for j = i+1:n
             C[i,j] = -C[i,j]/(A[i,i]+A[j,j])
             isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
@@ -763,6 +764,7 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
       if adj 
          for i = 1:n
             C[i,i] = -C[i,i]/(2*real(A[i,i]))
+            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) = 0")
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]'+A[j,j])
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
@@ -772,6 +774,7 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
       else
          for i = 1:n
             C[i,i] = -C[i,i]/(2*real(A[i,i]))
+            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) = 0")
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]+A[j,j]')
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
@@ -1327,9 +1330,10 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    if isdiag(A) 
       for i = 1:n
          C[i,i] = -C[i,i]/(A[i,i]*A[i,i]-ONE)
+         isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) = 1")
          for j = i+1:n
             C[i,j] = -C[i,j]/(A[i,i]*A[j,j]-ONE)
-            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that αβ = 1")
             C[j,i] = C[i,j]
          end
       end
@@ -1672,9 +1676,10 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
       if adj 
          for i = 1:n
             C[i,i] = -C[i,i]/(abs(A[i,i])^2-RONE)
+            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) α such that |α| = 1")
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]'*A[j,j]-ONE)
-               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that αβ' = 1")
                C[j,i] = C[i,j]'
             end
          end
@@ -1732,7 +1737,7 @@ function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
             end
             temp = ONE-A[k,k]'*A[l,l]
             C[l,k] = y/temp
-            isfinite(C[l,k]) || throw("ME:SingularException: A has eigenvalues α and β such that αβ ≈ 1")
+            isfinite(C[l,k]) || throw("ME:SingularException: A has eigenvalues α and β such that αβ' ≈ 1")
             k == l && (C[k,k] = real(C[k,k]))
             if k > l
                C[k,l] += (A[l,l]*C[l,k])'
