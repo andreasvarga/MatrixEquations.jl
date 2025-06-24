@@ -68,6 +68,10 @@ catch
   @test true
 end  
 
+#innocent singularity
+x = lyapc([2 1 0; 1 2 0; 0 0 0], zeros(3,3))
+@test x == zeros(3,3)
+
 for Ty in (Float64, Float32, BigFloat, Double64)
 
 ar = rand(Ty,n,n); ars = Symmetric(ar);

@@ -474,7 +474,10 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
       throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
    if isdiag(A) 
       for i = 1:n
-         C[i,i] = -C[i,i]/(2*A[i,i])
+         if A[i,i] != 0 || C[i,i] != 0
+             C[i,i] = -C[i,i]/(2*A[i,i])
+         end
+         isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) == 0")
          for j = i+1:n
             C[i,j] = -C[i,j]/(A[i,i]+A[j,j])
             isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
