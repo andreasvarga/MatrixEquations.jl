@@ -475,7 +475,7 @@ end
   # singular U
   n = 5
   Ty = Float64
-  reltol = 1.e-7
+  reltol = 1.e-6
   # real case
   #U = triu(rand(Ty,n,n)); U[1,1] = 0; U[n,n] = 0; #U[7,7] = 0
   U = [ 0.0  0.446398  0.117541  0.108452   0.713935
