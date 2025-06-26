@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.5.3
+Fix a bug in `ghsylvi`. 
+
 ## Version 2.5.2
 Fix improper error message for some singular Lyapunov equations. 
 

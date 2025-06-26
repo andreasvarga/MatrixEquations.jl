@@ -1637,8 +1637,10 @@ struct GeneralizedTSylvesterMap{T,TA,TB,TC,TD,TH<:TtypeOrHtype} <: SylvesterMatr
           if m < 0 
              m = size(A[i],1)
              mx < 0 ? mx = size(A[i],2) : (mx == size(A[i],2) || throw(DimensionMismatch("all matrices in vector A must have column dimension $mx but A[$i] has column dimension $(size(A[i],2))")) )
-             (squareA && m !== mx) && throw(DimensionMismatch("all matrices in vector A must be square")) 
+             (squareA && m != mx) && throw(DimensionMismatch("all matrices in vector A must be square")) 
              continue
+          else
+             mx < 0 && (mx = size(A[i],2))
           end
           (m == size(A[i],1) && mx == size(A[i],2)) || throw(DimensionMismatch("all matrices in vector A must have the same dimensions"))
       end
@@ -1647,8 +1649,10 @@ struct GeneralizedTSylvesterMap{T,TA,TB,TC,TD,TH<:TtypeOrHtype} <: SylvesterMatr
          if n < 0 
             n = size(B[i],2)
             nx < 0 ? nx = size(B[i],1) : (nx == size(B[i],1) || throw(DimensionMismatch("all matrices in vector B must have row dimension $nx but B[$i] has row dimension $(size(B[i],1))")) )
-            (squareB && n !== nx) && throw(DimensionMismatch("all matrices in vector B must be square")) 
+            (squareB && n != nx) && throw(DimensionMismatch("all matrices in vector B must be square")) 
             continue
+         else
+            nx < 0 && (nx = size(B[i],1)) 
          end
          (n == size(B[i],2) && nx == size(B[i],1)) || throw(DimensionMismatch("all matrices in vector B must have the same dimensions"))
       end
@@ -1657,8 +1661,10 @@ struct GeneralizedTSylvesterMap{T,TA,TB,TC,TD,TH<:TtypeOrHtype} <: SylvesterMatr
           if m < 0 
              m = size(C[i],1)
              nx < 0 ? nx = size(C[i],2) : (nx == size(C[i],2) || throw(DimensionMismatch("all matrices in vector C must have column dimension $nx but C[$i] has column dimension $(size(C[i],2))")) )
-             (squareC && m == nx) || throw(DimensionMismatch("all matrices in vector C must be square")) 
+             (squareC && m != nx) && throw(DimensionMismatch("all matrices in vector C must be square")) 
              continue
+          else
+             nx < 0 && (nx = size(C[i],2))
           end
           (m == size(C[i],1) && nx == size(C[i],2)) || throw(DimensionMismatch("all matrices in vector C must have the same dimensions"))
       end
@@ -1667,8 +1673,10 @@ struct GeneralizedTSylvesterMap{T,TA,TB,TC,TD,TH<:TtypeOrHtype} <: SylvesterMatr
           if n < 0 
              n = size(D[i],2)
              mx < 0 ? mx = size(D[i],1) : (mx == size(D[i],1) || throw(DimensionMismatch("all matrices in vector D must have row dimension $mx but D[$i] has row dimension $(size(D[i],1))")) )
-             (squareD && n !== mx) && throw(DimensionMismatch("all matrices in vector D must be square")) 
+             (squareD && n != mx) && throw(DimensionMismatch("all matrices in vector D must be square")) 
              continue
+          else 
+             mx < 0 && (mx = size(D[i],1))             
           end
           (n == size(D[i],2) && mx == size(D[i],1)) || throw(DimensionMismatch("all matrices in vector D must have the same dimensions"))
       end

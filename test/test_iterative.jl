@@ -11,6 +11,7 @@ using IterativeSolvers
 using BandedMatrices
 using LinearMaps
 using JLD2
+using KrylovKit
 
 
 
@@ -404,6 +405,27 @@ end
             @test norm(LH*vec(X)-vec(E))/norm(X) < 10*reltol       
         end
     end
+
+    # Example from https://discourse.julialang.org/t/solve-linear-system-under-hermitian-constraint/130158/9
+    m, n = 1000, 123 
+    A = randn(ComplexF64, m,n); B = hermitianpart!(randn(ComplexF64,m,m)) * A;
+    @time X, info = ghsylvi([I],[A'*A],[A],[A],B,reltol=1.e-14);
+    @test norm(X*A'*A+A*X'*A-B) < 1.e-7
+
+    # the same with KrylovKit
+    @time λ, = linsolve(y -> let Y = reshape(y,m,n); vec(A*(Y'*A)+Y*(A'*A)); end, vec(B));
+    X1 = reshape(λ, m, n)
+    @test norm(X-X1) < 1.e-7
+
+    # the same with lyapc
+    @time X2 = lyapc(A*A', -(A*B'+B*A'))
+    @test norm(X2*A-B)/norm(X2) < 1.e-7
+
+    # the same with lyapci
+    @time X3, = lyapci(A*A', -(A*B'+B*A'),reltol=1.e-10);
+    @test norm(X3*A-B)/norm(X3) < 1.e-7
+
+
 
     A = [I,Matrix(rand(4,4))]
     B = [I, Matrix(rand(4,4))]
