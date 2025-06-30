@@ -477,7 +477,6 @@ function LinearMaps._unsafe_mul!(y::AbstractVector, L::LyapunovMap{T,TA,Continuo
    T1 = promote_type(T, eltype(x))
    if L.her
       X = vec2triu(convert(AbstractVector{T1}, x), her=true)
-      #y[:] = triu2vec(L.A*X + X*L.A')
       mulcsym!(y, L.A, X)
    else
       X = reshape(convert(AbstractVector{T1}, x), n, n)
@@ -495,8 +494,7 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       T1 = promote_type(T, eltype(y))
       if L.lmap.her
          Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
-         #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
-         mulcsym!(x, L.lmap.A', Y, dual = true)
+         mulcsym!(x, L.lmap.A, Y, dual = true)
       else
          Y = reshape(convert(AbstractVector{T1}, y), n, n)
          # (x[:] = (L.A'*Y + Y*L.A)[:])
@@ -507,16 +505,16 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       return x
    end
 end
-   
-function mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix; dual = false)
+function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, X::AbstractMatrix{T}; dual = false) where {T <: Real}
    require_one_based_indexing(y, A, X)
    # A*X + X*A'
    n = size(A, 1)
-   if dual 
-      #Y = A*X+X*A'
+   Y = similar(X, n, n)
+   if dual
+      #Y = A'*X+X*A
       Y = similar(X, n, n)
-      mul!(Y, X, A')
-      mul!(Y, A, X, true, true)
+      mul!(Y, X, A)
+      mul!(Y, A', X, true, true)
       # y[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
       @inbounds begin
          k = 1
@@ -527,20 +525,16 @@ function mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix; dual 
             end
          end
       end
-      return y
-   end
-   ZERO = zero(eltype(y))
-   @inbounds begin
-      k = 1
-      for j = 1:n
-         for i = 1:j
-            temp = ZERO
-            for l = 1:n
-               temp += A[i,l] * X[l,j] + X[i,l] * conj(A[j,l])
-            end
-            y[k] = temp
-            k += 1
-         end
+   else
+      mul!(Y, A, X)
+      @inbounds begin
+         k = 1
+         for j = 1:n
+             for i = 1:j
+                 y[k] = Y[i,j] + Y[j,i]
+                 k += 1
+             end
+        end
       end
    end
    return y
@@ -707,9 +701,10 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       n = size(L.lmap.A, 1)
       T1 = promote_type(T, eltype(y))
       if L.lmap.her
-         Y = vec2triu(convert(AbstractVector{T1}, y), her=false)
+         Y = UpperTriangular(vec2triu(convert(AbstractVector{T1}, y), her=false))
          #x[:] = triu2vec(L.lmap.A'*Y + Y*L.lmap.A)
-         mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
+         #mulcsym!(x, L.lmap.A', L.lmap.E',  Y, dual = true)
+         mulcsym!(x, L.lmap.A, L.lmap.E,  Y, dual = true)
       else
          X = reshape(x, n, n)
          Y = reshape(convert(AbstractVector{T1}, y), n, n)
@@ -723,19 +718,12 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       return x
    end
 end
-function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix; dual = false)
+function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, E::AbstractMatrix{T}, X::AbstractMatrix{T}; dual = false) where {T <: Real}
    require_one_based_indexing(y, A)
-   # AXE' + EXA'
    n = size(A, 1)
-   Y = similar(X, n, n)
    if dual 
-      #Y = AXE' + EXA'
-      Y = similar(X, n, n)
-      temp = similar(Y, (n, n))
-      mul!(temp, E, X)
-      mul!(Y, temp, A')
-      mul!(temp, X, E')
-      mul!(Y, A, temp, 1, 1)
+      # A'XE + E'XA with X upper triangular
+      Y = E'*(X*A) + A'*(X*E)
       # y[:] = triu2vec(Y+transpose(Y)-Diagonal(Y))
       @inbounds begin
          k = 1
@@ -747,22 +735,16 @@ function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::Ab
          end
       end
    else
-      ZERO = zero(eltype(y))
-      # Y = XE'
-      mul!(Y, X, E')
-      # AY + Y'A'
-      @inbounds  begin
+      # AXE' + EXA' with X symmetric
+      Y = (A*X)*E'
+      @inbounds begin
          k = 1
          for j = 1:n
-            for i = 1:j
-               temp = ZERO
-               for l = 1:n
-                  temp += A[i,l] * Y[l,j] + conj(Y[l,i] * A[j,l])
-               end
-               y[k] = temp
-               k += 1
-            end
-         end
+             for i = 1:j
+                 y[k] = Y[i,j] + Y[j,i]
+                 k += 1
+             end
+        end
       end
    end
    return y

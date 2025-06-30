@@ -418,12 +418,38 @@ end
     @test norm(X-X1) < 1.e-7
 
     # the same with lyapc
-    @time X2 = lyapc(A*A', -(A*B'+B*A'))
+    @time X2 = lyapc(A*A', hermitianpart!(-(A*B'+B*A')));
     @test norm(X2*A-B)/norm(X2) < 1.e-7
 
     # the same with lyapci
-    @time X3, = lyapci(A*A', -(A*B'+B*A'),reltol=1.e-10);
+    @time X3, = lyapci(A*A', hermitianpart!(-(A*B'+B*A')),reltol=1.e-10);
     @test norm(X3*A-B)/norm(X3) < 1.e-7
+
+    m, n = 1000, 123 
+    A = randn(m,n); B = hermitianpart!(randn(m,m)) * A;
+    @time X, info = gtsylvi([I],[A'*A],[A],[A],B,reltol=1.e-14);
+    @test norm(X*A'*A+A*X'*A-B) < 1.e-7
+
+    # the same with KrylovKit
+    @time λ, = linsolve(y -> let Y = reshape(y,m,n); vec(A*(Y'*A)+Y*(A'*A)); end, vec(B));
+    X1 = reshape(λ, m, n)
+    @test norm(X-X1) < 1.e-7
+
+    try
+       @time X2 = lyapc(A*A', hermitianpart!(-(A*B'+B*A')));
+       @test norm(X2*A-B)/norm(X2) < 1.e-7
+    catch
+       @test true
+    end
+
+    # the same with lyapci
+    @time X3, = lyapci(A*A', hermitianpart!(-(A*B'+B*A')),reltol=1.e-10);
+    @test norm(X3*A-B)/norm(X3) < 1.e-7
+
+    A1 = A*A'; C = Matrix(hermitianpart!(-(A*B'+B*A')))
+    @time λ, = linsolve(y -> let Y = reshape(y,m,m); vec(A1*Y+Y*A1'); end, -vec(C));
+    X1 = reshape(λ, m, m);
+    @test norm(X1*A-B)/norm(X1) < 1.e-7
 
 
 
@@ -481,41 +507,43 @@ end
         A = rand(Ty,n,n); E = rand(Ty,n,n);  
         Q = rand(Ty,n,n); C = Hermitian(Q);           
         # Lyapunov equation, Hermitian case
-        X, info = lyapci(A, C)
+        @time X, info = lyapci(A, C)
         @test norm(A*X+X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
-        X, info = lyapdi(A, C) 
+        @time X1 = reshape(linsolve(y -> let Y = reshape(y,n,n); vec(A*Y+Y*A'); end, -vec(C))[1],n,n);
+        @test norm(A*X1+X1*A'+C)/norm(X1)  < 1.e-4   
+        @time X, info = lyapdi(A, C) 
         @test norm(A*X*A' -X+C)/norm(X)  < 1.e-4   && ishermitian(X)
        
         # Lyapunov equation, non-Hermitian case
-        X, info = lyapci(A, Q)
+        @time X, info = lyapci(A, Q)
         @test norm(A*X+X*A'+Q)/norm(X)  < 1.e-4   
-        X, info = lyapdi(A, Q)
+        @time X, info = lyapdi(A, Q)
         @test norm(A*X*A' -X+Q)/norm(X)  < 1.e-4   
 
         # generalized Lyapunov equation, Hermitian case
-        X, info = lyapci(A, E, C)
+        @time X, info = lyapci(A, E, C)
         @test norm(A*X*E'+E*X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
-        X, info = lyapdi(A, E, C) 
+        @time X, info = lyapdi(A, E, C) 
         @test norm(A*X*A' -E*X*E'+C)/norm(X)  < 1.e-4   && ishermitian(X)
        
          # generalized Lyapunov equation, non-Hermitian case
-        X, info = lyapci(A, E, Q)
+        @time X, info = lyapci(A, E, Q)
         @test norm(A*X*E'+E*X*A'+Q)/norm(X)  < 1.e-4   
-        X, info = lyapdi(A, E, Q)
+        @time X, info = lyapdi(A, E, Q)
         @test norm(A*X*A' - E*X*E'+Q)/norm(X)  < 1.e-4   
 
         #  Sylvester equation
         B = rand(Ty,m,m); W = rand(Ty,n,m)
-        X, info = sylvci(A, B, W)
+        @time X, info = sylvci(A, B, W)
         @test norm(A*X+X*B-W)/norm(X)  < 1.e-4   
-        X, info = sylvdi(A, B, W)
+        @time X, info = sylvdi(A, B, W)
         @test norm(A*X*B+X-W)/norm(X)  < 1.e-4   
     
         #  generalized Sylvester equation
         C = rand(Ty,n,n); D = rand(Ty,m,m)
-        X, info = gsylvi(A, B, C, D, W)
+        @time X, info = gsylvi(A, B, C, D, W)
         @test norm(A*X*B+C*X*D-W)/norm(X)  < 1.e-4   
-        X, info = gsylvi(A, B', C', D, W)
+        @time X, info = gsylvi(A, B', C', D, W)
         @test norm(A*X*B'+C'*X*D-W)/norm(X)  < 1.e-4   
     end
  

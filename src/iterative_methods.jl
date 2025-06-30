@@ -15,9 +15,9 @@ function lyapci(A::AbstractMatrix, C::AbstractMatrix; abstol = zero(float(real(e
     LinearAlgebra.checksquare(C) == n ||
         throw(DimensionMismatch("C must be a square matrix of dimension $n"))
     sym = isreal(A) && isreal(C) && issymmetric(C) 
-    her = ishermitian(C)
+    her = ishermitian(C) 
     LT = lyapop(A; her = sym)
-    
+
     if sym 
        xt, info = cgls(LT,-triu2vec(C); abstol, reltol, maxiter)
     else
@@ -1232,7 +1232,7 @@ function cgls!(x, WS, A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(
  
     #s = A'*r-shift*x
     mul!(s,adjointA,r)
-    shift == 0 || axpy!(-shift, x, s)
+   shift == 0 || axpy!(-shift, x, s)
         
     # Initialize
     p      .= s
@@ -1251,7 +1251,6 @@ function cgls!(x, WS, A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(
     # Main loop
     #--------------------------------------------------------------------------
     while (k < maxiter) && (flag == 0)
-        
         k += 1
         
         #q = A*p;
@@ -1286,6 +1285,7 @@ function cgls!(x, WS, A, b; shift = 0, abstol = 0, reltol = 1e-6, maxiter = max(
         
         # Output
         resNE = norms / norms0; 
+        #@show k, resNE
         isnan(resNE) && (resNE = zero(norms))
  
     end # while
