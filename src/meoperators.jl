@@ -505,7 +505,7 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       return x
    end
 end
-function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, X::AbstractMatrix{T}; dual = false) where {T <: Real}
+function mulcsym!(y::AbstractVector, A::AbstractMatrix, X::AbstractMatrix; dual = false) 
    require_one_based_indexing(y, A, X)
    # A*X + X*A'
    n = size(A, 1)
@@ -520,7 +520,7 @@ function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, X::AbstractMatrix{
          k = 1
          for j = 1:n
             for i = 1:j
-               y[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
+               y[k] = i == j ? Y[j,j] : Y[i,j] + conj(Y[j,i])
                k += 1
             end
          end
@@ -531,7 +531,7 @@ function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, X::AbstractMatrix{
          k = 1
          for j = 1:n
              for i = 1:j
-                 y[k] = Y[i,j] + Y[j,i]
+                 y[k] = Y[i,j] + conj(Y[j,i])
                  k += 1
              end
         end
@@ -718,7 +718,7 @@ for ttype in (LinearMaps.TransposeMap, LinearMaps.AdjointMap)
       return x
    end
 end
-function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, E::AbstractMatrix{T}, X::AbstractMatrix{T}; dual = false) where {T <: Real}
+function mulcsym!(y::AbstractVector, A::AbstractMatrix, E::AbstractMatrix, X::AbstractMatrix; dual = false) 
    require_one_based_indexing(y, A)
    n = size(A, 1)
    if dual 
@@ -729,7 +729,7 @@ function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, E::AbstractMatrix{
          k = 1
          for j = 1:n
             for i = 1:j
-               y[k] = i == j ? Y[j,j] : Y[i,j] + Y[j,i]
+               y[k] = i == j ? Y[j,j] : Y[i,j] + conj(Y[j,i])
                k += 1
             end
          end
@@ -741,7 +741,7 @@ function mulcsym!(y::AbstractVector{T}, A::AbstractMatrix{T}, E::AbstractMatrix{
          k = 1
          for j = 1:n
              for i = 1:j
-                 y[k] = Y[i,j] + Y[j,i]
+                 y[k] = Y[i,j] + conj(Y[j,i])
                  k += 1
              end
         end
