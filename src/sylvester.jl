@@ -595,7 +595,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
    """
    This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
    Reference:
@@ -608,28 +608,28 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       if T1 <: Real || (!adjA && !adjB)
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+               C[i,j] = C[i,j]/(A[i,i]+isgn*B[j,j])
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
       elseif !adjA && adjB
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]+B[j,j]')
+               C[i,j] = C[i,j]/(A[i,i]+isgn*B[j,j]')
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
       elseif adjA && !adjB
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]'+B[j,j])
+               C[i,j] = C[i,j]/(A[i,i]'+isgn*B[j,j])
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
       else
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]'+B[j,j]')
+               C[i,j] = C[i,j]/(A[i,i]'+isgn*B[j,j]')
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
@@ -639,9 +639,9 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    try
       trans = T1 <: Complex ? 'C' : 'T'
       @static if VERSION < v"1.12"
-         C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+         C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C, isgn)
       else
-         C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C)
+         C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C, isgn)
       end
       rmul!(C, inv(scale))
       return C[:,:]
@@ -650,7 +650,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; 
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn = 1; 
                  adjA::Bool = false, adjB::Bool = false) where T1<:Real
    """
    The Bartels-Stewart Schur form based approach [1] is employed.
@@ -664,7 +664,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    if isdiag(A) && isdiag(B)
       for i = 1:m
          for j = 1:n
-            C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+            C[i,j] = C[i,j]/(A[i,i]+isgn*B[j,j])
             isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
          end
       end
@@ -707,9 +707,9 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,view(A,k,ir),view(C,ir,l),-ONE,ONE)
               end
               if ll > 1
-                 mul!(y,view(C,k,il1),view(B,il1,l),-ONE,ONE)
+                 mul!(y,view(C,k,il1),view(B,il1,l),-isgn*ONE,ONE)
               end
-              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw) 
               i -= dk
           end
           j += dl
@@ -742,9 +742,9 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(y,view(A,k,ir),view(C,ir,l),-ONE,ONE)
                  end
                  if ll < pb
-                    mul!(y,view(C,k,il1),transpose(view(B,l,il1)),-ONE,ONE)
+                    mul!(y,view(C,k,il1),transpose(view(B,l,il1)),-isgn*ONE,ONE)
                  end
-                 sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+                 sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw) 
                  i -= dk
              end
              j -= dl
@@ -776,9 +776,9 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,transpose(view(A,ir,k)),view(C,ir,l),-ONE,ONE)
               end
               if ll > 1
-                 mul!(y,view(C,k,il1),view(B,il1,l),-ONE,ONE)
+                 mul!(y,view(C,k,il1),view(B,il1,l),-isgn*ONE,ONE)
               end
-              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw) 
               i += dk
           end
           j += dl
@@ -810,9 +810,9 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,transpose(view(A,ir,k)),view(C,ir,l),-ONE,ONE)
               end
               if ll < pb
-                 mul!(y,view(C,k,il1),transpose(view(B,l,il1)),-ONE,ONE)
+                 mul!(y,view(C,k,il1),transpose(view(B,l,il1)),-isgn*ONE,ONE)
               end
-              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw) 
+              sylvc2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw) 
               i += dk
           end
           j -= dl
@@ -820,7 +820,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; 
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn = 1; 
                  adjA::Bool = false, adjB::Bool = false) where T1<:Complex
    """
    The Bartels-Stewart Schur form based approach [1] is employed.
@@ -835,28 +835,28 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       if !adjA && !adjB
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]+B[j,j])
+               C[i,j] = C[i,j]/(A[i,i]+isgn*B[j,j])
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
       elseif !adjA && adjB
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]+B[j,j]')
+               C[i,j] = C[i,j]/(A[i,i]+isgn*B[j,j]')
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
       elseif adjA && !adjB
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]'+B[j,j])
+               C[i,j] = C[i,j]/(A[i,i]'+isgn*B[j,j])
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
       else
          for i = 1:m
             for j = 1:n
-               C[i,j] = C[i,j]/(A[i,i]'+B[j,j]')
+               C[i,j] = C[i,j]/(A[i,i]'+isgn*B[j,j]')
                isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
             end
          end
@@ -887,10 +887,10 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               end
               if l > 1
                  for ir = il1
-                     y -= C[k,ir]*B[ir,l]
+                     y -= isgn*C[k,ir]*B[ir,l]
                  end
               end
-              C[k,l] = y/(A[k,k]+B[l,l])
+              C[k,l] = y/(A[k,k]+isgn*B[l,l])
               isfinite(C[k,l]) || throw("ME:SingularException: A and -B have common or close eigenvalues")
           end
       end
@@ -917,10 +917,10 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  end
                  if l < n
                     for ir = il1
-                        y -= C[k,ir]*B[l,ir]'
+                        y -= isgn*C[k,ir]*B[l,ir]'
                     end
                  end
-                 C[k,l] = y/(A[k,k]+B[l,l]')
+                 C[k,l] = y/(A[k,k]+isgn*B[l,l]')
                  isfinite(C[k,l]) || throw("ME:SingularException: A and -B' have common or close eigenvalues")
              end
          end
@@ -947,10 +947,10 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
               end
               if l > 1
                  for ir = il1
-                     y -= C[k,ir]*B[ir,l]
+                     y -= isgn*C[k,ir]*B[ir,l]
                  end
               end
-              C[k,l] = y/(A[k,k]'+B[l,l])
+              C[k,l] = y/(A[k,k]'+isgn*B[l,l])
               isfinite(C[k,l]) || throw("ME:SingularException: A' and -B have common or close eigenvalues")
           end
       end
@@ -977,10 +977,10 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                end
                if l < n
                   for ir = il1
-                      y -= C[k,ir]*B[l,ir]'
+                      y -= isgn*C[k,ir]*B[l,ir]'
                  end
                end
-              C[k,l] = y/(A[k,k]'+B[l,l]')
+              C[k,l] = y/(A[k,k]'+isgn*B[l,l]')
               isfinite(C[k,l]) || throw("ME:SingularException: A' and -B' have common or close eigenvalues")
           end
       end
@@ -2006,14 +2006,14 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return E
 end
-function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
+function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},isgn::Int, Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
    #      A*X + X*B = C     if adjA = false and adjB = false -> R = kron(I,A)  + kron(B',I) 
    #      A'*X + X*B = C    if adjA = true and adjB = false  -> R = kron(I,A') + kron(B',I)
    #      A*X + X*B' = C    if adjA = false and adjB = true  -> R = kron(I,A)   + kron(B,I)
    #      A'*X + X*B' = C   if adjA = true and adjB = true   -> R = kron(I,A')  + kron(B,I)
    if na == 1 && nb == 1
-      temp = A[1,1] + B[1,1]
+      temp = A[1,1] + isgn*B[1,1]
       rmul!(C,inv(temp))
       any(!isfinite, C) &&  throw("ME:SingularException: `A` and `-B` have common eigenvalues")
       return C
@@ -2027,129 +2027,261 @@ function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::Ab
    if !adjA && !adjB
       #R = kron(I,A) + kron(transpose(B),I)
       if na == 1
-         @inbounds  R[1,1] = A[1,1]+B[1,1]
-         @inbounds  R[1,2] = B[2,1]
-         @inbounds  R[2,1] = B[1,2]
-         @inbounds  R[2,2] = A[1,1]+B[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = B[2,1]
+            @inbounds  R[2,1] = B[1,2]
+            @inbounds  R[2,2] = A[1,1]+B[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]-B[1,1]
+            @inbounds  R[1,2] = -B[2,1]
+            @inbounds  R[2,1] = -B[1,2]
+            @inbounds  R[2,2] = A[1,1]-B[2,2]
+         end
       else
          if nb == 1
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[1,2]
-            @inbounds  R[2,1] = A[2,1]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+            end
          else
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[1,2]
-            @inbounds  R[1,3] = B[2,1]
-            @inbounds  R[1,4] = ZERO
-            @inbounds  R[2,1] = A[2,1]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
-            @inbounds  R[2,3] = ZERO
-            @inbounds  R[2,4] = B[2,1]
-            @inbounds  R[3,1] = B[1,2]
-            @inbounds  R[3,2] = ZERO
-            @inbounds  R[3,3] = A[1,1]+B[2,2]
-            @inbounds  R[3,4] = A[1,2]
-            @inbounds  R[4,1] = ZERO
-            @inbounds  R[4,2] = B[1,2]
-            @inbounds  R[4,3] = A[2,1]
-            @inbounds  R[4,4] = A[2,2]+B[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[1,3] = B[2,1]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = B[2,1]
+               @inbounds  R[3,1] = B[1,2]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]+B[2,2]
+               @inbounds  R[3,4] = A[1,2]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = B[1,2]
+               @inbounds  R[4,3] = A[2,1]
+               @inbounds  R[4,4] = A[2,2]+B[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[1,3] = -B[2,1]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = -B[2,1]
+               @inbounds  R[3,1] = -B[1,2]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]-B[2,2]
+               @inbounds  R[3,4] = A[1,2]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = -B[1,2]
+               @inbounds  R[4,3] = A[2,1]
+               @inbounds  R[4,4] = A[2,2]-B[2,2]
+            end
          end
       end
    elseif adjA && !adjB
       #R = kron(I,transpose(A)) + kron(transpose(B),I)
       if na == 1
-         @inbounds  R[1,1] = A[1,1]+B[1,1]
-         @inbounds  R[1,2] = B[2,1]
-         @inbounds  R[2,1] = B[1,2]
-         @inbounds  R[2,2] = A[1,1]+B[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = B[2,1]
+            @inbounds  R[2,1] = B[1,2]
+            @inbounds  R[2,2] = A[1,1]+B[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]-B[1,1]
+            @inbounds  R[1,2] = -B[2,1]
+            @inbounds  R[2,1] = -B[1,2]
+            @inbounds  R[2,2] = A[1,1]-B[2,2]
+         end
       else
          if nb == 1
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[2,1]
-            @inbounds  R[2,1] = A[1,2]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+            end
          else
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[2,1]
-            @inbounds  R[1,3] = B[2,1]
-            @inbounds  R[1,4] = ZERO
-            @inbounds  R[2,1] = A[1,2]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
-            @inbounds  R[2,3] = ZERO
-            @inbounds  R[2,4] = B[2,1]
-            @inbounds  R[3,1] = B[1,2]
-            @inbounds  R[3,2] = ZERO
-            @inbounds  R[3,3] = A[1,1]+B[2,2]
-            @inbounds  R[3,4] = A[2,1]
-            @inbounds  R[4,1] = ZERO
-            @inbounds  R[4,2] = B[1,2]
-            @inbounds  R[4,3] = A[1,2]
-            @inbounds  R[4,4] = A[2,2]+B[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[1,3] = B[2,1]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = B[2,1]
+               @inbounds  R[3,1] = B[1,2]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]+B[2,2]
+               @inbounds  R[3,4] = A[2,1]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = B[1,2]
+               @inbounds  R[4,3] = A[1,2]
+               @inbounds  R[4,4] = A[2,2]+B[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[1,3] = -B[2,1]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = -B[2,1]
+               @inbounds  R[3,1] = -B[1,2]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]-B[2,2]
+               @inbounds  R[3,4] = A[2,1]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = -B[1,2]
+               @inbounds  R[4,3] = A[1,2]
+               @inbounds  R[4,4] = A[2,2]-B[2,2]
+            end
          end
       end
    elseif !adjA && adjB
       #R = kron(I,A) + kron(B,I)
       if na == 1
-         @inbounds  R[1,1] = A[1,1]+B[1,1]
-         @inbounds  R[1,2] = B[1,2]
-         @inbounds  R[2,1] = B[2,1]
-         @inbounds  R[2,2] = A[1,1]+B[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = B[1,2]
+            @inbounds  R[2,1] = B[2,1]
+            @inbounds  R[2,2] = A[1,1]+B[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]-B[1,1]
+            @inbounds  R[1,2] = -B[1,2]
+            @inbounds  R[2,1] = -B[2,1]
+            @inbounds  R[2,2] = A[1,1]-B[2,2]
+         end
       else
          if nb == 1
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[1,2]
-            @inbounds  R[2,1] = A[2,1]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+            end
          else
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[1,2]
-            @inbounds  R[1,3] = B[1,2]
-            @inbounds  R[1,4] = ZERO
-            @inbounds  R[2,1] = A[2,1]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
-            @inbounds  R[2,3] = ZERO
-            @inbounds  R[2,4] = B[1,2]
-            @inbounds  R[3,1] = B[2,1]
-            @inbounds  R[3,2] = ZERO
-            @inbounds  R[3,3] = A[1,1]+B[2,2]
-            @inbounds  R[3,4] = A[1,2]
-            @inbounds  R[4,1] = ZERO
-            @inbounds  R[4,2] = B[2,1]
-            @inbounds  R[4,3] = A[2,1]
-            @inbounds  R[4,4] = A[2,2]+B[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[1,3] = B[1,2]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = B[1,2]
+               @inbounds  R[3,1] = B[2,1]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]+B[2,2]
+               @inbounds  R[3,4] = A[1,2]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = B[2,1]
+               @inbounds  R[4,3] = A[2,1]
+               @inbounds  R[4,4] = A[2,2]+B[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[1,2]
+               @inbounds  R[1,3] = -B[1,2]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[2,1]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = -B[1,2]
+               @inbounds  R[3,1] = -B[2,1]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]-B[2,2]
+               @inbounds  R[3,4] = A[1,2]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = -B[2,1]
+               @inbounds  R[4,3] = A[2,1]
+               @inbounds  R[4,4] = A[2,2]-B[2,2]
+            end
         end
       end
    else
       #R = kron(I,transpose(A)) + kron(B,I)
       if na == 1
-         @inbounds  R[1,1] = A[1,1]+B[1,1]
-         @inbounds  R[1,2] = B[1,2]
-         @inbounds  R[2,1] = B[2,1]
-         @inbounds  R[2,2] = A[1,1]+B[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]+B[1,1]
+            @inbounds  R[1,2] = B[1,2]
+            @inbounds  R[2,1] = B[2,1]
+            @inbounds  R[2,2] = A[1,1]+B[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]-B[1,1]
+            @inbounds  R[1,2] = -B[1,2]
+            @inbounds  R[2,1] = -B[2,1]
+            @inbounds  R[2,2] = A[1,1]-B[2,2]
+         end
      else
          if nb == 1
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[2,1]
-            @inbounds  R[2,1] = A[1,2]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+            end
          else
-            @inbounds  R[1,1] = A[1,1]+B[1,1]
-            @inbounds  R[1,2] = A[2,1]
-            @inbounds  R[1,3] = B[1,2]
-            @inbounds  R[1,4] = ZERO
-            @inbounds  R[2,1] = A[1,2]
-            @inbounds  R[2,2] = A[2,2]+B[1,1]
-            @inbounds  R[2,3] = ZERO
-            @inbounds  R[2,4] = B[1,2]
-            @inbounds  R[3,1] = B[2,1]
-            @inbounds  R[3,2] = ZERO
-            @inbounds  R[3,3] = A[1,1]+B[2,2]
-            @inbounds  R[3,4] = A[2,1]
-            @inbounds  R[4,1] = ZERO
-            @inbounds  R[4,2] = B[2,1]
-            @inbounds  R[4,3] = A[1,2]
-            @inbounds  R[4,4] = A[2,2]+B[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]+B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[1,3] = B[1,2]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]+B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = B[1,2]
+               @inbounds  R[3,1] = B[2,1]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]+B[2,2]
+               @inbounds  R[3,4] = A[2,1]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = B[2,1]
+               @inbounds  R[4,3] = A[1,2]
+               @inbounds  R[4,4] = A[2,2]+B[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]-B[1,1]
+               @inbounds  R[1,2] = A[2,1]
+               @inbounds  R[1,3] = -B[1,2]
+               @inbounds  R[1,4] = ZERO
+               @inbounds  R[2,1] = A[1,2]
+               @inbounds  R[2,2] = A[2,2]-B[1,1]
+               @inbounds  R[2,3] = ZERO
+               @inbounds  R[2,4] = -B[1,2]
+               @inbounds  R[3,1] = -B[2,1]
+               @inbounds  R[3,2] = ZERO
+               @inbounds  R[3,3] = A[1,1]-B[2,2]
+               @inbounds  R[3,4] = A[2,1]
+               @inbounds  R[4,1] = ZERO
+               @inbounds  R[4,2] = -B[2,1]
+               @inbounds  R[4,3] = A[1,2]
+               @inbounds  R[4,4] = A[2,2]-B[2,2]
+            end
         end
       end
    end
