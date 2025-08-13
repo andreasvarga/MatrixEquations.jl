@@ -584,24 +584,25 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
    end
 end
 """
-    sylvcs!(A,B,C; adjA = false, adjB = false)
+    sylvcs!(A, B, C, isgn = 1; adjA = false, adjB = false)
 
 Solve the continuous Sylvester matrix equation
 
-                op(A)X + Xop(B) =  C,
+                op(A)X + isgn*Xop(B) =  C,
 
 where `op(A) = A` or `op(A) = A'` if `adjA = false` or `adjA = true`, respectively,
 and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively.
-`A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
+`A` and `B` are square matrices in Schur forms, and `A` and `-isgn*B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn::Int = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
    """
    This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
    Reference:
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+   abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    if isdiag(A) && isdiag(B)
@@ -650,7 +651,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn = 1; 
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn::Int = 1; 
                  adjA::Bool = false, adjB::Bool = false) where T1<:Real
    """
    The Bartels-Stewart Schur form based approach [1] is employed.
@@ -659,6 +660,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
        Comm. ACM, 15:820–826, 1972.
    """
+   abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    if isdiag(A) && isdiag(B)
@@ -752,7 +754,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    elseif adjA && !adjB
       # """
       # The (K,L)th element of X is determined starting from the
-      # upper-left corner column by column by
+      # upper-left corner column by column as
 
       #     A(K,K)'*X(K,L) + X(K,L)*B(L,L) = C(K,L) - R(K,L),
 
@@ -820,7 +822,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn = 1; 
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn::Int = 1; 
                  adjA::Bool = false, adjB::Bool = false) where T1<:Complex
    """
    The Bartels-Stewart Schur form based approach [1] is employed.
@@ -829,6 +831,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
        Comm. ACM, 15:820–826, 1972.
    """
+   abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
    m, n = size(C);
    [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    if isdiag(A) && isdiag(B)
@@ -2007,11 +2010,11 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    return E
 end
 function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},isgn::Int, Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
-   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
-   #      A*X + X*B = C     if adjA = false and adjB = false -> R = kron(I,A)  + kron(B',I) 
-   #      A'*X + X*B = C    if adjA = true and adjB = false  -> R = kron(I,A') + kron(B',I)
-   #      A*X + X*B' = C    if adjA = false and adjB = true  -> R = kron(I,A)   + kron(B,I)
-   #      A'*X + X*B' = C   if adjA = true and adjB = true   -> R = kron(I,A')  + kron(B,I)
+   # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations: 
+   #      A*X + isgn*X*B = C     if adjA = false and adjB = false -> R = kron(I,A)  + isgn*kron(B',I) 
+   #      A'*X + isgn*X*B = C    if adjA = true and adjB = false  -> R = kron(I,A') + isgn*kron(B',I)
+   #      A*X + isgn*X*B' = C    if adjA = false and adjB = true  -> R = kron(I,A)   + isgn*kron(B,I)
+   #      A'*X + isgn*X*B' = C   if adjA = true and adjB = true   -> R = kron(I,A')  + isgn*kron(B,I)
    if na == 1 && nb == 1
       temp = A[1,1] + isgn*B[1,1]
       rmul!(C,inv(temp))

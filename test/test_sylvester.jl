@@ -157,85 +157,48 @@ acs, = schur(ac);
 bcs, = schur(bc);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
-y = copy(cr); @time sylvcs!(as,bs,y)
-@test norm(as*y+y*bs-cr)/norm(y) < reltol
+for isgn in (1,-1)
 
-y = copy(cr); @time sylvcs!(as,bs,y,-1)
-@test norm(as*y-y*bs-cr)/norm(y) < reltol
+y = copy(cr); @time sylvcs!(as,bs,y,isgn)
+@test norm(as*y+isgn*y*bs-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(ard,brd,y)
-@test norm(ard*y+y*brd-cr)/norm(y) < reltol
+y = copy(cr); @time sylvcs!(ard,brd,y,isgn)
+@test norm(ard*y+isgn*y*brd-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(ard,brd,y,-1)
-@test norm(ard*y-y*brd-cr)/norm(y) < reltol
+y = copy(cr); @time sylvcs!(as,bs,y,isgn;adjA=true)
+@test norm(as'*y+isgn*y*bs-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y;adjA=true)
-@test norm(as'*y+y*bs-cr)/norm(y) < reltol
+y = copy(cr); @time sylvcs!(as,bs,y,isgn;adjB=true)
+@test norm(as*y+isgn*y*bs'-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y,-1;adjA=true)
-@test norm(as'*y-y*bs-cr)/norm(y) < reltol
+y = copy(cr); @time sylvcs!(as,bs,y,isgn;adjA=true,adjB=true)
+@test norm(as'*y+isgn*y*bs'-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y;adjB=true)
-@test norm(as*y+y*bs'-cr)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acs,bcs,y,isgn)
+@test norm(acs*y+isgn*y*bcs-cc)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y,-1; adjB=true)
-@test norm(as*y-y*bs'-cr)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acd,bcd,y,isgn)
+@test norm(acd*y+isgn*y*bcd-cc)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y;adjA=true,adjB=true)
-@test norm(as'*y+y*bs'-cr)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acs,bcs,y,isgn;adjA=true)
+@test norm(acs'*y+isgn*y*bcs-cc)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y,-1;adjA=true,adjB=true)
-@test norm(as'*y-y*bs'-cr)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acd,bcd,y,isgn;adjA=true)
+@test norm(acd'*y+isgn*y*bcd-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y)
-@test norm(acs*y+y*bcs-cc)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acs,bcs,y,isgn;adjB=true)
+@test norm(acs*y+isgn*y*bcs'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y,-1)
-@test norm(acs*y-y*bcs-cc)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acd,bcd,y,isgn;adjB=true)
+@test norm(acd*y+isgn*y*bcd'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acd,bcd,y)
-@test norm(acd*y+y*bcd-cc)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acs,bcs,y,isgn;adjA=true,adjB=true)
+@test norm(acs'*y+isgn*y*bcs'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acd,bcd,y,-1)
-@test norm(acd*y-y*bcd-cc)/norm(y) < reltol
+y = copy(cc); @time sylvcs!(acd,bcd,y,isgn;adjA=true,adjB=true)
+@test norm(acd'*y+isgn*y*bcd'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y;adjA=true)
-@test norm(acs'*y+y*bcs-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acs,bcs,y,-1;adjA=true)
-@test norm(acs'*y-y*bcs-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acd,bcd,y;adjA=true)
-@test norm(acd'*y+y*bcd-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acd,bcd,y,-1;adjA=true)
-@test norm(acd'*y-y*bcd-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acs,bcs,y;adjB=true)
-@test norm(acs*y+y*bcs'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acs,bcs,y,-1;adjB=true)
-@test norm(acs*y-y*bcs'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acd,bcd,y;adjB=true)
-@test norm(acd*y+y*bcd'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acd,bcd,y,-1;adjB=true)
-@test norm(acd*y-y*bcd'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acs,bcs,y;adjA=true,adjB=true)
-@test norm(acs'*y+y*bcs'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acs,bcs,y,-1;adjA=true,adjB=true)
-@test norm(acs'*y-y*bcs'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acd,bcd,y;adjA=true,adjB=true)
-@test norm(acd'*y+y*bcd'-cc)/norm(y) < reltol
-
-y = copy(cc); @time sylvcs!(acd,bcd,y,-1;adjA=true,adjB=true)
-@test norm(acd'*y-y*bcd'-cc)/norm(y) < reltol
-
-
+end
 end
 end
 

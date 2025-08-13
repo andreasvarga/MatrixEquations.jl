@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.5.4
+Enhanced functionality for `sylvcs!`. 
+
 ## Version 2.5.3
 Fix a bug in `ghsylvi`. 
 
