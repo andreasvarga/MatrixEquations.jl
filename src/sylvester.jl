@@ -1254,7 +1254,7 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
    return C
 end
 """
-    sylvds!(A,B,C; isgn = 1, adjA = false, adjB = false)
+    sylvds!(A,B,C,isgn = 1; adjA = false, adjB = false)
 
 Solve the discrete Sylvester matrix equation
 
@@ -1266,7 +1266,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:Real
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2), isgn::Int = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:Real
 # function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasReal
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
@@ -1495,7 +1495,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)), isgn::Int = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
 # function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasComplex
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
