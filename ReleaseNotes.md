@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.5.5
+Enhanced functionality for `sylvds!`. 
+
 ## Version 2.5.4
 Enhanced functionality for `sylvcs!`. 
 

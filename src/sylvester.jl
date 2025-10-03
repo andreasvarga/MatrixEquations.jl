@@ -591,7 +591,8 @@ Solve the continuous Sylvester matrix equation
                 op(A)X + isgn*Xop(B) =  C,
 
 where `op(A) = A` or `op(A) = A'` if `adjA = false` or `adjA = true`, respectively,
-and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively.
+and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively, and
+`isgn` is an integer such that `abs(isgn)` = 1.
 `A` and `B` are square matrices in Schur forms, and `A` and `-isgn*B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
@@ -991,15 +992,15 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    return C
 end
 
-function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:Real}
+function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, isgn::Int, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:Real}
 # function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:BlasReal}
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
-   # A*X*B + X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
-   # A'*X*B + X = C  if adjA = true  and adjB = false -> R = kron(B',A') + I 
-   # A*X*B' + X = C  if adjA = false and adjB = true  -> R = kron(B,A) + I
-   # A'*X*B' + X = C if adjA = true  and adjB = true  -> R = kron(B,A') + I
-   ONE = one(T)
+   # A*X*B + isgn*X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
+   # A'*X*B + isgn*X = C  if adjA = true  and adjB = false -> R = kron(B',A') + I 
+   # A*X*B' + isgn*X = C  if adjA = false and adjB = true  -> R = kron(B,A) + I
+   # A'*X*B' +isgn*X = C if adjA = true  and adjB = true  -> R = kron(B,A') + I
+   ONE = isgn*one(T)
    if na == 1 && nb == 1
       temp = A[1,1]*B[1,1] + ONE
       rmul!(C,inv(temp))
@@ -1253,18 +1254,19 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
    return C
 end
 """
-    sylvds!(A,B,C; adjA = false, adjB = false)
+    sylvds!(A,B,C; isgn = 1, adjA = false, adjB = false)
 
 Solve the discrete Sylvester matrix equation
 
-                op(A)Xop(B) + X =  C,
+                op(A)Xop(B) + isgn*X =  C,
 
 where `op(A) = A` or `op(A) = A'` if `adjA = false` or `adjA = true`, respectively,
-and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively.
+and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively, and
+`isgn` is an integer such that `abs(isgn)` = 1.
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:Real
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:Real
 # function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasReal
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
@@ -1281,8 +1283,8 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    if isdiag(A) && isdiag(B)
       for i = 1:m
          for j = 1:n
-            C[i,j] = C[i,j]/(A[i,i]*B[j,j]+ONE)
-            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α*β = -1")
+            C[i,j] = C[i,j]/(A[i,i]*B[j,j]+isgn*ONE)
+            isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α*β = $(-isgn)")
          end
       end
       return C[:,:]
@@ -1305,7 +1307,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       # The (K,L)th block of X is determined starting from
       # bottom-left corner column by column by
 
-      #            A(K,K)*X(K,L)*B(L,L) + X(K,L) = C(K,L) - R(K,L)
+      #            A(K,K)*X(K,L)*B(L,L) + isgn*X(K,L) = C(K,L) - R(K,L)
 
       # where
       #                        M
@@ -1342,7 +1344,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
                  mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw)  
               copyto!(Ckl,y)
            i -= dk
           end
@@ -1389,7 +1391,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
                     mul!(y,view(A,k,ic),view(W,ic,dll),-ONE,ONE)
                  end
-                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+                 sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw)  
                  copyto!(Ckl,y)
                  i -= dk
              end
@@ -1437,7 +1439,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),view(B,il1,l))
                  mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw)  
               copyto!(Ckl,y)
            i += dk
           end
@@ -1484,7 +1486,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(W,k,dll),view(C,k,il1),adjoint(view(B,l,il1)))
                  mul!(y,adjoint(view(A,ic,k)),view(W,ic,dll),-ONE,ONE)
               end
-              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),Xw,Yw)  
+              sylvd2!(adjA,adjB,y,dk,dl,view(A,k,k),view(B,l,l),isgn,Xw,Yw)  
               copyto!(Ckl,y)
            i += dk
           end
@@ -1493,7 +1495,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
 # function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasComplex
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
@@ -1505,7 +1507,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
   
-   ONE = one(T1)
+   ONE = isgn*one(T1)
    if isdiag(A) && isdiag(B)
       if !adjA && !adjB
          for i = 1:m
