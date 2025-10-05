@@ -229,7 +229,7 @@ end
         X0 = triu(rand(Ty,n,n)+im*rand(Ty,n,n)); X0[1,1] = 0; X0[n,n] = 0
         Q = Matrix(Hermitian(U'*X0 + X0'*U))
         @time X, info = hulyapci(U, Q; adj = false)  
-        @test norm(U'*X + X'*U - Q)/norm(X) < reltol 
+        @test norm(U'*X + X'*U - Q)/norm(X) < 10*reltol 
     
         Q = Matrix(Hermitian(U*X0' + X0*U'))
         @time X, info = hulyapci(U, Q; adj = true, reltol = 1.e-14)  

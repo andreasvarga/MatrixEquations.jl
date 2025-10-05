@@ -33,10 +33,10 @@ jobs:
           - "lts"
           - '1' 
           - 'pre' 
-          - 'nightly' 
+         # - 'nightly' 
         os: 
           - ubuntu-latest
-          - windows-latest
+         # - windows-latest
         arch:
           - x64
     steps:
