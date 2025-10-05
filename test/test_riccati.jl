@@ -755,8 +755,9 @@ rezn  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X))
 
 @time X, clseig, F, Z, scalinfo = garec(A, E, B, R, Q; scaling = 'K')
 rezk  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
-@test rezk < 1.e-4*rezn &&
-norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
+@show rezk, rezn, norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig), norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)
+@test rezk < 1.e-4*rezn 
+@test norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
 
 # E1 = diagm(diag(E)); A1 = E1*A; B1 = E1*B;
