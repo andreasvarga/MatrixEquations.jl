@@ -4,7 +4,6 @@ using LinearAlgebra
 using MatrixEquations
 using GenericSchur
 using GenericLinearAlgebra
-using DoubleFloats
 using Test
 using SparseArrays
 using IterativeSolvers
@@ -173,8 +172,7 @@ end
 @testset "General iterative solvers" begin
     n = 10
     T = ComplexF32
-    T = Double64
-    @testset "Matrix{$T}" for T in (Float64, ComplexF64, BigFloat, Double64)
+    @testset "Matrix{$T}" for T in (Float64, ComplexF64, BigFloat)
         A = rand(T, n, n)
         #A = A' * A + I
         b = rand(T, n)
@@ -242,7 +240,7 @@ end
         m = 3; n = 5
         Ty = Float64
         reltol = 1.e-7
-        @testset "Matrix{$T}" for T in (Float64, BigFloat, Double64)
+        @testset "Matrix{$T}" for T in (Float64, BigFloat)
             # T-Lyapunov
             # real case
             A = rand(Ty,m,n);
@@ -373,7 +371,7 @@ end
         m = 3; n = 5; mx = 2; nx = 4; la = 2; lc = 1
         Ty = Float64
         reltol = 1.e-7
-        @testset "Matrix{$Ty}" for Ty in (Float64, BigFloat, Double64)
+        @testset "Matrix{$Ty}" for Ty in (Float64, BigFloat)
             reltol = √eps(real(Ty))
             # real data
             A = [rand(Ty,m,mx) for i in 1:la]
@@ -502,7 +500,7 @@ end
     Ty = Float64
     Ty = ComplexF64
     Ty = BigFloat
-    @testset "Matrix{$Ty}" for Ty in (Float64, ComplexF64, BigFloat, Complex{BigFloat}, Double64, Complex{Double64})
+    @testset "Matrix{$Ty}" for Ty in (Float64, ComplexF64, BigFloat, Complex{BigFloat})
         reltol = √eps(real(Ty))
         A = rand(Ty,n,n); E = rand(Ty,n,n);  
         Q = rand(Ty,n,n); C = Hermitian(Q);           

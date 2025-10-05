@@ -3,7 +3,6 @@ module Test_sylvkr
 using LinearAlgebra
 using MatrixEquations
 using GenericLinearAlgebra
-using DoubleFloats
 using Test
 
 println("Test_sylvkr")
@@ -13,7 +12,7 @@ println("Test_sylvkr")
 
 n = 5; m = 3;
 
-for Ty in (Float64, BigFloat, Double64)
+for Ty in (Float64, BigFloat)
 
 ar = rand(Ty,n,n)
 br = rand(Ty,m,m)

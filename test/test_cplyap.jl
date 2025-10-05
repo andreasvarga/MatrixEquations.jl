@@ -3,7 +3,6 @@ module Test_cplyap
 using LinearAlgebra
 using MatrixEquations
 using GenericSchur
-using DoubleFloats
 using Test
 
 
@@ -26,7 +25,7 @@ a = -1f0; b = 2f0im; @time u = plyapc(a,b)
 @test abs(a*u*u'+u*u'*a'+b*b') < reltol
 
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 
 ar = rand(Ty,n,n)
 ar = ar-2*norm(ar)*Matrix(I,n,n)
@@ -129,7 +128,7 @@ a = -1f0; ee = 4f0; b = 2f0im; @time u = plyapc(a,ee,b)
 # @test norm(a'*X*e + e'*X*a + b'*b,Inf) < 1.e-7
 
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 
 ar = rand(Ty,n,n)
 ar = ar-2*norm(ar)*Matrix(I,n,n)
@@ -283,7 +282,7 @@ end
 
 @testset "Continuous positive Lyapunov equations - Schur form" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 
 ar = rand(Ty,n,n)
 ar = ar-2*norm(ar)*Matrix(I,n,n)

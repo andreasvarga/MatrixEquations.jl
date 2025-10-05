@@ -3,7 +3,6 @@ module Test_dplyap
 using LinearAlgebra
 using MatrixEquations
 using GenericSchur
-using DoubleFloats
 using Test
 
 println("Test_dplyap")
@@ -24,8 +23,7 @@ reltol = eps(float(100f0))
 a = -.1f0+-.1f0*im; b = 2f0im; @time u = plyapd(a,b)
 @test abs(a*u*u'*a'-u*u'+b*b')  < reltol
 
-for Ty in (Float64, Float32, BigFloat, Double64)
-# for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat)
 
 ar = rand(Ty,n,n)
 ar = ar/(one(Ty) + norm(ar))
@@ -97,7 +95,7 @@ reltol = eps(float(100f0))
 a = -1f0+1f0*im; ee = 4f0; b = 2f0im; @time u = plyapd(a,ee,b)
 @test abs(a*u*u'*a'-ee*u*u'*ee'+b*b')  < reltol
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 # for Ty in (Float64, Float32)
     
 ar = rand(Ty,n,n)
@@ -245,8 +243,7 @@ end
 @testset "Positive discrete Lyapunov equations - Schur form" begin
 
 
-for Ty in (Float64, Float32, BigFloat, Double64)
-# for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat)
 
 ar = rand(Ty,n,n);
 ar = ar/(one(Ty) + norm(ar));

@@ -125,7 +125,7 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     x = S.Z[n+1:n2, ix]/F
     lmul!(Sx,x); rmul!(x,Sxi)
     scalinfo = (Sx = Sx, Sxi = Sxi)
-    return  (x+x')/2, S.values[ix], S.Z[:,ix], scalinfo
+    return  LinearAlgebra._hermitianpart!(x), S.values[ix], S.Z[:,ix], scalinfo
 end
 function _LUwithRicTest(Z11::AbstractArray{T},rtol::Real) where {T <: BlasFloat}
    try
@@ -521,7 +521,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     eident || (x = x/E)
 
     scalinfo = (Sx = Sx, Sxi = Sxi)
-    return  (x+x')/2, LPS.values[i1], LPS.Z[:,i1], scalinfo
+    return  LinearAlgebra._hermitianpart!(x), LPS.values[i1], LPS.Z[:,i1], scalinfo
 end
 """
     garec(A, E, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
@@ -778,7 +778,7 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
        x = z[i2,i1]/F; lmul!(Sx,x); rmul!(x,Sxi); x = x/E
     end
     scalinfo = (Sx = Sx, Sxi = Sxi, Sr = Sr)
-    return  (x+x')/2, LPS.values[i1] , f, z[:,i1], scalinfo
+    return  LinearAlgebra._hermitianpart!(x), LPS.values[i1] , f, z[:,i1], scalinfo
 end
 
 
@@ -1077,7 +1077,7 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
       clseig =  conj(clseig)
     end
     scalinfo = (Sx = Sx, Sxi = Sxi, Sr = Sr)
-    return  (x+x')/2, clseig, f, z[:,i1], scalinfo
+    return  LinearAlgebra._hermitianpart!(x), clseig, f, z[:,i1], scalinfo
 end
 function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
    # Scaling function to be used in conjunction with arec(A,G,Q)

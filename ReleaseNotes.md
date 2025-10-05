@@ -1,5 +1,11 @@
 # Release Notes
 
+
+## Version 2.5.6
+- revisited interfaces for `sylvcs!` and `sylvds!` and adapting tests accordingly
+- removing dependence on the `DoubleFloats.jl` package in the tests
+- using generalized real Schur decomposition from the `GenericSchur.jl` package in the generic versions of the Lyapunov and Sylvester equation solvers 
+
 ## Version 2.5.5
 Enhanced functionality for `sylvds!`. 
 

@@ -4,7 +4,6 @@ using LinearAlgebra
 using MatrixEquations
 using GenericSchur
 using GenericLinearAlgebra
-using DoubleFloats
 using Test
 
 
@@ -68,7 +67,7 @@ catch
   @test true
 end  
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 
 ar = rand(Ty,n,n); ars = Symmetric(ar);
 ac = rand(Ty,n,n)+im*rand(Ty,n,n); ach = Hermitian(ac); acd = Diagonal(ac);
@@ -184,7 +183,7 @@ catch
   @test true
 end  
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
@@ -282,7 +281,7 @@ end
 
 @testset "Continuous Lyapunov equations - Schur form" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 # for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n); ard = Diagonal(ar); 
@@ -376,7 +375,7 @@ end
 end
 
 @testset "Continuous Lyapunov-like equations" begin
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 
   ar = rand(Ty,n,n);
   er = rand(Ty,m,m)
@@ -440,7 +439,7 @@ end
   n = 5
   Ty = Float64
   # nonsingular U
-  for Ty in (Float64, Float32, BigFloat, Double64)
+  for Ty in (Float64, Float32, BigFloat)
       Ty == Float64 ? reltol = eps(float(100*n)) : reltol = eps(100*n*one(Ty))
       U = triu(rand(Ty,n,n));
       X0 = triu(rand(Ty,n,n));

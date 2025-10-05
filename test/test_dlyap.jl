@@ -3,7 +3,6 @@ module Test_dlyap
 using LinearAlgebra
 using MatrixEquations
 using GenericSchur
-using DoubleFloats
 using Test
 
 
@@ -68,7 +67,7 @@ catch
 end  
  
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 # for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n); ars = Symmetric(ar);
@@ -164,7 +163,7 @@ catch
    @test true
 end  
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 # for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
@@ -278,7 +277,7 @@ end
 
 @testset "Discrete Lyapunov equations - Schur form" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 # for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);ard = Diagonal(ar);

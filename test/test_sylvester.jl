@@ -4,7 +4,6 @@ module Test_sylvester
 using LinearAlgebra
 using MatrixEquations
 using GenericSchur
-using DoubleFloats
 using Test
 using Random
 using LinearAlgebra: BlasFloat
@@ -32,8 +31,7 @@ catch
    @test true
 end
 
-for Ty in (Float64, Float32, BigFloat, Double64)
-#  for Ty in (Float64, Float32)
+for Ty in (Float64, Float32, BigFloat)
 
 
 ar = rand(Ty,n,n); ars = Symmetric(ar); ard = Diagonal(ar);
@@ -141,7 +139,7 @@ catch
    @test true
 end
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n); ard = Diagonal(ar);
@@ -159,43 +157,43 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 for isgn in (1,-1)
 
-y = copy(cr); @time sylvcs!(as,bs,y,isgn)
+y = copy(cr); @time sylvcs!(as,bs,y;isgn)
 @test norm(as*y+isgn*y*bs-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(ard,brd,y,isgn)
+y = copy(cr); @time sylvcs!(ard,brd,y;isgn)
 @test norm(ard*y+isgn*y*brd-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y,isgn;adjA=true)
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjA=true)
 @test norm(as'*y+isgn*y*bs-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y,isgn;adjB=true)
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjB=true)
 @test norm(as*y+isgn*y*bs'-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvcs!(as,bs,y,isgn;adjA=true,adjB=true)
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjA=true,adjB=true)
 @test norm(as'*y+isgn*y*bs'-cr)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y,isgn)
+y = copy(cc); @time sylvcs!(acs,bcs,y;isgn)
 @test norm(acs*y+isgn*y*bcs-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acd,bcd,y,isgn)
+y = copy(cc); @time sylvcs!(acd,bcd,y;isgn)
 @test norm(acd*y+isgn*y*bcd-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y,isgn;adjA=true)
+y = copy(cc); @time sylvcs!(acs,bcs,y;isgn,adjA=true)
 @test norm(acs'*y+isgn*y*bcs-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acd,bcd,y,isgn;adjA=true)
+y = copy(cc); @time sylvcs!(acd,bcd,y;isgn,adjA=true)
 @test norm(acd'*y+isgn*y*bcd-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y,isgn;adjB=true)
+y = copy(cc); @time sylvcs!(acs,bcs,y;isgn,adjB=true)
 @test norm(acs*y+isgn*y*bcs'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acd,bcd,y,isgn;adjB=true)
+y = copy(cc); @time sylvcs!(acd,bcd,y;isgn,adjB=true)
 @test norm(acd*y+isgn*y*bcd'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acs,bcs,y,isgn;adjA=true,adjB=true)
+y = copy(cc); @time sylvcs!(acs,bcs,y;isgn,adjA=true,adjB=true)
 @test norm(acs'*y+isgn*y*bcs'-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvcs!(acd,bcd,y,isgn;adjA=true,adjB=true)
+y = copy(cc); @time sylvcs!(acd,bcd,y;isgn,adjA=true,adjB=true)
 @test norm(acd'*y+isgn*y*bcd'-cc)/norm(y) < reltol
 
 end
@@ -221,7 +219,7 @@ catch
 end
 
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #  for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n); ars = Symmetric(ar); ard = Diagonal(ar);
@@ -294,7 +292,7 @@ end
 
 @testset "Discrete Sylvester equations - Schur form" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n); ard = Diagonal(ar);
@@ -310,45 +308,47 @@ acs, = schur(ac);
 bcs, = schur(bc);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
+for isgn in (1,-1)
 
-y = copy(cr); @time sylvds!(as,bs,y)
-@test norm(as*y*bs+y-cr)/norm(y) < reltol
+y = copy(cr); @time sylvds!(as,bs,y;isgn)
+@test norm(as*y*bs+isgn*y-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvds!(ard,brd,y)
-@test norm(ard*y*brd+y-cr)/norm(y) < reltol
+y = copy(cr); @time sylvds!(ard,brd,y;isgn)
+@test norm(ard*y*brd+isgn*y-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvds!(as,bs,y,adjA=true)
-@test norm(as'*y*bs+y-cr)/norm(y) < reltol
+y = copy(cr); @time sylvds!(as,bs,y;isgn,adjA=true)
+@test norm(as'*y*bs+isgn*y-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvds!(as,bs,y,adjB=true)
-@test norm(as*y*bs'+y-cr)/norm(y) < reltol
+y = copy(cr); @time sylvds!(as,bs,y;isgn,adjB=true)
+@test norm(as*y*bs'+isgn*y-cr)/norm(y) < reltol
 
-y = copy(cr); @time sylvds!(as,bs,y,adjA=true,adjB=true)
-@test norm(as'*y*bs'+y-cr)/norm(y) < reltol
+y = copy(cr); @time sylvds!(as,bs,y;isgn,adjA=true,adjB=true)
+@test norm(as'*y*bs'+isgn*y-cr)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acs,bcs,y)
-@test norm(acs*y*bcs+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acs,bcs,y;isgn)
+@test norm(acs*y*bcs+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acd,bcd,y)
-@test norm(acd*y*bcd+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acd,bcd,y;isgn)
+@test norm(acd*y*bcd+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acs,bcs,y,adjA=true)
-@test norm(acs'*y*bcs+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acs,bcs,y;isgn,adjA=true)
+@test norm(acs'*y*bcs+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acd,bcd,y,adjA=true)
-@test norm(acd'*y*bcd+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acd,bcd,y;isgn,adjA=true)
+@test norm(acd'*y*bcd+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acs,bcs,y,adjB=true)
-@test norm(acs*y*bcs'+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acs,bcs,y;isgn,adjB=true)
+@test norm(acs*y*bcs'+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acd,bcd,y,adjB=true)
-@test norm(acd*y*bcd'+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acd,bcd,y;isgn,adjB=true)
+@test norm(acd*y*bcd'+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acs,bcs,y,adjA=true,adjB=true)
-@test norm(acs'*y*bcs'+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acs,bcs,y;isgn,adjA=true,adjB=true)
+@test norm(acs'*y*bcs'+isgn*y-cc)/norm(y) < reltol
 
-y = copy(cc); @time sylvds!(acd,bcd,y,adjA=true,adjB=true)
-@test norm(acd'*y*bcd'+y-cc)/norm(y) < reltol
+y = copy(cc); @time sylvds!(acd,bcd,y;isgn,adjA=true,adjB=true)
+@test norm(acd'*y*bcd'+isgn*y-cc)/norm(y) < reltol
+end
 
 end
 end
@@ -377,7 +377,7 @@ catch
 end
 
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
@@ -468,7 +468,7 @@ end
 
 @testset "Generalized Sylvester equations - Schur form" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n);
@@ -520,7 +520,7 @@ end
 # Sylvester systems
 @testset "Sylvester systems" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
@@ -590,7 +590,7 @@ end
 # dual Sylvester systems
 @testset "Dual Sylvester systems" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)
@@ -655,7 +655,7 @@ end
 # LAPACK wrappers of Sylvester system solvers
 @testset "LAPACK wrappers of Sylvester system solvers" begin
 
-for Ty in (Float64, Float32, BigFloat, Double64)
+for Ty in (Float64, Float32, BigFloat)
 #for Ty in (Float64, Float32)
 
 ar = rand(Ty,n,n)

@@ -298,9 +298,6 @@ function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstract
    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E))
    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
 
-   # use complex solver until real generalized Schur form will be available 
-   T2 <: BlasFloat || T2 <: Complex || (return real(gsylv(complex(A),complex(B),complex(C),complex(D),complex(E))))   
-
    eltype(A) == T2 || (A = convert(Matrix{T2},A))
    eltype(B) == T2 || (B = convert(Matrix{T2},B))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
@@ -430,9 +427,6 @@ function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstra
    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
 
-   # use complex solver until real generalized Schur form will be available 
-   T2 <: BlasFloat || T2 <: Complex || (return real.(sylvsys(complex(A),complex(B),complex(C),complex(D),complex(E),complex(F))))   
-
    eltype(A) == T2 || (A = convert(Matrix{T2},A))
    eltype(B) == T2 || (B = convert(Matrix{T2},B))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
@@ -539,9 +533,6 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
    T2 = promote_type(eltype(A), eltype(B), eltype(C), eltype(D), eltype(E), eltype(F))
    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
 
-   # use complex solver until real generalized Schur form will be available 
-   T2 <: BlasFloat || T2 <: Complex || (return real.(dsylvsys(complex(A),complex(B),complex(C),complex(D),complex(E),complex(F))))   
-
    eltype(A) == T2 || (A = convert(Matrix{T2},A))
    eltype(B) == T2 || (B = convert(Matrix{T2},B))
    eltype(C) == T2 || (C = convert(Matrix{T2},C))
@@ -584,7 +575,7 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
    end
 end
 """
-    sylvcs!(A, B, C, isgn = 1; adjA = false, adjB = false)
+    sylvcs!(A, B, C; isgn = 1, adjA = false, adjB = false)
 
 Solve the continuous Sylvester matrix equation
 
@@ -596,7 +587,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-isgn*B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn::Int = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
    """
    This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
    Reference:
@@ -652,7 +643,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn::Int = 1; 
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1,
                  adjA::Bool = false, adjB::Bool = false) where T1<:Real
    """
    The Bartels-Stewart Schur form based approach [1] is employed.
@@ -823,7 +814,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, isgn::Int = 1; 
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, 
                  adjA::Bool = false, adjB::Bool = false) where T1<:Complex
    """
    The Bartels-Stewart Schur form based approach [1] is employed.
@@ -993,7 +984,6 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
 end
 
 function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, isgn::Int, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:Real}
-# function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:BlasReal}
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    # A*X*B + isgn*X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
@@ -1254,7 +1244,7 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
    return C
 end
 """
-    sylvds!(A,B,C,isgn = 1; adjA = false, adjB = false)
+    sylvds!(A,B,C; isgn = 1, adjA = false, adjB = false)
 
 Solve the discrete Sylvester matrix equation
 
@@ -1266,8 +1256,7 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-B` must not have
 common reciprocal eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2), isgn::Int = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:Real
-# function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasReal
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractMatrix{T1} = similar(A,size(A,1),2); isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:Real
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -1275,6 +1264,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+   abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
    m, n = size(C);
@@ -1495,8 +1485,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return C
 end
-function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)), isgn::Int = 1; adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
-# function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); adjA::Bool = false, adjB::Bool = false) where  T1<:BlasComplex
+function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, W::AbstractVector{T1} = similar(A,size(A,1)); isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:Complex
    """
    An extension of the Bartels-Stewart Schur form based approach is employed.
 
@@ -1504,6 +1493,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
    """
+   abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
    m, n = LinearAlgebra.checksquare(A,B)
    (size(C,1) == m && size(C,2) == n ) || throw(DimensionMismatch("C must be an $m x $n matrix"))
   
@@ -1730,9 +1720,6 @@ The pencils `A-λC` and `D+λB` must be regular and must not have common eigenva
 function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
                  WB::AbstractMatrix{T1} = similar(A,size(A,1),2), WD::AbstractMatrix{T1} = similar(A,size(A,1),2); 
                  adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Real
-# function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
-#                  WB::AbstractMatrix{T1} = similar(A,size(A,1),2), WD::AbstractMatrix{T1} = similar(A,size(A,1),2); 
-#                  adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasReal
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -2579,9 +2566,6 @@ end
 function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
                  WB::AbstractVector{T1} = similar(A,size(A,1)), WD::AbstractVector{T1} = similar(A,size(A,1)); 
                  adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Complex
-# function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
-#                 WB::AbstractVector{T1} = similar(A,size(A,1)), WD::AbstractVector{T1} = similar(A,size(A,1)); 
-#                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:BlasComplex
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 

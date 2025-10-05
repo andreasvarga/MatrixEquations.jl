@@ -229,9 +229,9 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
 
-   # generalized Schur form decomposition available only for complex data 
-   T2 <: BlasFloat || T2 <: Complex || 
-   (return adj ? real(plyapc(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapc(complex(A),complex(E),complex(B))))
+   # # generalized Schur form decomposition available only for complex data 
+   # T2 <: BlasFloat || T2 <: Complex || 
+   # (return adj ? real(plyapc(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapc(complex(A),complex(E),complex(B))))
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
@@ -556,9 +556,9 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
 
-   # generalized Schur form decomposition available only for complex data 
-   T2 <: BlasFloat || T2 <: Complex || 
-   (return adj ? real(plyapd(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapd(complex(A),complex(E),complex(B))))
+   # # generalized Schur form decomposition available only for complex data 
+   # T2 <: BlasFloat || T2 <: Complex || 
+   # (return adj ? real(plyapd(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapd(complex(A),complex(E),complex(B))))
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    
@@ -952,7 +952,6 @@ complex Schur form and `R` is an upper triangular matrix.
 `R` contains on output the solution `U`.
 """
 function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Real
-# function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1101,17 +1100,8 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    return R
 end
 function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
-# function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-
-   # T = real(T1)
-   # ONE = one(T)
-   # ZERO = zero(T)
-   # TWO = 2*ONE
-   # small = safemin(T)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(maximum(abs.(A)))
 
    T = real(T1)
    ONE = one(T)
@@ -1235,18 +1225,10 @@ triangular matrix. The pencil `A-λE` must have only eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
 """
 function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: Real
-# function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
-      n = LinearAlgebra.checksquare(A)
+   n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-
-   # ONE = one(T1)
-   # ZERO = zero(T1)
-   # TWO = 2*ONE
-   # small = safemin(T1)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
 
    ONE = one(T1)
    ZERO = zero(T1)
@@ -1414,21 +1396,12 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    return R
 end
 function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
-# function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) &&
          (plyapcs!(A, R, adj = adj); return)
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
-
-   # T = real(T1)
-   # ONE = one(T)
-   # ZERO = zero(T)
-   # TWO = 2*ONE
-   # small = safemin(T)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
 
    T = real(T1)
    ONE = one(T)
@@ -1569,7 +1542,6 @@ complex Schur form and `R` is an upper triangular matrix.
 `R` contains on output the upper triangular solution `U`.
 """
 function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Real
-# function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasReal
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1580,11 +1552,6 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    SMLNUM = sqrt(_safemin(T1))/EPS
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
-
-   # ONE = one(T1)
-   # small = safemin(T1)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(maximum(abs.(A)))
 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
@@ -1762,7 +1729,6 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    return R
 end
 function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
-# function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1773,11 +1739,6 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    SMLNUM = sqrt(_safemin(T))/EPS
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
-
-   # ONE = one(T)
-   # small = safemin(T)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(maximum(abs.(A)))
 
    W = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
@@ -1901,7 +1862,6 @@ and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
 """
 function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: Real
-# function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: BlasReal
    # The method of [1] for the discrete case is implemented.
 
    # [1] Penzl, T.
@@ -2093,7 +2053,6 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    return R
 end
 function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
-# function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: BlasComplex
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
@@ -2266,7 +2225,6 @@ can make one or more of the eigenvalues lie outside the unit circle, if `disc = 
 If this situation is detected, an error message is issued.
 """
 function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:Real
-# function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:BlasReal
    # This function is based on the SLICOT routine SB03OY, which implements the
    # the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
    # for 2-by-2 Lyapunov equations, but directly computing the Cholesky factor
@@ -2627,7 +2585,6 @@ can make one or more of the eigenvalues lie outside the unit circle, if `disc = 
 If this situation is detected, an error message is issued.
 """
 function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: Real
-# function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: BlasReal
    # This function is based on the SLICOT routine SG03BX, which implements the
    # generalization of the method due to Hammarling ([1], section 6) for Lyapunov
    # equations of order 2. A more detailed description is given in [2].
