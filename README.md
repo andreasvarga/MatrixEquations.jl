@@ -7,6 +7,9 @@
 [![dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://andreasvarga.github.io/MatrixEquations.jl/dev/)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl) 
 [![Downloads](https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Fmonthly_downloads%2FMatrixEquations&query=total_requests&suffix=%2Fmonth&label=Downloads)](http://juliapkgstats.com/pkg/MatrixEquations)
+[![LinkedIn Badge](https://img.shields.io/badge/LinkedIn-Article-informational?style=flat&logo=linkedin&logoColor=white&color=0D76A8)](https://www.linkedin.com/pulse/matrixequations-solving-matrix-equations-julia-andreas-varga-wauue/?trackingId=bSzyqKO0Rl2faMhNEX%2BMeQ%3D%3D)
+[![The MIT License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](https://github.com/andreasvarga/DescriptorSystems.jl/blob/main/LICENSE.md)
+
 
 **Solution of Lyapunov, Sylvester and Riccati matrix equations using Julia**
 
