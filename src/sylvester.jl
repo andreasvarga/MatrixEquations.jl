@@ -110,9 +110,9 @@ sylvc(A::Union{Real,Complex,UniformScaling},B::Union{AbstractMatrix,UniformScali
 # solve (A+β)X = C
 sylvc(A::AbstractMatrix,B::Union{Real,Complex,UniformScaling},C::AbstractMatrix) = (A+B*I)\C
 # solve (α+β)X = C
-sylvc(A::Union{Real,Complex},B::Union{Real,Complex},C::AbstractMatrix) = A+B == 0 ? throw(SingularException(1)) : C/(A+B)
+sylvc(A::Union{Real,Complex},B::Union{Real,Complex},C::AbstractMatrix) = A+B == 0 ? throw("ME:SingularException: A and -B have common eigenvalues") : C/(A+B)
 # solve (α+β)x = γ
-sylvc(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = A+B == 0 ? throw(SingularException(1)) : C/(A+B)
+sylvc(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = A+B == 0 ? throw("ME:SingularException: A and -B have common eigenvalues") : C/(A+B)
 """
     X = sylvd(A,B,C)
 

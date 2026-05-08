@@ -1,14 +1,21 @@
 # Continuous Lyapunov equations
 """
-    X = lyapc(A, C)
+    X = lyapc(A, C; blocksize = 64)
 
 Compute `X`, the solution of the continuous Lyapunov equation
 
       AX + XA' + C = 0,
 
 where `A` is a square real or complex matrix and `C` is a square matrix.
-`A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
-The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
+`A` must not have eigenvalues `α` and `β` such that `α+β' = 0`.
+The solution `X` is symmetric or hermitian if `C` is symmetric or hermitian.
+
+The keyword argument `blocksize` (default: `blocksize = 64`) specifies the 
+block size when to switch in the employed recursive blocked algorithm 
+to the standard algorithm for solving small-sized matrix equations. 
+If `blocksize < 4`, the minimum value `blocksize = 4` is used.
+Note: This option is only effective for data of types `Float64`, `Float32`, 
+      `ComplexF64`, or `ComplexF32`.
 
 The following particular cases are also adressed:
 
@@ -43,13 +50,18 @@ julia> A*X + X*A' + C
   2.22045e-16  -4.44089e-16
 ```
 """
-function lyapc(A::AbstractMatrix, C::AbstractMatrix)
+function lyapc(A::AbstractMatrix, C::AbstractMatrix; blocksize::Int = 64)
    """
-   The Bartels-Steward Schur form based method is employed.
+   The Bartels-Steward Schur form based method in [1] is employed for matrix dimensions not exceeding
+   the specified blocksize. For large dimensions, the recursive blocked algorithm in [2] is used. 
 
    Reference:
-   R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
-   Comm. ACM, 15:820–826, 1972.
+   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+       Comm. ACM, 15:820–826, 1972.
+
+   [2] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems—
+       Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
+       28 (2002), pp. 392–415.
    """
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(C) == n ||
@@ -85,7 +97,11 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
    #X = Q'*C*Q
    if her
       X = utqu(C,Q)
-      lyapcs!(AS, X, adj = adj)
+      if T2 <: BlasFloat
+         lyapcs_blocked!(AS, X; adj, blocksize)
+      else
+         lyapcs!(AS, X; adj)
+      end
       #X <- Q*X*Q'
       utqu!(X,Q')
       return X
@@ -97,9 +113,9 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix)
 end
 # (α+α')X  + C = 0
 lyapc(A::UniformScaling, C::AbstractMatrix) = -C/(A+A')
-lyapc(A::Union{Real,Complex}, C::AbstractMatrix) = real(A) == 0 ? throw(SingularException(1)) : -C/(A+A')
+lyapc(A::Union{Real,Complex}, C::AbstractMatrix) = real(A) == 0 ? throw("ME:SingularException: A has an eigenvalue with zero real part") : -C/(A+A')
 # (α+α')x + γ = 0
-lyapc(A::Union{Real,Complex}, C::Union{Real,Complex})  = real(A) == 0 ? throw(SingularException(1)) : -C/(A+A')
+lyapc(A::Union{Real,Complex}, C::Union{Real,Complex})  = real(A) == 0 ? throw("ME:SingularException: A has an eigenvalue with zero real part") : -C/(A+A')
 """
     X = lyapc(A, E, C)
 
@@ -108,7 +124,7 @@ Compute `X`, the solution of the generalized continuous Lyapunov equation
      AXE' + EXA' + C = 0,
 
 where `A` and `E` are square real or complex matrices and `C` is a square matrix.
-The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+The pencil `A-λE` must not have eigenvalues `α` and `β` such that `α+β = 0`.
 The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
 The following particular cases are also adressed:
@@ -232,7 +248,7 @@ Compute `X`, the solution of the discrete Lyapunov equation
        AXA' - X + C = 0,
 
 where `A` is a square real or complex matrix and `C` is a square matrix.
-`A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+`A` must not have eigenvalues `α` and `β` such that `αβ = 1`.
 The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
 The following particular cases are also adressed:
@@ -336,7 +352,7 @@ Compute `X`, the solution of the generalized discrete Lyapunov equation
          AXA' - EXE' + C = 0,
 
 where `A` and `E` are square real or complex matrices and `C` is a square matrix.
-The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The pencil `A-λE` must not have eigenvalues `α` and `β` such that `αβ = 1`.
 The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
 
 The following particular cases are also adressed:
@@ -460,13 +476,13 @@ Solve the continuous Lyapunov matrix equation
 where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` is a square real matrix in a real Schur form, or a square complex matrix in a
 complex Schur form and `C` is a symmetric or hermitian matrix.
-`A` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+`A` must not have eigenvalues `α` and `β` such that `α+β = 0`.
 `C` contains on output the solution `X`.
 """
 function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
    n = LinearAlgebra.checksquare(A)
-   (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
-      throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
+   # (LinearAlgebra.checksquare(C) == n && issymmetric(C)) ||
+   #    throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
    if isdiag(A) 
       for i = 1:n
          C[i,i] = -C[i,i]/(2*A[i,i])
@@ -481,12 +497,10 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
    end      
 
    ONE = one(T1)
-   ZERO = zero(T1)
 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
 
-   #W = Array{T1,2}(I,2,2)
    Xw = Matrix{T1}(undef,4,4)
    Yw = Vector{T1}(undef,4)
    if adj
@@ -584,6 +598,66 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
        end
    end
 end
+function lyapcs_blocked!(A::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adj = false, blocksize::Integer = 64) where {T1<:BlasFloat}
+    n = LinearAlgebra.checksquare(A)  
+    n == LinearAlgebra.checksquare(C) 
+    if T1 <: Real  
+       # Check symmetry ONCE here
+       issymmetric(C) ||  throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
+    else
+       ishermitian(C) ||  throw(DimensionMismatch("C must be a $n x $n Hermitian matrix"))
+    end
+   _lyapcs_blocked!(A, C, adj, blocksize)
+    # Fill the lower triangle ONCE at the very end
+    return LinearAlgebra.copytri!(C, 'U',T1 <: Complex)
+end
+function _lyapcs_blocked!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasReal}
+   n = size(A, 1)
+   ONE = one(T1)
+   if n <= max(blocksize,4)
+      LinearAlgebra.copytri!(C,'U')
+      lyapcs!(A,C;adj)
+   else
+      if adj
+         # split A and C (by rows and columns)
+         mid = n ÷ 2
+         n1 = (mid > 1 && A[mid+1, mid] == 0) ? mid : mid-1
+         i1 = 1:n1; i2 = n1+1:n 
+         A11 = view(A, i1, i1)
+         A12 = view(A, i1, i2)
+         A22 = view(A, i2, i2)
+         C11 = view(C, i1, i1)
+         C12 = view(C, i1, i2)
+         C22 = view(C, i2, i2)
+         _lyapcs_blocked!(A11,C11,adj,blocksize)
+         mul!(C12,Symmetric(C11),A12,1,1)
+         sylvcs!(A11, A22, C12, adjA = true)
+         rmul!(C12,-1)
+         BLAS.syr2k!('U', 'T', ONE, A12, C12, ONE, C22)
+         _lyapcs_blocked!(A22,C22,adj,blocksize)
+      else
+         # split A and C (by rows and columns)
+         mid = n ÷ 2
+         n1 = (mid < n && A[mid+1, mid] != 0) ? mid + 1 : mid
+         i1 = 1:n1; i2 = n1+1:n 
+         A11 = view(A, i1, i1)
+         A12 = view(A, i1, i2)
+         A22 = view(A, i2, i2)
+         C11 = view(C, i1, i1)
+         C12 = view(C, i1, i2)
+         C22 = view(C, i2, i2)
+         _lyapcs_blocked!(A22,C22,adj,blocksize)
+         mul!(C12,A12,Symmetric(C22),1,1)
+         sylvcs!(A11, A22, C12, adjB = true)
+         rmul!(C12,-1)
+         BLAS.syr2k!('U', 'N', ONE, A12, C12, ONE, C11)
+         _lyapcs_blocked!(A11,C11,adj,blocksize)
+      end
+   end
+end
+
+
+
 function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
 # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
 #      A'*X + X*A = -C if adj = true  -> R = kron(I,A')+kron(A',I) = (kron(I,A)+kron(A,I))'
@@ -627,7 +701,7 @@ function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},Xw::Abstr
       @inbounds  R[3,2] = A[2,1]
       @inbounds  R[3,3] = A[2,2]
    end
-   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalues α and β such that α+β' ≈ 0")
    @inbounds C[1,1] = Y[1]
    @inbounds C[1,2] = Y[2]
    @inbounds C[2,1] = Y[2]
@@ -756,20 +830,20 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
       if adj 
          for i = 1:n
             C[i,i] = -C[i,i]/(2*real(A[i,i]))
-            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) = 0")
+            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) with zero real part(s)")
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]'+A[j,j])
-               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β' = 0")
                C[j,i] = C[i,j]'
             end
          end
       else
          for i = 1:n
             C[i,i] = -C[i,i]/(2*real(A[i,i]))
-            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) = 0")
+            isfinite(C[i,i]) || throw("ME:SingularException: A has eigenvalue(s) with zero real part(s)")
             for j = i+1:n
                C[i,j] = -C[i,j]/(A[i,i]+A[j,j]')
-               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β = 0")
+               isfinite(C[i,j]) || throw("ME:SingularException: A has eigenvalue(s) α and β such that α+β' = 0")
                C[j,i] = C[i,j]'
             end
          end
@@ -841,6 +915,51 @@ function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where
        end
    end
 end
+function _lyapcs_blocked!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasComplex}
+   n = size(A, 1)
+   ONE = one(T1)
+   RONE = real(ONE)
+   if n <= max(blocksize,4)
+      LinearAlgebra.copytri!(C,'U',true)
+      lyapcs!(A,C;adj)
+   else
+      if adj
+         # split A and C (by rows and columns)
+         n1 = n ÷ 2
+         i1 = 1:n1; i2 = n1+1:n 
+         A11 = view(A, i1, i1)
+         A12 = view(A, i1, i2)
+         A22 = view(A, i2, i2)
+         C11 = view(C, i1, i1)
+         C12 = view(C, i1, i2)
+         C22 = view(C, i2, i2)
+         _lyapcs_blocked!(A11,C11,adj,blocksize)
+         mul!(C12,Hermitian(C11),A12,1,1)
+         sylvcs!(A11, A22, C12, adjA = true)
+         rmul!(C12,-1)
+         BLAS.her2k!('U', 'C', ONE, A12, C12, RONE, C22)
+         _lyapcs_blocked!(A22,C22,adj,blocksize)
+      else
+         # split A and C (by rows and columns)
+         n1 = n ÷ 2
+         i1 = 1:n1; i2 = n1+1:n 
+         A11 = view(A, i1, i1)
+         A12 = view(A, i1, i2)
+         A22 = view(A, i2, i2)
+         C11 = view(C, i1, i1)
+         C12 = view(C, i1, i2)
+         C22 = view(C, i2, i2)
+         _lyapcs_blocked!(A22,C22,adj,blocksize)
+         mul!(C12,A12,Hermitian(C22),1,1)
+         sylvcs!(A11, A22, C12, adjB = true)
+         rmul!(C12,-1)
+         BLAS.her2k!('U', 'N', ONE, A12, C12, RONE, C11)
+         _lyapcs_blocked!(A11,C11,adj,blocksize)
+      end
+   end
+end
+
+
 """
     lyapcs!(A, E, C; adj = false)
 
@@ -851,7 +970,7 @@ Solve the generalized continuous Lyapunov matrix equation
 where `op(A) = A` and `op(E) = E` if `adj = false` and `op(A) = A'` and
 `op(E) = E'` if `adj = true`. The pair `(A,E)` is in a generalized real or
 complex Schur form and `C` is a symmetric or hermitian matrix.
-The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `α+β = 0`.
+The pencil `A-λE` must not have eigenvalues `α` and `β` such that `α+β = 0`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
 function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
@@ -1308,7 +1427,7 @@ Solve the discrete Lyapunov matrix equation
 
 where `op(A) = A` if `adj = false` and `op(A) = A'` if `adj = true`.
 `A` is in a real or complex Schur form and `C` is a symmetric or hermitian matrix.
-`A` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+`A` must not have eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
 function lyapds!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Real}
@@ -1748,7 +1867,7 @@ Solve the generalized discrete Lyapunov matrix equation
 where `op(A) = A` and `op(E) = E` if `adj = false` and `op(A) = A'` and
 `op(E) = E'` if `adj = true`. The pair `(A,E)` is in a generalized real or
 complex Schur form and `C` is a symmetric or hermitian matrix.
-The pencil `A-λE` must not have two eigenvalues `α` and `β` such that `αβ = 1`.
+The pencil `A-λE` must not have eigenvalues `α` and `β` such that `αβ = 1`.
 The computed symmetric or hermitian solution `X` is contained in `C`.
 """
 function lyapds!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, C::AbstractMatrix{T1}; adj = false) where {T1<:Real}

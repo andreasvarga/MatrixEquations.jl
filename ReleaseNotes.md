@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 2.5.7
+- recursive blocking implemented in `lyapc` for `BlasFloat` data
+- blocksize parameter added as keyword argument in `lyapc`
+
 ## Version 2.5.6
 - revisited interfaces for `sylvcs!` and `sylvds!` and adapting tests accordingly
 - removing dependence on the `DoubleFloats.jl` package in the tests

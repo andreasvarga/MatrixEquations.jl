@@ -56,7 +56,7 @@ The current version of the package includes the following functions:
 * **arec**  Solution of the continuous Riccati equations `A'X+XA-XRX+Q = 0` and
  `A'X+XA-(XB+S)R^(-1)(B'X+S')+Q = 0`.
 * **garec** Solution of the generalized continuous Riccati equation
- `A'XE+E'XA-(A'XB+S)R^(-1)(B'XA+S')+Q = 0`.
+ `A'XE+E'XA-(E'XB+S)R^(-1)(B'XE+S')+Q = 0`.
 * **ared** Solution of the discrete Riccati equation
  `A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0`.
 * **gared**  Solution of the generalized discrete Riccati equation
@@ -84,7 +84,7 @@ The current version of the package includes the following functions:
 * **sylvdi** Iterative solution of the (discrete) Sylvester equation `AXB+X = C`.
 * **gsylvi** Iterative solution of the generalized Sylvester equation `AXB+CXD = E`.
 * **gtsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X^⊤*D_j = E`.
-* **ghsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X'*D_j = E`.
+* **ghsylvi** Iterative solution of the generalized H-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X'*D_j = E`.
 * **cgls** The conjugate gradient method for nonsymmetric linear equations and least squares problems.
 
 **Norm, condition and separation estimation**
