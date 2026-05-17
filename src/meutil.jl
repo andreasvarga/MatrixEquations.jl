@@ -322,19 +322,63 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
    end
    return U
 end
-@inline function luslv!(A::AbstractMatrix{T}, B::AbstractVector{T}) where T
-   #
-   #  fail = luslv!(A,B)
-   #
-   # This function is a speed-oriented implementation of a Gaussian-elimination based
-   # solver of small order linear equations of the form A*X = B. The computed solution X
-   # overwrites the vector B, while the resulting A contains in its upper triangular part,
-   # the upper triangular factor U of its LU decomposition.
-   # The diagnostic output parameter fail, of type Bool, is set to false in the case
-   # of normal return or is set to true if the exact singularity of A is detected
-   # or if the resulting B has non-finite components.
-   #
-   n = length(B)
+# @inline function luslv!(A::AbstractMatrix{T}, B::AbstractVector{T}) where T
+#    #
+#    #  fail = luslv!(A,B)
+#    #
+#    # This function is a speed-oriented implementation of a Gaussian-elimination based
+#    # solver of small order linear equations of the form A*X = B. The computed solution X
+#    # overwrites the vector B, while the resulting A contains in its upper triangular part,
+#    # the upper triangular factor U of its LU decomposition.
+#    # The diagnostic output parameter fail, of type Bool, is set to false in the case
+#    # of normal return or is set to true if the exact singularity of A is detected
+#    # or if the resulting B has non-finite components.
+#    #
+#    n = length(B)
+#    @inbounds begin
+#          for k = 1:n
+#             # find index max
+#             kp = k
+#             if k < n
+#                 amax = abs(A[k, k])
+#                 for i = k+1:n
+#                     absi = abs(A[i,k])
+#                     if absi > amax
+#                         kp = i
+#                         amax = absi
+#                     end
+#                 end
+#             end
+#             iszero(A[kp,k]) && return true
+#             if k != kp
+#                # Interchange
+#                for i = 1:n
+#                    tmp = A[k,i]
+#                    A[k,i] = A[kp,i]
+#                    A[kp,i] = tmp
+#                end
+#                tmp = B[k]
+#                B[k] = B[kp]
+#                B[kp] = tmp
+#             end
+#             # Scale first column
+#             Akkinv = inv(A[k,k])
+#             i1 = k+1:n
+#             Ak = view(A,i1,k)
+#             rmul!(Ak,Akkinv)
+#             # Update the rest of A and B
+#             for j = k+1:n
+#                 axpy!(-A[k,j],Ak,view(A,i1,j))
+#             end
+#             axpy!(-B[k],Ak,view(B,i1))
+#          end
+#          ldiv!(UpperTriangular(A), B)
+#          return any(!isfinite, B)
+#    end
+# end
+
+@inline function luslv!(A::AbstractMatrix{T}, B::AbstractVector{T}, n::Int = length(B)) where T
+   # Accepts an optional or explicit `n` to limit operations to a sub-block
    @inbounds begin
          for k = 1:n
             # find index max
@@ -363,17 +407,28 @@ end
             end
             # Scale first column
             Akkinv = inv(A[k,k])
-            i1 = k+1:n
-            Ak = view(A,i1,k)
-            rmul!(Ak,Akkinv)
+            
+            # Using IdentityUnitRange makes these internal views 0-allocation
+            i1 = Base.IdentityUnitRange(k+1:n)
+            Ak = view(A, i1, k)
+            rmul!(Ak, Akkinv)
+            
             # Update the rest of A and B
             for j = k+1:n
-                axpy!(-A[k,j],Ak,view(A,i1,j))
+                axpy!(-A[k,j], Ak, view(A, i1, j))
             end
-            axpy!(-B[k],Ak,view(B,i1))
+            axpy!(-B[k], Ak, view(B, i1))
          end
-         ldiv!(UpperTriangular(A), B)
-         return any(!isfinite, B)
+         
+         # Solve the upper triangular system for the active n x n sub-block
+         i_all = Base.IdentityUnitRange(1:n)
+         ldiv!(UpperTriangular(view(A, i_all, i_all)), view(B, i_all))
+         
+         # Check finiteness only on the active elements
+         for i = 1:n
+             !isfinite(B[i]) && return true
+         end
+         return false
    end
 end
 function _lanv2(a::T,b::T,c::T,d::T) where {T <: Real}

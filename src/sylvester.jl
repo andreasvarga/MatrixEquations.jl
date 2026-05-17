@@ -983,7 +983,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    return C
 end
 
-function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, isgn::Int, Xw::AbstractMatrix{T}, Yw::AbstractVector{T}) where {T <:Real}
+function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int, A::AbstractMatrix{T}, B::AbstractMatrix{T}, isgn::Int, R::AbstractMatrix{T}, Y::AbstractVector{T}) where {T <:Real}
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations 
    # encountered in solving discrete Lyapunov equations: 
    # A*X*B + isgn*X = C   if adjA = false and adjB = false -> R = kron(B',A) + I 
@@ -997,11 +997,7 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
       any(!isfinite, C) && throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that αβ = -1")
       return C
    end
-   n = na*nb
-   i1 = 1:n
-   R = view(Xw, i1, i1)
-   Y = view(Yw,i1)
-   Y[:] = C[:]
+   #Y .= vec(C)
    if adjA && !adjB
       if na == 1
          # R12 =
@@ -1013,8 +1009,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
          @inbounds  R[1,2] = A[1,1]*B[2,1]
          @inbounds  R[2,1] = A[1,1]*B[1,2]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
-         # @inbounds  Y[1] = C[1,1]
-         # @inbounds  Y[2] = C[1,2]
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 =
@@ -1026,8 +1022,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[1,2] = A[2,1]*B[1,1]
             @inbounds  R[2,1] = A[1,2]*B[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R =
             # [ a11*b11+1      a21*b11      a11*b21      a21*b21]
@@ -1054,10 +1050,10 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[4,2] = A[2,2]*B[1,2]
             @inbounds  R[4,3] = A[1,2]*B[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
-            # @inbounds  Y[3] = C[1,2]
-            # @inbounds  Y[4] = C[2,2]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
       end
       #R = kron(transpose(B),A) + I
@@ -1072,8 +1068,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
          @inbounds  R[1,2] = A[1,1]*B[1,2]
          @inbounds  R[2,1] = A[1,1]*B[2,1]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
-         # @inbounds  Y[1] = C[1,1]
-         # @inbounds  Y[2] = C[1,2]
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 =
@@ -1085,8 +1081,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[1,2] = A[1,2]*B[1,1]
             @inbounds  R[2,1] = A[2,1]*B[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R =
             # [ a11*b11+1      a12*b11      a11*b12      a12*b12]
@@ -1113,10 +1109,10 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[4,2] = A[2,2]*B[2,1]
             @inbounds  R[4,3] = A[2,1]*B[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
-            # @inbounds  Y[3] = C[1,2]
-            # @inbounds  Y[4] = C[2,2]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
       end
       #R = kron(transpose(B),transpose(A)) + I
@@ -1131,8 +1127,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
          @inbounds  R[1,2] = A[1,1]*B[2,1]
          @inbounds  R[2,1] = A[1,1]*B[1,2]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
-         # @inbounds  Y[1] = C[1,1]
-         # @inbounds  Y[2] = C[1,2]
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 =
@@ -1144,8 +1140,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[1,2] = A[1,2]*B[1,1]
             @inbounds  R[2,1] = A[2,1]*B[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R =
             # [ a11*b11 + 1,     a12*b11,     a11*b21,     a12*b21]
@@ -1172,10 +1168,10 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[4,2] = A[2,2]*B[1,2]
             @inbounds  R[4,3] = A[2,1]*B[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
-            # @inbounds  Y[3] = C[1,2]
-            # @inbounds  Y[4] = C[2,2]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
       end
       #R = kron(B,A) + I
@@ -1190,8 +1186,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
          @inbounds  R[1,2] = A[1,1]*B[1,2]
          @inbounds  R[2,1] = A[1,1]*B[2,1]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+ONE
-         # @inbounds  Y[1] = C[1,1]
-         # @inbounds  Y[2] = C[1,2]
+         @inbounds  Y[1] = C[1,1]
+         @inbounds  Y[2] = C[1,2]
       else
          if nb == 1
             # R21 =
@@ -1203,8 +1199,8 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[1,2] = A[2,1]*B[1,1]
             @inbounds  R[2,1] = A[1,2]*B[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
          else
             # R =
             # [ a11*b11 + 1,     a21*b11,     a11*b12,     a21*b12]
@@ -1231,16 +1227,27 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
             @inbounds  R[4,2] = A[2,2]*B[2,1]
             @inbounds  R[4,3] = A[1,2]*B[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+ONE
-            # @inbounds  Y[1] = C[1,1]
-            # @inbounds  Y[2] = C[2,1]
-            # @inbounds  Y[3] = C[1,2]
-            # @inbounds  Y[4] = C[2,2]
+            @inbounds  Y[1] = C[1,1]
+            @inbounds  Y[2] = C[2,1]
+            @inbounds  Y[3] = C[1,2]
+            @inbounds  Y[4] = C[2,2]
          end
          #R = kron(B,transpose(A)) + I
       end
    end
-   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
-   C[:,:] = Y[i1]
+   luslv!(R,Y,na*nb) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+   if na == 1 && nb == 2
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[1,2] = Y[2]
+   elseif na == 2 && nb == 1
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[2,1] = Y[2]
+   else # na == 2 && nb == 2
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[2,1] = Y[2]
+      @inbounds C[1,2] = Y[3]
+      @inbounds C[2,2] = Y[4]
+   end
    return C
 end
 """
@@ -1998,7 +2005,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return E
 end
-function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},isgn::Int, Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
+function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},isgn::Int, R::StridedMatrix{T}, Y::AbstractVector{T}) where T <:Real
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations: 
    #      A*X + isgn*X*B = C     if adjA = false and adjB = false -> R = kron(I,A)  + isgn*kron(B',I) 
    #      A'*X + isgn*X*B = C    if adjA = true and adjB = false  -> R = kron(I,A') + isgn*kron(B',I)
@@ -2010,11 +2017,19 @@ function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::Ab
       any(!isfinite, C) &&  throw("ME:SingularException: `A` and `-B` have common eigenvalues")
       return C
    end
-   n = na*nb
-   i1 = 1:n
-   R = view(Xw,i1,i1)
-   Y = view(Yw,i1)
-   Y[:] = C[:]
+   if na == 1 && nb == 2
+      @inbounds Y[1] = C[1,1] 
+      @inbounds Y[2] = C[1,2] 
+   elseif na == 2 && nb == 1
+      @inbounds Y[1] = C[1,1] 
+      @inbounds Y[2] = C[2,1]
+   else # na == 2 && nb == 2
+      @inbounds Y[1] = C[1,1] 
+      @inbounds Y[2] = C[2,1] 
+      @inbounds Y[3] = C[1,2]
+      @inbounds Y[4] = C[2,2]
+   end
+
    ZERO = zero(T)
    if !adjA && !adjB
       #R = kron(I,A) + kron(transpose(B),I)
@@ -2277,13 +2292,23 @@ function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::Ab
         end
       end
    end
-   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
-   C[:,:] = Y
+   luslv!(R,Y,na*nb) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+    if na == 1 && nb == 2
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[1,2] = Y[2]
+   elseif na == 2 && nb == 1
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[2,1] = Y[2]
+   else # na == 2 && nb == 2
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[2,1] = Y[2]
+      @inbounds C[1,2] = Y[3]
+      @inbounds C[2,2] = Y[4]
+   end
    return C
 end
 
-@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:Real
-# @inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},Xw::StridedMatrix{T}, Yw::AbstractVector{T}) where T <:BlasReal
+@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},R::StridedMatrix{T}, Y::AbstractVector{T}) where T <:Real
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
    #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C) 
    #      A'*X*B + C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + kron(D',C')
@@ -2295,12 +2320,19 @@ end
       any(!isfinite, E) &&  throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
       return E
    end
-   n = na*nb
-   i1 = 1:n
-   R = view(Xw,i1,i1)
-   Y = view(Yw,i1)
-   Y[:] = E[:]
-   #Y = reshape(E, n)
+   if na == 1 && nb == 2
+      @inbounds Y[1] = E[1,1] 
+      @inbounds Y[2] = E[1,2] 
+   elseif na == 2 && nb == 1
+      @inbounds Y[1] = E[1,1] 
+      @inbounds Y[2] = E[2,1]
+   else # na == 2 && nb == 2
+      @inbounds Y[1] = E[1,1] 
+      @inbounds Y[2] = E[2,1] 
+      @inbounds Y[3] = E[1,2]
+      @inbounds Y[4] = E[2,2]
+   end
+
    if !adjAC && !adjBD
       if na == 1
          # R12 =
@@ -2312,8 +2344,6 @@ end
          @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
          @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-         # @inbounds  Y[1] = E[1,1]
-         # @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 =
@@ -2325,8 +2355,6 @@ end
             @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
             @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
          else
             # R =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b21 + c11*d21, a12*b21 + c12*d21]
@@ -2358,10 +2386,6 @@ end
             @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
             @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
-            # @inbounds  Y[3] = E[1,2]
-            # @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(transpose(B),A) + kron(transpose(D),C)
@@ -2376,8 +2400,6 @@ end
          @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
          @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-         # @inbounds  Y[1] = E[1,1]
-         # @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 =
@@ -2389,8 +2411,6 @@ end
             @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
             @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
          else
             # R =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b21 + c11*d21, a21*b21 + c21*d21]
@@ -2422,10 +2442,6 @@ end
             @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
             @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
-            # @inbounds  Y[3] = E[1,2]
-            # @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(transpose(B),transpose(A)) + kron(transpose(D),transpose(C))
@@ -2440,8 +2456,6 @@ end
          @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
          @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-         # @inbounds  Y[1] = E[1,1]
-         # @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 =
@@ -2453,8 +2467,6 @@ end
             @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
             @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
          else
             # R =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b12 + c11*d12, a12*b12 + c12*d12]
@@ -2486,10 +2498,6 @@ end
             @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
             @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
-            # @inbounds  Y[3] = E[1,2]
-            # @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(B,A) + kron(D,C)
@@ -2504,8 +2512,6 @@ end
          @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
          @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
          @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-         # @inbounds  Y[1] = E[1,1]
-         # @inbounds  Y[2] = E[1,2]
       else
          if nb == 1
             # R21 =
@@ -2517,8 +2523,6 @@ end
             @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
             @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
             @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
          else
             # R =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b12 + c11*d12, a21*b12 + c21*d12]
@@ -2550,16 +2554,23 @@ end
             @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
             @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
             @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
-            # @inbounds  Y[1] = E[1,1]
-            # @inbounds  Y[2] = E[2,1]
-            # @inbounds  Y[3] = E[1,2]
-            # @inbounds  Y[4] = E[2,2]
          end
       end
       #R = kron(B,transpose(A)) + kron(D,transpose(C))
    end
-   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
-   E[:,:] = Y
+   luslv!(R,Y,na*nb) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+   if na == 1 && nb == 2
+      @inbounds E[1,1] = Y[1]
+      @inbounds E[1,2] = Y[2]
+   elseif na == 2 && nb == 1
+      @inbounds E[1,1] = Y[1]
+      @inbounds E[2,1] = Y[2]
+   else # na == 2 && nb == 2
+      @inbounds E[1,1] = Y[1]
+      @inbounds E[2,1] = Y[2]
+      @inbounds E[1,2] = Y[3]
+      @inbounds E[2,2] = Y[4]
+   end
    return E
 end
 

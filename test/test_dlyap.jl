@@ -81,7 +81,13 @@ Ty == Float64 ? reltol = eps(float(10000)) : reltol = eps(10000*n*one(Ty))
 @time x = lyapd(ac,qc);
 @test norm(ac*x*ac'-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
 
+@time x = lyapd(ac,qc,blocksize=5);
+@test norm(ac*x*ac'-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
+
 @time x = lyapd(ach,qc);
+@test norm(ach*x*ach-x+qc)/norm(x)/max(1.,norm(ach)^2) < reltol
+
+@time x = lyapd(ach,qc,blocksize=5);
 @test norm(ach*x*ach-x+qc)/norm(x)/max(1.,norm(ach)^2) < reltol
 
 @time x = lyapd(acd,qc);
@@ -109,11 +115,33 @@ end
 @time x = lyapd(ac',qc);
 @test norm(ac'*x*ac-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
 
+@time x = lyapd(ac',qc,blocksize=5);
+@test norm(ac'*x*ac-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
+
 @time x = lyapd(ar,Qr)
+@test norm(ar*x*ar'-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time x = lyapd(ar,Qr,blocksize=5)
 @test norm(ar*x*ar'-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time x = lyapd(ar',Qr)
 @test norm(ar'*x*ar-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time x = lyapd(ar',Qr,blocksize=5)
+@test norm(ar'*x*ar-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time x = lyapd(ars,Qr)
+@test norm(ars*x*ars'-x+Qr)/norm(x)/max(1.,norm(ars)^2) < reltol
+
+@time x = lyapd(ars,Qr,blocksize=5)
+@test norm(ars*x*ars'-x+Qr)/norm(x)/max(1.,norm(ars)^2) < reltol
+
+@time x = lyapd(ars',Qr)
+@test norm(ars'*x*ars-x+Qr)/norm(x)/max(1.,norm(ars)^2) < reltol
+
+@time x = lyapd(ar',Qr,blocksize=5)
+@test norm(ar'*x*ar-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
 
 @time x = lyapd(ac,Qr);
 @test norm(ac*x*ac'-x+Qr)/norm(x)/max(1.,norm(ac)^2)  < reltol

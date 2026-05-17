@@ -1,6 +1,11 @@
 # Release Notes
 
 
+## Version 2.5.8
+- recursive blocking implemented in `lyapd` for `BlasFloat` data
+- blocksize parameter added as keyword argument in `lyapd`
+- various code optimizations to enforce null allocations in 2x2 solvers
+
 ## Version 2.5.7
 - recursive blocking implemented in `lyapc` for `BlasFloat` data
 - blocksize parameter added as keyword argument in `lyapc`

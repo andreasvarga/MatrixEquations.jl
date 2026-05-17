@@ -22,7 +22,7 @@ export cgls, lyapci, lyapdi, tlyapci, hlyapci, tulyapci, hulyapci, sylvci, sylvd
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
 export arec, ared, garec, gared
 export sylvc, sylvd, gsylv, sylvcs!, sylvcs1!, sylvcs2!, sylvds!, gsylvs!
-export lyapcs_blocked!
+export lyapcs_blocked!, lyapds_blocked!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
 export sylvckr, sylvdkr, gsylvkr, sylvsyskr, dsylvsyskr, 
        tsylvckr, hsylvckr, csylvckr, tsylvdkr, hsylvdkr, csylvdkr, tlyapckr, hlyapckr
