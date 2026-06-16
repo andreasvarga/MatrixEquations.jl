@@ -54,7 +54,9 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix; blocksize::Int = 64)
    """
    The Bartels-Steward Schur form based method in [1] is employed for matrix dimensions not exceeding
    the specified blocksize. For large dimensions, the recursive blocked algorithm in [2] is used.
-   The Sylvester equations during the recursive solution are solved using the algorithm of [3].
+   The Sylvester equations during the recursive solution are solved using a native algorithm 
+   inspired by [2] for symmetric solutions and the iterative blocking based algorithm of [3] for 
+   non-symmetric solutions. Blocking is employed only for BlasFloat type data.  
 
    Reference:
    [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
@@ -107,7 +109,7 @@ function lyapc(A::AbstractMatrix, C::AbstractMatrix; blocksize::Int = 64)
          lyapcs!(AS, X; adj)
       end
       #X <- Q*X*Q'
-      utqu!(X,Q')
+      utqu!(X,Q',AS)
       return X
    else
       X = Q' * C * Q
@@ -224,7 +226,7 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
       x = utqu(C,q)
       lyapcs!(as,es,x, adj = adj)
       #x = z*x*z'
-      utqu!(x,z')
+      utqu!(x,z',as)
       return x
    else
       x = q' * C * q
@@ -351,7 +353,7 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix; blocksize::Int = 64)
          lyapds!(AS, X; adj)
       end
       #X <- Q*X*Q'
-      utqu!(X,Q')
+      utqu!(X,Q',AS)
       return X
    else
       #X = rmul!( Q' * C * Q, -1)
@@ -468,7 +470,7 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
       x = utqu(C,q)
       lyapds!(as,es,x, adj = adj)
       #x = z*x*z'
-      utqu!(x,z')
+      utqu!(x,z',as)
       return x
    else
       x = q' * C * q
@@ -650,22 +652,22 @@ function _lyapcs_blocked!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}, adj, bloc
       if adj
          _lyapcs_blocked!(A11,C11,adj,blocksize)
          mul!(C12,Symmetric(C11),A12,1,1)
-         sylvcs!(A11, A22, C12, adjA = true)
-         rmul!(C12,-1)
+         #sylvcs!(A11, A22, C12, adjA = true)
+         #rmul!(C12,-1)
+         _lyapsylvcs_blocked!(A11, A22, C12, true, blocksize)
          BLAS.syr2k!('U', 'T', ONE, A12, C12, ONE, C22)
          _lyapcs_blocked!(A22,C22,adj,blocksize)
       else
          _lyapcs_blocked!(A22,C22,adj,blocksize)
          mul!(C12,A12,Symmetric(C22),1,1)
-         sylvcs!(A11, A22, C12, adjB = true)
-         rmul!(C12,-1)
+         # sylvcs!(A11, A22, C12, adjB = true)
+         # rmul!(C12,-1)
+         _lyapsylvcs_blocked!(A11, A22, C12, false, blocksize)
          BLAS.syr2k!('U', 'N', ONE, A12, C12, ONE, C11)
          _lyapcs_blocked!(A11,C11,adj,blocksize)
       end
    end
 end
-
-
 
 function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},R::AbstractMatrix{T},Y::StridedVector{T}) where T <:Real
 # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
@@ -940,19 +942,96 @@ function _lyapcs_blocked!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}, adj, bloc
       if adj
          _lyapcs_blocked!(A11,C11,adj,blocksize)
          mul!(C12,Hermitian(C11),A12,1,1)
-         sylvcs!(A11, A22, C12, adjA = true)
-         rmul!(C12,-1)
+         #sylvcs!(A11, A22, C12, adjA = true)
+         #rmul!(C12,-1)
+         _lyapsylvcs_blocked!(A11, A22, C12, true, blocksize)
          BLAS.her2k!('U', 'C', ONE, A12, C12, RONE, C22)
          _lyapcs_blocked!(A22,C22,adj,blocksize)
       else
          _lyapcs_blocked!(A22,C22,adj,blocksize)
          mul!(C12,A12,Hermitian(C22),1,1)
-         sylvcs!(A11, A22, C12, adjB = true)
-         rmul!(C12,-1)
+         # sylvcs!(A11, A22, C12, adjB = true)
+         # rmul!(C12,-1)
+         _lyapsylvcs_blocked!(A11, A22, C12, false, blocksize)
          BLAS.her2k!('U', 'N', ONE, A12, C12, RONE, C11)
          _lyapcs_blocked!(A11,C11,adj,blocksize)
       end
    end
+end
+
+function _lyapsylvcs_blocked!(A, B, C, adj::Bool, blocksize::Integer)
+   m = size(A, 1)
+   n = size(B, 1)
+   if m <= max(blocksize,4) && n <= max(blocksize,4)
+      sylvcs!(A,B,C;adjA = adj,adjB = !adj)
+      rmul!(C, -1)
+   else
+      midm = m ÷ 2
+      m1 = A[midm+1, midm] != 0 ? midm + 1 : midm
+      ia1 = 1:m1; ia2 = m1+1:m 
+      midn = n ÷ 2
+      n1 = B[midn+1, midn] != 0 ? midn + 1 : midn
+      ib1 = 1:n1; ib2 = n1+1:n 
+      @views begin
+         A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+         B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]
+         C11, C12, C21, C22 = C[ia1,ib1], C[ia1,ib2], C[ia2,ib1], C[ia2,ib2]
+      end
+      if adj
+         # solve A' X + X B + C = 0
+
+         # X11 solver
+         _lyapsylvcs_blocked!(A11, B11, C11, adj, blocksize)
+
+         # C12 update: C12 = C12 + X11*B12
+         mul!(C12,C11,B12,1,1)
+
+         # X12 solver
+         _lyapsylvcs_blocked!(A11, B22, C12, adj, blocksize)
+
+         # C21 update: C21 = C21 + A12'*X11
+         mul!(C21,A12',C11,1,1)
+
+         # X21 solver
+         _lyapsylvcs_blocked!(A22, B11, C21, adj, blocksize)
+
+         # C22 update: C22 = C22 + A12'*X12 + X21*B12
+
+         # C22 = C22 + A12'*X12
+         mul!(C22, A12', C12, 1, 1)
+         # C22 = C22 + X21*B12
+         mul!(C22, C21, B12, 1, 1)
+
+         # X22 solver
+         _lyapsylvcs_blocked!(A22, B22, C22, adj, blocksize)
+      else
+         # solve A X  + X B' + C = 0
+
+         # X22 solver
+         _lyapsylvcs_blocked!(A22, B22, C22, adj, blocksize)
+
+         # C12 update: C12 = C12 + A12*X22
+         mul!(C12,A12,C22,1,1)
+
+         # X12 solver
+         _lyapsylvcs_blocked!(A11, B22, C12, adj, blocksize)
+
+         # C21 update: C21 = C21 + X22*B12'
+         mul!(C21,C22,B12',1,1)
+
+         # X21 solver
+         _lyapsylvcs_blocked!(A22, B11, C21, adj, blocksize)
+
+         # C11 update: C11 = C11 + A12*X21 + X12*B12' 
+         # C11 = C11 + A12*X21
+         mul!(C11, A12, C21, 1, 1)
+         # C11 = C11 + X12*B12'
+         mul!(C11, C12, B12', 1, 1) 
+ 
+         # X11 solver
+         _lyapsylvcs_blocked!(A11, B11, C11, adj, blocksize)
+      end
+   end   
 end
 
 
@@ -2037,6 +2116,9 @@ function _lyapsylvds_blocked!(WS, A, B, C, adj::Bool, isgn::Integer, blocksize::
    end   
 end
 
+
+
+
 function lyapsylvds_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adj = false, isgn = -1, blocksize::Integer = 64) where {T1<:BlasComplex}
    m = LinearAlgebra.checksquare(A)  
    n = LinearAlgebra.checksquare(B)
@@ -2926,4 +3008,108 @@ function hulyapc!(U::AbstractMatrix{T}, Q::AbstractMatrix{T}; adj = false, absto
       Q[:] = vec2triu(xt)
    end
    return Q
+end
+
+
+"""
+    generic_syrk!(uplo::Char, trans::Char, α, A::AbstractMatrix, β, C::AbstractMatrix)
+
+Generic rank-k update of a symmetric matrix C.
+Computes C = α*A*A' + β*C (if trans='N') or C = α*A'*A + β*C (if trans='T' or 'C').
+Only the 'U' (upper) or 'L' (lower) triangle of C is updated.
+"""
+function generic_syrk!(uplo::Char, trans::Char, α, A::AbstractMatrix, β, C::AbstractMatrix)
+    # 1. Validate Dimensions
+    n = size(C, 1)
+    size(C, 2) == n || throw(DimensionMismatch("C must be square"))
+    
+    if trans == 'N' || trans == 'n'
+        k = size(A, 2)
+        size(A, 1) == n || throw(DimensionMismatch("Dimensions of A and C do not match"))
+    elseif trans == 'T' || trans == 't' || trans == 'C' || trans == 'c'
+        k = size(A, 1)
+        size(A, 2) == n || throw(DimensionMismatch("Dimensions of A and C do not match"))
+    else
+        throw(ArgumentError("trans must be 'N' or 'T'/'C'"))
+    end
+
+    # 2. Scale C by β first
+    if iszero(β)
+        # Avoid multiplying by zero in case of NaNs/Infs in C
+        for j in 1:n, i in 1:n
+            if (uplo == 'U' && i <= j) || (uplo == 'L' && i >= j)
+                C[i, j] = zero(eltype(C))
+            end
+        end
+    elseif !isone(β)
+        for j in 1:n, i in 1:n
+            if (uplo == 'U' && i <= j) || (uplo == 'L' && i >= j)
+                C[i, j] *= β
+            end
+        end
+    end
+
+    # Short-circuit if α is zero
+    iszero(α) && return C
+
+    # 3. Perform Rank-K Update
+    if trans == 'N' || trans == 'n'
+        # C = α * A * A' + β * C
+        if uplo == 'U' || uplo == 'u'
+            @inbounds for j in 1:n
+                for l in 1:k
+                    α_Alj = α * A[j, l]
+                    for i in 1:j
+                        C[i, j] += A[i, l] * α_Alj
+                    end
+                end
+            end
+        elseif uplo == 'L' || uplo == 'l'
+            @inbounds for j in 1:n
+                for l in 1:k
+                    α_Alj = α * A[j, l]
+                    for i in j:n
+                        C[i, j] += A[i, l] * α_Alj
+                    end
+                end
+            end
+        else
+            throw(ArgumentError("uplo must be 'U' or 'L'"))
+        end
+    else
+        # C = α * A' * A + β * C
+        # Note: For real numbers T and C are identical. If dealing with Complex generic types, 
+        # use adjoint() appropriately depending on 'T' vs 'C'.
+        is_conj = (trans == 'C' || trans == 'c')
+        
+        if uplo == 'U' || uplo == 'u'
+            @inbounds for j in 1:n
+                for i in 1:j
+                    s = zero(eltype(C))
+                    for l in 1:k
+                        val_i = is_conj ? conj(A[l, i]) : A[l, i]
+                        val_j = A[l, j]
+                        s += val_i * val_j
+                    end
+                    C[i, j] += α * s
+                end
+            end
+        elseif uplo == 'L' || uplo == 'l'
+            @inbounds for j in 1:n
+                for i in j:n
+                    s = zero(eltype(C))
+                    for l in 1:k
+                        val_i = is_conj ? conj(A[l, i]) : A[l, i]
+                        val_j = A[l, j]
+                        s += val_i * val_j
+                    end
+                    C[i, j] += α * s
+                end
+            end
+        else
+            throw(ArgumentError("uplo must be 'U' or 'L'"))
+        end
+    end
+
+    return C
 end

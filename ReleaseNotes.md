@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 2.5.9
+- using a faster native recursive blocking based algorithms to solve the Sylvester equations  
+  within the recursive blocking based algorithm implemented in `lyapc` for `BlasFloat` data
+
 ## Version 2.5.8
 - recursive blocking implemented in `lyapd` for `BlasFloat` data
 - blocksize parameter added as keyword argument in `lyapd`
@@ -168,7 +172,7 @@ This release includes several enhancements of the Riccati equation solvers:
 This release is intended to be the first registered version for the public. The latest additions include:
 
 - New functions for estimation of norms, reciprocal condition numbers and separations of linear operators.
-- New funtions defining a comprehensive set of Lyapunov and Sylvester operators.
+- New functions defining a comprehensive set of Lyapunov and Sylvester operators.
 - Updated documentation, with examples for the main functions
 - Enhancements of all functions to cover all numerical data types
 - Full coverage of all basic floating point types by the solvers

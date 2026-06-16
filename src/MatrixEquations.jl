@@ -15,6 +15,7 @@ using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!, safemin, smlnum, trsyl3!
 
 export MatrixEquationsMaps
 export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormalize!
+export utqu_new
 export lanv2, ladiv, lag2, lacn2!, trsyl3!
 export _lanv2, _safemin, _lag2, _ladiv
 export lyapc, lyapd, lyapcs!, lyapds!, tlyapc, tulyapc!, hlyapc, hulyapc! 
@@ -30,6 +31,7 @@ export opnorm1, opnorm1est, oprcondest, opsepest
 export lyapop, invlyapop, sylvop, invsylvop, sylvsysop, invsylvsysop, trmatop, eliminationop, duplicationop
 export tulyaplikeop, hulyaplikeop, lyaplikeop, gsylvop
 export plyapci, plyapdi
+export lyapc02, lyapcs02!, lyapc12, lyapcs12!
 
 include("meutil.jl")
 include("sylvester.jl")

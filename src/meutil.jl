@@ -102,6 +102,52 @@ function utqu!(Q,U)
    end
    return Q
 end
+
+function utqu!(Q::AbstractMatrix{T}, U::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T}
+    n = LinearAlgebra.checksquare(Q)
+    LinearAlgebra.checksquare(U) == n || throw(DimensionMismatch("U must be $n x $n"))
+    size(W) == (n, n)   || throw(DimensionMismatch("Workspace W must be $n x $n"))
+    
+    # 1. Halve the diagonal in-place safely across all precision types
+    @inbounds for i in 1:n
+        Q[i, i] /= 2
+    end
+
+    # 2. Compute the multi-stage multiplication using pre-allocated workspace W
+    if isa(U, Adjoint)
+        # Goal: Q = Uparent * UpperTriangular(Q) * Uparent'
+        mul!(W, UpperTriangular(Q), Adjoint(U.parent), one(T), zero(T))
+        mul!(Q, U.parent, W, one(T), zero(T))
+    else
+        # Goal: Q = U' * UpperTriangular(Q) * U
+        mul!(W, UpperTriangular(Q), U, one(T), zero(T))
+        mul!(Q, Adjoint(U), W, one(T), zero(T))
+    end
+
+    # 3. Column-major Symmetrization
+    @inbounds for j = 1:n
+        Q[j, j] = 2 * real(Q[j, j])
+        for i = j+1:n
+            val = Q[i, j] + conj(Q[j, i])
+            Q[i, j] = val
+            Q[j, i] = conj(val)
+        end
+    end
+    return Q
+end
+
+# Helper to copy only the upper triangle cleanly without allocating a full matrix first
+function copy_upper(Q::AbstractMatrix, ::Type{T}) where {T}
+    n = size(Q, 1)
+    out = Matrix{T}(undef, n, n)
+    @inbounds for j in 1:n
+        for i in 1:j
+            out[i, j] = Q[i, j]
+        end
+    end
+    return out
+end
+
 """
     X = utqu(Q,U)
 
@@ -322,60 +368,6 @@ function utnormalize!(U::UpperTriangular{T},adj::Bool) where T
    end
    return U
 end
-# @inline function luslv!(A::AbstractMatrix{T}, B::AbstractVector{T}) where T
-#    #
-#    #  fail = luslv!(A,B)
-#    #
-#    # This function is a speed-oriented implementation of a Gaussian-elimination based
-#    # solver of small order linear equations of the form A*X = B. The computed solution X
-#    # overwrites the vector B, while the resulting A contains in its upper triangular part,
-#    # the upper triangular factor U of its LU decomposition.
-#    # The diagnostic output parameter fail, of type Bool, is set to false in the case
-#    # of normal return or is set to true if the exact singularity of A is detected
-#    # or if the resulting B has non-finite components.
-#    #
-#    n = length(B)
-#    @inbounds begin
-#          for k = 1:n
-#             # find index max
-#             kp = k
-#             if k < n
-#                 amax = abs(A[k, k])
-#                 for i = k+1:n
-#                     absi = abs(A[i,k])
-#                     if absi > amax
-#                         kp = i
-#                         amax = absi
-#                     end
-#                 end
-#             end
-#             iszero(A[kp,k]) && return true
-#             if k != kp
-#                # Interchange
-#                for i = 1:n
-#                    tmp = A[k,i]
-#                    A[k,i] = A[kp,i]
-#                    A[kp,i] = tmp
-#                end
-#                tmp = B[k]
-#                B[k] = B[kp]
-#                B[kp] = tmp
-#             end
-#             # Scale first column
-#             Akkinv = inv(A[k,k])
-#             i1 = k+1:n
-#             Ak = view(A,i1,k)
-#             rmul!(Ak,Akkinv)
-#             # Update the rest of A and B
-#             for j = k+1:n
-#                 axpy!(-A[k,j],Ak,view(A,i1,j))
-#             end
-#             axpy!(-B[k],Ak,view(B,i1))
-#          end
-#          ldiv!(UpperTriangular(A), B)
-#          return any(!isfinite, B)
-#    end
-# end
 
 @inline function luslv!(A::AbstractMatrix{T}, B::AbstractVector{T}, n::Int = length(B)) where T
    # Accepts an optional or explicit `n` to limit operations to a sub-block
