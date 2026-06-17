@@ -12,7 +12,7 @@ The solution `X` is symmetric or hermitian if `C` is symmetric or hermitian.
 
 The keyword argument `blocksize` (default: `blocksize = 64`) specifies the 
 block size when to switch in the employed recursive blocked algorithm 
-to the standard algorithm for solving small-sized matrix equations. 
+to the core algorithm for solving small-sized matrix equations. 
 If `blocksize < 4`, the minimum value `blocksize = 4` is used.
 Note: This option is only effective for data of types `Float64`, `Float32`, 
       `ComplexF64`, or `ComplexF32`.
