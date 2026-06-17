@@ -717,7 +717,7 @@ function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},R::Abstra
    return C
 end
 
-function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},Xw::AbstractMatrix{T},Yw::StridedVector{T}) where T <:Real
+function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},R::AbstractMatrix{T},Y::StridedVector{T}) where T <:Real
 # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 Sylvester equations
 # encountered in solving continuous Lyapunov equations:
 #      A'*X + X*B = -C if adj = true  -> R = kron(I,A')+kron(B',I) = (kron(I,A)+kron(B,I))'
@@ -729,9 +729,6 @@ function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{
       return C
    end
    ZERO = zero(T)
-   i1 = 1:na*nb
-   R = view(Xw,i1,i1)
-   Y = view(Yw,i1)
    if adj
       if na == 1
          # @inbounds R = [ A[1,1]+B[1,1]    B[2,1];
@@ -827,8 +824,19 @@ function lyapcsylv2!(adj,C::AbstractMatrix{T},na::Int,nb::Int,A::AbstractMatrix{
          end
       end
    end
-   luslv!(R,Y) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
-   C[:,:] = Y
+   luslv!(R,Y,na*nb) && throw("ME:SingularException: A has eigenvalues α and β such that α+β ≈ 0")
+   if na == 1 && nb == 2
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[1,2] = Y[2]
+   elseif na == 2 && nb == 1
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[2,1] = Y[2]
+   else # na == 2 && nb == 2
+      @inbounds C[1,1] = Y[1]
+      @inbounds C[2,1] = Y[2]
+      @inbounds C[1,2] = Y[3]
+      @inbounds C[2,2] = Y[4]
+   end
    return C
 end
 function lyapcs!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Complex}
