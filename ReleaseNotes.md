@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 2.5.10
+- recursive blocking implemented for solving generalized Lyapunov equations in `lyapc` for `BlasFloat` data
+
+
 ## Version 2.5.9
 - using a faster native recursive blocking based algorithms to solve the Sylvester equations  
   within the recursive blocking based algorithm implemented in `lyapc` for `BlasFloat` data

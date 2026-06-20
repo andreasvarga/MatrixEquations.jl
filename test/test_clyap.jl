@@ -219,6 +219,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(ac,ec,qc);
 @test norm(ac*x*ec'+ec*x*ac'+qc)/norm(x)/norm(ac)/norm(ec) < reltol
 
+@time x = lyapc(ac,ec,qc,blocksize=5);
+@test norm(ac*x*ec'+ec*x*ac'+qc)/norm(x)/norm(ac)/norm(ec) < reltol
+
 β = 3
 @time x = lyapc(ac,β*I,qc);
 @test norm(ac*x*β'+β*x*ac'+qc)/norm(x)/norm(ac)/norm(ec) < reltol
@@ -242,6 +245,9 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(ac',ec',qc);
 @test norm(ac'*x*ec+ec'*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
 
+@time x = lyapc(ac',ec',qc,blocksize=5);
+@test norm(ac'*x*ec+ec'*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
+
 β = (1+im);
 @time x = lyapc(ac',β*I,qc);
 @test norm(ac'*x*β+β'*x*ac+qc)/norm(x)/norm(ac)/norm(ec)  < reltol
@@ -259,11 +265,18 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time x = lyapc(ar,er,Qr);
 @test norm(ar*x*er'+er*x*ar'+Qr)/norm(x)/norm(ar)/norm(er)  < reltol
 
+@time x = lyapc(ar,er,Qr,blocksize=5);
+@test norm(ar*x*er'+er*x*ar'+Qr)/norm(x)/norm(ar)/norm(er)  < reltol
+
 @time x = lyapc(ar,er,qc);
 @test norm(ar*x*er'+er*x*ar'+qc)/norm(x)/norm(ar)/norm(er)  < reltol
 
 @time x = lyapc(ar',er',Qr);
 @test norm(ar'*x*er+er'*x*ar+Qr)/norm(x)/norm(ar)/norm(er) < reltol
+
+@time x = lyapc(ar',er',Qr,blocksize=5);
+@test norm(ar'*x*er+er'*x*ar+Qr)/norm(x)/norm(ar)/norm(er) < reltol
+
 
 @time x = lyapc(ar',er,Qr);
 @test norm(ar'*x*er'+er*x*ar+Qr)/norm(x)/norm(ar)/norm(er) < reltol
