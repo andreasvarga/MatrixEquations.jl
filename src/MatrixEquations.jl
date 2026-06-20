@@ -35,8 +35,7 @@ export lyapc02, lyapcs02!, lyapc12, lyapcs12!
 
 include("meutil.jl")
 include("sylvester.jl")
-#include("lyapunov.jl")
-include("lyapunov_blocked.jl")
+include("lyapunov.jl")
 include("riccati.jl")
 include("sylvkr.jl")
 include("plyapunov.jl")

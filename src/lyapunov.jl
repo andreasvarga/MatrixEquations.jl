@@ -13,7 +13,7 @@ The solution `X` is symmetric or hermitian if `C` is symmetric or hermitian.
 The keyword argument `blocksize` (default: `blocksize = 64`) specifies the 
 block size when to switch in the employed recursive blocked algorithm 
 to the core algorithm for solving small-sized matrix equations. 
-If `blocksize < 4`, the minimum value `blocksize = 4` is used.
+If `blocksize ≤ 4`, the minimum value `blocksize = 4` is used.
 Note: This option is only effective for data of types `Float64`, `Float32`, 
       `ComplexF64`, or `ComplexF32`.
 
@@ -123,7 +123,7 @@ lyapc(A::Union{Real,Complex}, C::AbstractMatrix) = real(A) == 0 ? throw("ME:Sing
 # (α+α')x + γ = 0
 lyapc(A::Union{Real,Complex}, C::Union{Real,Complex})  = real(A) == 0 ? throw("ME:SingularException: A has an eigenvalue with zero real part") : -C/(A+A')
 """
-    X = lyapc(A, E, C)
+    X = lyapc(A, E, C; blocksize = 64)
 
 Compute `X`, the solution of the generalized continuous Lyapunov equation
 
@@ -132,6 +132,13 @@ Compute `X`, the solution of the generalized continuous Lyapunov equation
 where `A` and `E` are square real or complex matrices and `C` is a square matrix.
 The pencil `A-λE` must not have eigenvalues `α` and `β` such that `α+β = 0`.
 The solution `X` is symmetric or hermitian if `C` is a symmetric or hermitian.
+
+The keyword argument `blocksize` (default: `blocksize = 64`) specifies the 
+block size when to switch in the employed recursive blocked algorithm 
+to the core algorithm for solving small-sized matrix equations. 
+If `blocksize ≤ 4`, the minimum value `blocksize = 4` is used.
+Note: This option is only effective for data of types `Float64`, `Float32`, 
+      `ComplexF64`, or `ComplexF32`.
 
 The following particular cases are also adressed:
 
@@ -179,14 +186,22 @@ julia> A*X*E' + E*X*A' + C
  -4.44089e-15   0.0
 ```
 """
-function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
+function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix; blocksize::Int = 64)
    """
-   The extension of the Bartels-Steward method based on the generalized Schur form
-   is employed.
+   The extension [1] of the Bartels-Steward method based on the generalized Schur form
+   is employed for matrix dimensions not exceeding the specified blocksize. For large dimensions, 
+   the recursive blocked algorithm in [2] is used. The generalized Sylvester equations 
+   during the recursive solution are solved using the recursive blocking technique described in [2].
+   Blocking is employed only for BlasFloat type data.  
 
    Reference:
-   T. Penzl. Numerical solution of generalized Lyapunov equations.
-   Adv. Comput. Math., 8:33–48, 1998.
+   [1] T. Penzl. Numerical solution of generalized Lyapunov equations.
+       Adv. Comput. Math., 8:33–48, 1998.
+
+   [2] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems—
+       Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
+       28 (2002), pp. 392–415.
+
    """
    T2 = promote_type(eltype(A), eltype(E), eltype(C))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -223,8 +238,12 @@ function lyapc(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix)
    end
    if her
       #x = q'*C*q
-      x = utqu(C,q)
-      lyapcs!(as,es,x, adj = adj)
+      x = utqu(C,q) 
+      if T2 <: BlasFloat
+         lyapcs_blocked!(as,es,x; adj, blocksize)
+      else
+         lyapcs!(as,es,x, adj = adj)
+      end
       #x = z*x*z'
       utqu!(x,z',as)
       return x
@@ -668,6 +687,40 @@ function _lyapcs_blocked!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}, adj, bloc
       end
    end
 end
+# function _lyapcs_blocked!(A::AbstractMatrix{T1},C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasComplex}
+#    n = size(A, 1)
+#    ONE = one(T1)
+#    if n <= max(blocksize,4)
+#       LinearAlgebra.copytri!(C,'U')
+#       lyapcs!(A,C;adj)
+#    else
+#       # split A and C (by rows and columns)
+#       mid = n ÷ 2
+#       n1 =  A[mid+1, mid] != 0 ? mid + 1 : mid
+#       i1 = 1:n1; i2 = n1+1:n 
+#       @views begin
+#          A11, A12, A22 = A[i1,i1], A[i1,i2], A[i2,i2]
+#          C11, C12, C22 = C[i1,i1], C[i1,i2], C[i2,i2]
+#       end
+#       if adj
+#          _lyapcs_blocked!(A11,C11,adj,blocksize)
+#          mul!(C12,Symmetric(C11),A12,1,1)
+#          #sylvcs!(A11, A22, C12, adjA = true)
+#          #rmul!(C12,-1)
+#          _lyapsylvcs_blocked!(A11, A22, C12, true, blocksize)
+#          BLAS.syr2k!('U', 'T', ONE, A12, C12, ONE, C22)
+#          _lyapcs_blocked!(A22,C22,adj,blocksize)
+#       else
+#          _lyapcs_blocked!(A22,C22,adj,blocksize)
+#          mul!(C12,A12,Symmetric(C22),1,1)
+#          # sylvcs!(A11, A22, C12, adjB = true)
+#          # rmul!(C12,-1)
+#          _lyapsylvcs_blocked!(A11, A22, C12, false, blocksize)
+#          BLAS.syr2k!('U', 'N', ONE, A12, C12, ONE, C11)
+#          _lyapcs_blocked!(A11,C11,adj,blocksize)
+#       end
+#    end
+# end
 
 function lyapc2!(adj,C::AbstractMatrix{T},na::Int,A::AbstractMatrix{T},R::AbstractMatrix{T},Y::StridedVector{T}) where T <:Real
 # speed and reduced allocation oriented implementation of a solver for 1x1 or 2x2 continuous Lyapunov equations
@@ -1506,6 +1559,330 @@ function lyapcs!(A::AbstractMatrix{T1},E::Union{AbstractMatrix{T1},UniformScalin
       end
    end
 end
+function lyapcs_blocked!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adj = false, blocksize::Integer = 64) where {T1<:BlasFloat}
+    n = LinearAlgebra.checksquare(A)  
+    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
+    LinearAlgebra.checksquare(C) == n || throw(DimensionMismatch("C must be a $n x $n matrix or I"))
+    mid = n ÷ 2
+    if T1 <: Real  
+       # Check symmetry ONCE here
+       issymmetric(C) ||  throw(DimensionMismatch("C must be a $n x $n symmetric matrix"))
+       mid += 2
+    else
+       ishermitian(C) ||  throw(DimensionMismatch("C must be a $n x $n Hermitian matrix"))
+       mid += 1
+    end
+    
+    # Allocate a full-sized WS and half-sized WS1 once. 
+    WS = Matrix{T1}(undef,n,n)
+    WS1 = Matrix{T1}(undef,mid,mid)
+    _lyapcs_blocked!(WS, WS1, A, E, C, adj, blocksize)
+
+    # Fill the lower triangle ONCE at the very end
+    return LinearAlgebra.copytri!(C, 'U', T1 <: Complex)
+end
+function _lyapcs_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::AbstractMatrix{T1},E::AbstractMatrix{T1},
+                          C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasReal}
+   n = size(A, 1)
+   ONE = one(T1)
+   ZERO = zero(T1)
+   if n <= max(blocksize,4)
+      LinearAlgebra.copytri!(C,'U')
+      lyapcs!(A,E,C;adj)
+   else
+      # split A, E and C (by rows and columns)
+      mid = n ÷ 2
+      n1 =  A[mid+1, mid] != 0 ? mid + 1 : mid
+      i1 = 1:n1; i2 = n1+1:n 
+      @views begin
+         A11, A12, A22 = A[i1,i1], A[i1,i2], A[i2,i2]
+         E11, E12, E22 = E[i1,i1], E[i1,i2], E[i2,i2]
+         C11, C12, C22 = C[i1,i1], C[i1,i2], C[i2,i2]
+         WS11, WS12, WS22 = WS[i1,i1], WS[i1,i2], WS[i2,i2]
+      end
+      if adj
+         # Adjoint Case: A' X E + E' X A + C = 0  
+         
+         # 1. Solve X11
+        _lyapcs_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+
+         # 2. Update C12 = C12 + A11' * X11 * E12 + E11' * X11 * A12
+         mul!(WS12, Symmetric(C11, :U), E12)
+         BLAS.gemm!('T', 'N', ONE, A11, WS12, ONE, C12)
+    
+         mul!(WS12, Symmetric(C11, :U), A12)
+         BLAS.gemm!('T', 'N', ONE, E11, WS12, ONE, C12)    
+
+         # 3. Solve Generalized Dual Sylvester for X12
+         # Ensure your sylvester solver configuration treats A11 and E11 as transposed
+         lyapgsylvcs_blocked!(WS1, A11, E22, E11, A22, C12; adj, blocksize)
+
+         # 4. Update C22 = C22 + A12'*(X11*E12+X12*E22)+(X11*E12+X12*E22)'*A12
+         mul!(WS12, Symmetric(C11, :U), E12)
+         mul!(WS12, C12, E22, ONE, ONE)
+         BLAS.syr2k!('U', 'T', ONE, A12, WS12, ONE, C22)
+
+         # Update C22 = C22 + E12'*(X12*A22)+(X12*A22)'*E12
+         mul!(WS12, C12, A22)
+         BLAS.syr2k!('U', 'T', ONE, E12, WS12, ONE, C22)
+
+         # 5. Solve X22
+         _lyapcs_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+      else
+         # Standard Case: A X E' + E X A' + C = 0
+
+         # X22 solver
+         _lyapcs_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+
+         # Update C12: C12 = C12 + A12 * X22 * E22' + E12 * X22 * A22'
+         # Use WS[i1, i2] for (E12 * C22)
+         BLAS.symm!('R', 'U', ONE, C22, E12, ZERO, WS12)
+         BLAS.gemm!('N', 'T', ONE, WS12, A22, ONE, C12)
+         # Use WS[i1, i2] for (A12 * C22)
+         BLAS.symm!('R', 'U', ONE, C22, A12, ZERO, WS12)
+         BLAS.gemm!('N', 'T', ONE, WS12, E22, ONE, C12)
+
+         # Solve generalized Sylvester: A11 * X12 * E22' + E11 X12 A22' + C12 = 0
+         lyapgsylvcs_blocked!(WS1, A11, E22, E11, A22, C12; adj, blocksize)
+
+         # Update C11: C11 = C11 + (A11*X12+A12*X22)*E12' + E12*(A11*X12+A12*X22)'
+         # 1. WS12 = WS12 + A11*C12   [WS12 contains A11*C12+A12*C22]
+         BLAS.gemm!('N', 'N', ONE, A11, C12, ONE, WS12)
+         # 2. C11 = C11 + WS12*E12' + E12*WS12' -> syr2k
+         BLAS.syr2k!('U', 'N', ONE, WS12, E12, ONE, C11)
+  
+         # 3. C11 = C11 + (E11*X12)*A12' + A12*(E11*X12)' -> syr2k
+         BLAS.gemm!('N', 'N', ONE, E11, C12, ZERO, WS12)
+         BLAS.syr2k!('U', 'N', ONE, WS12, A12, ONE, C11)
+
+         # X11 solver
+         _lyapcs_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+      end
+   end
+end
+function _lyapcs_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::AbstractMatrix{T1},E::AbstractMatrix{T1},
+                          C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasComplex}
+   n = size(A, 1)
+   ONE = one(T1)
+   RONE = real(ONE)
+   ZERO = zero(T1)
+   if n <= max(blocksize,4)
+      LinearAlgebra.copytri!(C,'U',true)
+      lyapcs!(A,E,C;adj)
+   else
+      # split A, E and C (by rows and columns)
+      n1 = n ÷ 2
+      i1 = 1:n1; i2 = n1+1:n 
+      @views begin
+         A11, A12, A22 = A[i1,i1], A[i1,i2], A[i2,i2]
+         E11, E12, E22 = E[i1,i1], E[i1,i2], E[i2,i2]
+         C11, C12, C22 = C[i1,i1], C[i1,i2], C[i2,i2]
+         WS11, WS12, WS22 = WS[i1,i1], WS[i1,i2], WS[i2,i2]
+      end
+      if adj
+         # Adjoint Case: A' X E + E' X A + C = 0  
+         
+         # 1. Solve X11
+        _lyapcs_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+
+         # 2. Update C12 = C12 + A11' * X11 * E12 + E11' * X11 * A12
+         mul!(WS12, Hermitian(C11, :U), E12)
+         BLAS.gemm!('C', 'N', ONE, A11, WS12, ONE, C12)
+    
+         mul!(WS12, Hermitian(C11, :U), A12)
+         BLAS.gemm!('C', 'N', ONE, E11, WS12, ONE, C12)    
+
+         # 3. Solve Generalized Dual Sylvester for X12
+         # Ensure your sylvester solver configuration treats A11 and E11 as transposed
+         lyapgsylvcs_blocked!(WS1, A11, E22, E11, A22, C12; adj, blocksize)
+
+         # 4. Update C22 = C22 + A12'*(X11*E12+X12*E22)+(X11*E12+X12*E22)'*A12
+         mul!(WS12, Hermitian(C11, :U), E12)
+         mul!(WS12, C12, E22, ONE, ONE)
+         BLAS.her2k!('U', 'C', ONE, A12, WS12, RONE, C22)
+
+         # Update C22 = C22 + E12'*(X12*A22)+(X12*A22)'*E12
+         mul!(WS12, C12, A22)
+         BLAS.her2k!('U', 'C', ONE, E12, WS12, RONE, C22)
+
+         # 5. Solve X22
+         _lyapcs_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+      else
+         # Standard Case: A X E' + E X A' + C = 0
+
+         # X22 solver
+         _lyapcs_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+
+         # Update C12: C12 = C12 + A12 * X22 * E22' + E12 * X22 * A22'
+         # Use WS[i1, i2] for (E12 * C22)
+         BLAS.hemm!('R', 'U', ONE, C22, E12, ZERO, WS12)
+         BLAS.gemm!('N', 'C', ONE, WS12, A22, ONE, C12)
+         # Use WS[i1, i2] for (A12 * C22)
+         BLAS.hemm!('R', 'U', ONE, C22, A12, ZERO, WS12)
+         BLAS.gemm!('N', 'C', ONE, WS12, E22, ONE, C12)
+
+         # Solve generalized Sylvester: A11 * X12 * E22' + E11 X12 A22' + C12 = 0
+         lyapgsylvcs_blocked!(WS1, A11, E22, E11, A22, C12; adj, blocksize)
+
+         # Update C11: C11 = C11 + (A11*X12+A12*X22)*E12' + E12*(A11*X12+A12*X22)'
+         # 1. WS12 = WS12 + A11*C12   [WS12 contains A11*C12+A12*C22]
+         BLAS.gemm!('N', 'N', ONE, A11, C12, ONE, WS12)
+         # 2. C11 = C11 + WS12*E12' + E12*WS12' -> syr2k
+         BLAS.her2k!('U', 'N', ONE, WS12, E12, RONE, C11)
+  
+         # 3. C11 = C11 + (E11*X12)*A12' + A12*(E11*X12)' -> syr2k
+         BLAS.gemm!('N', 'N', ONE, E11, C12, ZERO, WS12)
+         BLAS.her2k!('U', 'N', ONE, WS12, A12, RONE, C11)
+
+         # X11 solver
+         _lyapcs_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+      end
+   end
+end
+
+function lyapgsylvcs_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; adj = false, blocksize::Integer = 64) where {T1<:BlasFloat}
+   m = LinearAlgebra.checksquare(A)  
+   n = LinearAlgebra.checksquare(B)
+   (m, n) == size(E) || throw(DimensionMismatch("E must be a $m x $n"))
+   
+   # Call the positional recursive worker
+   _lyapgsylvcs_blocked!(WS, A, B, C, D, E, adj, blocksize)
+end
+function _lyapgsylvcs_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
+   m = size(A, 1)
+   n = size(B, 1)
+   if m <= max(blocksize,4) && n <= max(blocksize,4)
+      gsylvs!(A,B,C,D,E;adjAC = adj,adjBD = !adj,DBSchur = true)
+      rmul!(E, -1)
+   else
+      midm = m ÷ 2
+      m1 = A[midm+1, midm] != 0 ? midm + 1 : midm
+      ia1 = 1:m1; ia2 = m1+1:m 
+      midn = n ÷ 2
+      n1 = D[midn+1, midn] != 0 ? midn + 1 : midn
+      ib1 = 1:n1; ib2 = n1+1:n 
+      if eltype(A) <: Real
+         @views begin
+            A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+            B11, B12, B22 = UpperTriangular(B[ib1,ib1]), B[ib1,ib2], UpperTriangular(B[ib2,ib2])
+            C11, C12, C22 = UpperTriangular(C[ia1,ia1]), C[ia1,ia2], UpperTriangular(C[ia2,ia2])
+            D11, D12, D22 = D[ib1,ib1], D[ib1,ib2], D[ib2,ib2]
+            E11, E12, E21, E22 = E[ia1,ib1], E[ia1,ib2], E[ia2,ib1], E[ia2,ib2]
+            WS11, WS12, WS21, WS22 = WS[ia1,ib1], WS[ia1,ib2], WS[ia2,ib1], WS[ia2,ib2]
+         end
+      else
+         @views begin
+            A11, A12, A22 = UpperTriangular(A[ia1,ia1]), A[ia1,ia2], UpperTriangular(A[ia2,ia2])
+            B11, B12, B22 = UpperTriangular(B[ib1,ib1]), B[ib1,ib2], UpperTriangular(B[ib2,ib2])
+            C11, C12, C22 = UpperTriangular(C[ia1,ia1]), C[ia1,ia2], UpperTriangular(C[ia2,ia2])
+            D11, D12, D22 =  UpperTriangular(D[ib1,ib1]), D[ib1,ib2],  UpperTriangular(D[ib2,ib2])
+            E11, E12, E21, E22 = E[ia1,ib1], E[ia1,ib2], E[ia2,ib1], E[ia2,ib2]
+            WS11, WS12, WS21, WS22 = WS[ia1,ib1], WS[ia1,ib2], WS[ia2,ib1], WS[ia2,ib2]
+         end
+      end
+      if adj
+         # solve A' X B + C' X D + E = 0
+
+         # X11 solver
+         _lyapgsylvcs_blocked!(WS11, A11, B11, C11, D11, E11, adj, blocksize)
+
+         # E12 update: E12 = E12 + A11'*X11*B12 + C11'*X11*D12
+         mul!(WS11, A11', E11)
+         mul!(E12, WS11, B12, 1, 1)
+         mul!(WS11, C11', E11)
+         mul!(E12, WS11, D12, 1, 1)
+ 
+         # X12 solver
+         _lyapgsylvcs_blocked!(WS12, A11, B22, C11, D22, E12, adj, blocksize)
+
+         # E21 update: E21 = E21 + A12'*X11*B11 + C12'*X11*D11
+         #mul!(WS11,E11, UpperTriangular(B11))
+         mul!(WS11,E11, B11)
+         mul!(E21,A12',WS11,1,1)
+         mul!(WS11, E11, D11)
+         mul!(E21, C12', WS11,1,1)
+
+         # X21 solver
+         _lyapgsylvcs_blocked!(WS21, A22, B11, C22, D11, E21, adj, blocksize)
+
+         # E22 update: E22 = E22 + A12'*X12*B22 + C12'*X12*D22 +
+         #                   (A12'*X11+A22'*X21)*B12 + (C12'*X11+C22'*X21)*D12
+         # WS21 = A12'*X11+A22'*X21
+         # mul!(WS21, A12', E11)
+         # mul!(WS21, A22', E21, 1, 1)
+         mul!(WS21, A22', E21)
+         mul!(WS21, A12', E11, 1, 1)
+         # E22 = E22 + WS21 * B12
+         mul!(E22, WS21, B12, 1, 1)
+         # WS12 = C12'*X11+C22'*X22)
+         # mul!(WS21, C12', E11)
+         # mul!(WS21, C22', E21, 1, 1)
+         mul!(WS21, C22', E21)
+         mul!(WS21, C12', E11, 1, 1)
+         # E22 = E22 + WS21 * D12
+         mul!(E22, WS21, D12, 1, 1)
+
+         # E22 = E22 + A12'*X12*B22
+         mul!(WS12, E12, B22)
+         mul!(E22, A12', WS12, 1, 1) 
+         # E22 = E22 + A12'*X12*B22
+         mul!(WS12, E12, D22)
+         mul!(E22, C12', WS12, 1, 1) 
+
+         # X22 solver
+         _lyapgsylvcs_blocked!(WS22, A22, B22, C22, D22, E22, adj, blocksize)
+      else
+         # solve A X B' + C X D' + E = 0
+
+         # X22 solver
+         _lyapgsylvcs_blocked!(WS22, A22, B22, C22, D22, E22, adj, blocksize)
+
+         # E12 update: E12 = E12 + A12*X22*B22' + C12*X22*D22'
+         mul!(WS22,E22,B22')
+         mul!(E12,A12,WS22,1,1)
+         mul!(WS22,E22,D22')
+         mul!(E12,C12,WS22,1,1)
+
+         # X12 solver
+         _lyapgsylvcs_blocked!(WS12, A11, B22, C11, D22, E12, adj, blocksize)
+
+         # E21 update: E21 = E21 + A22*X22*B12' + C22*X22*D12'
+         mul!(WS22,A22,E22)
+         mul!(E21,WS22,B12',1,1)
+         mul!(WS22,C22,E22)
+         mul!(E21,WS22,D12',1,1)
+
+         # X21 solver
+         _lyapgsylvcs_blocked!(WS21, A22, B11, C22, D11, E21, adj, blocksize)
+
+
+         # E11 update: E11 = E11 + A12*X21*B11' + C12*X21*D11' +
+         #                   (A11*X12+A12*X22)*B12' + (C11*X12+C12*X22)*D12'
+         # WS12 = A11*X12+A12*X22
+         mul!(WS12, A11, E12)
+         mul!(WS12, A12, E22, 1, 1)
+         # E11 = E11 + WS12 * B12'
+         mul!(E11, WS12, B12', 1, 1)
+         # WS12 = C11*X12+C12*X22
+         mul!(WS12, C11, E12)
+         mul!(WS12, C12, E22, 1, 1)
+         # E11 = E11 + WS12 * D12'
+         mul!(E11, WS12, D12', 1, 1)
+
+         # E11 = E11 + A12*X21*B11'
+         mul!(WS21, E21, B11')
+         mul!(E11, A12, WS21, 1, 1) 
+         # E11 = E11 + C12*X21*D11'
+         mul!(WS21, E21, D11')
+         mul!(E11, C12, WS21, 1, 1) 
+
+         # X11 solver
+         _lyapgsylvcs_blocked!(WS11, A11, B11, C11, D11, E11, adj, blocksize)
+      end
+   end   
+end
+
+
 """
     lyapds!(A, C; adj = false)
 
