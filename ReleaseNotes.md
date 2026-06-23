@@ -1,6 +1,11 @@
 # Release Notes
 
 
+## Version 2.6
+New recursive blocking based solvers for Lyapunov equations. The last modifications are:
+- new recursive blocking implemented for solving generalized Lyapunov equations in `lyapd` for `BlasFloat` data
+- extending blocking to non-symmetric/non-hermitian solvers
+
 ## Version 2.5.10
 - recursive blocking implemented for solving generalized Lyapunov equations in `lyapc` for `BlasFloat` data
 

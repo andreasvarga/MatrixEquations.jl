@@ -76,6 +76,8 @@ c = rand(Ty,n,n)+im*rand(Ty,n,n)
 #qc = c'*c
 qc = Matrix(Hermitian(c'*c));
 Qr = real(qc)
+qnh = c;
+Qnh = real(qnh);
 Ty == Float64 ? reltol = eps(float(10000)) : reltol = eps(10000*n*one(Ty))
 
 @time x = lyapd(ac,qc);
@@ -83,6 +85,12 @@ Ty == Float64 ? reltol = eps(float(10000)) : reltol = eps(10000*n*one(Ty))
 
 @time x = lyapd(ac,qc,blocksize=5);
 @test norm(ac*x*ac'-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time x = lyapd(ac,qnh);
+@test norm(ac*x*ac'-x+qnh)/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time x = lyapd(ac,qnh,blocksize=5);
+@test norm(ac*x*ac'-x+qnh)/norm(x)/max(1.,norm(ac)^2) < reltol
 
 @time x = lyapd(ach,qc);
 @test norm(ach*x*ach-x+qc)/norm(x)/max(1.,norm(ach)^2) < reltol
@@ -118,17 +126,35 @@ end
 @time x = lyapd(ac',qc,blocksize=5);
 @test norm(ac'*x*ac-x+qc)/norm(x)/max(1.,norm(ac)^2) < reltol
 
+@time x = lyapd(ac',qnh);
+@test norm(ac'*x*ac-x+qnh)/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time x = lyapd(ac',qnh,blocksize=5);
+@test norm(ac'*x*ac-x+qnh)/norm(x)/max(1.,norm(ac)^2) < reltol
+
 @time x = lyapd(ar,Qr)
 @test norm(ar*x*ar'-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time x = lyapd(ar,Qr,blocksize=5)
 @test norm(ar*x*ar'-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
 
+@time x = lyapd(ar,Qnh)
+@test norm(ar*x*ar'-x+Qnh)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time x = lyapd(ar,Qnh,blocksize=5)
+@test norm(ar*x*ar'-x+Qnh)/norm(x)/max(1.,norm(ar)^2) < reltol
+
 @time x = lyapd(ar',Qr)
 @test norm(ar'*x*ar-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time x = lyapd(ar',Qr,blocksize=5)
 @test norm(ar'*x*ar-x+Qr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time x = lyapd(ar',Qnh)
+@test norm(ar'*x*ar-x+Qnh)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time x = lyapd(ar',Qnh,blocksize=5)
+@test norm(ar'*x*ar-x+Qnh)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time x = lyapd(ars,Qr)
 @test norm(ars*x*ars'-x+Qr)/norm(x)/max(1.,norm(ars)^2) < reltol
@@ -203,10 +229,21 @@ c = rand(Ty,n,n)+im*rand(Ty,n,n)
 #qc = c'*c
 qc = Matrix(Hermitian(c'*c));
 Qr = real(qc)
+qnh = c;
+Qnh = real(qnh);
 Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 
 @time x = lyapd(ac,ec,qc);
 @test norm(ac*x*ac'-ec*x*ec'+qc)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time x = lyapd(ac,ec,qc,blocksize = 5);
+@test norm(ac*x*ac'-ec*x*ec'+qc)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time x = lyapd(ac,ec,qnh);
+@test norm(ac*x*ac'-ec*x*ec'+qnh)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time x = lyapd(ac,ec,qnh,blocksize = 5);
+@test norm(ac*x*ac'-ec*x*ec'+qnh)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
 
 β = 3
 @time x = lyapd(ac,β*I,qc);
@@ -250,6 +287,15 @@ end
 @time x = lyapd(ac',ec',qc);
 @test norm(ac'*x*ac-ec'*x*ec+qc)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
 
+@time x = lyapd(ac',ec',qc,blocksize=5);
+@test norm(ac'*x*ac-ec'*x*ec+qc)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time x = lyapd(ac',ec',qnh);
+@test norm(ac'*x*ac-ec'*x*ec+qnh)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
+@time x = lyapd(ac',ec',qnh,blocksize=5);
+@test norm(ac'*x*ac-ec'*x*ec+qnh)/norm(x)/max(norm(ac)^2,norm(ec)^2) < reltol
+
 β = (1+im);
 @time x = lyapd(ac',β*I,qc);
 @test norm(ac'*x*ac-β*x*β'+qc)/norm(x)/norm(ac) < reltol
@@ -269,6 +315,24 @@ end
 
 @time x = lyapd(ar',er',Qr);
 @test norm(ar'*x*ar-er'*x*er+Qr)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time x = lyapd(ar,er,Qr,blocksize=5);
+@test norm(ar*x*ar'-er*x*er'+Qr)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time x = lyapd(ar',er',Qr,blocksize=5);
+@test norm(ar'*x*ar-er'*x*er+Qr)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time x = lyapd(ar,er,Qnh);
+@test norm(ar*x*ar'-er*x*er'+Qnh)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time x = lyapd(ar',er',Qnh);
+@test norm(ar'*x*ar-er'*x*er+Qnh)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time x = lyapd(ar,er,Qnh,blocksize=5);
+@test norm(ar*x*ar'-er*x*er'+Qnh)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
+
+@time x = lyapd(ar',er',Qnh,blocksize=5);
+@test norm(ar'*x*ar-er'*x*er+Qnh)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
 
 @time x = lyapd(ar',er,Qr);
 @test norm(ar'*x*ar-er*x*er'+Qr)/norm(x)/max(norm(ar)^2,norm(er)^2) < reltol
