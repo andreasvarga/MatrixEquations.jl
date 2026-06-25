@@ -1703,11 +1703,11 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    return C
 end
 """
-    X = gsylvs!(A,B,C,D,E; adjAC=false, adjBD=false, CASchur = false, DBSchur = false)
+    X = gsylvs!(A,B,C,D,E; adjAC=false, adjBD=false, CASchur = false, DBSchur = false, isgn = 1)
 
 Solve the generalized Sylvester matrix equation
 
-                op1(A)Xop2(B) + op1(C)Xop2(D) = E,
+                op1(A)Xop2(B) + isgn*op1(C)Xop2(D) = E,
 
 where `A`, `B`, `C` and `D` are square matrices, and
 
@@ -1722,11 +1722,11 @@ where `A`, `B`, `C` and `D` are square matrices, and
 The matrix pair `(A,C)` is in a generalized real or complex Schur form.
 The matrix pair `(B,D)` is in a generalized real or complex Schur form if `DBSchur = false`
 or the matrix pair `(D,B)` is in a generalized real or complex Schur form if `DBSchur = true`.
-The pencils `A-λC` and `D+λB` must be regular and must not have common eigenvalues.
+The pencils `A - λ isgn*C` and `isgn*D + λ B` must be regular and must not have common eigenvalues.
 """
 function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
                  WB::AbstractMatrix{T1} = similar(A,size(A,1),2), WD::AbstractMatrix{T1} = similar(A,size(A,1),2); 
-                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Real
+                 adjAC::Bool = false, adjBD::Bool = false, isgn::Int = 1, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Real
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -1744,6 +1744,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    (m, 2) == size(WD) || throw(DimensionMismatch("WD must be an $m x 2 matrix"))
    
    ONE = one(T1)
+   SONE = isgn*ONE
 
    # determine the structure of the generalized real Schur form of (A,C)
    CASchur ? ((ba, pa) = sfstruct(C)) : ((ba, pa) = sfstruct(A))
@@ -1797,7 +1798,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  #W1 = C[k,ir]*E[ir,l]
                  mul!(W1,view(C,k,ir),view(E,ir,l))
                  #y -= W1*D[l,l]
-                 mul!(y,W1,view(D,l,l),-ONE,ONE)
+                 mul!(y,W1,view(D,l,l),-SONE,ONE)
               end
               if ll > 1
                  ic = i1:m
@@ -1807,9 +1808,9 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(WD,k,dll),view(E,k,il1),view(D,il1,l))
                  # y -= (A[k,ic]*WB[ic,dll] + C[k,ic]*WD[ic,dll])
                  mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
-                 mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
+                 mul!(y,view(C,k,ic),view(WD,ic,dll),-SONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw,isgn) 
               i -= dk
           end
           j += dl
@@ -1859,7 +1860,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     #W2 = C[k,ir]*E[ir,l]
                     mul!(W1,view(C,k,ir),view(E,ir,l))
                     # y -= W1*D[l,l]'
-                    mul!(y,W1,transpose(view(D,l,l)),-ONE,ONE)
+                    mul!(y,W1,transpose(view(D,l,l)),-SONE,ONE)
                   end
                  if ll < pb
                     ic = i1:m
@@ -1869,9 +1870,9 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     mul!(view(WD,k,dll),view(E,k,il1),transpose(view(D,l,il1)))
                     #y -= (A[k,ic]*WB[ic,dll]+C[k,ic]*WD[ic,dll])
                     mul!(y,view(A,k,ic),view(WB,ic,dll),-ONE,ONE)
-                    mul!(y,view(C,k,ic),view(WD,ic,dll),-ONE,ONE)
+                    mul!(y,view(C,k,ic),view(WD,ic,dll),-SONE,ONE)
                  end
-                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+                 gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw,isgn) 
                  i -= dk
              end
              j -= dl
@@ -1921,7 +1922,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(y,W1,view(B,l,l),-ONE,ONE)
                  mul!(W1,transpose(view(C,ir,k)),view(E,ir,l))
                  #y -= W1*D[l,l]
-                 mul!(y,W1,view(D,l,l),-ONE,ONE)
+                 mul!(y,W1,view(D,l,l),-SONE,ONE)
               end
               if ll > 1
                  ic = 1:i1
@@ -1932,9 +1933,9 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  #WD[k,dll] = E[k,il1]*D[il1,l]
                  mul!(view(WD,k,dll),view(E,k,il1),view(D,il1,l))
                  #y -= C[ic,k]'*WD[ic,dll]
-                 mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
+                 mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-SONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw,isgn) 
               i += dk
           end
           j += dl
@@ -1985,7 +1986,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                #   y -= W2*D[l,l]'
                  mul!(W1,transpose(view(C,ir,k)),view(E,ir,l))
                  #y -= W1*D[l,l]'
-                 mul!(y,W1,transpose(view(D,l,l)),-ONE,ONE)
+                 mul!(y,W1,transpose(view(D,l,l)),-SONE,ONE)
                end
               if ll < pb
                  ic = 1:i1
@@ -1995,9 +1996,9 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  mul!(view(WD,k,dll),view(E,k,il1),transpose(view(D,l,il1)))
                  #y -= (A[ic,k]'*WB[ic,dll] + C[ic,k]'*WD[ic,dll])
                  mul!(y,transpose(view(A,ic,k)),view(WB,ic,dll),-ONE,ONE)
-                 mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-ONE,ONE)
+                 mul!(y,transpose(view(C,ic,k)),view(WD,ic,dll),-SONE,ONE)
               end
-              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw) 
+              gsylv2!(adjAC,adjBD,y,dk,dl,view(A,k,k),view(B,l,l),view(C,k,k),view(D,l,l),Xw,Yw,isgn) 
               i += dk
           end
           j -= dl
@@ -2308,14 +2309,18 @@ function sylvc2!(adjA::Bool,adjB::Bool,C::StridedMatrix{T},na::Int,nb::Int,A::Ab
    return C
 end
 
-@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},R::StridedMatrix{T}, Y::AbstractVector{T}) where T <:Real
+@inline function gsylv2!(adjAC::Bool,adjBD::Bool,E::StridedMatrix{T},na::Int,nb::Int,A::AbstractMatrix{T},B::AbstractMatrix{T},C::AbstractMatrix{T},D::AbstractMatrix{T},R::StridedMatrix{T}, Y::AbstractVector{T}, isgn::Int = 1) where T <:Real
    # speed and reduced allocation oriented implementation of a solver for 1x1 and 2x2 generalized Sylvester equations: 
-   #      A*X*B + C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + kron(D',C) 
-   #      A'*X*B + C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + kron(D',C')
-   #      A*X*B' + C*X*D' = E   if adjAC = false and adjBD = true  -> R = kron(B,A)   + kron(D,C)
-   #      A'*X*B' + C'*X*D' = E if adjAC = true and adjBD = true   -> R = kron(B,A')  + kron(D,C')
+   #      A*X*B + isgn*C*X*D = E     if adjAC = false and adjBD = false -> R = kron(B',A)  + isgn*kron(D',C) 
+   #      A'*X*B + isgn*C'*X*D = E   if adjAC = true and adjBD = false  -> R = kron(B',A') + isgn*kron(D',C')
+   #      A*X*B' + isgn*C*X*D' = E   if adjAC = false and adjBD = true  -> R = kron(B,A)   + isgn*kron(D,C)
+   #      A'*X*B' + isgn*C'*X*D' = E if adjAC = true and adjBD = true   -> R = kron(B,A')  + isgn*kron(D,C')
    if na == 1 && nb == 1
-      temp = A[1,1]*B[1,1] + C[1,1]*D[1,1]
+      if isgn > 0
+         temp = A[1,1]*B[1,1] + C[1,1]*D[1,1]
+      else
+         temp = A[1,1]*B[1,1] - C[1,1]*D[1,1]
+      end
       rmul!(E,inv(temp))
       any(!isfinite, E) &&  throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
       return E
@@ -2340,10 +2345,17 @@ end
          # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
          #                 A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
-         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-         @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-         @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+            @inbounds  R[2,1] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+         end
       else
          if nb == 1
             # R21 =
@@ -2351,10 +2363,17 @@ end
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
             #                 A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+            end
          else
             # R =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b21 + c11*d21, a12*b21 + c12*d21]
@@ -2370,22 +2389,41 @@ end
             # A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
             # A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[1,2]*B[1,2]+C[1,2]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
             # A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-            @inbounds  R[1,4] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
-            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            @inbounds  R[2,3] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
-            @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
-            @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-            @inbounds  R[3,2] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-            @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
-            @inbounds  R[4,1] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
-            @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
-            @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
-            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+               @inbounds  R[1,4] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+               @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+               @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+               @inbounds  R[3,2] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+               @inbounds  R[4,1] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+               @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+               @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+               @inbounds  R[1,4] = A[1,2]*B[2,1]-C[1,2]*D[2,1]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[2,1]*B[2,1]-C[2,1]*D[2,1]
+               @inbounds  R[2,4] = A[2,2]*B[2,1]-C[2,2]*D[2,1]
+               @inbounds  R[3,1] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+               @inbounds  R[3,2] = A[1,2]*B[1,2]-C[1,2]*D[1,2]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[1,2]*B[2,2]-C[1,2]*D[2,2]
+               @inbounds  R[4,1] = A[2,1]*B[1,2]-C[2,1]*D[1,2]
+               @inbounds  R[4,2] = A[2,2]*B[1,2]-C[2,2]*D[1,2]
+               @inbounds  R[4,3] = A[2,1]*B[2,2]-C[2,1]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]-C[2,2]*D[2,2]
+            end
          end
       end
       #R = kron(transpose(B),A) + kron(transpose(D),C)
@@ -2396,10 +2434,17 @@ end
          # [ a11*b12 + c11*d12, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[2,1]+C[1,1]*D[2,1];
          #                 A[1,1]*B[1,2]+C[1,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
-         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-         @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-         @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[2,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+            @inbounds  R[2,1] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+         end
       else
          if nb == 1
             # R21 =
@@ -2407,10 +2452,17 @@ end
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
             #                 A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+            end
          else
             # R =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b21 + c11*d21, a21*b21 + c21*d21]
@@ -2426,22 +2478,41 @@ end
             # A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1];
             # A[1,1]*B[1,2]+C[1,1]*D[1,2]      A[2,1]*B[1,2]+C[2,1]*D[1,2]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
             # A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-            @inbounds  R[1,4] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
-            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            @inbounds  R[2,3] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
-            @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
-            @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-            @inbounds  R[3,2] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-            @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
-            @inbounds  R[4,1] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
-            @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
-            @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
-            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+               @inbounds  R[1,4] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+               @inbounds  R[2,4] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+               @inbounds  R[3,1] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+               @inbounds  R[3,2] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+               @inbounds  R[4,1] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+               @inbounds  R[4,2] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+               @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+               @inbounds  R[1,4] = A[2,1]*B[2,1]-C[2,1]*D[2,1]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[1,2]*B[2,1]-C[1,2]*D[2,1]
+               @inbounds  R[2,4] = A[2,2]*B[2,1]-C[2,2]*D[2,1]
+               @inbounds  R[3,1] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+               @inbounds  R[3,2] = A[2,1]*B[1,2]-C[2,1]*D[1,2]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[2,1]*B[2,2]-C[2,1]*D[2,2]
+               @inbounds  R[4,1] = A[1,2]*B[1,2]-C[1,2]*D[1,2]
+               @inbounds  R[4,2] = A[2,2]*B[1,2]-C[2,2]*D[1,2]
+               @inbounds  R[4,3] = A[1,2]*B[2,2]-C[1,2]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]-C[2,2]*D[2,2]
+            end
          end
       end
       #R = kron(transpose(B),transpose(A)) + kron(transpose(D),transpose(C))
@@ -2452,10 +2523,17 @@ end
          # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
          #                 A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
-         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-         @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-         @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+            @inbounds  R[2,1] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+         end
       else
          if nb == 1
             # R21 =
@@ -2463,10 +2541,17 @@ end
             # [ a21*b11 + c21*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,2]*B[1,1]+C[1,2]*D[1,1];
             #                 A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+            end
          else
             # R =
             # [ a11*b11 + c11*d11, a12*b11 + c12*d11, a11*b12 + c11*d12, a12*b12 + c12*d12]
@@ -2482,22 +2567,41 @@ end
             # A[2,1]*B[1,1]+C[2,1]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[2,1]*B[1,2]+C[2,1]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
             # A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[1,2]*B[2,1]+C[1,2]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[1,2]*B[2,2]+C[1,2]*D[2,2];
             # A[2,1]*B[2,1]+C[2,1]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[2,1]*B[2,2]+C[2,1]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-            @inbounds  R[1,4] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
-            @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            @inbounds  R[2,3] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
-            @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
-            @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-            @inbounds  R[3,2] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-            @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
-            @inbounds  R[4,1] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
-            @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
-            @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
-            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+               @inbounds  R[1,4] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+               @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+               @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+               @inbounds  R[3,2] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+               @inbounds  R[4,1] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+               @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+               @inbounds  R[4,3] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+               @inbounds  R[1,4] = A[1,2]*B[1,2]-C[1,2]*D[1,2]
+               @inbounds  R[2,1] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[2,1]*B[1,2]-C[2,1]*D[1,2]
+               @inbounds  R[2,4] = A[2,2]*B[1,2]-C[2,2]*D[1,2]
+               @inbounds  R[3,1] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+               @inbounds  R[3,2] = A[1,2]*B[2,1]-C[1,2]*D[2,1]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[1,2]*B[2,2]-C[1,2]*D[2,2]
+               @inbounds  R[4,1] = A[2,1]*B[2,1]-C[2,1]*D[2,1]
+               @inbounds  R[4,2] = A[2,2]*B[2,1]-C[2,2]*D[2,1]
+               @inbounds  R[4,3] = A[2,1]*B[2,2]-C[2,1]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]-C[2,2]*D[2,2]
+            end
          end
       end
       #R = kron(B,A) + kron(D,C)
@@ -2508,10 +2612,17 @@ end
          # [ a11*b21 + c11*d21, a11*b22 + c11*d22]
          # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[1,1]*B[1,2]+C[1,1]*D[1,2];
          #                 A[1,1]*B[2,1]+C[1,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]]
-         @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-         @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-         @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-         @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         if isgn > 0
+            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+            @inbounds  R[2,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+         else
+            @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+            @inbounds  R[1,2] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+            @inbounds  R[2,1] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+            @inbounds  R[2,2] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+         end
       else
          if nb == 1
             # R21 =
@@ -2519,10 +2630,17 @@ end
             # [ a12*b11 + c12*d11, a22*b11 + c22*d11]
             # @inbounds R = [ A[1,1]*B[1,1]+C[1,1]*D[1,1]      A[2,1]*B[1,1]+C[2,1]*D[1,1];
             #                 A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1] ]
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+            end
          else
             # R =
             # [ a11*b11 + c11*d11, a21*b11 + c21*d11, a11*b12 + c11*d12, a21*b12 + c21*d12]
@@ -2538,22 +2656,41 @@ end
             # A[1,2]*B[1,1]+C[1,2]*D[1,1]  A[2,2]*B[1,1]+C[2,2]*D[1,1]      A[1,2]*B[1,2]+C[1,2]*D[1,2]      A[2,2]*B[1,2]+C[2,2]*D[1,2];
             # A[1,1]*B[2,1]+C[1,1]*D[2,1]      A[2,1]*B[2,1]+C[2,1]*D[2,1]  A[1,1]*B[2,2]+C[1,1]*D[2,2]      A[2,1]*B[2,2]+C[2,1]*D[2,2];
             # A[1,2]*B[2,1]+C[1,2]*D[2,1]      A[2,2]*B[2,1]+C[2,2]*D[2,1]      A[1,2]*B[2,2]+C[1,2]*D[2,2]  A[2,2]*B[2,2]+C[2,2]*D[2,2]])
-            @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
-            @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
-            @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
-            @inbounds  R[1,4] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
-            @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
-            @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
-            @inbounds  R[2,3] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
-            @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
-            @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
-            @inbounds  R[3,2] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
-            @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
-            @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
-            @inbounds  R[4,1] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
-            @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
-            @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
-            @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            if isgn > 0
+               @inbounds  R[1,1] = A[1,1]*B[1,1]+C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]+C[2,1]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[1,2]+C[1,1]*D[1,2]
+               @inbounds  R[1,4] = A[2,1]*B[1,2]+C[2,1]*D[1,2]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]+C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]+C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[1,2]*B[1,2]+C[1,2]*D[1,2]
+               @inbounds  R[2,4] = A[2,2]*B[1,2]+C[2,2]*D[1,2]
+               @inbounds  R[3,1] = A[1,1]*B[2,1]+C[1,1]*D[2,1]
+               @inbounds  R[3,2] = A[2,1]*B[2,1]+C[2,1]*D[2,1]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]+C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[2,1]*B[2,2]+C[2,1]*D[2,2]
+               @inbounds  R[4,1] = A[1,2]*B[2,1]+C[1,2]*D[2,1]
+               @inbounds  R[4,2] = A[2,2]*B[2,1]+C[2,2]*D[2,1]
+               @inbounds  R[4,3] = A[1,2]*B[2,2]+C[1,2]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]+C[2,2]*D[2,2]
+            else
+               @inbounds  R[1,1] = A[1,1]*B[1,1]-C[1,1]*D[1,1]
+               @inbounds  R[1,2] = A[2,1]*B[1,1]-C[2,1]*D[1,1]
+               @inbounds  R[1,3] = A[1,1]*B[1,2]-C[1,1]*D[1,2]
+               @inbounds  R[1,4] = A[2,1]*B[1,2]-C[2,1]*D[1,2]
+               @inbounds  R[2,1] = A[1,2]*B[1,1]-C[1,2]*D[1,1]
+               @inbounds  R[2,2] = A[2,2]*B[1,1]-C[2,2]*D[1,1]
+               @inbounds  R[2,3] = A[1,2]*B[1,2]-C[1,2]*D[1,2]
+               @inbounds  R[2,4] = A[2,2]*B[1,2]-C[2,2]*D[1,2]
+               @inbounds  R[3,1] = A[1,1]*B[2,1]-C[1,1]*D[2,1]
+               @inbounds  R[3,2] = A[2,1]*B[2,1]-C[2,1]*D[2,1]
+               @inbounds  R[3,3] = A[1,1]*B[2,2]-C[1,1]*D[2,2]
+               @inbounds  R[3,4] = A[2,1]*B[2,2]-C[2,1]*D[2,2]
+               @inbounds  R[4,1] = A[1,2]*B[2,1]-C[1,2]*D[2,1]
+               @inbounds  R[4,2] = A[2,2]*B[2,1]-C[2,2]*D[2,1]
+               @inbounds  R[4,3] = A[1,2]*B[2,2]-C[1,2]*D[2,2]
+               @inbounds  R[4,4] = A[2,2]*B[2,2]-C[2,2]*D[2,2]
+            end
          end
       end
       #R = kron(B,transpose(A)) + kron(D,transpose(C))
@@ -2576,7 +2713,7 @@ end
 
 function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}, 
                  WB::AbstractVector{T1} = similar(A,size(A,1)), WD::AbstractVector{T1} = similar(A,size(A,1)); 
-                 adjAC::Bool = false, adjBD::Bool = false, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Complex
+                 adjAC::Bool = false, adjBD::Bool = false, isgn::Int = 1, CASchur::Bool = false, DBSchur::Bool = false) where T1<:Complex
    """
    An extension proposed in [1] of the Bartels-Stewart Schur form based approach [2] is employed.
 
@@ -2593,6 +2730,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m == length(WD) || throw(DimensionMismatch("WD must be an $m - dimensional vector"))
 
    ZERO = zero(T1)
+   SONE = isgn*one(T1)
    if !adjAC && !adjBD
       # """
       # The (K,L)th element of X is determined starting from
@@ -2626,7 +2764,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                      ta += A[k,ir]*E[ir,l]
                      tc += C[k,ir]*E[ir,l]
                  end
-                 y -= (ta*B[l,l]+tc*D[l,l])
+                 y -= (ta*B[l,l]+SONE*tc*D[l,l])
               end
               if l > 1
                  ta = ZERO
@@ -2638,10 +2776,10 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  WB[k] = ta
                  WD[k] = tc
                  for ic = k:m
-                     y -= (A[k,ic]*WB[ic]+C[k,ic]*WD[ic])
+                     y -= (A[k,ic]*WB[ic]+SONE*C[k,ic]*WD[ic])
                  end
               end
-              E[k,l] = y/(B[l,l]*A[k,k]+D[l,l]*C[k,k])
+              E[k,l] = y/(B[l,l]*A[k,k]+SONE*D[l,l]*C[k,k])
               isfinite(E[k,l]) || throw("ME:SingularException: A-λC and D+λB have common or close eigenvalues")
           end
       end
@@ -2678,7 +2816,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                         ta += A[k,ir]*E[ir,l]
                         tc += C[k,ir]*E[ir,l]
                     end
-                    y -= (ta*B[l,l]'+tc*D[l,l]')
+                    y -= (ta*B[l,l]'+SONE*tc*D[l,l]')
                  end
                  if l < n
                     ta = ZERO
@@ -2690,10 +2828,10 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                     WB[k] = ta
                     WD[k] = tc
                     for ic = k:m
-                        y -= (A[k,ic]*WB[ic]+C[k,ic]*WD[ic])
+                        y -= (A[k,ic]*WB[ic]+SONE*C[k,ic]*WD[ic])
                     end
                  end
-                 E[k,l] = y/(B[l,l]'*A[k,k]+D[l,l]'*C[k,k])
+                 E[k,l] = y/(B[l,l]'*A[k,k]+SONE*D[l,l]'*C[k,k])
                  isfinite(E[k,l]) || throw("ME:SingularException: A-λC and D'+λB' have common or close eigenvalues")
              end
          end
@@ -2730,7 +2868,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                      ta += A[ir,k]'*E[ir,l]
                      tc += C[ir,k]'*E[ir,l]
                  end
-                 y -= (ta*B[l,l]+tc*D[l,l])
+                 y -= (ta*B[l,l]+SONE*tc*D[l,l])
               end
               if l > 1
                  ta = ZERO
@@ -2742,10 +2880,10 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                  WB[k] = ta
                  WD[k] = tc
                  for ic = 1:k
-                     y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
+                     y -= (A[ic,k]'*WB[ic]+SONE*C[ic,k]'*WD[ic])
                  end
               end
-              E[k,l] = y/(B[l,l]*A[k,k]'+D[l,l]*C[k,k]')
+              E[k,l] = y/(B[l,l]*A[k,k]'+SONE*D[l,l]*C[k,k]')
               isfinite(E[k,l]) || throw("ME:SingularException: A'-λC' and D+λB have common or close eigenvalues")
           end
       end
@@ -2782,7 +2920,7 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                      ta += A[ir,k]'*E[ir,l]
                      tc += C[ir,k]'*E[ir,l]
                  end
-                 y -= (ta*B[l,l]'+tc*D[l,l]')
+                 y -= (ta*B[l,l]'+SONE*tc*D[l,l]')
                end
                if l < n
                   ta = ZERO
@@ -2794,10 +2932,10 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                   WB[k] = ta
                   WD[k] = tc
                   for ic = 1:k
-                      y -= (A[ic,k]'*WB[ic]+C[ic,k]'*WD[ic])
+                      y -= (A[ic,k]'*WB[ic]+SONE*C[ic,k]'*WD[ic])
                   end
                end
-              E[k,l] = y/(B[l,l]'*A[k,k]'+D[l,l]'*C[k,k]')
+              E[k,l] = y/(B[l,l]'*A[k,k]'+SONE*D[l,l]'*C[k,k]')
               isfinite(E[k,l]) || throw("ME:SingularException: A'-λC' and D'+λB' have common or close eigenvalues")
           end
       end

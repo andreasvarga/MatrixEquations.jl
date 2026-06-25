@@ -402,8 +402,8 @@ function lyapd(A::AbstractMatrix, C::AbstractMatrix; blocksize::Int = 64)
          return X
       else
          X = Q' * C * Q
-         sylvds!(-AS, AS, X, adjA = adj, adjB = !adj)
-         return Q * X * Q'
+         sylvds!(AS, AS, X, adjA = adj, adjB = !adj, isgn = -1)
+         return rmul!(Q * X * Q',-1)
       end
    end
 end
@@ -532,15 +532,16 @@ function lyapd(A::AbstractMatrix, E::AbstractMatrix, C::AbstractMatrix; blocksiz
       if T2 <: BlasFloat
          WS = Matrix{T2}(undef,n,n)
          x = Matrix{T2}(undef,n,n)
+         WS2 = Matrix{T2}(undef,n,4)
          mul!(WS,q',C)
          mul!(x,WS,q) 
-         lyapgsylvds_blocked!(WS, as, as, es, es, x; adj, blocksize)
+         lyapgsylvds_blocked!(WS, WS2, as, as, es, es, x; adj, blocksize)
          mul!(WS,z,x)
          mul!(x,WS,z')
          return x
       else
          x = q' * C * q
-         gsylvs!(as, as, -es, es, x, adjAC = adj, adjBD = !adj)
+         gsylvs!(as, as, es, es, x, adjAC = adj, adjBD = !adj, isgn = -1)
          return rmul!(z*x*z', -1)
       end
    end
@@ -2531,13 +2532,14 @@ function lyapds_blocked!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, C::Abstra
     # Allocate a full-sized WS and half-sized WS1 once. 
     WS = Matrix{T1}(undef,n,n)
     WS1 = Matrix{T1}(undef,mid,mid)
-    _lyapds_blocked!(WS, WS1, A, E, C, adj, blocksize)
+    WS2 = Matrix{T1}(undef,n,4)
+    _lyapds_blocked!(WS, WS1, WS2, A, E, C, adj, blocksize)
 
     # Fill the lower triangle ONCE at the very end
     return LinearAlgebra.copytri!(C, 'U', T1 <: Complex)
 end
 
-function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::AbstractMatrix{T1},E::AbstractMatrix{T1},
+function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::AbstractMatrix{T1},A::AbstractMatrix{T1},E::AbstractMatrix{T1},
                           C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasReal}
    n = size(A, 1)
    ONE = one(T1)
@@ -2545,7 +2547,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
    ZERO = zero(T1)
    if n <= max(blocksize,4)
       LinearAlgebra.copytri!(C,'U')
-      lyapds!(A,E,C,view(WS,:,1:2);adj)
+      lyapds!(A,E,C,view(WS2,1:n,1:2);adj)
    else
       # split A, E and C (by rows and columns)
       mid = n ÷ 2
@@ -2561,7 +2563,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          # Adjoint Case: A' X A - E' X E + C = 0  
          
          # X11 solver
-         _lyapds_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+         _lyapds_blocked!(WS11, WS1, WS2, A11, E11, C11, adj, blocksize)
 
          # Update C12 = C12 + A11' * X11 * A12 - E11' * X11 * E12
          BLAS.symm!('L', 'U', ONE, C11, A12, ZERO, WS12)
@@ -2571,7 +2573,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('T', 'N', MONE, E11, WS12, ONE, C12)    
 
          # Solve generalized dual Sylvester: A11' * X12 * A22 - E11' * X12 * E22 + C12 = 0 
-         lyapgsylvds_blocked!(WS1, A11, A22, E11, E22, C12; adj, blocksize)
+         lyapgsylvds_blocked!(WS1, WS2, A11, A22, E11, E22, C12; adj, blocksize)
 
          # Update C22 = C22 + (X12*A22)'*A12 + A12'*(X12*A22)
          # 1. WS12 = C12*A22   
@@ -2591,12 +2593,12 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('T', 'N', MONE, E12, WS12, ONE, C22)
 
          # X22 solver
-         _lyapds_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+         _lyapds_blocked!(WS22, WS1, WS2, A22, E22, C22, adj, blocksize)
       else
          # Standard Case: A X A' - E X E' + C = 0
 
          # X22 solver
-         _lyapds_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+         _lyapds_blocked!(WS22, WS1, WS2, A22, E22, C22, adj, blocksize)
 
          # Update C12: C12 = C12 + A12 * X22 * A22' - E12 * X22 * E22'
          # Use WS[i1, i2] for (A12 * C22)
@@ -2607,7 +2609,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('N', 'T', MONE, WS12, E22, ONE, C12)
 
          # Solve generalized Sylvester: A11 * X12 * A22' - E11 X12 E22' + C12 = 0
-         lyapgsylvds_blocked!(WS1, A11, A22, E11, E22, C12; adj, blocksize)
+         lyapgsylvds_blocked!(WS1, WS2, A11, A22, E11, E22, C12; adj, blocksize)
 
          # Update C11: C11 = C11 + (A11*X12)*A12' + A12*(A11*X12)'
          # 1. WS12 = A11*C12   
@@ -2628,11 +2630,11 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('N', 'T', MONE, WS12, E12, ONE, C11)
 
          # X11 solver
-         _lyapds_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+         _lyapds_blocked!(WS11, WS1, WS2, A11, E11, C11, adj, blocksize)
       end
    end
 end
-function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::AbstractMatrix{T1},E::AbstractMatrix{T1},
+function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::AbstractMatrix{T1},A::AbstractMatrix{T1},E::AbstractMatrix{T1},
                           C::AbstractMatrix{T1}, adj, blocksize) where {T1<:BlasComplex}
    n = size(A, 1)
    ONE = one(T1)
@@ -2643,7 +2645,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
       LinearAlgebra.copytri!(C,'U',true)
       # fix for small nonzero imaginary values!!! an alternative is to use better updating 
       ishermitian(C) || (for i in 1:size(C, 1);  C[i, i] = Complex(real(C[i, i]), 0.0); end)
-      lyapds!(A,E,C,view(WS,:,1);adj)
+      lyapds!(A,E,C,view(WS2,1:n,1);adj)
    else
       # split A, E and C (by rows and columns)
       n1 = n ÷ 2
@@ -2658,7 +2660,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          # Adjoint Case: A' X A - E' X E + C = 0  
          
          # X11 solver
-         _lyapds_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+         _lyapds_blocked!(WS11, WS1, WS2, A11, E11, C11, adj, blocksize)
 
          # Update C12 = C12 + A11' * X11 * A12 - E11' * X11 * E12
          BLAS.hemm!('L', 'U', ONE, C11, A12, ZERO, WS12)
@@ -2668,7 +2670,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('C', 'N', MONE, E11, WS12, ONE, C12)    
 
          # Solve generalized dual Sylvester: A11' * X12 * A22 - E11' * X12 * E22 + C12 = 0 
-         lyapgsylvds_blocked!(WS1, A11, A22, E11, E22, C12; adj, blocksize)
+         lyapgsylvds_blocked!(WS1, WS2, A11, A22, E11, E22, C12; adj, blocksize)
 
          # Update C22 = C22 + (X12*A22)'*A12 + A12'*(X12*A22)
          # 1. WS12 = C12*A22   
@@ -2688,12 +2690,12 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('C', 'N', MONE, E12, WS12, ONE, C22)
 
          # X22 solver
-         _lyapds_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+         _lyapds_blocked!(WS22, WS1, WS2, A22, E22, C22, adj, blocksize)
       else
          # Standard Case: A X A' - E X E' + C = 0
 
          # X22 solver
-         _lyapds_blocked!(WS22, WS1, A22, E22, C22, adj, blocksize)
+         _lyapds_blocked!(WS22, WS1, WS2, A22, E22, C22, adj, blocksize)
 
          # Update C12: C12 = C12 + A12 * X22 * A22' - E12 * X22 * E22'
          # Use WS[i1, i2] for (A12 * C22)
@@ -2704,7 +2706,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('N', 'C', MONE, WS12, E22, ONE, C12)
 
          # Solve generalized Sylvester: A11 * X12 * A22' - E11 X12 E22' + C12 = 0
-         lyapgsylvds_blocked!(WS1, A11, A22, E11, E22, C12; adj, blocksize)
+         lyapgsylvds_blocked!(WS1, WS2, A11, A22, E11, E22, C12; adj, blocksize)
 
          # Update C11: C11 = C11 + (A11*X12)*A12' + A12*(A11*X12)'
          # 1. WS12 = A11*C12   
@@ -2725,7 +2727,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},A::Abst
          BLAS.gemm!('N', 'C', MONE, WS12, E12, ONE, C11)
 
          # X11 solver
-         _lyapds_blocked!(WS11, WS1, A11, E11, C11, adj, blocksize)
+         _lyapds_blocked!(WS11, WS1, WS2, A11, E11, C11, adj, blocksize)
       end
    end
 end
@@ -2827,19 +2829,24 @@ function lyapsylvds_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::A
    end   
 end
 
-function lyapgsylvds_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; adj = false, blocksize::Integer = 64) where {T1<:BlasFloat}
+function lyapgsylvds_blocked!(WS::AbstractMatrix{T1}, WS2::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; adj = false, blocksize::Integer = 64) where {T1<:BlasFloat}
    m = LinearAlgebra.checksquare(A)  
    n = LinearAlgebra.checksquare(B)
    (m, n) == size(E) || throw(DimensionMismatch("E must be a $m x $n"))
    
    # Call the positional recursive worker
-   _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj, blocksize)
+   _lyapgsylvds_blocked!(WS, WS2, A, B, C, D, E, adj, blocksize)
 end
-function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
+function _lyapgsylvds_blocked!(WS, WS2, A, B, C, D, E, adj::Bool, blocksize::Integer)
    m = size(A, 1)
    n = size(B, 1)
    if m <= max(blocksize,4) && n <= max(blocksize,4)
-      gsylvs!(A,B,-C,D,E;adjAC = adj,adjBD = !adj)
+      if eltype(A) <: Real
+         WB = view(WS2,1:m,1:2); WD = view(WS2,1:m,3:4);   
+      else
+         WB = view(WS2,1:m,1); WD = view(WS2,1:m,2);   
+      end
+      gsylvs!(A,B,C,D,E,WB,WD;adjAC = adj,adjBD = !adj,isgn = -1)
       rmul!(E, -1)
   else
       midm = m ÷ 2
@@ -2847,7 +2854,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
       ia1 = 1:m1; ia2 = m1+1:m 
       midn = n ÷ 2
       n1 = B[midn+1, midn] != 0 ? midn + 1 : midn
-      ib1 = 1:n1; ib2 = n1+1:n 
+      ib1 = 1:n1; ib2 = n1+1:n;  
       if eltype(A) <: Real
          @views begin
             A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
@@ -2871,7 +2878,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          # solve A' X B - C' X D + E = 0
 
          # X11 solver
-         _lyapgsylvds_blocked!(WS11, A11, B11, C11, D11, E11, adj, blocksize)
+         _lyapgsylvds_blocked!(WS11, WS2, A11, B11, C11, D11, E11, adj, blocksize)
 
          # E12 update: E12 = E12 + A11'*X11*B12 - C11'*X11*D12
          mul!(WS11, A11', E11)
@@ -2880,7 +2887,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          mul!(E12, WS11, D12, -1, 1)
  
          # X12 solver
-         _lyapgsylvds_blocked!(WS12, A11, B22, C11, D22, E12, adj, blocksize)
+         _lyapgsylvds_blocked!(WS12, WS2, A11, B22, C11, D22, E12, adj, blocksize)
 
          # E21 update: E21 = E21 + A12'*X11*B11 - C12'*X11*D11
          #mul!(WS11,E11, UpperTriangular(B11))
@@ -2890,7 +2897,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          mul!(E21, C12', WS11,-1,1)
 
          # X21 solver
-         _lyapgsylvds_blocked!(WS21, A22, B11, C22, D11, E21, adj, blocksize)
+         _lyapgsylvds_blocked!(WS21, WS2, A22, B11, C22, D11, E21, adj, blocksize)
 
          # E22 update: E22 = E22 + A12'*X12*B22 - C12'*X12*D22 +
          #                   (A12'*X11+A22'*X21)*B12 - (C12'*X11+C22'*X21)*D12
@@ -2913,12 +2920,12 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          mul!(E22, C12', WS12, -1, 1) 
 
          # X22 solver
-         _lyapgsylvds_blocked!(WS22, A22, B22, C22, D22, E22, adj, blocksize)
+         _lyapgsylvds_blocked!(WS22, WS2, A22, B22, C22, D22, E22, adj, blocksize)
       else
          # solve A X B' - C X D' + E = 0
 
          # X22 solver
-         _lyapgsylvds_blocked!(WS22, A22, B22, C22, D22, E22, adj, blocksize)
+         _lyapgsylvds_blocked!(WS22, WS2, A22, B22, C22, D22, E22, adj, blocksize)
 
          # E12 update: E12 = E12 + A12*X22*B22' - C12*X22*D22'
          mul!(WS22,E22,B22')
@@ -2927,7 +2934,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          mul!(E12,C12,WS22,-1,1)
 
          # X12 solver
-         _lyapgsylvds_blocked!(WS12, A11, B22, C11, D22, E12, adj, blocksize)
+         _lyapgsylvds_blocked!(WS12, WS2, A11, B22, C11, D22, E12, adj, blocksize)
 
          # E21 update: E21 = E21 + A22*X22*B12' - C22*X22*D12'
          mul!(WS22,A22,E22)
@@ -2936,7 +2943,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          mul!(E21,WS22,D12',-1,1)
 
          # X21 solver
-         _lyapgsylvds_blocked!(WS21, A22, B11, C22, D11, E21, adj, blocksize)
+         _lyapgsylvds_blocked!(WS21, WS2, A22, B11, C22, D11, E21, adj, blocksize)
 
 
          # E11 update: E11 = E11 + A12*X21*B11' - C12*X21*D11' +
@@ -2960,7 +2967,7 @@ function _lyapgsylvds_blocked!(WS, A, B, C, D, E, adj::Bool, blocksize::Integer)
          mul!(E11, C12, WS21, -1, 1) 
 
          # X11 solver
-         _lyapgsylvds_blocked!(WS11, A11, B11, C11, D11, E11, adj, blocksize)
+         _lyapgsylvds_blocked!(WS11, WS2, A11, B11, C11, D11, E11, adj, blocksize)
       end
    end   
 end

@@ -1,6 +1,10 @@
 # Release Notes
 
 
+## Version 2.6.1
+Several enhancements of the generalized discrete Lyapunov equation solver `dlyap` and of the
+generalized Sylvester equation solver `gsylvs!`, in order to reduce allocation burden.
+
 ## Version 2.6
 New recursive blocking based solvers for Lyapunov equations. The last modifications are:
 - new recursive blocking implemented for solving generalized Lyapunov equations in `lyapd` for `BlasFloat` data

@@ -491,6 +491,8 @@ acs, dcs = schur(ac,dc);
 bcs, ecs = schur(bc,ec);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
+for isgn in (1,-1)
+
 y = copy(cr); @time gsylvs!(as,bs,ds,es,y)
 @test norm(as*y*bs+ds*y*es-cr)/norm(y) < reltol
 
@@ -514,6 +516,7 @@ y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true)
 
 y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true)
 @test norm(acs'*y*bcs'+dcs'*y*ecs'-cc)/norm(y) < reltol
+end
 end
 end
 
