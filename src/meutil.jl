@@ -820,3 +820,224 @@ function _ladiv(A, B, C, D)
    return real(t), imag(t)
 end
 _ladiv(A::Float64, B::Float64, C::Float64, D::Float64) = Base.cdiv(A,B,C,D)
+
+"""
+    utqu_upd(alpha, beta, R, A, X) -> R
+
+Compute the symmetric rank-2k update
+
+    R ← α·R + β·op(A)·X·op(A)'
+
+in-place, where `R` and `X` are real symmetric matrices, `A` is a general
+real matrix, and op(A) = A or op(A) = A' if A' is used on entry.
+
+Generic over `T <: LinearAlgebra.BlasReal`, i.e. `Float32` or `Float64`.
+Only the upper triangle of `R` (and `X`) is referenced and updated.
+
+# Arguments
+| Arg    | Type         | Description |
+|--------|--------------|-------------|
+| `alpha`| `T`          | Scalar multiplier for `R` on entry (`alpha=0` ⇒ `R` need not be initialised) |
+| `beta` | `T`          | Scalar multiplier for the rank-2k term (`beta=0` ⇒ `A`, `X` not accessed) |
+| `R`    | `Matrix{T}`  | M×M symmetric matrix, modified in-place |
+| `A`    | `Matrix{T}`  | M×N or N×M (`A'`) general matrix |
+| `X`    | `Matrix{T}`  | N×N symmetric matrix; diagonal temporarily halved then restored |
+| `W`    | `Matrix{T}`  | M×N or N×M (`Aᴴ`) work matrix |
+
+# Method
+Writes `X = T + T'` with `T` the half-diagonal upper triangular factor:
+
+    T = triu(X) − ½·diag(X) 
+
+Then:
+
+    A·X·A' = (A·T)·A' + A·(A·T)'   
+    A'·X·A = A'·(T·A) + (T·A)'·A        (if `A'` is on entry)
+
+using one BLAS-3 `trmm!` and one BLAS-3 `syr2k!` call.
+
+# Operation count
+Approximately M²N + ½N²M floating-point operations.
+
+# Notes
+This is the simpler variant of the SLICOT routine MB01RU.  When `R` and `X`
+alias the same array, after the call the caller must divide the diagonal of
+`R` by 2 (same caveat as the Fortran original).
+"""
+function utqu_upd!(alpha::S, beta::S, R::AbstractMatrix{T}, A::AbstractMatrix{T},
+                 X::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T <: BlasReal, S <: Real}
+
+    # ------------------------------------------------------------------ #
+    #  Decode and validate                                                #
+    # ------------------------------------------------------------------ #
+    ltrans = isa(A, Adjoint)
+
+    M = size(R, 1)
+    N = size(X, 1)
+
+    size(R, 2) == M || throw(ArgumentError("R must be square (M×M)"))
+    size(X, 2) == N || throw(ArgumentError("X must be square (N×N)"))
+
+    if ltrans
+        size(A.parent) == (N, M) ||
+            throw(ArgumentError(
+                "With transposed A, A must be $(N)×$(M), got $(size(A))"))
+    else
+        size(A) == (M, N) ||
+            throw(ArgumentError(
+                "A must be $(M)×$(N), got $(size(A))"))
+    end
+
+    # ------------------------------------------------------------------ #
+    #  General case: beta ≠ 0, N > 0                                     #
+    #                                                                    #
+    #  Halve the diagonal of X so it represents T with X = T + T'.       #
+    # ------------------------------------------------------------------ #
+    half = one(T) / 2
+    for i in 1:N
+        X[i, i] *= half
+    end
+
+    if ltrans
+        # -------------------------------------------------------------- #
+        # TRANS = 'T'/'C':  R ← α·R + β·( A'·W + W'·A )                  #
+        #   where  W = T·A  (N×M),  T is the triangular factor of X.     #
+        # -------------------------------------------------------------- #
+        copyto!(W,A.parent)                             # W ← A  (N×M)
+        # W ← T · W   (left triangular multiply)
+        LinearAlgebra.BLAS.trmm!('L', 'U', 'N', 'N', one(T), X, W)
+        # R ← α·R + β·( A'·W + W'·A )
+        LinearAlgebra.BLAS.syr2k!('U', 'T', T(beta), W, A.parent, T(alpha), R)
+    else
+        # -------------------------------------------------------------- #
+        # TRANS = 'N':  R ← α·R + β·( W·A' + A·W' )                      #
+        #   where  W = A·T  (M×N),  T is the triangular factor of X.     #
+        # -------------------------------------------------------------- #
+        copyto!(W,A)                                    # W ← A  (N×M)
+        # W ← W · T   (right triangular multiply)
+        LinearAlgebra.BLAS.trmm!('R', 'U', 'N', 'N', one(T), X, W)
+        # R ← α·R + β·( W·A' + A·W' )
+        LinearAlgebra.BLAS.syr2k!('U', 'N', T(beta), W, A, T(alpha), R)
+    end
+
+    # Restore diagonal of X
+    two = 2 * one(T)
+    for i in 1:N
+        X[i, i] *= two
+    end
+
+    return R
+end
+
+"""
+     utqu_upd!(alpha, beta, R, A, X) -> R
+
+Compute the Hermitian rank-2k update
+
+    R ← α·R + β·op(A)·X·op(A)ᴴ
+
+in-place, where `R` and `X` are complex Hermitian matrices, `A` is a general
+complex matrix, and op(A) = A or  op(A) = Aᴴ if Aᴴ is used on entry. 
+
+Generic over `T <: LinearAlgebra.BlasComplex`, i.e. `ComplexF32` or `ComplexF64`.
+The real scalars `alpha` and `beta` must have type `real(T)` (`Float32` or
+`Float64`) to match — this is what BLAS `her2k!` requires.
+
+Only the upper triangle of `R` (and `X`) is referenced and updated. 
+The diagonal of `X` is temporarily halved then restored on exit.
+
+# Arguments
+| Arg     | Type           | Description |
+|---------|----------------|-------------|
+| `alpha` | `real(T)`      | Real scalar multiplier for `R` on entry |
+| `beta`  | `real(T)`      | Real scalar multiplier for the rank-2k term |
+| `R`     | `Matrix{T}`    | M×M Hermitian matrix, modified in-place |
+| `A`     | `Matrix{T}`    | M×N or N×M (`Aᴴ`) general matrix |
+| `X`     | `Matrix{T}`    | N×N Hermitian matrix; diagonal temporarily halved then restored |
+| `W`     | `Matrix{T}`    | M×N or N×M (`Aᴴ`) work matrix |
+
+# Method
+Writes `X = T + Tᴴ` where `T` is the half-diagonal upper triangular factor:
+
+    T = triu(X) − ½·diag(X)   
+
+Then:
+
+    A·X·Aᴴ = (A·T)·Aᴴ + A·(A·T)ᴴ       
+    Aᴴ·X·A = Aᴴ·(T·A) + (T·A)ᴴ·A       (if `Aᴴ` is on entry)
+
+using BLAS-3 `trmm!` (non-unit triangular, no conjugation of T) and `her2k!`.
+
+# Notes
+This is the complex variant of the SLICOT routine MB01RU.  
+- The diagonal of `X` must be real (Hermitian requirement); any imaginary
+  part is zeroed when halving/restoring.
+- `alpha` and `beta` are real (`Float32`/`Float64`), as required by the Hermitian updating.
+- When `R` and `X` alias the same storage, divide the diagonal of `R` by 2
+  after the call (same caveat as the real MB01RU).
+
+# Operation count
+Approximately M²N + ½N²M complex multiply-adds.
+"""
+function  utqu_upd!(alpha::S, beta::S, R::AbstractMatrix{T}, A::AbstractMatrix{T},
+                           X::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T <: BlasComplex, S <: Real}
+
+    #  Decode and validate                                               
+    lconj = isa(A, Adjoint)
+
+    M = size(R, 1)
+    N = size(X, 1)
+
+    size(R, 2) == M || throw(ArgumentError("R must be square (M×M)"))
+    size(X, 2) == N || throw(ArgumentError("X must be square (N×N)"))
+
+    if lconj
+        size(A.parent) == (N, M) ||
+            throw(ArgumentError(
+                "With adjoint A, A must be $(N)×$(M), got $(size(A))"))
+    else
+        size(A) == (M, N) ||
+            throw(ArgumentError(
+                "A must be $(M)×$(N), got $(size(A))"))
+    end
+
+    # ------------------------------------------------------------------ #
+    #  General case: beta ≠ 0, N > 0                                     #
+    #                                                                    #
+    #  Halve the diagonal of X so it represents T with X = T + Tᴴ.       #
+    #  The diagonal of a Hermitian matrix must be real; zero any         #
+    #  floating-point imaginary noise before passing to BLAS.            #
+    # ------------------------------------------------------------------ #
+    for i in 1:N
+        X[i, i] = T(real(X[i, i]) / 2)
+    end
+
+    if lconj
+        # -------------------------------------------------------------- #
+        # TRANS = 'C':  R ← α·R + β·( Aᴴ·W + Wᴴ·A )                      #
+        #   where  W = T·A  (N×M).                                       #
+        # -------------------------------------------------------------- #
+        copyto!(W,A.parent)                             # W ← A  (N×M)
+        # W ← T · W   (left, non-unit triangular, no conjugation of T)
+        LinearAlgebra.BLAS.trmm!('L', 'U', 'N', 'N', one(T), X, W)
+        # R ← α·R + β·( Aᴴ·W + Wᴴ·A )   — Hermitian rank-2k
+        LinearAlgebra.BLAS.her2k!('U', 'C', T(beta), W, A.parent, real(T(alpha)), R)
+    else
+        # -------------------------------------------------------------- #
+        # TRANS = 'N':  R ← α·R + β·( W·Aᴴ + A·Wᴴ )                      #
+        #   where  W = A·T  (M×N).                                       #
+        # -------------------------------------------------------------- #
+        copyto!(W,A)                                    # W ← A  (N×M)
+        # W ← W · T   (right, non-unit triangular, no conjugation of T)
+        LinearAlgebra.BLAS.trmm!('R', 'U', 'N', 'N', one(T), X, W)
+        # R ← α·R + β·( W·Aᴴ + A·Wᴴ )   — Hermitian rank-2k
+        LinearAlgebra.BLAS.her2k!('U', 'N', T(beta), W, A, real(T(alpha)), R)
+    end
+
+    # Restore diagonal of X
+    for i in 1:N
+        X[i, i] = T(real(X[i, i]) * 2)
+    end
+
+    return R
+end

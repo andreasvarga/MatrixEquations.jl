@@ -2587,10 +2587,12 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::Ab
          BLAS.syr2k!('U', 'T', MONE, WS12, E12, ONE, C22)
 
          # 3. C22 = C22 + A12'*(X11*A12) - E12'*(X11*E12) 
-         BLAS.symm!('L', 'U', ONE, C11, A12, ZERO, WS12)
-         BLAS.gemm!('T', 'N', ONE, A12, WS12, ONE, C22)
-         BLAS.symm!('L', 'U', ONE, C11, E12, ZERO, WS12)
-         BLAS.gemm!('T', 'N', MONE, E12, WS12, ONE, C22)
+          utqu_upd!(ONE, ONE, C22, A12', C11, WS12)
+         # BLAS.symm!('L', 'U', ONE, C11, A12, ZERO, WS12)
+         # BLAS.gemm!('T', 'N', ONE, A12, WS12, ONE, C22)
+          utqu_upd!(ONE, MONE, C22, E12', C11, WS12)
+         # BLAS.symm!('L', 'U', ONE, C11, E12, ZERO, WS12)
+         # BLAS.gemm!('T', 'N', MONE, E12, WS12, ONE, C22)
 
          # X22 solver
          _lyapds_blocked!(WS22, WS1, WS2, A22, E22, C22, adj, blocksize)
@@ -2624,10 +2626,12 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::Ab
          BLAS.syr2k!('U', 'N', MONE, WS12, E12, ONE, C11)
   
          # 3. C11 = C11 + (A12*X22)*A12' - E12*(E12*X22)' 
-         BLAS.symm!('R', 'U', ONE, C22, A12, ZERO, WS12)
-         BLAS.gemm!('N', 'T', ONE, WS12, A12, ONE, C11)
-         BLAS.symm!('R', 'U', ONE, C22, E12, ZERO, WS12)
-         BLAS.gemm!('N', 'T', MONE, WS12, E12, ONE, C11)
+          utqu_upd!(ONE, ONE, C11, A12, C22, WS12)
+         # BLAS.symm!('R', 'U', ONE, C22, A12, ZERO, WS12)
+         # BLAS.gemm!('N', 'T', ONE, WS12, A12, ONE, C11)
+          utqu_upd!(ONE, MONE, C11, E12, C22, WS12)
+         # BLAS.symm!('R', 'U', ONE, C22, E12, ZERO, WS12)
+         # BLAS.gemm!('N', 'T', MONE, WS12, E12, ONE, C11)
 
          # X11 solver
          _lyapds_blocked!(WS11, WS1, WS2, A11, E11, C11, adj, blocksize)
@@ -2644,7 +2648,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::Ab
    if n <= max(blocksize,4)
       LinearAlgebra.copytri!(C,'U',true)
       # fix for small nonzero imaginary values!!! an alternative is to use better updating 
-      ishermitian(C) || (for i in 1:size(C, 1);  C[i, i] = Complex(real(C[i, i]), 0.0); end)
+      #ishermitian(C) || (for i in 1:size(C, 1);  C[i, i] = Complex(real(C[i, i]), 0.0); end)
       lyapds!(A,E,C,view(WS2,1:n,1);adj)
    else
       # split A, E and C (by rows and columns)
@@ -2654,7 +2658,7 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::Ab
          A11, A12, A22 = A[i1,i1], A[i1,i2], A[i2,i2]
          E11, E12, E22 = E[i1,i1], E[i1,i2], E[i2,i2]
          C11, C12, C22 = C[i1,i1], C[i1,i2], C[i2,i2]
-         WS11, WS12, WS22 = WS[i1,i1], WS[i1,i2], WS[i2,i2]
+         WS11, WS12, WS22, WS21 = WS[i1,i1], WS[i1,i2], WS[i2,i2], WS[i2,i1]
       end
       if adj
          # Adjoint Case: A' X A - E' X E + C = 0  
@@ -2684,10 +2688,12 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::Ab
          BLAS.her2k!('U', 'C', MONE, WS12, E12, RONE, C22)
 
          # 3. C22 = C22 + A12'*(X11*A12) - E12'*(X11*E12) 
-         BLAS.hemm!('L', 'U', ONE, C11, A12, ZERO, WS12)
-         BLAS.gemm!('C', 'N', ONE, A12, WS12, ONE, C22)
-         BLAS.hemm!('L', 'U', ONE, C11, E12, ZERO, WS12)
-         BLAS.gemm!('C', 'N', MONE, E12, WS12, ONE, C22)
+          utqu_upd!(RONE, RONE, C22, A12', C11, WS12)
+         # BLAS.hemm!('L', 'U', ONE, C11, A12, ZERO, WS12)
+         # BLAS.gemm!('C', 'N', ONE, A12, WS12, ONE, C22)
+          utqu_upd!(RONE, -RONE, C22, E12', C11, WS12)
+         # BLAS.hemm!('L', 'U', ONE, C11, E12, ZERO, WS12)
+         # BLAS.gemm!('C', 'N', MONE, E12, WS12, ONE, C22)
 
          # X22 solver
          _lyapds_blocked!(WS22, WS1, WS2, A22, E22, C22, adj, blocksize)
@@ -2721,10 +2727,14 @@ function _lyapds_blocked!(WS::AbstractMatrix{T1},WS1::AbstractMatrix{T1},WS2::Ab
          BLAS.her2k!('U', 'N', MONE, WS12, E12, RONE, C11)
   
          # 3. C11 = C11 + (A12*X22)*A12' - E12*(E12*X22)' 
-         BLAS.hemm!('R', 'U', ONE, C22, A12, ZERO, WS12)
-         BLAS.gemm!('N', 'C', ONE, WS12, A12, ONE, C11)
-         BLAS.hemm!('R', 'U', ONE, C22, E12, ZERO, WS12)
-         BLAS.gemm!('N', 'C', MONE, WS12, E12, ONE, C11)
+          utqu_upd!(RONE, RONE, C11, A12, C22, WS12)
+         # BLAS.hemm!('R', 'U', ONE, C22, A12, ZERO, WS12)
+         # BLAS.gemm!('N', 'C', ONE, WS12, A12, ONE, C11)
+          utqu_upd!(RONE, -RONE, C11, E12, C22, WS12)
+         #  BLAS.hemm!('R', 'U', ONE, C22, E12, ZERO, WS12)
+         # BLAS.gemm!('N', 'C', MONE, WS12, E12, ONE, C11)
+         # LinearAlgebra.copytri!(C11,'U',true)
+         # @show ishermitian(C11)
 
          # X11 solver
          _lyapds_blocked!(WS11, WS1, WS2, A11, E11, C11, adj, blocksize)

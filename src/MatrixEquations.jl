@@ -14,8 +14,7 @@ include("lapackutil.jl")
 using .LapackUtil: tgsyl!, lanv2, ladiv, lag2, lacn2!, safemin, smlnum, trsyl3!
 
 export MatrixEquationsMaps
-export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormalize!
-export utqu_new
+export utqu, utqu!, qrupdate!, rqupdate!, isschur, triu2vec, vec2triu, utnormalize!, utqu_upd!
 export lanv2, ladiv, lag2, lacn2!, trsyl3!
 export _lanv2, _safemin, _lag2, _ladiv
 export lyapc, lyapd, lyapcs!, lyapds!, tlyapc, tulyapc!, hlyapc, hulyapc! 
