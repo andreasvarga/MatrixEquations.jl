@@ -864,8 +864,8 @@ This is the simpler variant of the SLICOT routine MB01RU.  When `R` and `X`
 alias the same array, after the call the caller must divide the diagonal of
 `R` by 2 (same caveat as the Fortran original).
 """
-function utqu_upd!(alpha::S, beta::S, R::AbstractMatrix{T}, A::AbstractMatrix{T},
-                 X::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T <: BlasReal, S <: Real}
+function utqu_upd!(alpha::S1, beta::S2, R::AbstractMatrix{T}, A::AbstractMatrix{T},
+                 X::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T <: BlasReal, S1 <: Real, S2 <: Real}
 
     # ------------------------------------------------------------------ #
     #  Decode and validate                                                #
@@ -979,8 +979,8 @@ This is the complex variant of the SLICOT routine MB01RU.
 # Operation count
 Approximately M²N + ½N²M complex multiply-adds.
 """
-function  utqu_upd!(alpha::S, beta::S, R::AbstractMatrix{T}, A::AbstractMatrix{T},
-                           X::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T <: BlasComplex, S <: Real}
+function  utqu_upd!(alpha::S1, beta::S2, R::AbstractMatrix{T}, A::AbstractMatrix{T},
+                           X::AbstractMatrix{T}, W::AbstractMatrix{T}) where {T <: BlasComplex, S1 <: Real, S2 <: Real}
 
     #  Decode and validate                                               
     lconj = isa(A, Adjoint)
