@@ -687,7 +687,6 @@ function _sylvcs_blocked!(A, B, C, isgn::Int, adjA::Bool, adjB, blocksize::Integ
       midm = m ÷ 2
       m1 = (midm < m && A[midm+1, midm] != 0) ? midm + 1 : midm
       ia1 = 1:m1; ia2 = m1+1:m 
-      @show m1
 
       @views begin
          A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
@@ -720,7 +719,6 @@ function _sylvcs_blocked!(A, B, C, isgn::Int, adjA::Bool, adjB, blocksize::Integ
       midn = n ÷ 2
       n1 = (midn < n && B[midn+1, midn] != 0) ? midn + 1 : midn
       ib1 = 1:n1; ib2 = n1+1:n 
-      @show n1
 
       @views begin
          B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]

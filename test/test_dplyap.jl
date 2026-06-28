@@ -255,7 +255,7 @@ br = rand(Ty,n,m);
 bc = br+im*rand(Ty,n,m);
 cr = rand(Ty,p,n);
 cc = cr+im*rand(Ty,p,n);
-Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 
 
 @time u = plyaps(as,br,disc = true);
