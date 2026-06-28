@@ -14,7 +14,7 @@ println("Test_sylvester")
 @testset "Testing Sylvester equation solvers" begin
 
 Random.seed!(21235)
-n = 15; m = 10; 
+n = 15; m = 15; ns = 10; ms = 10;
 Ty = Float64
 reltol = sqrt(eps(1.))
 
@@ -41,6 +41,10 @@ bc = br+im*rand(Ty,m,m);  bch = Hermitian(bc); bcd = Diagonal(bc);
 cr = rand(Ty,n,m);
 cc = cr+im*rand(Ty,n,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
+
+arm = rand(Ty,ns,ns); acm = arm+im*rand(Ty,ns,ns); 
+brm = rand(Ty,ms,ms); bcm = brm+im*rand(Ty,ms,ms);
+crm1 = rand(Ty,ns,m); crm2 = rand(Ty,n,ms); ccm1 = crm1+im*rand(Ty,ns,m); ccm2 = crm2+im*rand(Ty,n,ms);
 
 
 @time x = sylvc(ar,2I,cr)
@@ -73,6 +77,9 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvc(ac,bc,cc)
 @test norm(ac*x+x*bc-cc)/norm(x) < reltol
 
+@time x = sylvc(ac,bc,cc,blocksize = 5)
+@test norm(ac*x+x*bc-cc)/norm(x) < reltol
+
 @time x = sylvc(ach,bch,cc)
 @test norm(ach*x+x*bch-cc)/norm(x) < reltol
 
@@ -91,6 +98,7 @@ end
 @time x = sylvckr(ac,bc,cc)
 @test norm(ac*x+x*bc-cc)/norm(x) < reltol
 
+
 @time x = sylvc(ar,bc,cr)
 @test norm(ar*x+x*bc-cr)/norm(x) < reltol
 
@@ -103,8 +111,42 @@ end
 @time x = sylvc(ar',br',cr)
 @test norm(ar'*x+x*br'-cr)/norm(x) < reltol
 
-@time x = sylvc(ac,bc',cc)
+@time x = sylvckr(ac,bc,cc)
+@test norm(ac*x+x*bc-cc)/norm(x) < reltol
+
+@time x = sylvc(ar,br,cr,blocksize = 5)
+@test norm(ar*x+x*br-cr)/norm(x) < reltol
+
+@time x = sylvc(arm,br,crm1,blocksize = 5)
+@test norm(arm*x+x*br-crm1)/norm(x) < reltol
+
+@time x = sylvc(ar,brm,crm2,blocksize = 5)
+@test norm(ar*x+x*brm-crm2)/norm(x) < reltol
+
+@time x = sylvc(ar',br,cr,blocksize = 5)
+@test norm(ar'*x+x*br-cr)/norm(x) < reltol
+
+@time x = sylvc(arm',br,crm1,blocksize = 5)
+@test norm(arm'*x+x*br-crm1)/norm(x) < reltol
+
+@time x = sylvc(ar',brm,crm2,blocksize = 5)
+@test norm(ar'*x+x*brm-crm2)/norm(x) < reltol
+
+@time x = sylvc(ar,br',cr,blocksize = 5)
+@test norm(ar*x+x*br'-cr)/norm(x) < reltol
+
+@time x = sylvc(ar,brm',crm2,blocksize = 5)
+@test norm(ar*x+x*brm'-crm2)/norm(x) < reltol
+
+@time x = sylvc(ar',brm,crm2,blocksize = 5)
+@test norm(ar'*x+x*brm-crm2)/norm(x) < reltol
+
+@time x = sylvc(ar',br',cr,blocksize = 5)
+@test norm(ar'*x+x*br'-cr)/norm(x) < reltol
+
+@time x = sylvc(ac,bc',cc,blocksize = 5)
 @test norm(ac*x+x*bc'-cc)/norm(x) < reltol
+
 
 @time x = sylvc(acd,bcd',cc)
 @test norm(acd*x+x*bcd'-cc)/norm(x) < reltol
@@ -112,10 +154,16 @@ end
 @time x = sylvc(ac',bc,cc)
 @test norm(ac'*x+x*bc-cc)/norm(x) < reltol
 
+@time x = sylvc(ac',bc,cc,blocksize = 5)
+@test norm(ac'*x+x*bc-cc)/norm(x) < reltol
+
 @time x = sylvc(ac',br,cc)
 @test norm(ac'*x+x*br-cc)/norm(x) < reltol
 
 @time x = sylvc(ac',bc',cc)
+@test norm(ac'*x+x*bc'-cc)/norm(x) < reltol
+
+@time x = sylvc(ac',bc',cc,blocksize = 5)
 @test norm(ac'*x+x*bc'-cc)/norm(x) < reltol
 
 @time x = sylvc(ac',br',cc)

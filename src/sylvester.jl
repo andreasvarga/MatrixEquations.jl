@@ -1,12 +1,21 @@
 """
-    X = sylvc(A,B,C)
+    X = sylvc(A,B,C; blocksize = 64)
 
 Solve the continuous Sylvester matrix equation
 
                 AX + XB = C
 
-using the Bartels-Stewart Schur form based approach. `A` and `B` are
+using recursive-blocking combined with explicit loop tiling techniques. 
+The underlying core algorithm is the Bartels-Stewart Schur form based approach. `A` and `B` are
 square matrices, and `A` and `-B` must not have common eigenvalues.
+
+The keyword argument `blocksize` (default: `blocksize = 64`) specifies the 
+block size when to switch in the employed recursive blocked algorithm 
+to the core algorithm for solving small-sized matrix equations. 
+If `blocksize ≤ 4`, the minimum value `blocksize = 4` is used.
+Note: This option is only effective for data of types `Float64`, `Float32`, 
+      `ComplexF64`, or `ComplexF32`.
+
 
 The following particular cases are also adressed:
 
@@ -54,11 +63,23 @@ julia> A*X + X*B - C
  -3.77476e-15  4.44089e-16
 ```
 """
-function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
+function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix; blocksize = 64)
    """
+   The Bartels-Steward Schur form based method in [1] is employed for matrix dimensions not exceeding
+   the specified blocksize. For large dimensions, the recursive blocked algorithm in [2] is used.
+   The iterative blocking based algorithm of [3] is used for matrix dimensions not exceeding `blocksize`. 
+   Blocking is employed only for `BlasFloat` type data.  
+
    Reference:
-   R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
-   Comm. ACM, 15:820–826, 1972.
+   [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
+       Comm. ACM, 15:820–826, 1972.
+
+   [2] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems—
+       Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
+       28 (2002), pp. 392–415.
+
+   [3] A. Schwarz and C. C. Kjelgaard Mikkelsen, Robust task-parallel solution of the triangular 
+       Sylvester equation. Lecture Notes in Computer Science, vol 12043, pp. 82-92, Springer, 2020.    
    """
 
    m, n = size(C);
@@ -66,10 +87,6 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
 
    T2 = promote_type(eltype(A), eltype(B), eltype(C))
    T2 <: BlasFloat || (T2 = promote_type(Float64,T2))
-
-   # generalized Schur form decomposition available only for complex data 
-   #T2 <: BlasFloat || T2 <: Complex || (return real(sylvc(complex(A),complex(B),complex(C))))
-   #T2 <: Complex || (return real(sylvc(complex(A),complex(B),complex(C))))
 
    eltype(A) == T2 || (A = convert(AbstractMatrix{T2},A))
    eltype(B) == T2 || (B = convert(AbstractMatrix{T2},B))
@@ -97,11 +114,22 @@ function sylvc(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix)
       end
    end
 
-   Y = QA' * C * QB
+   #Y = QA' * C * QB
+   WS = Matrix{T2}(undef,m,n)
+   Y = Matrix{T2}(undef,m,n)
+   mul!(WS,QA',C)
+   mul!(Y,WS,QB) 
 
-   sylvcs!(RA, RB, Y; adjA, adjB)
 
-   mul!(Y, QA, Y*QB')
+   if T2 <: BlasFloat
+      sylvcs_blocked!(RA, RB, Y; adjA, adjB, blocksize)
+   else
+      sylvcs!(RA, RB, Y; adjA, adjB)
+   end
+
+   #mul!(Y, QA, Y*QB')
+   mul!(WS,Y,QB')
+   mul!(Y,QA, WS)
 
    return Y
 end
@@ -589,7 +617,8 @@ common eigenvalues. `C` contains on output the solution `X`.
 """
 function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
    """
-   This is a wrapper to the LAPACK.trsylv! function, based on the Bartels-Stewart Schur form based approach.
+   This function calls appropriate wrappers to the LAPACK.trsylv! or LAPACK.trsylv3! function, 
+   which are based on the Bartels-Stewart Schur form based approach.
    Reference:
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
    Comm. ACM, 15:820–826, 1972.
@@ -643,6 +672,203 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
                throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
    end
 end
+function sylvcs_blocked!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, adjA::Bool = false, adjB::Bool = false, blocksize::Integer) where {T1<:BlasFloat}
+   abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
+   m, n = size(C);
+   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+   _sylvcs_blocked!(A, B, C, isgn, adjA, adjB, blocksize)
+end
+function _sylvcs_blocked!(A, B, C, isgn::Int, adjA::Bool, adjB, blocksize::Integer)
+   m = size(A, 1)
+   n = size(B, 1)
+   if m <= max(blocksize,4) && n <= max(blocksize,4)
+      sylvcs!(A, B, C; adjA, adjB, isgn)
+   elseif 2*n <= m 
+      midm = m ÷ 2
+      m1 = (midm < m && A[midm+1, midm] != 0) ? midm + 1 : midm
+      ia1 = 1:m1; ia2 = m1+1:m 
+      @show m1
+
+      @views begin
+         A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+         C1, C2 = C[ia1,1:n], C[ia2,1:n]
+      end
+      if adjA 
+         # solve A' X + isgn*X B = C or A' X + isgn*X B' = C
+
+         # X1 solver
+         _sylvcs_blocked!(A11, B, C1, isgn, adjA, adjB, blocksize)
+
+         # C2 update: C2 = C2 - A12'*X1
+         mul!(C2,A12',C1,-1,1)
+
+         # X2 solver
+         _sylvcs_blocked!(A22, B, C2, isgn, adjA, adjB, blocksize)
+      else 
+         # solve A X  + isgn*X B = C or A X  + isgn*X B' = C
+
+         # X22 solver
+         _sylvcs_blocked!(A22, B, C2, isgn, adjA, adjB, blocksize)
+
+         # C1 update: C1 = C1 - A12*X2
+         mul!(C1,A12,C2,-1,1)
+
+         # X1 solver
+         _sylvcs_blocked!(A11, B, C1, isgn, adjA, adjB, blocksize)
+      end
+   elseif 2*m <= n 
+      midn = n ÷ 2
+      n1 = (midn < n && B[midn+1, midn] != 0) ? midn + 1 : midn
+      ib1 = 1:n1; ib2 = n1+1:n 
+      @show n1
+
+      @views begin
+         B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]
+         C1, C2 = C[1:m,ib1], C[1:m,ib2]
+      end
+      if !adjB
+         # solve A X + isgn*X B = C or A' X + isgn*X B = C 
+
+         # X1 solver
+         _sylvcs_blocked!(A, B11, C1, isgn, adjA, adjB, blocksize)
+
+         # C2 update: C2 = C2 - isgn*X1*B12
+         mul!(C2,C1,B12,-isgn,1)
+
+         # X2 solver
+         _sylvcs_blocked!(A, B22, C2, isgn, adjA, adjB, blocksize)
+
+      else
+         # solve A X  + isgn*X B' = C or A' X  + isgn*X B' = C 
+
+         # X2 solver
+         _sylvcs_blocked!(A, B22, C2, isgn, adjA, adjB, blocksize)
+
+         # C1 update: C1 = C1 - isgn*X2*B12'
+         mul!(C1,C2,B12',-isgn,1)
+
+         # X1 solver
+         _sylvcs_blocked!(A, B11, C1, isgn, adjA, adjB, blocksize)
+
+      end
+   else
+      midm = m ÷ 2
+      m1 = A[midm+1, midm] != 0 ? midm + 1 : midm
+      ia1 = 1:m1; ia2 = m1+1:m 
+      midn = n ÷ 2
+      n1 = B[midn+1, midn] != 0 ? midn + 1 : midn
+      ib1 = 1:n1; ib2 = n1+1:n 
+      @views begin
+         A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+         B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]
+         C11, C12, C21, C22 = C[ia1,ib1], C[ia1,ib2], C[ia2,ib1], C[ia2,ib2]
+      end
+      if !adjA && !adjB
+         # solve A X + isgn*X B = C
+
+         # X21 solver
+         _sylvcs_blocked!(A22, B11, C21, isgn, adjA, adjB, blocksize)
+
+         # C11 update: C11 = C11 - A12*X21  
+         mul!(C11, A12, C21, -1, 1)
+
+         # X11 solver
+         _sylvcs_blocked!(A11, B11, C11, isgn, adjA, adjB, blocksize)
+
+         # C22 update: C22 = C22 - isgn*X21*B12
+         mul!(C22, C21, B12, -isgn, 1)
+
+         # X22 solver
+         _sylvcs_blocked!(A22, B22, C22, isgn, adjA, adjB, blocksize)
+
+         # C12 update: C12 = C12 - A12*X22 - isgn*X11*B12
+         mul!(C12,A12,C22,-1,1)
+         mul!(C12,C11,B12,-isgn,1)
+
+         # X12 solver
+         _sylvcs_blocked!(A11, B22, C12, isgn, adjA, adjB, blocksize)
+
+      elseif adjA && !adjB
+         # solve A' X + isgn*X B = C
+
+         # X11 solver
+         _sylvcs_blocked!(A11, B11, C11, isgn, adjA, adjB, blocksize)
+
+         # C12 update: C12 = C12 - isgn*X11*B12
+         mul!(C12,C11,B12,-isgn,1)
+
+         # X12 solver
+         _sylvcs_blocked!(A11, B22, C12, isgn, adjA, adjB, blocksize)
+
+         # C21 update: C21 = C21 - A12'*X11
+         mul!(C21,A12',C11,-1,1)
+
+         # X21 solver
+         _sylvcs_blocked!(A22, B11, C21, isgn, adjA, adjB, blocksize)
+
+         # C22 update: C22 = C22 - A12'*X12 - isgn*X21*B12
+
+         # C22 = C22 + A12'*X12
+         mul!(C22, A12', C12, -1, 1)
+         # C22 = C22 + X21*B12
+         mul!(C22, C21, B12, -isgn, 1)
+
+         # X22 solver
+         _sylvcs_blocked!(A22, B22, C22, isgn, adjA, adjB, blocksize)
+      elseif !adjA && adjB
+         # solve A X  + isgn*X B' = C
+
+         # X22 solver
+         _sylvcs_blocked!(A22, B22, C22, isgn, adjA, adjB, blocksize)
+
+         # C12 update: C12 = C12 - A12*X22
+         mul!(C12,A12,C22,-1,1)
+
+         # X12 solver
+         _sylvcs_blocked!(A11, B22, C12, isgn, adjA, adjB, blocksize)
+
+         # C21 update: C21 = C21 - isgn*X22*B12'
+         mul!(C21,C22,B12',-isgn,1)
+
+         # X21 solver
+         _sylvcs_blocked!(A22, B11, C21, isgn, adjA, adjB, blocksize)
+
+         # C11 update: C11 = C11 - A12*X21 - isgn*X12*B12' 
+         # C11 = C11 - A12*X21
+         mul!(C11, A12, C21, -1, 1)
+         # C11 = C11 - isgn*X12*B12'
+         mul!(C11, C12, B12', -isgn, 1) 
+ 
+         # X11 solver
+         _sylvcs_blocked!(A11, B11, C11, isgn, adjA, adjB, blocksize)
+      else
+         # solve A' X + isgn*X B' = C
+
+         # X12 solver
+         _sylvcs_blocked!(A11, B22, C12, isgn, adjA, adjB, blocksize)
+
+         # C11 update: C11 = C11 - isgn*X12*B12' 
+         mul!(C11, C12, B12', -isgn, 1) 
+
+         # X11 solver
+         _sylvcs_blocked!(A11, B11, C11, isgn, adjA, adjB, blocksize)
+
+         # C22 update: C22 = C22 - A12'*X12 
+         mul!(C22, A12', C12, -1, 1)
+
+         # X22 solver
+         _sylvcs_blocked!(A22, B22, C22, isgn, adjA, adjB, blocksize)
+
+         # C21 update: C21 = C21 - isgn*X22*B12' - A12'*X11
+         mul!(C21,C22,B12',-isgn,1)
+         mul!(C21,A12',C11,-1,1)
+
+         # X21 solver
+         _sylvcs_blocked!(A22, B11, C21, isgn, adjA, adjB, blocksize)
+      end
+   end   
+end
+
 function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1,
                  adjA::Bool = false, adjB::Bool = false) where T1<:Real
    """

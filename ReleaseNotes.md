@@ -1,6 +1,9 @@
 # Release Notes
 
 
+## Version 2.6.2
+- recursive blocking implemented for solving contunuous Sylvester equations in `sylvc` for `BlasFloat` data
+
 ## Version 2.6.1
 Several enhancements of the generalized discrete Lyapunov equation solver `dlyap` and of the
 generalized Sylvester equation solver `gsylvs!`, in order to reduce allocation burden.
