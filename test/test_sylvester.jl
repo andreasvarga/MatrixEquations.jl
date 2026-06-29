@@ -65,6 +65,9 @@ crm1 = rand(Ty,ns,m); crm2 = rand(Ty,n,ms); ccm1 = crm1+im*rand(Ty,ns,m); ccm2 =
 @time x = sylvc(ar,br,cr)
 @test norm(ar*x+x*br-cr)/norm(x) < reltol
 
+@time x = sylvc(ar,br,cr,blocksize = 5)
+@test norm(ar*x+x*br-cr)/norm(x) < reltol
+
 @time x = sylvc(ars,brs,cr)
 @test norm(ars*x+x*brs-cr)/norm(x) < reltol
 
@@ -123,6 +126,9 @@ end
 @time x = sylvc(ar,brm,crm2,blocksize = 5)
 @test norm(ar*x+x*brm-crm2)/norm(x) < reltol
 
+@time x = sylvc(arm,br,crm1,blocksize = 5)
+@test norm(arm*x+x*br-crm1)/norm(x) < reltol
+
 @time x = sylvc(ar',br,cr,blocksize = 5)
 @test norm(ar'*x+x*br-cr)/norm(x) < reltol
 
@@ -144,9 +150,11 @@ end
 @time x = sylvc(ar',br',cr,blocksize = 5)
 @test norm(ar'*x+x*br'-cr)/norm(x) < reltol
 
+@time x = sylvc(arm',br',crm1,blocksize = 5)
+@test norm(arm'*x+x*br'-crm1)/norm(x) < reltol
+
 @time x = sylvc(ac,bc',cc,blocksize = 5)
 @test norm(ac*x+x*bc'-cc)/norm(x) < reltol
-
 
 @time x = sylvc(acd,bcd',cc)
 @test norm(acd*x+x*bcd'-cc)/norm(x) < reltol
@@ -278,6 +286,11 @@ cr = rand(Ty,n,m)
 cc = cr+im*rand(Ty,n,m)
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
+arm = rand(Ty,ns,ns); acm = arm+im*rand(Ty,ns,ns); 
+brm = rand(Ty,ms,ms); bcm = brm+im*rand(Ty,ms,ms);
+crm1 = rand(Ty,ns,m); crm2 = rand(Ty,n,ms); ccm1 = crm1+im*rand(Ty,ns,m); ccm2 = crm2+im*rand(Ty,n,ms);
+
+
 
 @time x = sylvd(Ty(1),Ty(2)*im,Ty(3))
 @test abs(x*2*im+x-3.) < reltol
@@ -300,7 +313,10 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvd(ar,br,cr)
 @test norm(ar*x*br+x-cr)/norm(x) < reltol
 
-@time x = sylvd(ars,brs,cr)
+@time x = sylvd(ar,br,cr)
+@test norm(ar*x*br+x-cr)/norm(x) < reltol
+
+@time x = sylvd(ars,brs,cr,blocksize = 5)
 @test norm(ars*x*brs+x-cr)/norm(x) < reltol
 
 @time x = sylvd(ard,brd,cr)
@@ -315,7 +331,19 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvd(ar',br',cr)
 @test norm(ar'*x*br'+x-cr)/norm(x) < reltol
 
+@time x = sylvd(ar',br,cr,blocksize = 5)
+@test norm(ar'*x*br+x-cr)/norm(x) < reltol
+
+@time x = sylvd(ar,br',cr,blocksize = 5)
+@test norm(ar*x*br'+x-cr)/norm(x) < reltol
+
+@time x = sylvd(ar',br',cr,blocksize = 5)
+@test norm(ar'*x*br'+x-cr)/norm(x) < reltol
+
 @time x = sylvd(ac,bc,cc)
+@test norm(ac*x*bc+x-cc)/norm(x) < reltol
+
+@time x = sylvd(ac,bc,cc,blocksize = 5)
 @test norm(ac*x*bc+x-cc)/norm(x) < reltol
 
 @time x = sylvd(ach,bch,cc)
@@ -333,8 +361,42 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = sylvd(ac',bc',cc)
 @test norm(ac'*x*bc'+x-cc)/norm(x) < reltol
 
+@time x = sylvd(ac,bc',cc,blocksize = 5)
+@test norm(ac*x*bc'+x-cc)/norm(x) < reltol
+
+@time x = sylvd(ac',bc,cc,blocksize = 5)
+@test norm(ac'*x*bc+x-cc)/norm(x) < reltol
+
+@time x = sylvd(ac',bc',cc,blocksize = 5)
+@test norm(ac'*x*bc'+x-cc)/norm(x) < reltol
+
 @time x = sylvdkr(ac,bc,cc)
 @test norm(ac*x*bc+x-cc)/norm(x) < reltol
+
+@time x = sylvd(arm,br,crm1,blocksize = 5)
+@test norm(arm*x*br+x-crm1)/norm(x) < reltol
+
+@time x = sylvd(arm',br,crm1,blocksize = 5)
+@test norm(arm'*x*br+x-crm1)/norm(x) < reltol
+
+@time x = sylvd(arm,br',crm1,blocksize = 5)
+@test norm(arm*x*br'+x-crm1)/norm(x) < reltol
+
+@time x = sylvd(arm',br',crm1,blocksize = 5)
+@test norm(arm'*x*br'+x-crm1)/norm(x) < reltol
+
+@time x = sylvd(ar,brm,crm2,blocksize = 5)
+@test norm(ar*x*brm+x-crm2)/norm(x) < reltol
+
+@time x = sylvd(ar',brm,crm2,blocksize = 5)
+@test norm(ar'*x*brm+x-crm2)/norm(x) < reltol
+
+@time x = sylvd(ar,brm',crm2,blocksize = 5)
+@test norm(ar*x*brm'+x-crm2)/norm(x) < reltol
+
+@time x = sylvd(ar',brm',crm2,blocksize = 5)
+@test norm(ar'*x*brm'+x-crm2)/norm(x) < reltol
+
 end
 end
 
