@@ -228,6 +228,23 @@ y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjB=true)
 y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjA=true,adjB=true)
 @test norm(as'*y+isgn*y*bs'-cr)/norm(y) < reltol
 
+if Ty <: BlasFloat
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,blocked = true)
+@test norm(as*y+isgn*y*bs-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(ard,brd,y;isgn,blocked = true)
+@test norm(ard*y+isgn*y*brd-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjA=true,blocked = true)
+@test norm(as'*y+isgn*y*bs-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjB=true,blocked = true)
+@test norm(as*y+isgn*y*bs'-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvcs!(as,bs,y;isgn,adjA=true,adjB=true,blocked = true)
+@test norm(as'*y+isgn*y*bs'-cr)/norm(y) < reltol
+end
+
 y = copy(cc); @time sylvcs!(acs,bcs,y;isgn)
 @test norm(acs*y+isgn*y*bcs-cc)/norm(y) < reltol
 

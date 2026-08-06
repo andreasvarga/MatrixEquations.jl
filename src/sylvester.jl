@@ -642,9 +642,10 @@ and `op(B) = B` or `op(B) = B'` if `adjB = false` or `adjB = true`, respectively
 `A` and `B` are square matrices in Schur forms, and `A` and `-isgn*B` must not have
 common eigenvalues. `C` contains on output the solution `X`.
 """
-function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, adjA::Bool = false, adjB::Bool = false) where  T1<:BlasFloat
+function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, adjA::Bool = false, adjB::Bool = false, blocked::Bool = false) where  T1<:BlasFloat
    """
-   This function calls appropriate wrappers to the LAPACK.trsylv! or LAPACK.trsylv3! function, 
+   This function calls appropriate wrappers to the LAPACK.trsylv! function, if blocked = true, or 
+   the LAPACK.trsylv3! function, if blocked = true,
    which are based on the Bartels-Stewart Schur form based approach.
    Reference:
    R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix equation AX+XB=C.
@@ -652,7 +653,7 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    """
    abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
    m, n = size(C);
-   [m; n] == LinearAlgebra.checksquare(A,B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
+   m == LinearAlgebra.checksquare(A) &&  n == LinearAlgebra.checksquare(B) || throw(DimensionMismatch("A, B and C have incompatible dimensions"))
    if isdiag(A) && isdiag(B)
       if T1 <: Real || (!adjA && !adjB)
          for i = 1:m
@@ -683,21 +684,35 @@ function sylvcs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
             end
          end
       end
-      return C[:,:]
-   end      
-   try
-      trans = T1 <: Complex ? 'C' : 'T'
+      return C
+   end   
+   trans = T1 <: Complex ? 'C' : 'T'
+   transa = adjA ? trans : 'N'
+   transb = adjB ? trans : 'N'
+   if blocked
       @static if VERSION < v"1.12"
-         C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C, isgn)
+        C, scale = LAPACK.trsyl!(transa, transb, A, B, C, isgn)
       else
-         C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C, isgn)
+         C, scale = trsyl3!(transa, transb, A, B, C, isgn)
       end
-      rmul!(C, inv(scale))
-      return C[:,:]
-   catch err
-      findfirst("LAPACKException(1)",string(err)) === nothing ? rethrow() :
-               throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+   else 
+      C, scale = LAPACK.trsyl!(transa, transb, A, B, C, isgn)
    end
+   scale == one(T1) || error("Singular Sylvester equation")
+   return C
+   # try
+   #    trans = T1 <: Complex ? 'C' : 'T'
+   #    @static if VERSION < v"1.12"
+   #      C, scale = LAPACK.trsyl!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C, isgn)
+   #    else
+   #       C, scale = trsyl3!(adjA ? trans : 'N', adjB ? trans : 'N', A, B, C, isgn)
+   #    end
+   #    rmul!(C, inv(scale))
+   #    return C
+   # catch err
+   #    findfirst("LAPACKException(1)",string(err)) === nothing ? rethrow() :
+   #             throw("ME:SingularException: A has eigenvalue(s) α and B has eigenvalues(s) β such that α+β = 0")
+   # end
 end
 function sylvcs_blocked!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; isgn::Int = 1, adjA::Bool = false, adjB::Bool = false, blocksize::Integer) where {T1<:BlasFloat}
    abs(isgn) == 1 || throw(ArgumentError(" isgn must be 1 or -1; got $isgn"))
@@ -1783,8 +1798,7 @@ function sylvds!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       end
       return C[:,:]
    end      
-
-   (m, 2) == size(W) || throw(DimensionMismatch("W must be an $m x 2 matrix"))
+   (m <= size(W,1) && size(W,2) == 2) || throw(DimensionMismatch("W must be an $m x 2 matrix"))
 
 
    # determine the structure of the real Schur form of A
@@ -3555,7 +3569,7 @@ function sylvcs2!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
           i -= dk
       end
    end
-   C
+   return C
 end
 function sylvcs1!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{T1}; adj = false) where {T1<:Complex}
    n = LinearAlgebra.checksquare(A)
@@ -3621,7 +3635,7 @@ function sylvcs1!(A::AbstractMatrix{T1},B::AbstractMatrix{T1},C::AbstractMatrix{
           isfinite(C[i,1]) || error("Singular Lyapunov equation")
       end
    end
-   C
+   return C
 end
 function sylvsyss!(A::T1, B::T1, C::T1, D::T1, E::T1, F::T1) where {T<:Complex,T1<:AbstractMatrix{T}}
    """

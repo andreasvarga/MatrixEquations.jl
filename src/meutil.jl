@@ -201,9 +201,8 @@ updated in place and the matrix `Y` is destroyed during the computation.
 function qrupdate!(R, Y)
     n, m = size(Y)
     size(R,1) == n || throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
-    #Y = conj(Y)
-    for k = 1:m
-        for i = 1:n
+    @inbounds for k in 1:m
+        for i in 1:n
 
             # Compute Givens rotation
             #c, s, r = LinearAlgebra.givensAlgorithm(R[i,i], conj(Y[i,k]))
@@ -213,7 +212,7 @@ function qrupdate!(R, Y)
             R[i,i] = r
 
             # Update remaining elements in row/column
-            for j = i + 1:n
+            @simd for j in i+1:n
                 Rij = R[i,j]
                 yjk  = Y[j,k]
                 R[i,j]  =   c*Rij + s*yjk
@@ -237,8 +236,8 @@ function rqupdate!(R, Y)
     n, m = size(Y)
     size(R,1) == n || throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
 
-    for k = 1:m
-        for j = n:-1:1
+    @inbounds for k in 1:m
+        for j in n:-1:1
 
             # Compute Givens rotation
             c, s, r = LinearAlgebra.givensAlgorithm(R[j,j], Y[j,k])
@@ -247,7 +246,7 @@ function rqupdate!(R, Y)
             R[j,j] = r
 
             # Update remaining elements in row/column
-            for i = 1: j - 1
+            @simd for i in 1:j-1
                 Rij = R[i,j]
                 yik  = Y[i,k]
                 R[i,j]  =   c*Rij + s*yik

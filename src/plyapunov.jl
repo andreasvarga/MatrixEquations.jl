@@ -1,6 +1,6 @@
 rev!(t) = reverse!(reverse!(t,dims=1),dims=2)
 """
-    U = plyapc(A, B)
+    U = plyapc(A, B; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 continuous Lyapunov equation
@@ -10,7 +10,7 @@ continuous Lyapunov equation
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of rows as `A`. `A` must have only eigenvalues with negative real parts.
 
-    U = plyapc(A', B')
+    U = plyapc(A', B'; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the continuous Lyapunov equation
@@ -19,6 +19,10 @@ the continuous Lyapunov equation
 
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of columns as `A`. `A` must have only eigenvalues with negative real parts.
+
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used 
+in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 
 # Example
 ```jldoctest
@@ -45,11 +49,12 @@ julia> A*U*U'+U*U'*A'+B*B'
  8.88178e-16  3.55271e-15
 ```
 """
-function plyapc(A::AbstractMatrix, B::AbstractMatrix)
+function plyapc(A::AbstractMatrix, B::AbstractMatrix; blocksize = 64)
    # Method
 
    # The Bartels-Steward Schur form based method is employed [1], with the
-   # modifications proposed by Hammarling [2].
+   # modifications proposed by Hammarling [2]. For `BlasFloat` type data, the Sylvester equations 
+   # are solved using the recursive blocking based algorithm of [3].
 
    # Reference:
 
@@ -57,6 +62,9 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
    #     equation AX+XB=C. Comm. ACM, 15:820–826, 1972.
    # [2] Hammarling, S.J. Numerical solution of the stable, non-negative definite
    #     Lyapunov equation. IMA J. Num. Anal., 2, pp. 303-325, 1982.
+   # [3] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems—
+   #     Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
+   #     28 (2002), pp. 392–415.
 
    adj = isa(A,Adjoint)
    xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
@@ -128,21 +136,24 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix)
       end
    end
    U = UpperTriangular(U)
-   plyapcs!(AS, U, adj = adj)
+   plyapcs!(AS, U; adj, blocksize)
    T2 <: BlasFloat  && (tau = similar(U,n))
    if adj
       #X = Q*U'*U*Q'
       if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+         mul!(AS,U,Q')
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
       else
-         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
+         mul!(AS,U,Q')
+         U = UpperTriangular(qr!(AS).R)
       end
    else
       #X <- Q*U*U'*Q'
       if T2 <: BlasFloat
          U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
       else
-         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Q, U)'))).R)')
+         mul!(AS,Q,U)
+         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
       end
    end  
    return utnormalize!(U,adj)
@@ -229,10 +240,6 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
 
-   # # generalized Schur form decomposition available only for complex data 
-   # T2 <: BlasFloat || T2 <: Complex || 
-   # (return adj ? real(plyapc(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapc(complex(A),complex(E),complex(B))))
-
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
    if adj
@@ -306,7 +313,8 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    if adj
       #X = Q*U'*U*Q'
       if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+         mul!(AS,U,Q')
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
       else
          U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
       end
@@ -315,7 +323,8 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       if T2 <: BlasFloat
          U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
       else
-         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Z, U)'))).R)')
+         mul!(AS,Z,U)
+         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
       end
    end  
    return utnormalize!(U,adj)
@@ -324,7 +333,7 @@ plyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
       real(A*E') < 0 ? abs(B)/sqrt( -2 * real(A*E') ) :
       error("A*E' must be a negative number or must have negative real part")
 """
-    U = plyapd(A, B)
+    U = plyapd(A, B; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of
 the discrete Lyapunov equation
@@ -334,7 +343,7 @@ the discrete Lyapunov equation
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of rows as `A`. `A` must have only eigenvalues with moduli less than one.
 
-    U = plyapd(A', B')
+    U = plyapd(A', B'; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the discrete Lyapunov equation
@@ -343,6 +352,10 @@ the discrete Lyapunov equation
 
 where `A` is a square real or complex matrix and `B` is a matrix with the same
 number of columns as `A`. `A` must have only eigenvalues with moduli less than one.
+
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used 
+in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 
 # Example
 ```jldoctest
@@ -369,11 +382,12 @@ julia> A*U*U'*A'-U*U'+B*B'
   4.44089e-16  1.77636e-15
 ```
 """
-function plyapd(A::AbstractMatrix, B::AbstractMatrix)
+function plyapd(A::AbstractMatrix, B::AbstractMatrix; blocksize = 64)
    # Method
 
    # The Bartels-Steward Schur form based method is employed [1], with the
-   # modifications proposed by Hammarling in [2] and [3].
+   # modifications proposed by Hammarling in [2] and [3]. For `BlasFloat` type data, 
+   # the discrete Sylvester equations are solved using the recursive blocking based algorithm of [4].
 
    # Reference:
 
@@ -384,7 +398,10 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
    # [3] Hammarling, S.J. Numerical solution of the discrete-time, convergent,
    #     non-negative definite Lyapunov equation.
    #     Systems & Control Letters 17 (1991) 137-139.
-
+   # [4] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
+   #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+   #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
+  
    adj = isa(A,Adjoint)
    xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
 
@@ -455,12 +472,13 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
        end
    end
    U = UpperTriangular(U)
-   plyapds!(AS, U, adj = adj)
+   plyapds!(AS, U; adj, blocksize)
    tau = similar(U,n)
    if adj
       #X = Q*U'*U*Q'
       if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+         mul!(AS,U,Q')
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
       else
          U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
       end
@@ -469,7 +487,8 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix)
       if T2 <: BlasFloat
          U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
       else
-         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Q, U)'))).R)')
+         mul!(AS,Q,U)
+         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
       end
    end  
    return utnormalize!(U,adj)
@@ -556,10 +575,6 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
 
-   # # generalized Schur form decomposition available only for complex data 
-   # T2 <: BlasFloat || T2 <: Complex || 
-   # (return adj ? real(plyapd(complex(A.parent)',complex(E.parent)',complex(B.parent)')) : real(plyapd(complex(A),complex(E),complex(B))))
-
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    
    if adj
@@ -629,12 +644,13 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
        end
    end
    U = UpperTriangular(U)
-   plyapds!(AS, ES, U, adj = adj)
+   plyapds!(AS, ES, U; adj)
    T2 <: BlasFloat  && (tau = similar(U,n))
    if adj
       #X = Q*U'*U*Q'
       if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(lmul!(U,copy(Q')),tau)[1])
+         mul!(AS,U,Q')
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
       else
          U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
       end
@@ -643,7 +659,8 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       if T2 <: BlasFloat
          U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
       else
-         U = UpperTriangular(rev!(qr!(rev!(copy(rmul!(Z, U)'))).R)')
+         mul!(AS,Z,U)
+         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
       end
    end  
    return utnormalize!(U,adj)
@@ -653,7 +670,7 @@ plyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
       error("A/E must be a subunitary number")
 
 """
-    U = plyaps(A, B; disc = false)
+    U = plyaps(A, B; disc = false, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 continuous Lyapunov equation
@@ -665,7 +682,7 @@ respectively, and `B` is a matrix with the same number of rows as `A`.
 `A` must have only eigenvalues with negative real parts. Only the upper
 Hessenberg part of `A` is referenced.
 
-    U = plyaps(A', B', disc = false)
+    U = plyaps(A', B', disc = false, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the continuous Lyapunov equation
@@ -677,7 +694,7 @@ respectively, and `B` is a matrix with the same number of columns as `A`.
 `A` must have only eigenvalues with negative real parts. Only the upper
 Hessenberg part of `A` is referenced.
 
-    U = plyaps(A, B, disc = true)
+    U = plyaps(A, B, disc = true, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 discrete Lyapunov equation
@@ -689,7 +706,7 @@ respectively, and `B` is a matrix with the same number of rows as `A`.
 `A` must have only eigenvalues with moduli less than one. Only the upper
 Hessenberg part of `A` is referenced.
 
-    U = plyaps(A', B', disc = true)
+    U = plyaps(A', B', disc = true, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the discrete Lyapunov equation
@@ -700,13 +717,21 @@ where `A` is a square real or complex matrix in a real or complex Schur form,
 respectively, and `B` is a matrix with the same number of columns as `A`.
 `A` must have only eigenvalues with moduli less than one. Only the upper
 Hessenberg part of `A` is referenced.
+
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used 
+in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
+
 """
-function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
+function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 64)
    # Method
 
    # The Bartels-Steward Schur form based method is employed [1], with the
-   # modifications proposed by Hammarling in [2] and [3].
-
+   # modifications proposed by Hammarling in [2] and [3]. 
+   # For `BlasFloat` type data, the continuous Sylvester equations 
+   # are solved using the recursive blocking based algorithm of [4], while the 
+   # discrete Sylvester equations are solved using the recursive blocking based algorithm of [5].
+ 
    # Reference:
 
    # [1] R. H. Bartels and G. W. Stewart. Algorithm 432: Solution of the matrix
@@ -716,6 +741,12 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
    # [3] Hammarling, S.J. Numerical solution of the discrete-time, convergent,
    #     non-negative definite Lyapunov equation.
    #     Systems & Control Letters 17 (1991) 137-139.
+   # [4] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems—
+   #     Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
+   #     28 (2002), pp. 392–415.
+   # [5] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
+   #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+   #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
    adj = isa(A,Adjoint)
    xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
@@ -757,9 +788,9 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
       end
       U = UpperTriangular(U)
       if disc
-         plyapds!(A.parent, U; adj)
+         plyapds!(A.parent, U; adj, blocksize)
       else
-         plyapcs!(A.parent, U; adj)
+         plyapcs!(A.parent, U; adj, blocksize)
       end
    else
       #UU' = B*B'
@@ -783,9 +814,9 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false)
       end
       U = UpperTriangular(U)
       if disc
-         plyapds!(A, U; adj)
+         plyapds!(A, U; adj, blocksize)
       else
-         plyapcs!(A, U; adj)
+         plyapcs!(A, U; adj, blocksize)
       end
    end
    return utnormalize!(U,adj)
@@ -939,7 +970,7 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    return utnormalize!(U,adj)
 end
 """
-    plyapcs!(A,R;adj = false)
+    plyapcs!(A,R;adj = false, blocksize = 64)
 
 Solve the positive continuous Lyapunov matrix equation
 
@@ -950,8 +981,10 @@ for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `
 complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with negative real parts.
 `R` contains on output the solution `U`.
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 """
-function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Real
+function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -962,11 +995,6 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    SMLNUM = sqrt(_safemin(T1))/EPS
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
-
-   # small = safemin(T1)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(maximum(abs.(A)))
-
 
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
@@ -995,7 +1023,7 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              Mα[1,1] = tα
              Mβ[1,1] = A[j,j]
           else
-             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = true)
+             plyap2!(view(A,l,l), view(R,l,l), Mβ, Mα, adj = true)
           end
           if ll < p
              dll = 1:dl
@@ -1021,8 +1049,7 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
 
              # Solve S1'*ubar+ubar*β + z = 0
              if T1 <: BlasReal
-                _, scale = LAPACK.trsyl!('T','N', view(A,j1,j1), β, z)
-                scale == ONE || error("Singular Lyapunov equation")
+                sylvcs_blocked!(view(A,j1,j1), β, z; adjA = true, adjB = false, blocksize); 
                 transpose!(view(R,l,j1),rmul!(z,-1))
              else
                 sylvcs2!(view(A,j1,j1), β, z; adj)
@@ -1034,7 +1061,7 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              #rbar += ubar * α'
              qrupdate!(view(R,j1,j1), rbar)
          end
-      end
+       end
    else
       # The (L,L)th block of X is determined starting from
       # bottom-right corner column by column by
@@ -1055,7 +1082,7 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              Mα[1,1] = tα
              Mβ[1,1] = A[j,j]
           else
-             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = false)
+             plyap2!(view(A,l,l), view(R,l,l), Mβ, Mα, adj = false)
           end
           if ll > 1
              dll = 1:dl
@@ -1083,8 +1110,7 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              dl == 1 || (axpy!(R[js-1,js],view(A,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(A,j1,js),view(z,:,2)))
              # Solve S1*ubar+ubar*β' + z = 0
              if T1 <: BlasReal
-                _, scale = LAPACK.trsyl!('N','T', view(A,j1,j1), β, z)
-                scale == ONE || error("Singular Lyapunov equation")
+                sylvcs_blocked!(view(A,j1,j1), β, z; adjA = false, adjB = true, blocksize); 
                 copyto!(view(R,j1,l), rmul!(z,-1))
              else
                sylvcs2!(view(A,j1,j1), β, z; adj)
@@ -1095,11 +1121,11 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              mul!(rbar, z, α, -ONE, ONE)
              rqupdate!(view(R,j1,j1), rbar)
          end
-       end
+      end
    end
    return R
 end
-function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize::Int = 64)  where T1 <: Complex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1145,9 +1171,10 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
                k += 1
             end  
             # Solve S1'*ubar+ubar*β + z = 0
-            if T <: BlasReal
+            if T <: BlasComplex
+                #sylvcs_blocked!(view(A,j1,j1), β, z; adjA = true, adjB = false, blocksize); 
                _, scale = LAPACK.trsyl!('C','N', view(A,j1,j1), β, z)
-               scale == ONE || error("Singular Lyapunov equation")
+               # scale == ONE || error("Singular Lyapunov equation")
             else
                sylvcs1!(view(A,j1,j1), β, z; adj)
                rmul!(z,-1)
@@ -1193,9 +1220,10 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              end
              #z = rbar*α' + A[j1,l]*R[l,l]
              # Solve S1*ubar+ubar*β' + z = 0
-             if T <: BlasReal
-                _, scale = LAPACK.trsyl!('N','C', view(A,j1,j1), β, z)
-                scale == ONE || error("Singular Lyapunov equation")
+             if T1 <: BlasComplex
+               sylvcs_blocked!(view(A,j1,j1), β, z; adjA = false, adjB = true, blocksize); 
+               #  _, scale = LAPACK.trsyl!('N','C', view(A,j1,j1), β, z)
+               #  scale == ONE || error("Singular Lyapunov equation")
              else
                 sylvcs1!(view(A,j1,j1), β, z; adj)
                 rmul!(z,-1)
@@ -1541,7 +1569,7 @@ complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
 """
-function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Real
+function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize = 64)  where T1 <: Real
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1556,12 +1584,15 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
 
-   W = Matrix{T1}(undef,n,2)
    Wr = Matrix{T1}(undef,n,2)
    Wv = similar(Wr)
    Wz = similar(Wr)
    Mα = Matrix{T1}(undef,2,2)
    Mβ = Matrix{T1}(undef,2,2)
+   WS = Matrix{T1}(undef,n,2)
+   WS2 = Matrix{T1}(undef,n,2) 
+   isgn = -1
+
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -1583,7 +1614,7 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              Mα[1,1] = tα
              Mβ[1,1] = A[j,j]
           else
-             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = true, disc = true)
+             plyap2!(view(A,l,l), view(R,l,l), Mβ, Mα, adj = true, disc = true)
           end
           if ll < p
              dll = 1:dl
@@ -1619,10 +1650,14 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              #z = rbar*α + A[l,j1]'*R[l,l]*β
              #z = rbar*α + v*β
              mul!(z, rbar, α)
-             mul!(z, v, β, ONE, ONE)
+             mul!(z, v, β, -ONE, -ONE)
              # Solve S1'*ubar*β+ubar + z = 0
              S1 = view(A,j1,j1)
-             sylvds!(S1, -β, z, view(W,j1,1:2), adjA = true, adjB = false)
+             if T1 <: BlasReal
+                MatrixEquations._sylvds_blocked!(WS, WS2, S1, β, z, adj, !adj, isgn, blocksize)
+             else
+                sylvds!(S1, β, z, WS2; adjA = true, adjB = false, isgn)
+             end
              #R[l,j1] = ubar'
              transpose!(view(R,l,j1), z)
              # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
@@ -1669,7 +1704,7 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              Mα[1,1] = tα
              Mβ[1,1] = A[j,j]
           else
-             Mβ, Mα = plyap2!(view(A,l,l), view(R,l,l), adj = false, disc = true)
+             plyap2!(view(A,l,l), view(R,l,l), Mβ, Mα, adj = false, disc = true)
           end
           if ll > 1
              dll = 1:dl
@@ -1701,10 +1736,14 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              end
              #z = rbar*α' + v*β'
              mul!(z,rbar,transpose(α))
-             mul!(z,v,transpose(β),ONE,ONE)
+             mul!(z,v,transpose(β),-ONE,-ONE)
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             sylvds!(S1, -β, z, view(W,j1,1:2), adjA = false, adjB = true)
+             if T1 <: BlasReal
+                MatrixEquations._sylvds_blocked!(WS, WS2, S1, β, z, adj, !adj, isgn, blocksize)
+             else
+                sylvds!(S1, β, z, WS2; adjA = false, adjB = true, isgn)
+             end
              copyto!(view(R,j1,l), z )
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
              #v += S1*ubar
@@ -1728,7 +1767,7 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    end
    return R
 end
-function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize = 64)  where T1 <: Complex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1740,10 +1779,13 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
 
-   W = Vector{T1}(undef,n)
+   #W = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
    Wv = similar(Wr)
    Wz = similar(Wr)
+   WS = Matrix{T1}(undef,n,2)
+   WS2 = Vector{T1}(undef,n) 
+   isgn = 1
    if adj
       # The (L,L)th block of X is determined starting from
       # upper-left corner column by column by
@@ -1779,7 +1821,11 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              end  
              # Solve S1'*ubar*β + ubar + z = 0
              S1 = view(A,j1,j1)
-             sylvds!(S1, -β, z, W; adjA = true, adjB = false)
+             if T1 <: BlasComplex
+                MatrixEquations._sylvds_blocked!(WS, WS2, S1, -β, z, adj, !adj, isgn, blocksize)
+             else
+                sylvds!(S1, -β, z, WS2; adjA = true, adjB = false)
+             end
              # v <- v + S1'*z
              #mul!(v, UpperTriangular(S1)', z, 1, 1) # faster but involves allocations
              mul!(v, S1', z, 1, 1)  # null allocation
@@ -1832,7 +1878,11 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false)  w
              end
              # Solve S1*ubar*β'+ubar + z = 0
              S1 = view(A,j1,j1)
-             sylvds!(S1, -β, z, W; adjA = false, adjB = true)
+             if T1 <: BlasComplex
+                MatrixEquations._sylvds_blocked!(WS, WS2, S1, -β, z, adj, !adj, isgn, blocksize)
+             else
+                sylvds!(S1, -β, z, WS2; adjA = false, adjB = true)
+             end
              # v <- v + S1*z
              #mul!(v, UpperTriangular(S1), z, 1, 1) # involves allocations
              mul!(v, S1, z, 1, 1)
@@ -2187,7 +2237,7 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    return R
 end
 """
-    plyap2!(A, R; adj = false, disc = false) -> (β, α)
+    plyap2!(A, R, β, α; adj = false, disc = false) -> R
 
 Solve for the Cholesky factor  `U`  of  `X`,
 
@@ -2224,31 +2274,23 @@ one or more of the eigenvalues have a non-negative real part, if `disc = false`,
 can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
 If this situation is detected, an error message is issued.
 """
-function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc = false) where T<:Real
-   # This function is based on the SLICOT routine SB03OY, which implements the
-   # the LAPACK scheme for solving 2-by-2 Sylvester equations, adapted in [1]
-   # for 2-by-2 Lyapunov equations, but directly computing the Cholesky factor
-   # of the solution.
-
-   # [1] Hammarling S. J.
-   #     Numerical solution of the stable, non-negative definite Lyapunov equation.
-   #     IMA J. Num. Anal., 2, pp. 303-325, 1982.
-
+function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}, β::AbstractMatrix{T}, α::AbstractMatrix{T}; adj = false, disc = false) where T<:Real
    errtext = "Singular Lyapunov equation"
    ZERO = zero(T)
    ONE = one(T)
    TWO = 2*ONE
    small = 2*sqrt(_safemin(T))
    BIGNUM = ONE / small
-   SMIN = eps(maximum(abs.(A)))
+   
+   # Fix 1: Pure scalar max instead of abs.(A) broadcast
+   SMIN = eps(max(abs(A[1,1]), abs(A[1,2]), abs(A[2,1]), abs(A[2,2])))
+   
    noadj = !adj
-   β = similar(A)
-   α = similar(A)
    S11 = A[1,1]
    S12 = A[1,2]
    S21 = A[2,1]
    S22 = A[2,2]
-   #TEMPR, TEMPI, E1, E2, CSP, CSQ = LapackUtil.lanv2( S11, S12, S21, S22)
+   
    TEMPR, TEMPI, E1, E2 = _lanv2( S11, S12, S21, S22)
    TEMPI == ZERO && error("A has real eigenvalues")
    ABSB = hypot(E1,E2)
@@ -2257,28 +2299,23 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    else
       E1 >= ZERO && error("A is not stable")
    end
-   #     Compute the cos and sine that define  Qhat.  The sine is real.
+
    TEMP1 = S11 - E1
    noadj ? TEMP2 = -E2 : TEMP2 =  E2
    CSQR, CSQI, SNQ = cgivens2( TEMP1, TEMP2, S21, small )
-   #     beta in (6.9) is given by  beta = E1 + i*E2,  compute  t.
+
    TEMP1 = CSQR*S12 - SNQ*S11
    TEMP2 = CSQI*S12
    TEMPR   = CSQR*S22 - SNQ*S21
    TEMPI   = CSQI*S22
    T1      = CSQR*TEMP1 - CSQI*TEMP2 + SNQ*TEMPR
    T2      = CSQR*TEMP2 + CSQI*TEMP1 + SNQ*TEMPI
+
    if noadj
-      #                                                        (     -- )
-      #        Case op(M) = M.  Note that the modified  R  is  ( p3  p2 ).
-      #                                                        ( 0   p1 )
-      #
-      #        Compute the cos and sine that define  Phat.
-      #
       TEMP1 =  CSQR*R[2,2] - SNQ*R[1,2]
       TEMP2 = -CSQI*R[2,2]
       CSPR, CSPI, SNP, P1 = cgivens2( TEMP1, TEMP2, -SNQ*R[1,1], small )
-      #    Compute p1, p2 and p3 of the relation corresponding to (6.11).
+
       TEMP1 =  CSQR*R[1,2] + SNQ*R[2,2]
       TEMP2 = -CSQI*R[1,2]
       TEMPR   =  CSQR*R[1,1]
@@ -2288,12 +2325,10 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       P3R     =  CSPR*TEMPR   + CSPI*TEMPI   - SNP*TEMP1
       P3I     =  CSPR*TEMPI   - CSPI*TEMPR   - SNP*TEMP2
    else
-      #     Case op(M) = M'.
-      #     Compute the cos and sine that define  Phat.
       TEMP1 = CSQR*R[1,1] + SNQ*R[1,2]
       TEMP2 = CSQI*R[1,1]
       CSPR, CSPI, SNP, P1 = cgivens2( TEMP1, TEMP2, SNQ*R[2,2], small  )
-      #     Compute p1, p2 and p3 of (6.11).
+
       TEMP1 = CSQR*R[1,2] - SNQ*R[1,1]
       TEMP2 = CSQI*R[1,2]
       TEMPR   = CSQR*R[2,2]
@@ -2303,19 +2338,17 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       P3R     = CSPR*TEMPR   + CSPI*TEMPI   - SNP*TEMP1
       P3I     = CSPI*TEMPR   - CSPR*TEMPI   + SNP*TEMP2
    end
-   #  Make  p3  real by multiplying by  conjg ( p3 )/abs( p3 )  to give
-   #  p3 := abs( p3 ).
+
    if P3I == ZERO
       P3  = abs( P3R )
       DP1 = copysign( ONE, P3R )
       DP2 = ZERO
    else
-      P3  =  hypot(P3R,P3I)
-      DP1 =  P3R/P3
+      P3  = hypot(P3R,P3I)
+      DP1 = P3R/P3
       DP2 = -P3I/P3
    end
-   #  Now compute the quantities v1, v2, v3 and y in (6.13) - (6.15),
-   #  or (10.23) - (10.25). Care is taken to avoid overflows.
+
    if disc
       ALPHA = sqrt( abs( ONE - ABSB )*( ONE + ABSB ) )
    else
@@ -2330,7 +2363,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    if disc
       G1 = (ONE - E1 )*( ONE + E1 ) + E2*E2
       G2 = -TWO*E1*E2
-      ABSG =  hypot(G1,G2)
+      ABSG = hypot(G1,G2)
       ABSG < SMIN && (ABSG = SMIN)
       TEMP1 = ALPHA*P2R + V1*( E1*T1 - E2*T2 )
       TEMP2 = ALPHA*P2I + V1*( E1*T2 + E2*T1 )
@@ -2367,8 +2400,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       ABSB < ONE  &&  ABST > ONE && ABST > BIGNUM*ABSB && error("$errtext")
       TEMP1 = TEMP1/( TWO*ABSB )
       TEMP2 = TEMP2/( TWO*ABSB )
-      V2R     =  -(E1*TEMP1 + E2*TEMP2)
-      V2I     =  -(E1*TEMP2 - E2*TEMP1)
+      V2R     = -(E1*TEMP1 + E2*TEMP2)
+      V2I     = -(E1*TEMP2 - E2*TEMP1)
       ABST = max( abs( V2R ), abs( V2I ) )
       ABSB < ONE  &&  ABST > ONE &&  ABST > BIGNUM*ABSB && error("$errtext")
       V2R = V2R/ABSB
@@ -2382,8 +2415,6 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    V3 = V3/ALPHA
 
    if noadj
-      #     Case op(M) = M.
-      #     Form  X = conjg( Qhat' )*v11.
       X11R   =  CSQR*V3
       X11I   =  CSQI*V3
       X21R   =  SNQ*V3
@@ -2392,8 +2423,6 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       X12I   = -CSQR*V2I+CSQI*V2R
       X22R   =  CSQR*V1 + SNQ*V2R
       X22I   = -CSQI*V1 - SNQ*V2I
-      #     Obtain u11 from the RQ-factorization of X. The conjugate of
-      #     X22 should be taken.
       X22I = -X22I
       CSTR, CSTI, SNT, TMP = cgivens2( X22R, X22I, X21R, small )
       U22 = TMP
@@ -2405,13 +2434,11 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
          DT1    = copysign( ONE, TEMPR )
          DT2    = ZERO
       else
-         U11 =  hypot(TEMPR,TEMPI)
-         DT1    =  TEMPR/U11
+         U11 = hypot(TEMPR,TEMPI)
+         DT1    = TEMPR/U11
          DT2    = -TEMPI/U11
       end
    else
-      #     Case op(M) = M'.
-      #     Now form  X = v11*conjg( Qhat' ).
       X11R   =  CSQR*V1 - SNQ*V2R
       X11I   = -CSQI*V1 + SNQ*V2I
       X21R   = -SNQ*V3
@@ -2420,7 +2447,6 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       X12I   = -CSQR*V2I + CSQI*V2R
       X22R   =  CSQR*V3
       X22I   =  CSQI*V3
-      #     Obtain u11 from the QR-factorization of X.
       CSTR, CSTI, SNT, TMP = cgivens2( X11R, X11I, X21R, small  )
       U11 = TMP
       U12 = CSTR*X12R + CSTI*X12I + SNT*X22R
@@ -2431,13 +2457,12 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
          DT1    = copysign( ONE, TEMPR )
          DT2    = ZERO
       else
-         U22 =  hypot(TEMPR,TEMPI)
-         DT1    =  TEMPR/U22
+         U22 = hypot(TEMPR,TEMPI)
+         DT1    = TEMPR/U22
          DT2    = -TEMPI/U22
       end
    end
-   #  The computations below are not needed when β and α are not
-   #  useful. Compute delta, eta and gamma as in (6.21) or (10.26).
+
    if abs( YR ) < small  && abs( YI ) <= small
       DELTA1 = ZERO
       DELTA2 = ZERO
@@ -2456,10 +2481,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
          DELTA1 = TEMPR
       end
    end
+
    if noadj
-      #     Case op(M) = M.
-      #     Find  X = conjg( That' )*( inv( v11 )*s11hat*v11 ).
-      #     ( Defer the scaling.)
       X11R =  CSTR*E1 + CSTI*E2
       X11I = -CSTR*E2 + CSTI*E1
       X21R =  SNT*E1
@@ -2468,7 +2491,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       X12I = -CSTR*GAMMA2 + CSTI*GAMMA1 - SNT*E2
       X22R =  CSTR*E1 + CSTI*E2 + SNT*GAMMA1
       X22I =  CSTR*E2 - CSTI*E1 - SNT*GAMMA2
-      #     Now find  B = X*That. ( Include the scaling here.)
+
+      # Mutating pre-allocated β
       β[1,1] = CSTR*X11R + CSTI*X11I - SNT*X12R
       TEMPR  = CSTR*X21R + CSTI*X21I - SNT*X22R
       TEMPI  = CSTR*X21I - CSTI*X21R - SNT*X22I
@@ -2477,7 +2501,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       TEMPI  = CSTR*X12I + CSTI*X12R + SNT*X11I
       β[1,2] = DT1*TEMPR   + DT2*TEMPI
       β[2,2] = CSTR*X22R - CSTI*X22I + SNT*X21R
-      #     Form  X = ( inv( v11 )*p11 )*conjg( Phat' ).
+
       TEMPR  =  DP1*ETA
       TEMPI  = -DP2*ETA
       X11R =  CSPR*TEMPR - CSPI*TEMPI + SNP*DELTA1
@@ -2487,7 +2511,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       X12I = -SNP*TEMPI - CSPR*DELTA2 - CSPI*DELTA1
       X22R =  CSPR*ALPHA
       X22I = -CSPI*ALPHA
-      #     Finally form  A = conjg( That' )*X.
+
+      # Mutating pre-allocated α
       TEMPR  = CSTR*X11R - CSTI*X11I - SNT*X21R
       TEMPI  = CSTR*X22I + CSTI*X22R
       α[1,1] = DT1*TEMPR   + DT2*TEMPI
@@ -2497,8 +2522,6 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       α[2,1] = ZERO
       α[2,2] = CSTR*X22R + CSTI*X22I + SNT*X12R
    else
-      #     Case op(M) = M'.
-      #     Find  X = That*( v11*s11hat*inv( v11 ) ). ( Defer the scaling.)
       X11R =  CSTR*E1 + CSTI*E2
       X11I =  CSTR*E2 - CSTI*E1
       X21R = -SNT*E1
@@ -2507,7 +2530,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       X12I = -CSTR*GAMMA2 - CSTI*GAMMA1 - SNT*E2
       X22R =  CSTR*E1 + CSTI*E2 - SNT*GAMMA1
       X22I = -CSTR*E2 + CSTI*E1 + SNT*GAMMA2
-      #     Now find  B = X*conjg( That' ). ( Include the scaling here.)
+
+      # Mutating pre-allocated β
       β[1,1] = CSTR*X11R - CSTI*X11I + SNT*X12R
       TEMPR  = CSTR*X21R - CSTI*X21I + SNT*X22R
       TEMPI  = CSTR*X21I + CSTI*X21R + SNT*X22I
@@ -2516,7 +2540,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       TEMPI  = CSTR*X12I - CSTI*X12R - SNT*X11I
       β[1,2] = DT1*TEMPR   + DT2*TEMPI
       β[2,2] = CSTR*X22R + CSTI*X22I - SNT*X21R
-      #     Form  X = Phat*( p11*inv( v11 ) ).
+
       TEMPR  =  DP1*ETA
       TEMPI  = -DP2*ETA
       X11R =  CSPR*ALPHA
@@ -2526,7 +2550,8 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
       X12I = -CSPR*DELTA2 + CSPI*DELTA1 - SNP*TEMPI
       X22R =  CSPR*TEMPR + CSPI*TEMPI + SNP*DELTA1
       X22I =  CSPR*TEMPI - CSPI*TEMPR - SNP*DELTA2
-      #     Finally form  A = X*conjg( That' ).
+
+      # Mutating pre-allocated α
       α[1,1] = CSTR*X11R - CSTI*X11I + SNT*X12R
       α[2,1] = ZERO
       α[1,2] = CSTR*X12R + CSTI*X12I - SNT*X11R
@@ -2538,7 +2563,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}; adj = false, disc =
    R[1,1] = U11
    R[1,2] = U12
    R[2,2] = U22
-   return β, α
+   return R
 end
 """
     pglyap2!(A, E, R; adj = false, disc = false) -> (β, α)

@@ -4,6 +4,7 @@ using LinearAlgebra
 using MatrixEquations
 using GenericSchur
 using Test
+using LinearAlgebra: BlasFloat
 
 println("Test_dplyap")
 @testset "Testing positive discrete Lyapunov equation solvers" begin
@@ -25,13 +26,13 @@ a = -.1f0+-.1f0*im; b = 2f0im; @time u = plyapd(a,b)
 
 for Ty in (Float64, Float32, BigFloat)
 
-ar = rand(Ty,n,n)
-ar = ar/(one(Ty) + norm(ar))
-ac = rand(Ty,n,n)+im*rand(Ty,n,n)
-ac = ac/(one(Ty) + norm(ac))
-br = rand(Ty,n,m)
+ar = rand(Ty,n,n);
+ar = ar/(one(Ty) + norm(ar));
+ac = rand(Ty,n,n)+im*rand(Ty,n,n);
+ac = ac/(one(Ty) + norm(ac));
+br = rand(Ty,n,m);
 brw = rand(Ty,n,n+m)
-bc = br+im*rand(Ty,n,m)
+bc = br+im*rand(Ty,n,m);
 bcw = brw+im*rand(Ty,n,n+m)
 cr = rand(Ty,p,n)
 crt = rand(Ty,n+p,n)
@@ -81,6 +82,21 @@ x = u*u'; @test norm(ar*x*ar'-x+bc*bc')/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time u = plyapd(ar',cc');
 x = u'*u; @test norm(ar'*x*ar-x+cc'*cc)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+if Ty <: BlasFloat
+@time u = plyapd(ar,br; blocksize = 10);
+x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time u = plyapd(ar',cr'; blocksize = 10);
+x = u'*u; @test norm(ar'*x*ar-x+cr'*cr)/norm(x)/max(1.,norm(ar)^2) < reltol
+
+@time u = plyapd(ac,bc; blocksize = 10);
+x = u*u'; @test norm(ac*x*ac'-x+bc*bc')/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time u = plyapd(ac',cc'; blocksize = 10);
+x = u'*u; @test norm(ac'*x*ac-x+cc'*cc)/norm(x)/max(1.,norm(ac)^2) < reltol 
+end
+
 
 end
 end
@@ -167,17 +183,18 @@ A = [-1.1 1.; -1. -1.]/10
 E = [1. 1.; 0. 1.]
 R = [1. 1.; 0. 1.]
 reltol = eps(float(100))
+β = rand(2,2); α = rand(2,2);
 
 
 U = copy(R)
-β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = true)
+MatrixEquations.plyap2!(A, U, β, α, adj = true, disc = true)
 #U, scale, β, α = plyap2(A, R, adj = true, disc = true)
 X = U'*U; @test norm(A'*X*A-X+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
                 norm(α*U - R)/max(1,norm(R)) < reltol
 
 U = copy(R)
-β, α = MatrixEquations.plyap2!(A, U, adj = false, disc = true)
+MatrixEquations.plyap2!(A, U, β, α, adj = false, disc = true)
 X = U*U'; @test norm(A*X*A'-X+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
                 norm(U*α - R)/max(1,norm(R)) < reltol
@@ -212,15 +229,16 @@ A = [-1.1 1.; -1. -1.]/10; A = convert(Matrix{Float32},A)
 E = [1. 1.; 0. 1.]; E = convert(Matrix{Float32},E)
 R = [1. 1.; 0. 1.]; R = convert(Matrix{Float32},R)
 reltol = eps(100f0)
+β = rand(Float32,2,2); α = rand(Float32,2,2);
 
 U = copy(R)
-β, α = MatrixEquations.plyap2!(A, U, adj = true, disc = true)
+MatrixEquations.plyap2!(A, U, β, α, adj = true, disc = true)
 X = U'*U; @test norm(A'*X*A-X+R'*R)/max(1,norm(X))/norm(A) < reltol &&
                 norm(β*U-U*A)/max(1,norm(U))/norm(A) < reltol &&
                 norm(α*U - R)/max(1,norm(R)) < reltol
 
 U = copy(R)
-β, α = MatrixEquations.plyap2!(A, U, adj = false, disc = true)
+MatrixEquations.plyap2!(A, U, β, α, adj = false, disc = true)
 X = U*U'; @test norm(A*X*A'-X+R*R')/max(1,norm(X))/norm(A) < reltol &&
                 norm(U*β-A*U)/max(1,norm(U))/norm(A) < reltol &&
                 norm(U*α - R)/max(1,norm(R)) < reltol
@@ -282,6 +300,20 @@ x = u*u'; @test norm(acs*x*acs'-x) < reltol
 @time u = plyaps(acs',cc',disc = true);
 x = u'*u; @test norm(acs'*x*acs-x+cc'*cc)/norm(x)/norm(as) < reltol
 
+if Ty <: BlasFloat
+@time u = plyaps(as,br,disc = true,blocksize = 10);
+x = u*u'; @test norm(as*x*as'-x+br*br')/norm(x)/norm(as) < reltol
+
+@time u = plyaps(as',cr',disc = true,blocksize = 10);
+x = u'*u; @test norm(as'*x*as-x+cr'*cr)/norm(x)/norm(as) < reltol
+
+@time u = plyaps(acs,bc,disc = true,blocksize = 10);
+x = u*u'; @test norm(acs*x*acs'-x+bc*bc')/norm(x)/norm(acs) < reltol
+
+@time u = plyaps(acs',cc',disc = true,blocksize = 10);
+x = u'*u; @test norm(acs'*x*acs-x+cc'*cc)/norm(x)/norm(as) < reltol
+end
+
 R = UpperTriangular(rand(Ty,n,n));
 U = copy(R);
 @time plyapds!(as, U, adj = false);
@@ -302,7 +334,27 @@ U = copy(R)
 @time plyapds!(acs,U,adj = true)
 X = U'*U; @test norm(acs'*X*acs-X+R'*R)/max(1,norm(X))/norm(acs) < reltol
 
+if Ty <: BlasFloat
+R = UpperTriangular(rand(Ty,n,n));
+U = copy(R);
+@time plyapds!(as, U, adj = false,blocksize = 10);
+X = U*U'; @test norm(as*X*as'-X+R*R')/max(1,norm(X))/norm(as) < reltol
 
+R = UpperTriangular(rand(Ty,n,n));
+U = copy(R);
+@time plyapds!(as,U,adj = true,blocksize = 10);
+X = U'*U; @test norm(as'*X*as-X+R'*R)/max(1,norm(X))/norm(as) < reltol
+
+R = UpperTriangular(rand(Complex{Ty},n,n))
+U = copy(R)
+@time plyapds!(acs,U,adj = false,blocksize = 10)
+X = U*U'; @test norm(acs*X*acs'-X+R*R')/max(1,norm(X))/norm(acs) < reltol
+
+R = UpperTriangular(complex(rand(Ty,n,n)))
+U = copy(R)
+@time plyapds!(acs,U,adj = true,blocksize = 10)
+X = U'*U; @test norm(acs'*X*acs-X+R'*R)/max(1,norm(X))/norm(acs) < reltol
+end
 
 as = schur(ar).T
 er = rand(Ty,n,n)

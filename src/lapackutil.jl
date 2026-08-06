@@ -77,6 +77,66 @@ for (fn, elty) in ((:dtrsyl3_, :Float64),
     end
     return C, scale[]
   end
+  function trsyl3!(swork::Vector{$elty}, iwork::Vector{BlasInt}, transa::AbstractChar, transb::AbstractChar, A::AbstractMatrix{$elty},
+                B::AbstractMatrix{$elty}, C::AbstractMatrix{$elty}, isgn::Int=1)
+    require_one_based_indexing(A, B, C)
+    chktrans(transa)
+    chktrans(transb)
+    chkstride1(A, B, C)
+    m, n = checksquare(A), checksquare(B)
+    lda = max(1, stride(A, 2))
+    ldb = max(1, stride(B, 2))
+    m1, n1 = size(C)
+    if m != m1 || n != n1
+        throw(DimensionMismatch(lazy"dimensions of A, ($m,$n), and C, ($m1,$n1), must match"))
+    end
+    ldc = max(1, stride(C, 2))
+    scale = Ref{$elty}()
+    info  = Ref{BlasInt}()
+    # iworkt = Vector{BlasInt}(undef, 1)
+    # sworkt  = Matrix{$elty}(undef, 2, 1)
+    liwork = BlasInt(-1)    
+    ldswork = BlasInt(-1)
+    for i = 1:2  
+        # first call returns liwork as iwork[1] and 
+        # ldswork as swork[1,1] and ncols as swork[2,1]
+        # SUBROUTINE DTRSYL3( TRANA, TRANB, ISGN, M, N, A, LDA, B, LDB, C, LDC, 
+        #                     SCALE, IWORK, LIWORK, SWORK, LDSWORK, INFO )
+        ccall((@blasfunc($fn), liblapack), Cvoid,
+          (Ref{UInt8}, Ref{UInt8}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt},
+           Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
+           Ptr{$elty}, Ptr{BlasInt}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt}, Ref{BlasInt}, Clong, Clong),
+           transa, transb, isgn, m, n,
+           A, lda, B, ldb, C, ldc,
+           scale, iwork, liwork, swork, ldswork, info, 1, 1)
+       chklapackerror(info[])
+       if i == 1
+          liworkt = iwork[1]
+          liwork = length(iwork)
+          ldsworkt = max(2,BlasInt(real(swork[1,1])))
+          ncolt = BlasInt(real(swork[2,1]))
+          #ldswork, ncol = size(swork)
+          lenswork = length(swork)
+          #@show m, n, liwork, ldswork, ncol
+          #@show m, n, liworkt, ldsworkt, ncolt
+          if liworkt > liwork 
+             liwork = liworkt
+             iwork = Vector{BlasInt}(undef, liwork)
+          end
+          if ldsworkt*ncolt > lenswork 
+             ldswork = ldsworkt
+             swork  = Matrix{$elty}(undef, ldsworkt, ncolt)
+          else
+             ldswork = ldsworkt
+          end
+        #   if ldsworkt > ldswork || ncolt > ncol
+        #      (ldswork, ncol) = (ldsworkt, ncolt)
+        #      swork  = Matrix{$elty}(undef, ldswork, ncol)
+        #   end
+       end
+    end
+    return C, scale[]
+  end
 end
 end
 for (fn, elty, relty) in ((:ztrsyl3_, :ComplexF64, :Float64),
