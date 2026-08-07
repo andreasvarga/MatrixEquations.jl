@@ -1,10 +1,10 @@
 module Test_dplyap
 
 using LinearAlgebra
+using LinearAlgebra: BlasFloat
 using MatrixEquations
 using GenericSchur
 using Test
-using LinearAlgebra: BlasFloat
 
 println("Test_dplyap")
 @testset "Testing positive discrete Lyapunov equation solvers" begin
