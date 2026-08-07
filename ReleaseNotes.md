@@ -1,7 +1,7 @@
 # Release Notes
 
 ## Version 2.6.3
-Enhancing `plyapc` and `plyapc`:
+Enhancing standard `plyapc` and `plyapd` solvers:
 - ensuring 0 allocation for `plyap2!`
 - using recursive-blocking based Sylvester equation solvers
 
