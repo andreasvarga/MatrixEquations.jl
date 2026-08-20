@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.6.4
+Enhanced Lyapunov solvers `plyapc` and `plyapd` to efficiently handle symmetric/Hermitian/diagonal inputs.  
+
 ## Version 2.6.3
 Enhancing standard `plyapc` and `plyapd` solvers:
 - ensuring 0 allocation for `plyap2!`

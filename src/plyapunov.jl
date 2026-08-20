@@ -66,8 +66,18 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix; blocksize = 64)
    #     Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
    #     28 (2002), pp. 392–415.
 
-   adj = isa(A,Adjoint)
-   xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+   T2 = promote_type(eltype(A), eltype(B))
+   adiag = isdiag(A)
+   aDiag = isa(A, Diagonal)
+   aHerm = isa(A,Hermitian)
+   aSym = isa(A,Symmetric)
+   adj = isa(B,Adjoint)
+   if aDiag
+      eltype(A) <: Complex &&
+      (xor(adj,isa(parent(parent(A)),Adjoint)) && error("Only calls with A and B or with A' and B' allowed"))
+   elseif !aHerm && !aSym
+      (xor(adj,isa(A,Adjoint)) && error("Only calls with A and B or with A' and B' allowed"))
+   end
 
    n = LinearAlgebra.checksquare(A)
    if adj
@@ -78,89 +88,42 @@ function plyapc(A::AbstractMatrix, B::AbstractMatrix; blocksize = 64)
       mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-   T2 = promote_type(eltype(A), eltype(B))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
-   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   if eltype(A) != T2 
+      if adiag
+         adj ? A = convert(Diagonal{T2},Diagonal(parent(parent(A))))' : A = convert(Diagonal{T2},A)
+      elseif aHerm || aSym
+         A = LinearAlgebra.copy_oftype(A,T2)  
+      else       
+         adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+      end   
+   end 
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
-   ZERO = zero(T2)
-
-  
-   # Reduce A to Schur form and transform B
-   if adj
-      AS, Q, EV = schur(A.parent)
-   else
-      AS, Q, EV = schur(A)
-   end
-   maximum(real(EV)) >= 0 && error("A must have only eigenvalues with negative real part")
+   adiag && (return plyapcs!(Diagonal(A),utriuB(B); adj))
    
-   if adj
-      #U'U = Q'*B'*B*Q
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
-      if mb < n
-         U = similar(Q,T2,n,n)
-         U1 = view(U,1:mb,:)
-         if T2 <: BlasFloat
-            mul!(U1,B.parent,Q)
-            LinearAlgebra.LAPACK.geqrf!(U1,tau)
-         else
-            copyto!(U1,qr!(B.parent*Q).R)
-         end
-         fill!(view(U,mb+1:n,:),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
-         else
-            U = qr!(B.parent*Q).R[1:n,:]
-         end
-      end
+   # Reduce A to Schur form and transform B
+   if ishermitian(A)
+      # Reduce A to diagonal form and transform C
+      AS, Q, EV = schur(Hermitian(A))
    else
-      #UU' = Q'*B*B'*Q
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
-      if nb <= n
-         U = similar(Q,T2,n,n)
-         U2 = view(U,:,n-nb+1:n)
-         if T2 <: BlasFloat
-            mul!(U2,Q',B)
-            LinearAlgebra.LAPACK.gerqf!(U2,tau)
-         else
-            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
-         end
-         fill!(view(U,:,1:n-nb),ZERO)
+      # Reduce A to Schur form and transform C
+      if adj
+         AS, Q, EV = schur(A.parent)
       else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         else
-            U = rev!(qr!(rev!(B'*Q)).R)'
-         end
+         AS, Q, EV = schur(A)
       end
    end
-   U = UpperTriangular(U)
+   maximum(real(EV)) >= zero(real(T2)) && error("A must have only eigenvalues with negative real part")
+   
+   U = utriuB(B,Q)
    plyapcs!(AS, U; adj, blocksize)
-   T2 <: BlasFloat  && (tau = similar(U,n))
-   if adj
-      #X = Q*U'*U*Q'
-      if T2 <: BlasFloat
-         mul!(AS,U,Q')
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
-      else
-         mul!(AS,U,Q')
-         U = UpperTriangular(qr!(AS).R)
-      end
-   else
-      #X <- Q*U*U'*Q'
-      if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
-      else
-         mul!(AS,Q,U)
-         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
-      end
-   end  
-   return utnormalize!(U,adj)
+   return utriuU(U, Q, AS; adj)
 end
 plyapc(A::Union{Real,Complex}, B::Union{Real,Complex}) =
       real(A) < 0 ? abs(B)/sqrt( -2 * real(A) ) :
       error("A must be a negative number or must have negative real part")
+
 """
     U = plyapc(A, E, B)
 
@@ -254,8 +217,6 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
-   ZERO = zero(real(T2))
-
    # Reduce (A,E) to generalized Schur form and transform C
    # (AS,ES) = (Q'*A*Z, Q'*E*Z)
    if adj
@@ -264,70 +225,11 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       AS, ES, Q, Z, α, β = schur(A,E)
    end
 
-   maximum(real(α./β)) >= ZERO && error("A-λE must have only eigenvalues with negative real parts")
+   maximum(real(α./β)) >= zero(real(T2)) && error("A-λE must have only eigenvalues with negative real parts")
 
-   if adj
-      #U'*U = Z'*B'*B*Z
-      T2 <: BlasFloat  && (tau = similar(Z,min(n,mb)))
-      if mb <= n
-         U = similar(Z,T2,n,n)
-         U1 = view(U,1:mb,:)
-         if T2 <: BlasFloat
-            mul!(U1,B.parent,Z)
-            LinearAlgebra.LAPACK.geqrf!(U1,tau)
-         else
-            copyto!(U1,qr!(B.parent*Z).R)
-         end
-         fill!(view(U,mb+1:n,:),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
-         else
-            U = qr!(B.parent*Z).R[1:n,:]
-         end
-      end
-   else
-      #UU' = Q'*B*B'*Q
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
-      if nb <= n
-         U = similar(Q,T2,n,n)
-         U2 = view(U,:,n-nb+1:n)
-         if T2 <: BlasFloat
-            mul!(U2,Q',B)
-            LinearAlgebra.LAPACK.gerqf!(U2,tau)
-         else
-            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
-         end
-         fill!(view(U,:,1:n-nb),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         else
-            U = rev!(qr!(rev!(B'*Q)).R)'
-         end
-      end
-   end
-   U = UpperTriangular(U)
-   plyapcs!(AS, ES, U, adj = adj)
-   T2 <: BlasFloat  && (tau = similar(U,n))
-   if adj
-      #X = Q*U'*U*Q'
-      if T2 <: BlasFloat
-         mul!(AS,U,Q')
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
-      else
-         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
-      end
-   else
-      #X <- Z*U*U'*Z'
-      if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
-      else
-         mul!(AS,Z,U)
-         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
-      end
-   end  
-   return utnormalize!(U,adj)
+   U = adj ? utriuB(B,Z) : utriuB(B,Q)
+   plyapcs!(AS, ES, U; adj)
+   return adj ? utriuU(U, Q, AS; adj) : utriuU(U, Z, AS; adj)
 end
 plyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
       real(A*E') < 0 ? abs(B)/sqrt( -2 * real(A*E') ) :
@@ -402,8 +304,18 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix; blocksize = 64)
    #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
    #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
   
-   adj = isa(A,Adjoint)
-   xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+   T2 = promote_type(eltype(A), eltype(B))
+   adiag = isdiag(A)
+   aDiag = isa(A, Diagonal)
+   aHerm = isa(A,Hermitian)
+   aSym = isa(A,Symmetric)
+   adj = isa(B,Adjoint)
+   if aDiag
+      eltype(A) <: Complex &&
+      (xor(adj,isa(parent(parent(A)),Adjoint)) && error("Only calls with A and B or with A' and B' allowed"))
+   elseif !aHerm && !aSym
+      (xor(adj,isa(A,Adjoint)) && error("Only calls with A and B or with A' and B' allowed"))
+   end
 
    n = LinearAlgebra.checksquare(A)
    if adj
@@ -414,84 +326,37 @@ function plyapd(A::AbstractMatrix, B::AbstractMatrix; blocksize = 64)
       mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-   T2 = promote_type(eltype(A), eltype(B))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
-   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   if eltype(A) != T2 
+      if adiag
+         adj ? A = convert(Diagonal{T2},Diagonal(parent(parent(A))))' : A = convert(Diagonal{T2},A)
+      elseif aHerm || aSym
+         A = LinearAlgebra.copy_oftype(A,T2)  
+      else       
+         adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+      end   
+   end 
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
-   ONE = one(real(T2))
-   ZERO = zero(T2)
+   adiag && (return plyapds!(Diagonal(A), utriuB(B); adj))
 
    # Reduce A to Schur form and transform B
-   if adj
-      AS, Q, EV = schur(A.parent)
+   if ishermitian(A)
+      # Reduce A to diagonal form and transform C
+      AS, Q, EV = schur(Hermitian(A))
    else
-      AS, Q, EV = schur(A)
+      # Reduce A to Schur form and transform C
+      if adj
+         AS, Q, EV = schur(A.parent)
+      else
+         AS, Q, EV = schur(A)
+      end
    end
-   maximum(abs.(EV)) >= ONE && error("A must have only eigenvalues with moduli less than one")
+   maximum(abs.(EV)) >= one(real(T2)) && error("A must have only eigenvalues with moduli less than one")
 
-   if adj
-      #U'U = Q'*B'*B*Q
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
-      if mb <= n
-         U = similar(Q,T2,n,n)
-         U1 = view(U,1:mb,:)
-         if T2 <: BlasFloat
-            mul!(U1,B.parent,Q)
-            LinearAlgebra.LAPACK.geqrf!(U1,tau)
-         else
-            copyto!(U1,qr!(B.parent*Q).R)
-         end
-         fill!(view(U,mb+1:n,:),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
-         else
-            U = qr!(B.parent*Q).R[1:n,:]
-         end
-      end
-   else
-      #UU' = Q'*B*B'*Q
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
-      if nb <= n
-         U = similar(Q,T2,n,n)
-         U2 = view(U,:,n-nb+1:n)
-         if T2 <: BlasFloat
-            mul!(U2,Q',B)
-            LinearAlgebra.LAPACK.gerqf!(U2,tau)
-         else
-            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
-         end
-         fill!(view(U,:,1:n-nb),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         else
-            U = rev!(qr!(rev!(B'*Q)).R)'
-         end
-       end
-   end
-   U = UpperTriangular(U)
+   U = utriuB(B,Q)
    plyapds!(AS, U; adj, blocksize)
-   tau = similar(U,n)
-   if adj
-      #X = Q*U'*U*Q'
-      if T2 <: BlasFloat
-         mul!(AS,U,Q')
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
-      else
-         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
-      end
-   else
-      #X <- Q*U*U'*Q'
-      if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Q, U), tau)[1])
-      else
-         mul!(AS,Q,U)
-         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
-      end
-   end  
-   return utnormalize!(U,adj)
+   return utriuU(U, Q, AS; adj)
 end
 plyapd(A::Union{Real,Complex}, B::Union{Real,Complex}) =
       abs(A) < real(one(A)) ? real(abs(B)/sqrt( (one(A)-abs(A))*(one(A)+abs(A)) )) :
@@ -590,7 +455,6 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
 
    ONE = one(real(T2))
-   ZERO = zero(real(T2))
 
    # Reduce (A,E) to generalized Schur form and transform C
    # (AS,ES) = (Q'*A*Z, Q'*E*Z)
@@ -602,68 +466,9 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
 
    maximum(abs.(α./β)) >= ONE && error("A-λE must have only eigenvalues with moduli less than one")
 
-   if adj
-      #U'*U = Z'*B'*B*Z
-      T2 <: BlasFloat  && (tau = similar(Z,min(n,mb)))
-      if mb <= n
-         U = similar(Z,T2,n,n)
-         U1 = view(U,1:mb,:)
-         if T2 <: BlasFloat
-            mul!(U1,B.parent,Z)
-            LinearAlgebra.LAPACK.geqrf!(U1,tau)
-         else
-            copyto!(U1,qr!(B.parent*Z).R)
-         end
-         fill!(view(U,mb+1:n,:),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Z,tau)[1][1:n,:]
-         else
-            U = qr!(B.parent*Z).R[1:n,:]
-         end
-      end
-   else
-      #UU' = Q'*B*B'*Q
-      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
-      if nb <= n
-         U = similar(Q,T2,n,n)
-         U2 = view(U,:,n-nb+1:n)
-         if T2 <: BlasFloat
-            mul!(U2,Q',B)
-            LinearAlgebra.LAPACK.gerqf!(U2,tau)
-         else
-            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
-         end
-         fill!(view(U,:,1:n-nb),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
-         else
-            U = rev!(qr!(rev!(B'*Q)).R)'
-         end
-       end
-   end
-   U = UpperTriangular(U)
+   U = adj ? utriuB(B,Z) : utriuB(B,Q)
    plyapds!(AS, ES, U; adj)
-   T2 <: BlasFloat  && (tau = similar(U,n))
-   if adj
-      #X = Q*U'*U*Q'
-      if T2 <: BlasFloat
-         mul!(AS,U,Q')
-         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(AS,tau)[1])
-      else
-         U = UpperTriangular(qr!(lmul!(U,copy(Q'))).R)
-      end
-   else
-      #X <- Z*U*U'*Z'
-      if T2 <: BlasFloat
-         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(rmul!(Z, U), tau)[1])
-      else
-         mul!(AS,Z,U)
-         U = UpperTriangular(rev!(qr!(rev!(AS')).R)')
-      end
-   end  
-   return utnormalize!(U,adj)
+   return adj ? utriuU(U, Q, AS; adj) : utriuU(U, Z, AS; adj)
 end
 plyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
      abs(A) < abs(E) ? real(abs(B)/sqrt( (abs(E)-abs(A))*(abs(E)+abs(A)) )) :
@@ -748,8 +553,8 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 
    #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
    #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
-   adj = isa(A,Adjoint)
-   xor(adj,isa(B,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+   adj = isa(B,Adjoint)
+   xor(adj,isa(A,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
 
    n = LinearAlgebra.checksquare(A)
    if adj
@@ -764,55 +569,15 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
-   ZERO = zero(T2)
 
+   U = utriuB(B)
    if adj
-      #U'U = B'*B
-      T2 <: BlasFloat  && (tau = similar(B,min(n,mb)))
-      if mb <= n
-         U = similar(B,T2,n,n)
-         U1 = view(U,1:mb,:)
-         if T2 <: BlasFloat
-            copyto!(U1,B.parent)
-            LinearAlgebra.LAPACK.geqrf!(U1,tau)
-         else
-            copyto!(U1,qr(B.parent).R)
-         end
-         fill!(view(U,mb+1:n,:),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
-         else
-            U = qr(B.parent).R[1:n,:]
-         end
-      end
-      U = UpperTriangular(U)
       if disc
          plyapds!(A.parent, U; adj, blocksize)
       else
          plyapcs!(A.parent, U; adj, blocksize)
       end
    else
-      #UU' = B*B'
-      T2 <: BlasFloat  && (tau = similar(B,min(n,nb)))
-      if nb <= n
-         U = similar(B,T2,n,n)
-         U2 = view(U,:,n-nb+1:n)
-         if T2 <: BlasFloat
-            copyto!(U2,B)
-            LinearAlgebra.LAPACK.gerqf!(U2,tau)
-         else
-            copyto!(U2,rev!(qr!(rev!(copy(B'))).R)')
-         end
-         fill!(view(U,:,1:n-nb),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
-         else
-            U = rev!(qr!(rev!(copy(B'))).R)'
-         end
-      end
-      U = UpperTriangular(U)
       if disc
          plyapds!(A, U; adj, blocksize)
       else
@@ -909,58 +674,20 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    end
 
 
+
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
    ZERO = zero(T2)
 
+   U = utriuB(B)
    if adj
-      #U'*U = B'*B
-      T2 <: BlasFloat  && (tau = similar(B,min(n,mb)))
-      if mb <= n
-         U = similar(B,T2,n,n)
-         U1 = view(U,1:mb,:)
-         if T2 <: BlasFloat
-            copyto!(U1,B.parent)
-            LinearAlgebra.LAPACK.geqrf!(U1,tau)
-         else
-            copyto!(U1,qr(B.parent).R)
-         end
-         fill!(view(U,mb+1:n,:),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
-         else
-            U = qr(B.parent).R[1:n,:]
-         end
-      end
-      U = UpperTriangular(U)
       if disc
          plyapds!(A.parent, E.parent, U; adj)
       else
          plyapcs!(A.parent, E.parent, U; adj)
       end
    else
-      #U*U' = B*B'
-      T2 <: BlasFloat  && (tau = similar(B,min(n,nb)))
-      if nb <= n
-         U = similar(B,T2,n,n)
-         U2 = view(U,:,n-nb+1:n)
-         if T2 <: BlasFloat
-            copyto!(U2,B)
-            LinearAlgebra.LAPACK.gerqf!(U2,tau)
-         else
-            copyto!(U2,rev!(qr!(rev!(copy(B'))).R)')
-         end
-         fill!(view(U,:,1:n-nb),ZERO)
-      else
-         if T2 <: BlasFloat
-            U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
-         else
-            U = rev!(qr!(rev!(copy(B'))).R)'
-         end
-      end
-      U = UpperTriangular(U)
       if disc
          plyapds!(A, E, U; adj)
       else
@@ -985,6 +712,9 @@ The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to
 This option can be used only for `BlasFloat` type data. 
 """
 function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
+   # check for diagonal A
+   isdiag(A) && (return plyapcs!(Diagonal(A),R; adj))
+   
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1125,7 +855,228 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj::Bool = fal
    end
    return R
 end
+function plyapcs!(A::Diagonal{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
+   n = size(A,1)
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+   ZERO = zero(T1)
+   any(>=(ZERO), A.diag) && error("A is not stable")
+
+   ONE = one(T1)
+   TWO = 2*ONE
+   EPS = eps(T1)
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
+   Wr = Vector{T1}(undef,n)
+   Wz = Vector{T1}(undef,n)
+   if adj
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
+      for j = 1:n
+          λ = A[j,j]
+          TEMP = sqrt( abs( TWO*λ ) )
+          TEMP < SMIN && (TEMP = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          β = A[j,j]
+          if j < n
+             jp1 = j+1
+             j1 = jp1:n
+             ir1 = 1:n-j
+             rbar = view(Wr,ir1)
+             z = view(Wz,ir1)
+             # Form the right-hand side of (6.2)
+             # z = rbar'*α + s'*u11'
+             # rbar = R[l,j1]'
+             k = jp1
+             for ii = 1:n-j
+                rbar[ii] = R[j,k]
+                z[ii] = rbar[ii]*α 
+                k += 1
+             end  
+
+             # Solve S1'*ubar+ubar*β + z = 0
+             solve_in_place!(view(A.diag,j1),β, z)
+             #@. z /= (view(A.diag,j1) + β) 
+             # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
+             # y = rbar - ubar * α'
+             k = jp1
+             for ii = 1:n-j
+                 R[j,k] = -z[ii]
+                 rbar[ii] += z[ii] * α
+                 k += 1
+             end
+             #rbar += ubar * α'
+             qrupdate!(view(R,j1,j1), rbar)
+         end
+       end
+   else
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #        A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
+      for j = n:-1:1
+          λ = A[j,j]
+          TEMP = sqrt( abs( TWO*λ ) )
+          TEMP < SMIN && (TEMP  = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          β = A[j,j]
+          if j > 1
+             jm1 = j-1
+             j1 = 1:jm1
+             # Form the right-hand side corresponding to the dual of (6.2)
+             # S = [ S1  s  ]
+             #     [ 0  s11 ]
+             # z = rbar*α' + s*u11
+             rbar = view(Wr,j1)
+             z = view(Wz,j1)
+             # rbar = R[j1,l]
+             #copyto!(rbar,view(R,j1,l))
+             # z = rbar*α' + A[j1,l]*R[l,l]
+             #z = rbar*α'
+             #mul!(z,rbar,transpose(α))
+             for ii = 1:jm1
+               rbar[ii] = R[ii,j]
+               z[ii]= rbar[ii]*α + A[ii,j]*R[j,j]
+             end
+             # Solve S1*ubar+ubar*β' + z = 0
+             solve_in_place!(view(A.diag,j1),β, z)
+             # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
+             # y = rbar - ubar*α
+             for ii = 1:jm1
+                 R[ii,j] = -z[ii]
+                 rbar[ii] += z[ii]*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
+         end
+      end
+   end
+   return R
+end
+function plyapcs!(A::Diagonal{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Complex
+   # if adj = true, A contains A'
+   n = size(A,1)
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+   RZERO = real(zero(T1))
+   any(>=(RZERO), real(A.diag)) && error("A is not stable")
+
+   T = real(T1)
+   ONE = one(T)
+   ZERO = zero(T)
+   TWO = 2*ONE
+   EPS = eps(T)
+   SMLNUM = sqrt(_safemin(T))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*maximum(abs.(A))
+
+   Wr = Vector{T1}(undef,n)
+   Wz = Vector{T1}(undef,n)
+   if adj
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
+      for j = 1:n
+          λ = real(A[j,j])
+          TEMP = sqrt( -TWO*λ )
+          TEMP < SMIN && (TEMP = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          β = conj(A[j,j])
+          if j < n
+             jp1 = j+1
+             j1 = jp1:n
+             ir1 = 1:n-j
+             rbar = view(Wr,ir1)
+             z = view(Wz,ir1)
+             # Form the right-hand side of (6.2)
+             # z = rbar'*α + s'*u11'
+             # rbar = R[l,j1]'
+             k = jp1
+             for ii = 1:n-j
+                rbar[ii] = R[j,k]'
+                z[ii] = rbar[ii]*α 
+                k += 1
+             end  
+
+             # Solve S1'*ubar+ubar*β + z = 0
+             solve_in_place!(view(A.diag,j1),β, z)
+             #@. z /= (view(A.diag,j1) + β) 
+             # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
+             # y = rbar - ubar * α'
+             k = jp1
+             for ii = 1:n-j
+                 R[j,k] = -z[ii]'
+                 rbar[ii] = conj(rbar[ii] + z[ii] * α')
+                 k += 1
+             end
+             #rbar += ubar * α'
+             qrupdate!(view(R,j1,j1), rbar)
+         end
+       end
+   else
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #        A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
+      for j = n:-1:1
+          λ = real(A[j,j])
+          TEMP = sqrt( -TWO*λ  )
+          TEMP < SMIN && (TEMP  = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          β = A[j,j]
+          if j > 1
+             jm1 = j-1
+             j1 = 1:jm1
+             # Form the right-hand side corresponding to the dual of (6.2)
+             # S = [ S1  s  ]
+             #     [ 0  s11 ]
+             # z = rbar*α' + s*u11
+             rbar = view(Wr,j1)
+             z = view(Wz,j1)
+             # rbar = R[j1,l]
+             #copyto!(rbar,view(R,j1,l))
+             # z = rbar*α' + A[j1,l]*R[l,l]
+             #z = rbar*α'
+             #mul!(z,rbar,transpose(α))
+             for ii = 1:jm1
+               rbar[ii] = R[ii,j]
+               z[ii]= rbar[ii]*α' #+ A[ii,j]*R[j,j]
+             end
+             # Solve S1*ubar+ubar*β' + z = 0
+             solve_in_place!(view(A.diag,j1),β', z)
+             # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
+             # y = rbar - ubar*α
+             for ii = 1:jm1
+                 R[ii,j] = -z[ii]
+                 rbar[ii] += z[ii]*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
+         end
+      end
+   end
+   return R
+end
+function solve_in_place!(Adiag, β, z; disc = false)
+   if disc
+      @. z /= (Adiag*β + one(eltype(β))) 
+   else
+      @. z /= (Adiag + β) 
+   end
+end
 function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize::Int = 64)  where T1 <: Complex
+   # check for diagonal A
+   isdiag(A) && (return plyapcs!(Diagonal(A),R; adj))
+
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1240,6 +1191,221 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, bl
    end
    return R
 end
+function plyapds!(A::Diagonal{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
+   n = size(A,1)
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+   ZERO = zero(T1)
+   ONE = one(T1)
+   Amax = maximum(abs.(A.diag))
+   Amax >= ONE && error("A is not convergent")
+
+   TWO = 2*ONE
+   EPS = eps(T1)
+   SMLNUM = sqrt(_safemin(T1))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*Amax
+
+   Wr = Vector{T1}(undef,n)
+   Wz = Vector{T1}(undef,n)
+   if adj
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
+      for j = 1:n
+          λ = abs(A[j,j])
+          TEMP = sqrt( (ONE - λ)*(ONE + λ) )
+          TEMP < SMIN && (TEMP  = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
+                error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          #α = copysign( TEMP, R[j,j])
+          R[j,j] = R[j,j]/α
+          β = A[j,j]
+          if j < n
+             jp1 = j+1
+             j1 = jp1:n
+             ir1 = 1:n-j
+             rbar = view(Wr,ir1)
+             z = view(Wz,ir1)
+             # Form the right-hand side of (10.16)
+             # S = [ s11 0  ]
+             #     [ 0   S1 ]
+             # rbar = R[j,j1]'
+             # z = rbar*α 
+             k = jp1
+             for ii = 1:n-j
+                 rbar[ii] = R[j,k]
+                 z[ii] = rbar[ii]*α 
+                 k += 1
+             end  
+
+             # Solve S1'*ubar*β - ubar + z = 0
+             Adiag = view(A.diag,j1)
+             solve_in_place!(Adiag, -β, z, disc = true)
+             # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
+             # y = rbar*β' - S1*z*α
+             k = jp1
+             for ii = 1:n-j
+                 R[j,k] = z[ii]
+                 rbar[ii] = rbar[ii] * β - (Adiag[ii]*z[ii]) * α
+                 k += 1
+             end
+             qrupdate!(view(R,j1,j1), rbar)
+         end
+       end
+   else
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #        A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
+      for j = n:-1:1
+          λ = abs(A[j,j])
+          TEMP = sqrt( (ONE - λ)*(ONE + λ) )
+          TEMP < SMIN && (TEMP  = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          β = A[j,j]
+          if j > 1
+             jm1 = j-1
+             j1 = 1:jm1
+             # Form the right-hand side corresponding to the dual of (6.2)
+             # S = [ S1  0  ]
+             #     [ 0  s11 ]
+             # z = rbar*α' 
+             rbar = view(Wr,j1)
+             z = view(Wz,j1)
+             # rbar = R[j1,j]
+             # z = rbar*α' 
+             for ii = 1:jm1
+               rbar[ii] = R[ii,j]
+               z[ii]= rbar[ii]*α 
+             end
+             # Solve S1*ubar*β'-ubar + z = 0
+             Adiag = view(A.diag,j1)
+             solve_in_place!(Adiag,-β, z, disc = true)
+             # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
+             # y = rbar*β - S1*z*α
+             for ii = 1:jm1
+                 R[ii,j] = z[ii]
+                 rbar[ii] = rbar[ii]*β - (Adiag[ii]*z[ii])*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
+         end
+      end
+   end
+   return R
+end
+function plyapds!(A::Diagonal{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Complex
+   # if adj = true, A contains A'
+   n = size(A,1)
+   LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
+
+   T = real(T1)
+
+   ONE = one(T)
+   EPS = eps(T)
+   Amax = maximum(abs.(A.diag))
+   Amax >= ONE && error("A is not convergent")
+
+   SMLNUM = sqrt(_safemin(T))/EPS
+   BIGNUM = ONE / SMLNUM
+   SMIN = EPS*Amax
+
+   Wr = Vector{T1}(undef,n)
+   Wz = Vector{T1}(undef,n)
+   if adj
+      # The (L,L)th block of X is determined starting from
+      # upper-left corner column by column by
+      #       A(L,L)'*X(L,L) + X(L,L)*A(L,L) = -R(L,L)'*R(L,L),
+      for j = 1:n
+          λ = abs(A[j,j])
+          TEMP = sqrt( (ONE - λ)*(ONE + λ) )
+          TEMP < SMIN && (TEMP  = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP &&
+                error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          #β = A[j,j]
+          β = conj(A[j,j])
+          if j < n
+             jp1 = j+1
+             j1 = jp1:n
+             ir1 = 1:n-j
+             rbar = view(Wr,ir1)
+             z = view(Wz,ir1)
+             # Form the right-hand side of (10.16)
+             # S = [ s11 0  ]
+             #     [ 0   S1 ]
+             # rbar = R[j,j1]'
+             # z = rbar*α 
+             k = jp1
+             for ii = 1:n-j
+                 rbar[ii] = conj(R[j,k])
+                 z[ii] = rbar[ii]*α 
+                 k += 1
+             end  
+
+             # Solve S1'*ubar*β - ubar + z = 0
+             Adiag = view(A.diag,j1)
+             solve_in_place!(Adiag, -β, z, disc = true)
+             # update the Cholesky factor R1'*R1 <- R1'*R1 + y'*y
+             # y = rbar*β' - S1*z*α
+             k = jp1
+             for ii = 1:n-j
+                 R[j,k] = conj(z[ii])
+                 rbar[ii] = conj(rbar[ii]) * β - conj(Adiag[ii]*z[ii]) * α
+                 k += 1
+             end
+             qrupdate!(view(R,j1,j1), rbar)
+         end
+       end
+   else
+      # The (L,L)th block of X is determined starting from
+      # bottom-right corner column by column by
+      #        A(L,L)*X(L,L) + X(L,L)*A(L,L)' = -R(L,L)*R(L,L)',
+      for j = n:-1:1
+          λ = abs(A[j,j])
+          TEMP = sqrt( (ONE - λ)*(ONE + λ) )
+          TEMP < SMIN && (TEMP  = SMIN)
+          DR = abs( R[j,j] )
+          TEMP < ONE && DR > ONE && DR > BIGNUM*TEMP && error("Singular Lyapunov equation")
+          iszero(DR) ? α = TEMP : α = sign(R[j,j])*TEMP
+          R[j,j] = R[j,j]/α
+          β = A[j,j]
+          if j > 1
+             jm1 = j-1
+             j1 = 1:jm1
+             # Form the right-hand side corresponding to the dual of (6.2)
+             # S = [ S1  0  ]
+             #     [ 0  s11 ]
+             # z = rbar*α' 
+             rbar = view(Wr,j1)
+             z = view(Wz,j1)
+             # rbar = R[j1,j]
+             # z = rbar*α' 
+             for ii = 1:jm1
+               rbar[ii] = R[ii,j]
+               z[ii] = rbar[ii]*conj(α) 
+             end
+             # Solve S1*ubar*β'-ubar + z = 0
+             Adiag = view(A.diag,j1)
+             solve_in_place!(Adiag,-conj(β), z, disc = true)
+             # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
+             # y = rbar*β - S1*z*α
+             for ii = 1:jm1
+                 R[ii,j] = z[ii]
+                 rbar[ii] = rbar[ii]*β - (Adiag[ii]*z[ii])*α
+             end
+             rqupdate!(view(R,j1,j1), rbar)
+         end
+      end
+   end
+   return R
+end
+
 """
     plyapcs!(A,E,R;adj = false)
 
@@ -1570,6 +1736,9 @@ complex Schur form and `R` is an upper triangular matrix.
 `R` contains on output the upper triangular solution `U`.
 """
 function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize = 64)  where T1 <: Real
+   # check for diagonal A
+   isdiag(A) && (return plyapds!(Diagonal(A),R; adj))
+
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1768,6 +1937,9 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, bl
    return R
 end
 function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize = 64)  where T1 <: Complex
+   # check for diagonal A
+   isdiag(A) && (return plyapds!(Diagonal(A),R; adj))
+
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1779,7 +1951,6 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, bl
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
 
-   #W = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
    Wv = similar(Wr)
    Wz = similar(Wr)

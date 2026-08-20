@@ -26,10 +26,12 @@ a = -.1f0+-.1f0*im; b = 2f0im; @time u = plyapd(a,b)
 
 for Ty in (Float64, Float32, BigFloat)
 
-ar = rand(Ty,n,n);
-ar = ar/(one(Ty) + norm(ar));
-ac = rand(Ty,n,n)+im*rand(Ty,n,n);
-ac = ac/(one(Ty) + norm(ac));
+ar = rand(Ty,n,n); ar = ar/(one(Ty) + norm(ar));
+ars = Symmetric(ar); ars = ars/(one(Ty) + norm(ars));
+ard = Diagonal(rand(Ty,n))
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); ac = ac/(one(Ty) + norm(ac));
+ach = Hermitian(ac); ach = ach/(one(Ty) + norm(ach));
+acd = Diagonal(rand(Ty,n)+im*rand(Ty,n))/2
 br = rand(Ty,n,m);
 brw = rand(Ty,n,n+m)
 bc = br+im*rand(Ty,n,m);
@@ -44,6 +46,12 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapd(ar,br);
 x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
 
+@time u = plyapd(ars,br);
+x = u*u'; @test norm(ars*x*ars'-x+br*br')/norm(x)/max(1.,norm(ars)^2) < reltol
+
+@time u = plyapd(ard,br);
+x = u*u'; @test norm(ard*x*ard'-x+br*br')/norm(x)/max(1.,norm(ard)^2) < reltol
+
 @time u = plyapd(ar,0*br);
 x = u*u'; @test norm(ar*x*ar'-x) < reltol
 
@@ -56,11 +64,23 @@ x = u*u'; @test norm(ar*x*ar'-x+br*br')/norm(x)/max(1.,norm(ar)^2) < reltol
 @time u = plyapd(ar',cr');
 x = u'*u; @test norm(ar'*x*ar-x+cr'*cr)/norm(x)/max(1.,norm(ar)^2) < reltol
 
+@time u = plyapd(ars',cr');
+x = u'*u; @test norm(ars'*x*ars-x+cr'*cr)/norm(x)/max(1.,norm(ars)^2) < reltol
+
+@time u = plyapd(ard,cr');
+x = u'*u; @test norm(ard*x*ard-x+cr'*cr)/norm(x)/max(1.,norm(ard)^2) < reltol
+
 @time u = plyapd(ar',crt');
 x = u'*u; @test norm(ar'*x*ar-x+crt'*crt)/norm(x)/max(1.,norm(ar)^2) < reltol
 
 @time u = plyapd(ac,bc);
 x = u*u'; @test norm(ac*x*ac'-x+bc*bc')/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time u = plyapd(ach,bc);
+x = u*u'; @test norm(ach*x*ach'-x+bc*bc')/norm(x)/max(1.,norm(ach)^2) < reltol
+
+@time u = plyapd(acd,bc);
+x = u*u'; @test norm(acd*x*acd'-x+bc*bc')/norm(x)/max(1.,norm(acd)^2) < reltol
 
 @time u = plyapd(ac,0*bc);
 x = u*u'; @test norm(ac*x*ac'-x) < reltol
@@ -70,6 +90,12 @@ x = u*u'; @test norm(ac*x*ac'-x+bcw*bcw')/norm(x)/max(1.,norm(ac)^2) < reltol
 
 @time u = plyapd(ac',cc');
 x = u'*u; @test norm(ac'*x*ac-x+cc'*cc)/norm(x)/max(1.,norm(ac)^2) < reltol
+
+@time u = plyapd(ach',cc');
+x = u'*u; @test norm(ach'*x*ach-x+cc'*cc)/norm(x)/max(1.,norm(ach)^2) < reltol
+
+@time u = plyapd(acd',cc');
+x = u'*u; @test norm(acd'*x*acd-x+cc'*cc)/norm(x)/max(1.,norm(acd)^2) < reltol
 
 @time u = plyapd(ac',cct');
 x = u'*u; @test norm(ac'*x*ac-x+cct'*cct)/norm(x)/max(1.,norm(ac)^2) < reltol

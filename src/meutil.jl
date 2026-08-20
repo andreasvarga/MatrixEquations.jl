@@ -189,6 +189,130 @@ function utqu(Q,U)
    end
    return X
 end
+
+function utriuB(B::AbstractMatrix{T2}, Q::AbstractMatrix{T2})  where {T2} 
+   adj = isa(B,Adjoint)  
+   ZERO = zero(T2)  
+   if adj
+      #U'U = Q'*B'*B*Q
+      n, mb = size(B)
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,mb)))
+      if mb < n
+         U = similar(Q,T2,n,n)
+         U1 = view(U,1:mb,:)
+         if T2 <: BlasFloat
+            mul!(U1,B.parent,Q)
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            copyto!(U1,qr!(B.parent*Q).R)
+         end
+         fill!(view(U,mb+1:n,:),ZERO)
+      else
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(B.parent*Q,tau)[1][1:n,:]
+         else
+            U = qr!(B.parent*Q).R[1:n,:]
+         end
+      end
+   else
+      #UU' = Q'*B*B'*Q
+      n, nb = size(B)
+      T2 <: BlasFloat  && (tau = similar(Q,min(n,nb)))
+      if nb <= n
+         U = similar(Q,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         if T2 <: BlasFloat
+            mul!(U2,Q',B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(B'*Q)).R)')
+         end
+         fill!(view(U,:,1:n-nb),ZERO)
+      else
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(Q'*B,tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(B'*Q)).R)'
+         end
+      end
+   end
+   U = UpperTriangular(U)
+end
+function utriuB(B::AbstractMatrix{T2})  where {T2} 
+   adj = isa(B,Adjoint)  
+   ZERO = zero(T2)  
+   if adj
+      n, mb = size(B)
+      #U'U = B'*B
+      T2 <: BlasFloat  && (tau = similar(B,min(n,mb)))
+      if mb < n
+         U = similar(B,T2,n,n)
+         U1 = view(U,1:mb,:)
+         copyto!(U1,B.parent)
+         if T2 <: BlasFloat
+            LinearAlgebra.LAPACK.geqrf!(U1,tau)
+         else
+            qr!(U1)
+         end
+         fill!(view(U,mb+1:n,:),ZERO)
+      else
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.geqrf!(copy(B.parent),tau)[1][1:n,:]
+         else
+            U = qr!(copy(B.parent)).R[1:n,:]
+         end
+      end
+   else
+      n, nb = size(B)
+      #UU' = B*B'
+      T2 <: BlasFloat  && (tau = similar(B,min(n,nb)))
+      if nb <= n
+         U = similar(B,T2,n,n)
+         U2 = view(U,:,n-nb+1:n)
+         if T2 <: BlasFloat
+            #mul!(U2,Q',B)
+            copyto!(U2,B)
+            LinearAlgebra.LAPACK.gerqf!(U2,tau)
+         else
+            copyto!(U2,rev!(qr!(rev!(copy(B'))).R)')
+         end
+         fill!(view(U,:,1:n-nb),ZERO)
+      else
+         if T2 <: BlasFloat
+            U = LinearAlgebra.LAPACK.gerqf!(copy(B),tau)[1][:,nb-n+1:nb]
+         else
+            U = rev!(qr!(rev!(copy(B'))).R)'
+         end
+      end
+   end
+   return UpperTriangular(U)
+end
+function utriuU(U::UpperTriangular{T2}, Q::AbstractMatrix{T2}, WS::AbstractMatrix{T2} = similar(U,size(U,1),size(U,2)); adj::Bool = false)  where {T2} 
+
+   T2 <: BlasFloat  && (tau = similar(U,size(U,1)))
+   if adj
+      #X = Q*U'*U*Q'
+      if T2 <: BlasFloat
+         mul!(WS,U,Q')
+         U = UpperTriangular(LinearAlgebra.LAPACK.geqrf!(WS,tau)[1])
+      else
+         mul!(WS,U,Q')
+         U = UpperTriangular(qr!(WS).R)
+      end
+   else
+      #X <- Q*U*U'*Q'
+      if T2 <: BlasFloat
+         mul!(WS,Q,U)
+         U = UpperTriangular(LinearAlgebra.LAPACK.gerqf!(WS, tau)[1])
+      else
+         mul!(WS,Q,U)
+         U = UpperTriangular(Matrix(rev!(qr!(rev!(WS')).R)'))
+      end
+   end  
+   utnormalize!(U,adj)
+   return U
+end
+
 """
     qrupdate!(R, Y) -> R
 
@@ -199,7 +323,7 @@ only uses `O(n^2)` operations (`n` is the size of `R`). The input matrix `R` is
 updated in place and the matrix `Y` is destroyed during the computation.
 """
 function qrupdate!(R, Y)
-    n, m = size(Y)
+    n = size(Y,1); m = size(Y,2)
     size(R,1) == n || throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
     @inbounds for k in 1:m
         for i in 1:n
@@ -233,7 +357,7 @@ only uses `O(n^2)` operations (`n` is the size of `R`). The input matrix `R` is
 updated in place and the matrix `Y` is destroyed during the computation.
 """
 function rqupdate!(R, Y)
-    n, m = size(Y)
+    n = size(Y,1); m = size(Y,2)
     size(R,1) == n || throw(DimensionMismatch("updating matrix must fit size of upper triangular matrix"))
 
     @inbounds for k in 1:m

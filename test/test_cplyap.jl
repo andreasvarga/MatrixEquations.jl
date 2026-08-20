@@ -28,11 +28,13 @@ a = -1f0; b = 2f0im; @time u = plyapc(a,b)
 
 for Ty in (Float64, Float32, BigFloat)
 
-ar = rand(Ty,n,n);
-ar = ar-2*norm(ar)*Matrix(I,n,n);
+ar = rand(Ty,n,n); ar = ar-2*norm(ar)*Matrix(I,n,n);
+ars = Symmetric(ar); ars = ars-2*norm(ars)*Matrix(I,n,n);
+ard = -Diagonal(rand(Ty,n))
 br = rand(Ty,n,m);
-ac = rand(Ty,n,n)+im*rand(Ty,n,n);
-ac = ac-2*norm(ac)*Matrix(I,n,n);
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); ac = ac-2*norm(ac)*Matrix(I,n,n);
+ach = Hermitian(ac); ach = ach-2*norm(ach)*Matrix(I,n,n);
+acd = -Diagonal(rand(Ty,n)+im*rand(Ty,n))
 bc = br+im*rand(Ty,n,m);
 
 brw = rand(Ty,n,n+m)
@@ -46,6 +48,12 @@ Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
 @time u = plyapc(ar,br);
 x = u*u'; @test norm(ar*x+x*ar'+br*br')/norm(x)/norm(ar) < reltol
 
+@time u = plyapc(ars,br);
+x = u*u'; @test norm(ars*x+x*ars+br*br')/norm(x)/norm(ars) < reltol
+
+@time u = plyapc(ard,br);
+x = u*u'; @test norm(ard*x+x*ard+br*br')/norm(x)/norm(ard) < reltol
+
 @time u = plyapc(ar,0*br);
 x = u*u'; @test norm(ar*x+x*ar') < reltol
 
@@ -58,11 +66,24 @@ x = u*u'; @test norm(ar*x+x*ar'+br*br')/norm(x)/norm(ar) < reltol
 @time u = plyapc(ar',cr');
 x = u'*u; @test norm(ar'*x+x*ar+cr'*cr)/norm(x)/norm(ar) < reltol
 
+@time u = plyapc(ars',cr');
+x = u'*u; @test norm(ars*x+x*ars+cr'*cr)/norm(x)/norm(ar) < reltol
+
+@time u = plyapc(ard,cr');
+x = u'*u; @test norm(ard*x+x*ard+cr'*cr)/norm(x)/norm(ar) < reltol
+
 @time u = plyapc(ar',crt');
 x = u'*u; @test norm(ar'*x+x*ar+crt'*crt)/norm(x)/norm(ar) < reltol
 
 @time u = plyapc(ac,bc);
 x = u*u'; @test norm(ac*x+x*ac'+bc*bc')/norm(x)/norm(ac) < reltol
+
+@time u = plyapc(ach,bc);
+x = u*u'; @test norm(ach*x+x*ach'+bc*bc')/norm(x)/norm(ach) < reltol
+
+@time u = plyapc(acd,bc);
+x = u*u'; @test norm(acd*x+x*acd'+bc*bc')/norm(x)/norm(acd) < reltol
+
 
 @time u = plyapc(ac,0*bc);
 x = u*u'; @test norm(ac*x+x*ac') < reltol
@@ -84,6 +105,12 @@ x = u*u'; @test norm(ac*x+x*ac'+br*br')/norm(x)/norm(ac) < reltol
 
 @time u = plyapc(ac',cr');
 x = u'*u; @test norm(ac'*x+x*ac+cr'*cr)/norm(x)/norm(ac) < reltol
+
+@time u = plyapc(ach',cr');
+x = u'*u; @test norm(ach'*x+x*ach+cr'*cr)/norm(x)/norm(ach) < reltol
+
+@time u = plyapc(acd',cr');
+x = u'*u; @test norm(acd'*x+x*acd+cr'*cr)/norm(x)/norm(acd) < reltol
 
 @time u = plyapc(ar,bc);
 x = u*u'; @test norm(ar*x+x*ar'+bc*bc')/norm(x)/norm(ar) < reltol
