@@ -67,10 +67,10 @@ x = u*u'; @test norm(ar*x+x*ar'+br*br')/norm(x)/norm(ar) < reltol
 x = u'*u; @test norm(ar'*x+x*ar+cr'*cr)/norm(x)/norm(ar) < reltol
 
 @time u = plyapc(ars',cr');
-x = u'*u; @test norm(ars*x+x*ars+cr'*cr)/norm(x)/norm(ar) < reltol
+x = u'*u; @test norm(ars*x+x*ars+cr'*cr)/norm(x)/norm(ars) < reltol
 
 @time u = plyapc(ard,cr');
-x = u'*u; @test norm(ard*x+x*ard+cr'*cr)/norm(x)/norm(ar) < reltol
+x = u'*u; @test norm(ard*x+x*ard+cr'*cr)/norm(x)/norm(ard) < reltol
 
 @time u = plyapc(ar',crt');
 x = u'*u; @test norm(ar'*x+x*ar+crt'*crt)/norm(x)/norm(ar) < reltol
