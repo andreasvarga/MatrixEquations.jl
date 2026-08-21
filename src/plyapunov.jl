@@ -553,8 +553,18 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 
    #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
    #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
+   T2 = promote_type(eltype(A), eltype(B))
+   adiag = isdiag(A)
+   aDiag = isa(A, Diagonal)
+   aHerm = isa(A,Hermitian)
+   aSym = isa(A,Symmetric)
    adj = isa(B,Adjoint)
-   xor(adj,isa(A,Adjoint)) && error("Only calls with A and B or with A' and B' allowed")
+   if aDiag
+      eltype(A) <: Complex &&
+      (xor(adj,isa(parent(parent(A)),Adjoint)) && error("Only calls with A and B or with A' and B' allowed"))
+   elseif !aHerm && !aSym
+      (xor(adj,isa(A,Adjoint)) && error("Only calls with A and B or with A' and B' allowed"))
+   end
 
    n = LinearAlgebra.checksquare(A)
    if adj
@@ -565,10 +575,26 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 
       mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-   T2 = promote_type(eltype(A), eltype(B))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
-   eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
+   if eltype(A) != T2 
+      if adiag
+         adj ? A = convert(Diagonal{T2},Diagonal(parent(parent(A))))' : A = convert(Diagonal{T2},A)
+      elseif aHerm || aSym
+         A = LinearAlgebra.copy_oftype(A,T2)  
+      else       
+         adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A)
+      end   
+   end 
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
+
+   if adiag 
+      if disc
+         return plyapds!(Diagonal(A), utriuB(B); adj)
+      else
+         return plyapcs!(Diagonal(A), utriuB(B); adj)
+      end
+   end
+
 
    U = utriuB(B)
    if adj

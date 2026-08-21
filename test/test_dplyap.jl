@@ -289,12 +289,16 @@ end
 
 for Ty in (Float64, Float32, BigFloat)
 
-ar = rand(Ty,n,n);
-ar = ar/(one(Ty) + norm(ar));
+ar = rand(Ty,n,n); ar = ar/(one(Ty) + norm(ar));
 as,  = schur(ar);
-ac = rand(Ty,n,n)+im*rand(Ty,n,n);
-ac = ac/(one(Ty) + norm(ac));
+ars = Symmetric(ar); ars = ars/(one(Ty) + norm(ars));
+arsd, = schur(Symmetric(ars))
+ard = -Diagonal(rand(Ty,n))
+ac = rand(Ty,n,n)+im*rand(Ty,n,n); ac = ac/(one(Ty) + norm(ac));
 acs,  = schur(ac);
+ach = Hermitian(ac); ach = ach/(one(Ty) + norm(ach));
+acsd, = schur(Hermitian(ach))
+acd = -Diagonal(rand(Ty,n)+im*rand(Ty,n))/2
 br = rand(Ty,n,m);
 bc = br+im*rand(Ty,n,m);
 cr = rand(Ty,p,n);
@@ -305,6 +309,12 @@ Ty == Float64 ? reltol = eps(float(1000)) : reltol = eps(1000*n*one(Ty))
 @time u = plyaps(as,br,disc = true);
 x = u*u'; @test norm(as*x*as'-x+br*br')/norm(x)/norm(as) < reltol
 
+@time u = plyaps(arsd,br,disc = true);
+x = u*u'; @test norm(arsd*x*arsd'-x+br*br')/norm(x)/norm(arsd) < reltol
+
+@time u = plyaps(ard,br,disc = true);
+x = u*u'; @test norm(ard*x*ard-x+br*br')/norm(x)/norm(ard) < reltol
+
 @time u = plyaps(as,0*br,disc = true);
 x = u*u'; @test norm(as*x*as'-x) < reltol
 
@@ -314,17 +324,35 @@ x = u*u'; @test norm(as*x*as'-x+ar*ar')/norm(x)/norm(as) < reltol
 @time u = plyaps(as',cr',disc = true);
 x = u'*u; @test norm(as'*x*as-x+cr'*cr)/norm(x)/norm(as) < reltol
 
+@time u = plyaps(arsd',cr',disc = true);
+x = u'*u; @test norm(arsd'*x*arsd-x+cr'*cr)/norm(x)/norm(arsd) < reltol
+
+@time u = plyaps(ard',cr',disc = true);
+x = u'*u; @test norm(ard*x*ard-x+cr'*cr)/norm(x)/norm(as) < reltol
+
 @time u = plyaps(as',ar',disc = true);
 x = u'*u; @test norm(as'*x*as-x+ar'*ar)/norm(x)/norm(as) < reltol
 
 @time u = plyaps(acs,bc,disc = true);
 x = u*u'; @test norm(acs*x*acs'-x+bc*bc')/norm(x)/norm(acs) < reltol
 
+@time u = plyaps(acsd,bc,disc = true);
+x = u*u'; @test norm(acsd*x*acsd'-x+bc*bc')/norm(x)/norm(acsd) < reltol
+
+@time u = plyaps(acd,bc,disc = true);
+x = u*u'; @test norm(acd*x*acd'-x+bc*bc')/norm(x)/norm(acd) < reltol
+
 @time u = plyaps(acs,0*bc,disc = true);
 x = u*u'; @test norm(acs*x*acs'-x) < reltol
 
 @time u = plyaps(acs',cc',disc = true);
-x = u'*u; @test norm(acs'*x*acs-x+cc'*cc)/norm(x)/norm(as) < reltol
+x = u'*u; @test norm(acs'*x*acs-x+cc'*cc)/norm(x)/norm(acs) < reltol
+
+@time u = plyaps(acsd',cc',disc = true);
+x = u'*u; @test norm(acsd'*x*acsd-x+cc'*cc)/norm(x)/norm(acsd) < reltol
+
+@time u = plyaps(acd',cc',disc = true);
+x = u'*u; @test norm(acd'*x*acd-x+cc'*cc)/norm(x)/norm(acd) < reltol
 
 if Ty <: BlasFloat
 @time u = plyaps(as,br,disc = true,blocksize = 10);
