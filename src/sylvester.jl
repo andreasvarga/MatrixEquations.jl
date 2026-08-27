@@ -259,7 +259,7 @@ function sylvd(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix; blocksize 
    mul!(Y,WS,QB) 
 
    if T2 <: BlasFloat
-      sylvds_blocked!(RA, RB, Y; adjA, adjB, blocksize)
+      sylvds_blocked!(WS, RA, RB, Y; adjA, adjB, blocksize)
    else
       sylvds!(RA, RB, Y; adjA, adjB)
    end
@@ -1546,6 +1546,15 @@ function sylvd2!(adjA::Bool, adjB::Bool, C::AbstractMatrix{T}, na::Int, nb::Int,
       @inbounds C[2,2] = Y[4]
    end
    return C
+end
+function sylvds_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA = false, adjB = false, isgn = 1, blocksize::Integer = 64) where {T1<:BlasFloat}
+   m = LinearAlgebra.checksquare(A)  
+   n = LinearAlgebra.checksquare(B)
+   (m, n) == size(C) || throw(DimensionMismatch("C must be a $m x $n"))
+   
+   T1 <: Complex ? WS2 = Vector{T1}(undef,m) : WS2 = Matrix{T1}(undef,m,2) 
+   # Call the positional recursive worker
+   _sylvds_blocked!(WS, WS2, A, B, C, adjA, adjB, isgn, blocksize)
 end
 
 function sylvds_blocked!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}; adjA = false, adjB = false, isgn = 1, blocksize::Integer = 64) where {T1<:BlasFloat}
@@ -3483,6 +3492,20 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
       end
    end
    return E
+end
+function gsylvs_blocked!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
+   adjAC::Bool = false, adjBD::Bool = false, isgn::Int = 1, CASchur::Bool = false, DBSchur::Bool = false, blocksize::Integer = 64) where {T1<:BlasFloat}
+   m = LinearAlgebra.checksquare(A)  
+   n = LinearAlgebra.checksquare(B)
+   (m, n) == size(E) || throw(DimensionMismatch("E must be a $m x $n"))
+   WS = Matrix{T1}(undef,m,n)
+   if T1 <: Complex 
+      WB = similar(A,m); WD = similar(A,m)
+   else
+      WB = similar(A,m,2); WD = similar(A,m,2)
+   end   
+   # Call the positional recursive worker
+   _gsylvs_blocked!(WS, WB, WD, A, B, C, D, E, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
 end
 function gsylvs_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
    adjAC::Bool = false, adjBD::Bool = false, isgn::Int = 1, CASchur::Bool = false, DBSchur::Bool = false, blocksize::Integer = 64) where {T1<:BlasFloat}

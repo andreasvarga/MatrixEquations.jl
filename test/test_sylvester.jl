@@ -475,6 +475,48 @@ y = copy(cc); @time sylvds!(acs,bcs,y;isgn,adjA=true,adjB=true)
 
 y = copy(cc); @time sylvds!(acd,bcd,y;isgn,adjA=true,adjB=true)
 @test norm(acd'*y*bcd'+isgn*y-cc)/norm(y) < reltol
+
+if Ty <: BlasFloat
+y = copy(cr); @time sylvds_blocked!(as,bs,y;isgn, blocksize = 5)
+@test norm(as*y*bs+isgn*y-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvds_blocked!(ard,brd,y;isgn, blocksize = 5)
+@test norm(ard*y*brd+isgn*y-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvds_blocked!(as,bs,y;isgn,adjA=true, blocksize = 5)
+@test norm(as'*y*bs+isgn*y-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvds_blocked!(as,bs,y;isgn,adjB=true, blocksize = 5)
+@test norm(as*y*bs'+isgn*y-cr)/norm(y) < reltol
+
+y = copy(cr); @time sylvds_blocked!(as,bs,y;isgn,adjA=true,adjB=true, blocksize = 5)
+@test norm(as'*y*bs'+isgn*y-cr)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acs,bcs,y;isgn, blocksize = 5)
+@test norm(acs*y*bcs+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acd,bcd,y;isgn, blocksize = 5)
+@test norm(acd*y*bcd+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acs,bcs,y;isgn,adjA=true, blocksize = 5)
+@test norm(acs'*y*bcs+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acd,bcd,y;isgn,adjA=true, blocksize = 5)
+@test norm(acd'*y*bcd+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acs,bcs,y;isgn,adjB=true, blocksize = 5)
+@test norm(acs*y*bcs'+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acd,bcd,y;isgn,adjB=true, blocksize = 5)
+@test norm(acd*y*bcd'+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acs,bcs,y;isgn,adjA=true,adjB=true, blocksize = 5)
+@test norm(acs'*y*bcs'+isgn*y-cc)/norm(y) < reltol
+
+y = copy(cc); @time sylvds_blocked!(acd,bcd,y;isgn,adjA=true,adjB=true, blocksize = 5)
+@test norm(acd'*y*bcd'+isgn*y-cc)/norm(y) < reltol
+end
+
 end
 
 end
@@ -697,30 +739,28 @@ y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true, isgn = isgn
 @test norm(acs'*y*bcs'+isgn*dcs'*y*ecs'-cc)/norm(y) < reltol
 
 if Ty <: BlasFloat
-@show isgn, Ty      
-WS = rand(Ty,n,m); WSC = WS+im*rand(Ty,n,m)     
-y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y; isgn = isgn, blocksize = 5)
+y = copy(cr); @time gsylvs_blocked!(as,bs,ds,es,y; isgn = isgn, blocksize = 5)
 @test norm(as*y*bs+isgn*ds*y*es-cr)/norm(y) < reltol
 
-y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y,adjAC=true, isgn = isgn, blocksize = 5)
+y = copy(cr); @time gsylvs_blocked!(as,bs,ds,es,y,adjAC=true, isgn = isgn, blocksize = 5)
 @test norm(as'*y*bs+isgn*ds'*y*es-cr)/norm(y) < reltol
 
-y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y,adjBD=true, isgn = isgn, blocksize = 5)
+y = copy(cr); @time gsylvs_blocked!(as,bs,ds,es,y,adjBD=true, isgn = isgn, blocksize = 5)
 @test norm(as*y*bs'+isgn*ds*y*es'-cr)/norm(y) < reltol
 
-y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y,adjAC=true,adjBD=true, isgn = isgn, blocksize = 5)
+y = copy(cr); @time gsylvs_blocked!(as,bs,ds,es,y,adjAC=true,adjBD=true, isgn = isgn, blocksize = 5)
 @test norm(as'*y*bs'+isgn*ds'*y*es'-cr)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y; isgn = isgn, blocksize = 5)
+y = copy(cc); @time gsylvs_blocked!(acs,bcs,dcs,ecs,y; isgn = isgn, blocksize = 5)
 @test norm(acs*y*bcs+isgn*dcs*y*ecs-cc)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y,adjBD=true, isgn = isgn, blocksize = 5)
+y = copy(cc); @time gsylvs_blocked!(acs,bcs,dcs,ecs,y,adjBD=true, isgn = isgn, blocksize = 5)
 @test norm(acs*y*bcs'+isgn*dcs*y*ecs'-cc)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y,adjAC=true, isgn = isgn, blocksize = 5)
+y = copy(cc); @time gsylvs_blocked!(acs,bcs,dcs,ecs,y,adjAC=true, isgn = isgn, blocksize = 5)
 @test norm(acs'*y*bcs+isgn*dcs'*y*ecs-cc)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true, isgn = isgn, blocksize = 5)
+y = copy(cc); @time gsylvs_blocked!(acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true, isgn = isgn, blocksize = 5)
 @test norm(acs'*y*bcs'+isgn*dcs'*y*ecs'-cc)/norm(y) < reltol
 end
 
