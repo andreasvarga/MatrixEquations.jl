@@ -330,7 +330,7 @@ crm1 = rand(Ty,ns,m); crm2 = rand(Ty,n,ms); ccm1 = crm1+im*rand(Ty,ns,m); ccm2 =
 @time x = sylvd(ar,br,cr)
 @test norm(ar*x*br+x-cr)/norm(x) < reltol
 
-@time x = sylvd(ar,br,cr)
+@time x = sylvd(ar,br,cr,blocksize = 5)
 @test norm(ar*x*br+x-cr)/norm(x) < reltol
 
 @time x = sylvd(ars,brs,cr,blocksize = 5)
@@ -519,6 +519,13 @@ dc = dr+im*rand(Ty,n,n);
 ec = er+im*rand(Ty,m,m);
 Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
+arm = rand(Ty,ns,ns); acm = arm+im*rand(Ty,ns,ns); 
+brm = rand(Ty,ms,ms); bcm = brm+im*rand(Ty,ms,ms);
+drm = rand(Ty,ms,ms); dcm = brm+im*rand(Ty,ns,ns);
+erm = rand(Ty,ms,ms); bcm = brm+im*rand(Ty,ms,ms);
+crm1 = rand(Ty,ns,m); crm2 = rand(Ty,n,ms); 
+ccm1 = crm1+im*rand(Ty,ns,m); ccm2 = crm2+im*rand(Ty,n,ms);
+
 @time x = gsylv(ar,br,cr)
 @test norm(ar*x*br-cr)/norm(x) < reltol
 
@@ -537,6 +544,9 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = gsylv(ar,br,dr,er,cr)
 @test norm(ar*x*br+dr*x*er-cr)/norm(x) < reltol
 
+@time x = gsylv(ar,br,dr,er,cr,blocksize = 5)
+@test norm(ar*x*br+dr*x*er-cr)/norm(x) < reltol
+
 @time x = gsylv(ar,br,2I,cr)
 @test norm(ar*x*br+2*x-cr)/norm(x) < reltol
 
@@ -552,29 +562,71 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @time x = gsylv(ar,br,dr,2*im*I,cr)
 @test norm(ar*x*br+2*im*dr*x-cr)/norm(x) < reltol
 
-@time x = gsylv(ar,br,dr,er,cr)
-@test norm(ar*x*br+dr*x*er-cr)/norm(x) < reltol
+@time x = gsylv(ar',br,dr',er,cr)
+@test norm(ar'*x*br+dr'*x*er-cr)/norm(x) < reltol
+
+@time x = gsylv(ar',br,dr',er,cr,blocksize = 5)
+@test norm(ar'*x*br+dr'*x*er-cr)/norm(x) < reltol
+
+@time x = gsylv(ar,br',dr,er',cr)
+@test norm(ar*x*br'+dr*x*er'-cr)/norm(x) < reltol
+
+@time x = gsylv(ar,br',dr,er',cr,blocksize = 5)
+@test norm(ar*x*br'+dr*x*er'-cr)/norm(x) < reltol
+
+@time x = gsylv(ar',br',dr',er',cr)
+@test norm(ar'*x*br'+dr'*x*er'-cr)/norm(x) < reltol
+
+@time x = gsylv(ar',br',dr',er',cr,blocksize = 5)
+@test norm(ar'*x*br'+dr'*x*er'-cr)/norm(x) < reltol
+
+@time x = gsylv(arm,br,drm,er,crm1,blocksize = 5)
+@test norm(arm*x*br+drm*x*er-crm1)/norm(x) < reltol
+
+@time x = gsylv(arm',br,drm',er,crm1,blocksize = 5)
+@test norm(arm'*x*br+drm'*x*er-crm1)/norm(x) < reltol
+
+@time x = gsylv(arm,br',drm,er',crm1,blocksize = 5)
+@test norm(arm*x*br'+drm*x*er'-crm1)/norm(x) < reltol
+
+@time x = gsylv(arm',br',drm',er',crm1,blocksize = 5)
+@test norm(arm'*x*br'+drm'*x*er'-crm1)/norm(x) < reltol
+
+@time x = gsylv(ar,brm,dr,erm,crm2,blocksize = 5)
+@test norm(ar*x*brm+dr*x*erm-crm2)/norm(x) < reltol
+
+@time x = gsylv(ar',brm,dr',erm,crm2,blocksize = 5)
+@test norm(ar'*x*brm+dr'*x*erm-crm2)/norm(x) < reltol
+
+@time x = gsylv(ar,brm',dr,erm',crm2,blocksize = 5)
+@test norm(ar*x*brm'+dr*x*erm'-crm2)/norm(x) < reltol
+
+@time x = gsylv(ar',brm',dr',erm',crm2,blocksize = 5)
+@test norm(ar'*x*brm'+dr'*x*erm'-crm2)/norm(x) < reltol
 
 @time x = gsylv(ac,bc,dc,ec,cc)
 @test norm(ac*x*bc+dc*x*ec-cc)/norm(x) < reltol
 
-@time x = gsylv(ar',br,dr',er,cr)
-@test norm(ar'*x*br+dr'*x*er-cr)/norm(x) < reltol
+@time x = gsylv(ac,bc,dc,ec,cc,blocksize = 5)
+@test norm(ac*x*bc+dc*x*ec-cc)/norm(x) < reltol
 
-@time x = gsylv(ar,br',dr,er',cr)
-@test norm(ar*x*br'+dr*x*er'-cr)/norm(x) < reltol
+@time x = gsylv(ac',bc,dc',ec,cc)
+@test norm(ac'*x*bc+dc'*x*ec-cc)/norm(x) < reltol
 
-@time x = gsylv(ar',br',dr',er',cr)
-@test norm(ar'*x*br'+dr'*x*er'-cr)/norm(x) < reltol
+@time x = gsylv(ac',bc,dc',ec,cc,blocksize = 5)
+@test norm(ac'*x*bc+dc'*x*ec-cc)/norm(x) < reltol
 
-@time x = gsylv(ar,br',dr,er',cr)
-@test norm(ar*x*br'+dr*x*er'-cr)/norm(x) < reltol
+@time x = gsylv(ac,bc',dc,ec',cc)
+@test norm(ac*x*bc'+dc*x*ec'-cc)/norm(x) < reltol
 
-@time x = gsylv(ar',br',dr',er',cr)
-@test norm(ar'*x*br'+dr'*x*er'-cr)/norm(x) < reltol
+@time x = gsylv(ac,bc',dc,ec',cc,blocksize = 5)
+@test norm(ac*x*bc'+dc*x*ec'-cc)/norm(x) < reltol
 
-@time x = gsylv(ar',br,dr',er,cr)
-@test norm(ar'*x*br+dr'*x*er-cr)/norm(x) < reltol
+@time x = gsylv(ac',bc',dc',ec',cc)
+@test norm(ac'*x*bc'+dc'*x*ec'-cc)/norm(x) < reltol
+
+@time x = gsylv(ac',bc',dc',ec',cc,blocksize = 5)
+@test norm(ac'*x*bc'+dc'*x*ec'-cc)/norm(x) < reltol
 
 @time x = gsylv(ac',bc,-dc,ec',cc)
 @test norm(ac'*x*bc-dc*x*ec'-cc)/norm(x) < reltol
@@ -620,29 +672,58 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 
 for isgn in (1,-1)
 
-y = copy(cr); @time gsylvs!(as,bs,ds,es,y)
-@test norm(as*y*bs+ds*y*es-cr)/norm(y) < reltol
+y = copy(cr); @time gsylvs!(as,bs,ds,es,y; isgn = isgn)
+@test norm(as*y*bs+isgn*ds*y*es-cr)/norm(y) < reltol
 
-y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjAC=true)
-@test norm(as'*y*bs+ds'*y*es-cr)/norm(y) < reltol
+y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjAC=true, isgn = isgn)
+@test norm(as'*y*bs+isgn*ds'*y*es-cr)/norm(y) < reltol
 
-y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjBD=true)
-@test norm(as*y*bs'+ds*y*es'-cr)/norm(y) < reltol
+y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjBD=true, isgn = isgn)
+@test norm(as*y*bs'+isgn*ds*y*es'-cr)/norm(y) < reltol
 
-y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjAC=true,adjBD=true)
-@test norm(as'*y*bs'+ds'*y*es'-cr)/norm(y) < reltol
+y = copy(cr); @time gsylvs!(as,bs,ds,es,y,adjAC=true,adjBD=true, isgn = isgn)
+@test norm(as'*y*bs'+isgn*ds'*y*es'-cr)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y)
-@test norm(acs*y*bcs+dcs*y*ecs-cc)/norm(y) < reltol
+y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y; isgn = isgn)
+@test norm(acs*y*bcs+isgn*dcs*y*ecs-cc)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjBD=true)
-@test norm(acs*y*bcs'+dcs*y*ecs'-cc)/norm(y) < reltol
+y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjBD=true, isgn = isgn)
+@test norm(acs*y*bcs'+isgn*dcs*y*ecs'-cc)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true)
-@test norm(acs'*y*bcs+dcs'*y*ecs-cc)/norm(y) < reltol
+y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true, isgn = isgn)
+@test norm(acs'*y*bcs+isgn*dcs'*y*ecs-cc)/norm(y) < reltol
 
-y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true)
-@test norm(acs'*y*bcs'+dcs'*y*ecs'-cc)/norm(y) < reltol
+y = copy(cc); @time gsylvs!(acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true, isgn = isgn)
+@test norm(acs'*y*bcs'+isgn*dcs'*y*ecs'-cc)/norm(y) < reltol
+
+if Ty <: BlasFloat
+@show isgn, Ty      
+WS = rand(Ty,n,m); WSC = WS+im*rand(Ty,n,m)     
+y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y; isgn = isgn, blocksize = 5)
+@test norm(as*y*bs+isgn*ds*y*es-cr)/norm(y) < reltol
+
+y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y,adjAC=true, isgn = isgn, blocksize = 5)
+@test norm(as'*y*bs+isgn*ds'*y*es-cr)/norm(y) < reltol
+
+y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y,adjBD=true, isgn = isgn, blocksize = 5)
+@test norm(as*y*bs'+isgn*ds*y*es'-cr)/norm(y) < reltol
+
+y = copy(cr); @time gsylvs_blocked!(WS,as,bs,ds,es,y,adjAC=true,adjBD=true, isgn = isgn, blocksize = 5)
+@test norm(as'*y*bs'+isgn*ds'*y*es'-cr)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y; isgn = isgn, blocksize = 5)
+@test norm(acs*y*bcs+isgn*dcs*y*ecs-cc)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y,adjBD=true, isgn = isgn, blocksize = 5)
+@test norm(acs*y*bcs'+isgn*dcs*y*ecs'-cc)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y,adjAC=true, isgn = isgn, blocksize = 5)
+@test norm(acs'*y*bcs+isgn*dcs'*y*ecs-cc)/norm(y) < reltol
+
+y = copy(cc); @time gsylvs_blocked!(WSC,acs,bcs,dcs,ecs,y,adjAC=true,adjBD=true, isgn = isgn, blocksize = 5)
+@test norm(acs'*y*bcs'+isgn*dcs'*y*ecs'-cc)/norm(y) < reltol
+end
+
 end
 end
 end

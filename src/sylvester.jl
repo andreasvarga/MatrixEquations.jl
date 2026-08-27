@@ -5,7 +5,7 @@ Solve the continuous Sylvester matrix equation
 
                 AX + XB = C
 
-combusing recursive-blocking ined with explicit loop tiling techniques. 
+using recursive-blocking combined with explicit loop tiling techniques. 
 The underlying core algorithm is the Bartels-Stewart Schur form based approach. `A` and `B` are
 square matrices, and `A` and `-B` must not have common eigenvalues.
 
@@ -279,15 +279,24 @@ sylvd(A::Union{Real,Complex},B::Union{Real,Complex},C::AbstractMatrix) = A*B+1 =
 # solve (αβ+1)x = γ
 sylvd(A::Union{Real,Complex}, B::Union{Real,Complex}, C::Union{Real,Complex}) = A*B+1 == 0 ? throw(SingularException(1)) : C/(A*B+one(C))
 """
-    X = gsylv(A,B,C,D,E)
+    X = gsylv(A,B,C,D,E; blocksize = 64)
 
 Solve the generalized Sylvester matrix equation
 
               AXB + CXD = E
 
-using a generalized Schur form based approach. `A`, `B`, `C` and `D` are
-square matrices. The pencils `A-λC` and `D+λB` must be regular and
+using recursive-blocking combined with explicit loop tiling techniques. 
+The underlying core algorithm is based on a generalized Schur form based approach. 
+`A`, `B`, `C` and `D` are square matrices. The pencils `A-λC` and `D+λB` must be regular and
 must not have common eigenvalues.
+
+The keyword argument `blocksize` (default: `blocksize = 64`) specifies the 
+block size when to switch in the employed recursive blocked algorithm 
+to the core algorithm for solving small-sized matrix equations. 
+If `blocksize ≤ 4`, the minimum value `blocksize = 4` is used.
+Note: This option is only effective for data of types `Float64`, `Float32`, 
+      `ComplexF64`, or `ComplexF32`.
+
 
 The following particular cases are also adressed:
 
@@ -345,8 +354,20 @@ julia> A*X*B + C*X*D - E
  6.66134e-16  0.0
 ```
 """
-function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix)
+function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::AbstractMatrix,E::AbstractMatrix; blocksize::Int = 64)
+   """
+   The generalized Schur form based method in [1] is employed for matrix dimensions not exceeding
+   the specified blocksize. For large dimensions, the recursive blocked algorithm in [2] is used.
+   Blocking is employed only for `BlasFloat` type data.  
 
+   Reference:
+   [1] J. D. Gardiner, A. J. Laub, J. J. Amato and C. Moler. Solution of the Sylvester matrix equation AXB^T + CXD^T = E.
+       ACM Transactions on Mathematical Software, 18 (1992), pp. 223-231. 
+
+   [2] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
+       Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+       ACM Trans. Math. Software, 28 (2002), pp. 416–435.
+   """
    m, n = size(E);
    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
    throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
@@ -381,11 +402,21 @@ function gsylv(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstract
       BS, DS, Q2, Z2 = schur(B,D)
    end
 
-   Y = Q1' * E *Z2
+   # Y = Q1' * E *Z2
+   WS = Matrix{T2}(undef,m,n)
+   Y = Matrix{T2}(undef,m,n)
+   mul!(WS, Q1', E)
+   mul!(Y, WS, Z2) 
 
-   gsylvs!(AS, BS, CS, DS, Y, adjAC = adjAC, adjBD = adjBD)
+   if T2 <: BlasFloat
+      gsylvs_blocked!(WS, AS, BS, CS, DS, Y; adjAC, adjBD, blocksize)
+   else
+      gsylvs!(AS, BS, CS, DS, Y; adjAC, adjBD)
+   end
 
-   mul!(Y, Z1, Y*Q2')
+   # Y <- Z1*Y*Q2'
+   mul!(WS, Y, Q2')
+   mul!(Y, Z1, WS)
 
    return Y
 end
@@ -1560,7 +1591,7 @@ function _sylvds_blocked!(WS, WS2, A, B, C, adjA::Bool, adjB::Bool, isgn::Intege
          # solve A X op(B)  + isgn*X = C where 
          # op(B) = B if adjB = false and op(B) = B' if adjB = true
 
-         # X22 solver
+         # X2 solver
          _sylvds_blocked!(WS21, WS2, A22, B, C2, adjA, adjB, isgn, blocksize)
 
          # C1 update: C1 = C1 - A12*X2*op(B)
@@ -2251,8 +2282,8 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
 
-   (m, 2) == size(WB) || throw(DimensionMismatch("WB must be an $m x 2 matrix"))
-   (m, 2) == size(WD) || throw(DimensionMismatch("WD must be an $m x 2 matrix"))
+   (m <= size(WB,1) && 2 == size(WB,2)) || throw(DimensionMismatch("WB must be an $m x 2 matrix"))
+   (m <= size(WD,1) && 2 == size(WD,2))  || throw(DimensionMismatch("WD must be an $m x 2 matrix"))
    
    ONE = one(T1)
    SONE = isgn*ONE
@@ -3237,8 +3268,8 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    m, n = size(E);
    [m; n; m; n] == LinearAlgebra.checksquare(A,B,C,D) ||
       throw(DimensionMismatch("A, B, C, D and E have incompatible dimensions"))
-   m == length(WB) || throw(DimensionMismatch("WB must be an $m - dimensional vector"))
-   m == length(WD) || throw(DimensionMismatch("WD must be an $m - dimensional vector"))
+   m <= length(WB) || throw(DimensionMismatch("WB must be an $m - dimensional vector"))
+   m <= length(WD) || throw(DimensionMismatch("WD must be an $m - dimensional vector"))
 
    ZERO = zero(T1)
    SONE = isgn*one(T1)
@@ -3453,6 +3484,372 @@ function gsylvs!(A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix
    end
    return E
 end
+function gsylvs_blocked!(WS::AbstractMatrix{T1}, A::AbstractMatrix{T1}, B::AbstractMatrix{T1}, C::AbstractMatrix{T1}, D::AbstractMatrix{T1}, E::AbstractMatrix{T1}; 
+   adjAC::Bool = false, adjBD::Bool = false, isgn::Int = 1, CASchur::Bool = false, DBSchur::Bool = false, blocksize::Integer = 64) where {T1<:BlasFloat}
+   m = LinearAlgebra.checksquare(A)  
+   n = LinearAlgebra.checksquare(B)
+   (m, n) == size(E) || throw(DimensionMismatch("E must be a $m x $n"))
+   if T1 <: Complex 
+      WB = similar(A,m); WD = similar(A,m)
+   else
+      WB = similar(A,m,2); WD = similar(A,m,2)
+   end   
+   # Call the positional recursive worker
+   _gsylvs_blocked!(WS, WB, WD, A, B, C, D, E, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+end
+function _gsylvs_blocked!(WS, WB, WD, A, B, C, D, E, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize::Integer)
+   m = size(A, 1)
+   n = size(B, 1)
+   if m <= max(blocksize,4) && n <= max(blocksize,4)
+      gsylvs!(A, B, C, D, E, WB, WD; adjAC, adjBD, isgn, CASchur, DBSchur)
+   elseif 2*n <= m 
+      midm = m ÷ 2
+      if CASchur
+         m1 = C[midm+1, midm] != 0 ? midm + 1 : midm
+      else
+         m1 = A[midm+1, midm] != 0 ? midm + 1 : midm
+      end
+      ia1 = 1:m1; ia2 = m1+1:m 
+
+      @views begin
+         A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+         C11, C12, C22 = C[ia1,ia1], C[ia1,ia2], C[ia2,ia2]
+         E1, E2 = E[ia1,1:n], E[ia2,1:n]
+         WS11, WS21 = WS[ia1,1:n], WS[ia2,1:n]
+      end
+      if adjAC 
+         # solve A' X op(B) + isgn C' X op(D) = E where 
+         # op(B) = B, op(D) = D  if adjBD = false and 
+         # op(B) = B', op(D) = D' if adjBD = true
+
+         # X1 solver
+         _gsylvs_blocked!(WS11, WB, WD, A11, B, C11, D, E1, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E2 update: E2 = E2 - A12'*X1*op(B) - isgn*C12'*X1*op(D)
+         mul!(WS21,A12',E1)
+         mul!(E2, WS21, adjBD ? B' : B,-1,1)
+         mul!(WS21,C12',E1)
+         mul!(E2, WS21, adjBD ? D' : D,-isgn,1)
+
+         # X2 solver
+         _gsylvs_blocked!(WS21, WB, WD, A22, B, C22, D, E2, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+      else 
+         # solve A X op(B)  + isgn C X op(D) = E where 
+         # op(B) = B, op(D) = D  if adjBD = false and 
+         # op(B) = B', op(D) = D' if adjBD = true
+
+         # X2 solver
+         _gsylvs_blocked!(WS21, WB, WD, A22, B, C22, D, E2, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E1 update: E1 = E1 - A12*X2*op(B) - isgn*C12*X2*op(D)
+         mul!(WS11, A12, E2)
+         mul!(E1, WS11, adjBD ? B' : B, -1, 1)
+         mul!(WS11, C12, E2)
+         mul!(E1, WS11, adjBD ? D' : D, -isgn, 1)
+
+         # X1 solver
+         _gsylvs_blocked!(WS11, WB, WD, A11, B, C11, D, E1, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+      end
+   elseif 2*m <= n 
+      midn = n ÷ 2
+      if DBSchur
+         n1 = D[midn+1, midn] != 0 ? midn + 1 : midn
+      else 
+         n1 = B[midn+1, midn] != 0 ? midn + 1 : midn
+      end
+      ib1 = 1:n1; ib2 = n1+1:n 
+
+      @views begin
+         B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]
+         D11, D12, D22 = D[ib1,ib1], D[ib1,ib2], D[ib2,ib2]
+         E1, E2 = E[1:m,ib1], E[1:m,ib2]
+         WS11, WS12 = WS[1:m,ib1], WS[1:m,ib2]
+      end
+      if !adjBD
+         # solve op(A) X B + isgn op(C) X D = E where
+         # op(A) = A, op(C) = C  if adjAC = false and 
+         # op(A) = A', op(C) = C' if adjAC = true
+
+         # X1 solver
+         _gsylvs_blocked!(WS11, WB, WD, A, B11, C, D11, E1, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E2 update: E2 = E2 - op(A)*X1*B12 - isgn*op(C)*X1*D12
+         mul!(WS12,E1,B12)
+         mul!(E2, adjAC ? A' : A, WS12, -1, 1)
+         mul!(WS12,E1,D12)
+         mul!(E2, adjAC ? C' : C, WS12, -isgn, 1)
+
+         # X2 solver
+         _gsylvs_blocked!(WS11, WB, WD, A, B22, C, D22, E2, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+      else
+         # solve op(A) X B'  + isgn op(C) X D' = E  where
+         # op(A) = A, op(C) = C  if adjAC = false and 
+         # op(A) = A', op(C) = C' if adjAC = true
+
+         # X2 solver
+         _gsylvs_blocked!(WS11, WB, WD, A, B22, C, D22, E2, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E1 update: E1 = E1 - op(A)*X2*B12' - isgn*op(C)*X2*D12'
+         # mul!(WS12, C2, B12')
+         # mul!(C1, adjA ? A' : A, WS12, -1, 1)
+
+         mul!(WS12, adjAC ? A' : A, E2)
+         mul!(E1, WS12, B12', -1, 1)
+         mul!(WS12, adjAC ? C' : C, E2)
+         mul!(E1, WS12, D12', -isgn, 1)
+
+
+         # X1 solver
+         _gsylvs_blocked!(WS11, WB, WD, A, B11, C, D11, E1, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+      end
+   else
+      midm = m ÷ 2
+      if CASchur
+         m1 = C[midm+1, midm] != 0 ? midm + 1 : midm
+      else
+         m1 = A[midm+1, midm] != 0 ? midm + 1 : midm
+      end
+      ia1 = 1:m1; ia2 = m1+1:m 
+      midn = n ÷ 2
+      if DBSchur
+         n1 = D[midn+1, midn] != 0 ? midn + 1 : midn
+      else 
+         n1 = B[midn+1, midn] != 0 ? midn + 1 : midn
+      end
+      ib1 = 1:n1; ib2 = n1+1:n 
+      if eltype(A) <: Real
+         @views begin
+            A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+            B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]
+            C11, C12, C22 = C[ia1,ia1], C[ia1,ia2], C[ia2,ia2]
+            D11, D12, D22 = D[ib1,ib1], D[ib1,ib2], D[ib2,ib2]
+            # if CASchur
+            #    A11, A12, A22 = UpperTriangular(A[ia1,ia1]), A[ia1,ia2], UpperTriangular(A[ia2,ia2])
+            #    C11, C12, C22 = C[ia1,ia1], C[ia1,ia2], C[ia2,ia2]
+            # else
+            #    A11, A12, A22 = A[ia1,ia1], A[ia1,ia2], A[ia2,ia2]
+            #    C11, C12, C22 = UpperTriangular(C[ia1,ia1]), C[ia1,ia2], UpperTriangular(C[ia2,ia2])
+            # end
+            # if DBSchur
+            #    B11, B12, B22 = UpperTriangular(B[ib1,ib1]), B[ib1,ib2], UpperTriangular(B[ib2,ib2])
+            #    D11, D12, D22 = D[ib1,ib1], D[ib1,ib2], D[ib2,ib2]
+            # else
+            #    B11, B12, B22 = B[ib1,ib1], B[ib1,ib2], B[ib2,ib2]
+            #    D11, D12, D22 =  UpperTriangular(D[ib1,ib1]), D[ib1,ib2], UpperTriangular(D[ib2,ib2])
+            # end
+            E11, E12, E21, E22 = E[ia1,ib1], E[ia1,ib2], E[ia2,ib1], E[ia2,ib2]
+            WS11, WS12, WS21, WS22 = WS[ia1,ib1], WS[ia1,ib2], WS[ia2,ib1], WS[ia2,ib2]
+         end
+      else
+         @views begin
+            A11, A12, A22 = UpperTriangular(A[ia1,ia1]), A[ia1,ia2], UpperTriangular(A[ia2,ia2])
+            B11, B12, B22 = UpperTriangular(B[ib1,ib1]), B[ib1,ib2], UpperTriangular(B[ib2,ib2])
+            C11, C12, C22 = UpperTriangular(C[ia1,ia1]), C[ia1,ia2], UpperTriangular(C[ia2,ia2])
+            D11, D12, D22 =  UpperTriangular(D[ib1,ib1]), D[ib1,ib2],  UpperTriangular(D[ib2,ib2])
+            E11, E12, E21, E22 = E[ia1,ib1], E[ia1,ib2], E[ia2,ib1], E[ia2,ib2]
+            WS11, WS12, WS21, WS22 = WS[ia1,ib1], WS[ia1,ib2], WS[ia2,ib1], WS[ia2,ib2]
+         end
+      end
+      if !adjAC && !adjBD
+         # solve A X B + isgn C X  D = E
+
+         # X21 solver
+         _gsylvs_blocked!(WS21, WB, WD, A22, B11, C22, D11, E21, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+         # E11 update: E11 = E11 - A12*X21*B11 - isgn*C12*X21*D11
+         mul!(WS21,E21,B11)
+         mul!(E11,A12,WS21,-1,1)
+         mul!(WS21,E21,D11)
+         mul!(E11,C12,WS21,-isgn,1)
+
+         # X11 solver
+         _gsylvs_blocked!(WS11, WB, WD, A11, B11, C11, D11, E11, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E22 update: E22 = E22 - A22*X21*B12 - isgn*C22*X21*D12
+         mul!(WS21,A22,E21)
+         mul!(E22,WS21,B12,-1,1)
+         mul!(WS21,C22,E21)
+         mul!(E22,WS21,D12,-isgn,1)
+         
+         # X22 solver
+         _gsylvs_blocked!(WS22, WB, WD, A22, B22, C22, D22, E22, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E12 update: E12 = E12 - (A11*X11 + A12*X21)*B12 - A12*X22*B22
+         #               - isgn*(C11*X11 + C12*X21)*D12 - isgn*C12*X22*D22
+
+         # WS11 = A11*X11 + A12*X21
+         mul!(WS11, A11, E11)
+         mul!(WS11, A12, E21, 1, 1)
+         # E12 = E12 - (WS11)*B12
+         mul!(E12, WS11, B12, -1, 1)
+
+         # WS11 = C11*X11 + C12*X21
+         mul!(WS11, C11, E11)
+         mul!(WS11, C12, E21, 1, 1)
+         # E12 = E12 - isgn*(WS11)*D12
+         mul!(E12, WS11, D12, -isgn, 1)
+
+         # E12 = E12 - A12*X22*B22
+         mul!(WS22, E22, B22)
+         mul!(E12, A12, WS22, -1, 1)
+         # E12 = E12 - isgn*C12*X22*D22
+         mul!(WS22, E22, D22)
+         mul!(E12, C12, WS22, -isgn, 1)
+
+         # X12 solver
+         _gsylvs_blocked!(WS12, WB, WD, A11, B22, C11, D22, E12, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+      elseif adjAC && !adjBD
+         # solve A' X B + isgn*C' X D = E
+         # X11 solver
+         _gsylvs_blocked!(WS11, WB, WD, A11, B11, C11, D11, E11, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E12 update: E12 = E12 - A11'*X11*B12 - isgn*C11'*X11*D12
+         mul!(WS11, A11', E11)
+         mul!(E12, WS11, B12, -1, 1)
+         mul!(WS11, C11', E11)
+         mul!(E12, WS11, D12, -isgn, 1)
+ 
+         # X12 solver
+         _gsylvs_blocked!(WS12, WB, WD, A11, B22, C11, D22, E12, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E21 update: E21 = E21 - A12'*X11*B11 - isgn*C12'*X11*D11
+         mul!(WS11, E11, B11)
+         mul!(E21, A12', WS11, -1, 1)
+         mul!(WS11, E11, D11)
+         mul!(E21, C12', WS11, -isgn, 1)
+
+         # X21 solver
+         _gsylvs_blocked!(WS21, WB, WD, A22, B11, C22, D11, E21, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         ES = copy(E22)
+         # E22 update: E22 = E22 - A12'*X12*B22 - isgn*C12'*X12*D22 -
+         #                   (A12'*X11+A22'*X21)*B12 - isgn*(C12'*X11+C22'*X21)*D12
+         # WS21 = A12'*X11+A22'*X21
+         # mul!(WS21, A12', E11)
+         # mul!(WS21, A22', E21, 1, 1)
+         mul!(WS21, A22', E21)
+         mul!(WS21, A12', E11, 1, 1)
+         # E22 = E22 - WS21 * B12
+         mul!(E22, WS21, B12, -1, 1)
+         # WS12 = C12'*X11+C22'*X22)
+         # mul!(WS21, C12', E11)
+         # mul!(WS21, C22', E21, 1, 1)
+         mul!(WS21, C22', E21)
+         mul!(WS21, C12', E11, 1, 1)
+         # E22 = E22 - WS21 * D12
+         mul!(E22, WS21, D12, -isgn, 1)
+
+         # E22 = E22 - A12'*X12*B22
+         mul!(WS12, E12, B22)
+         mul!(E22, A12', WS12, -1, 1) 
+         # E22 = E22 - C12'*X12*D22
+         mul!(WS12, E12, D22)
+         mul!(E22, C12', WS12, -isgn, 1) 
+
+         # X22 solver
+         _gsylvs_blocked!(WS22, WB, WD, A22, B22, C22, D22, E22, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+      elseif !adjAC && adjBD
+         # solve A X B' + isgn*C X D' = E
+
+         # X22 solver
+         _gsylvs_blocked!(WS22, WB, WD, A22, B22, C22, D22, E22, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E12 update: E12 = E12 - A12*X22*B22' - isgn*C12*X22*D22'
+         mul!(WS22,E22,B22')
+         mul!(E12,A12,WS22,-1,1)
+         mul!(WS22,E22,D22')
+         mul!(E12,C12,WS22,-isgn,1)
+
+         # X12 solver
+         _gsylvs_blocked!(WS12, WB, WD, A11, B22, C11, D22, E12, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E21 update: E21 = E21 - A22*X22*B12' - isgn*C22*X22*D12'
+         mul!(WS22,A22,E22)
+         mul!(E21,WS22,B12',-1,1)
+         mul!(WS22,C22,E22)
+         mul!(E21,WS22,D12',-isgn,1)
+
+         # X21 solver
+         _gsylvs_blocked!(WS21, WB, WD, A22, B11, C22, D11, E21, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+
+         # E11 update: E11 = E11 -A12*X21*B11' - isgn*C12*X21*D11' -
+         #                   (A11*X12+A12*X22)*B12' - isgn*(C11*X12+C12*X22)*D12'
+         # WS12 = A11*X12+A12*X22
+         mul!(WS12, A11, E12)
+         mul!(WS12, A12, E22, 1, 1)
+         # E11 = E11 + WS12 * B12'
+         mul!(E11, WS12, B12', -1, 1)
+         # WS12 = C11*X12+C12*X22
+         mul!(WS12, C11, E12)
+         mul!(WS12, C12, E22, 1, 1)
+         # E11 = E11 - isgn*WS12 * D12'
+         mul!(E11, WS12, D12', -isgn, 1)
+
+         # E11 = E11 - A12*X21*B11'
+         mul!(WS21, E21, B11')
+         mul!(E11, A12, WS21, -1, 1) 
+         # E11 = E11 - isgn*C12*X21*D11'
+         mul!(WS21, E21, D11')
+         mul!(E11, C12, WS21, -isgn, 1) 
+
+         # X11 solver
+         _gsylvs_blocked!(WS11, WB, WD, A11, B11, C11, D11, E11, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+      else
+         # solve A' X B' + isgn C' X D' = E
+
+         # X12 solver
+         _gsylvs_blocked!(WS12, WB, WD, A11, B22, C11, D22, E12, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E11 update: E11 = E11 - A11'*X12*B12' - isgn*C11'*X12*D12'  
+         mul!(WS12, A11', E12)
+         mul!(E11, WS12, B12', -1, 1) 
+         mul!(WS12, C11', E12)
+         mul!(E11, WS12, D12', -isgn, 1) 
+
+         # X11 solver
+         _gsylvs_blocked!(WS11, WB, WD, A11, B11, C11, D11, E11, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E22 update: E22 = E22 - A12'*X12*B22' - isgn*C12'*X12*D22' 
+         mul!(WS12, E12, B22')
+         mul!(E22, A12', WS12, -1, 1) 
+         mul!(WS12, E12, D22')
+         mul!(E22, C12', WS12, -isgn, 1) 
+
+         # X22 solver
+         _gsylvs_blocked!(WS22, WB, WD, A22, B22, C22, D22, E22, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+
+         # E21 update: E21 = E21 - (A12'*X12 + A22'*X22)*B12' - A12'*X11*B11' 
+         #          - isgn*(C12'*X12 + C22'*X22)*D12' - isgn*C12'*X11*D11' 
+
+         # WS22 =  A12'*X12 + A22'*X22
+         mul!(WS22,A12',E12)
+         mul!(WS22, A22', E22, 1, 1)
+         # E21 = E21 - (WS22)*B12'
+         mul!(E21, WS22, B12', -1, 1)
+
+         # WS22 =  C12'*X12 + C22'*X22
+         mul!(WS22,C12',E12)
+         mul!(WS22, C22', E22, 1, 1)
+         # E21 = E21 - isgn*(WS22)*D12'
+         mul!(E21, WS22, D12', -isgn, 1)
+         
+         # E21 = E21 - A12'*X11*B11'
+         mul!(WS21, A12', E11)
+         mul!(E21, WS21, B11', -1, 1)
+         # E21 = E21 - isgn*C12'*X11*D11'
+         mul!(WS21, C12', E11)
+         mul!(E21, WS21, D11', -isgn, 1)
+
+         # X21 solver
+         Es = copy(E21)
+         _gsylvs_blocked!(WS21, WB, WD, A22, B11, C22, D11, E21, adjAC, adjBD, isgn, CASchur, DBSchur, blocksize)
+      end
+   end   
+end
+
 """
     (X,Y) = sylvsyss!(A,B,C,D,E,F)
 

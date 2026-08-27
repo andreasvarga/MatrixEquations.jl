@@ -1,9 +1,11 @@
 # Release Notes
 
+## Version 2.6.5
+- recursive blocking implemented for solving generalized Sylvester equations in `gsylv` for `BlasFloat` data
+
 ## Version 2.6.4
 - Enhanced Lyapunov solvers `plyapc`, `plyapd` and `plyaps` to efficiently handle symmetric/Hermitian/diagonal inputs.  
-- Simplified codes of Lyapunov solvers `plyapc`, `plyapd` and `plyaps`, 
-by calling suitable functions to enforce upper triangular forms.  
+- Simplified codes of Lyapunov solvers `plyapc`, `plyapd` and `plyaps`, by calling suitable functions to enforce upper triangular forms.  
 
 ## Version 2.6.3
 Enhancing standard `plyapc` and `plyapd` solvers:
