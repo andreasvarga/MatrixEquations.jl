@@ -929,6 +929,129 @@ function _lag2(a::StridedMatrix{T},b::StridedMatrix{T},safmin::T) where {T <: Re
    return scale1, scale2, wr1, wr2, wi
 end
 _lag2(a::StridedMatrix{T},b::StridedMatrix{T},safmin::T) where {T <: BlasReal} = LapackUtil.lag2(a,b,safmin)
+@inline function _lag2(a11::T, a12::T, a21::T, a22::T, b11::T, b12::T, b22::T, safmin::T) where {T <: Real}
+   ONE = one(T)
+   half = ONE / 2
+   fuzzy1 = ONE + ONE / 10000
+
+   rtmin = sqrt(safmin)
+   rtmax = ONE / rtmin
+   safmax = ONE / safmin
+
+   anorm = max(abs(a11) + abs(a21), abs(a12) + abs(a22), safmin)
+   ascale = ONE / anorm
+   a11s = ascale * a11
+   a21s = ascale * a21
+   a12s = ascale * a12
+   a22s = ascale * a22
+
+   bmin = rtmin * max(abs(b11), abs(b12), abs(b22), rtmin)
+   abs(b11) < bmin && (b11 = bmin * sign(b11))
+   abs(b22) < bmin && (b22 = bmin * sign(b22))
+
+   bnorm = max(abs(b11), abs(b12) + abs(b22), safmin)
+   bsize = max(abs(b11), abs(b22))
+   bscale = ONE / bsize
+   b11s = b11 * bscale
+   b12s = b12 * bscale
+   b22s = b22 * bscale
+
+   binv11 = ONE / b11s
+   binv22 = ONE / b22s
+   s1 = a11s * binv11
+   s2 = a22s * binv22
+
+   if abs(s1) <= abs(s2)
+      as12 = a12s - s1 * b12s
+      as22 = a22s - s1 * b22s
+      ss = a21s * (binv11 * binv22)
+      abi22 = as22 * binv22 - ss * b12s
+      pp = half * abi22
+      shift = s1
+   else
+      as12 = a12s - s2 * b12s
+      as11 = a11s - s2 * b11s
+      ss = a21s * (binv11 * binv22)
+      abi22 = -ss * b12s
+      pp = half * (as11 * binv11 + abi22)
+      shift = s2
+   end
+
+   qq = ss * as12
+   if abs(pp * rtmin) >= ONE
+      discr = (rtmin * pp)^2 + qq * safmin
+      r = sqrt(abs(discr)) * rtmax
+   else
+      if pp^2 + abs(qq) <= safmin
+         discr = (rtmax * pp)^2 + qq * safmax
+         r = sqrt(abs(discr)) * rtmin
+      else
+         discr = pp^2 + qq
+         r = sqrt(abs(discr))
+      end
+   end
+
+   if discr >= zero(T) || r == zero(T)
+      t = r * sign(pp)
+      sum_val = pp + t
+      diff_val = pp - t
+      wbig = shift + sum_val
+      wsmall = shift + diff_val
+
+      if half * abs(wbig) > max(abs(wsmall), safmin)
+         wdet = (a11s * a22s - a12s * a21s) * (binv11 * binv22)
+         wsmall = wdet / wbig
+      end
+
+      if pp > abi22
+         wr1 = min(wbig, wsmall)
+         wr2 = max(wbig, wsmall)
+      else
+         wr1 = max(wbig, wsmall)
+         wr2 = min(wbig, wsmall)
+      end
+      wi = zero(T)
+   else
+      wr1 = shift + pp
+      wr2 = wr1
+      wi = r
+   end
+
+   c1 = bsize * (safmin * max(ONE, ascale))
+   c2 = safmin * max(ONE, bnorm)
+   c3 = bsize * safmin
+   c4 = (ascale <= ONE && bsize <= ONE) ? min(ONE, (ascale / safmin) * bsize) : ONE
+   c5 = (ascale <= ONE || bsize <= ONE) ? min(ONE, ascale * bsize) : ONE
+
+   wabs = abs(wr1) + abs(wi)
+   wsize = max(safmin, c1, fuzzy1 * (wabs * c2 + c3), min(c4, half * max(wabs, c5)))
+   if wsize != ONE
+      wscale = ONE / wsize
+      scale1 = (wsize > ONE) ? (max(ascale, bsize) * wscale) * min(ascale, bsize) : (min(ascale, bsize) * wscale) * max(ascale, bsize)
+      wr1 *= wscale
+      if wi != zero(T)
+         wi *= wscale
+         wr2 = wr1
+         scale2 = scale1
+      end
+   else
+      scale1 = ascale * bsize
+      scale2 = scale1
+   end
+
+   if wi == zero(T)
+      wsize = max(safmin, c1, fuzzy1 * (abs(wr2) * c2 + c3), min(c4, half * max(abs(wr2), c5)))
+      if wsize != ONE
+         wscale = ONE / wsize
+         scale2 = (wsize > ONE) ? (max(ascale, bsize) * wscale) * min(ascale, bsize) : (min(ascale, bsize) * wscale) * max(ascale, bsize)
+         wr2 *= wscale
+      else
+         scale2 = ascale * bsize
+      end
+   end
+
+   return scale1, scale2, wr1, wr2, wi
+end
 function _ladiv(A, B, C, D)
 #
 #    ladiv(A, B, C, D) -> (P, Q)

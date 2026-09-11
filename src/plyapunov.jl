@@ -125,7 +125,7 @@ plyapc(A::Union{Real,Complex}, B::Union{Real,Complex}) =
       error("A must be a negative number or must have negative real part")
 
 """
-    U = plyapc(A, E, B)
+    U = plyapc(A, E, B; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 generalized continuous Lyapunov equation
@@ -136,7 +136,7 @@ where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
-    U = plyapc(A', E', B')
+    U = plyapc(A', E', B'; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the generalized continuous Lyapunov equation
@@ -146,6 +146,10 @@ the generalized continuous Lyapunov equation
 where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
+
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used 
+in the recursive blocking based generalized Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 
 # Example
 ```jldoctest
@@ -177,11 +181,13 @@ julia> A*U*U'*E'+E*U*U'*A'+B*B'
  -1.33227e-15  -2.66454e-15
 ```
 """
-function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
+function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; blocksize::Int = 64)
    # Method
 
    # A generalization of Bartels-Steward Schur form based method is employed [1],
-   # with the modifications proposed by Hammarling [2] and Penzl [3].
+   # with the modifications proposed by Hammarling [2] and Penzl [3]. 
+   # For `BlasFloat` type data, the generalized Sylvester equations 
+   # are solved using the recursive blocking based algorithm of [4].
 
    # Reference:
 
@@ -192,9 +198,12 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    # [3] Penzl, T.
    #     Numerical solution of generalized Lyapunov equations.
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
+   # [4] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
+   #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+   #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
    n = LinearAlgebra.checksquare(A)
-   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapc(A, B))
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapc(A, B; blocksize))
    
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -228,7 +237,7 @@ function plyapc(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    maximum(real(α./β)) >= zero(real(T2)) && error("A-λE must have only eigenvalues with negative real parts")
 
    U = adj ? utriuB(B,Z) : utriuB(B,Q)
-   plyapcs!(AS, ES, U; adj)
+   plyapcs!(AS, ES, U; adj, blocksize)
    return adj ? utriuU(U, Q, AS; adj) : utriuU(U, Z, AS; adj)
 end
 plyapc(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
@@ -362,7 +371,7 @@ plyapd(A::Union{Real,Complex}, B::Union{Real,Complex}) =
       abs(A) < real(one(A)) ? real(abs(B)/sqrt( (one(A)-abs(A))*(one(A)+abs(A)) )) :
       error("A must be a subunitary number")
 """
-    U = plyapd(A, E, B)
+    U = plyapd(A, E, B; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 generalized discrete Lyapunov equation
@@ -373,7 +382,7 @@ where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 
-    U = plyapd(A', E', B')
+    U = plyapd(A', E', B'; blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the generalized discrete Lyapunov equation
@@ -383,6 +392,10 @@ the generalized discrete Lyapunov equation
 where `A` and `E` are square real or complex matrices and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
+
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used 
+in the recursive blocking based generalized Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 
 # Example
 ```jldoctest
@@ -414,11 +427,13 @@ julia> A*U*U'*A'-E*U*U'*E'+B*B'
  2.22045e-15  2.66454e-15
 ```
 """
-function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix)
+function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; blocksize = 64)
    # Method
 
    # The Bartels-Steward Schur form based method is employed [1], with the
    # modifications proposed by Hammarling in [2] and Penzl in [3].
+   # For `BlasFloat` type data, the discrete Sylvester equations 
+   # are solved using the recursive blocking based algorithm of [4].
 
    # Reference:
 
@@ -429,9 +444,12 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    # [3] Penzl, T.
    #     Numerical solution of generalized Lyapunov equations.
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
+   # [4] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
+   #     Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+   #     ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
    n = LinearAlgebra.checksquare(A)
-   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapd(A, B))
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyapd(A, B; blocksize))
    
    T2 = promote_type(eltype(A), eltype(E), eltype(B))
    T2 <: BlasFloat  || (T2 = promote_type(Float64,T2))
@@ -467,7 +485,7 @@ function plyapd(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    maximum(abs.(α./β)) >= ONE && error("A-λE must have only eigenvalues with moduli less than one")
 
    U = adj ? utriuB(B,Z) : utriuB(B,Q)
-   plyapds!(AS, ES, U; adj)
+   plyapds!(AS, ES, U; adj, blocksize)
    return adj ? utriuU(U, Q, AS; adj) : utriuU(U, Z, AS; adj)
 end
 plyapd(A::Union{Real,Complex}, E::Union{Real,Complex}, B::Union{Real,Complex}) =
@@ -531,7 +549,7 @@ This option can be used only for `BlasFloat` type data.
 function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 64)
    # Method
 
-   # The Bartels-Steward Schur form based method is employed [1], with the
+   # The Bartels-Stewart Schur form based method is employed [1], with the
    # modifications proposed by Hammarling in [2] and [3]. 
    # For `BlasFloat` type data, the continuous Sylvester equations 
    # are solved using the recursive blocking based algorithm of [4], while the 
@@ -550,8 +568,8 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 
    #     Part I: One-sided and coupled Sylvester-type matrix equations, ACM Trans. Math. Software, 
    #     28 (2002), pp. 392–415.
    # [5] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
-   #        Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
-   #        ACM Trans. Math. Software, 28 (2002), pp. 416–435.
+   #     Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+   #     ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
    T2 = promote_type(eltype(A), eltype(B))
    adiag = isdiag(A)
@@ -613,7 +631,7 @@ function plyaps(A::AbstractMatrix, B::AbstractMatrix; disc = false, blocksize = 
    return utnormalize!(U,adj)
 end
 """
-    U = plyaps(A, E, B; disc = false)
+    U = plyaps(A, E, B; disc = false, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 generalized continuous Lyapunov equation
@@ -625,7 +643,7 @@ a generalied real or complex Schur form, respectively,  and `B` is a matrix
 with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
-    U = plyaps(A', E', B', disc = false)
+    U = plyaps(A', E', B', disc = false, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the generalized continuous Lyapunov equation
@@ -637,7 +655,7 @@ a generalied real or complex Schur form, respectively,  and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with negative real parts.
 
-    U = plyaps(A, E, B, disc = true)
+    U = plyaps(A, E, B, disc = true, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = UU'` of the
 generalized discrete Lyapunov equation
@@ -649,7 +667,7 @@ a generalied real or complex Schur form, respectively,  and `B` is a matrix
 with the same number of rows as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
 
-    U = plyaps(A', E', B', disc = true)
+    U = plyaps(A', E', B', disc = true, blocksize = 64)
 
 Compute `U`, the upper triangular factor of the solution `X = U'U` of
 the generalized discrete Lyapunov equation
@@ -660,12 +678,18 @@ where `A` and `E` are square real or complex matrices with the pair `(A,E)` in
 a generalied real or complex Schur form, respectively,  and `B` is a matrix
 with the same number of columns as `A`. The pencil `A - λE` must have only
 eigenvalues with moduli less than one.
+
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used 
+in the recursive blocking based generalizedd Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 """
-function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; disc = false)
+function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix; disc = false, blocksize = 64)
    # Method
 
-   # Generalizations of Bartels-Steward Schur form based method is employed [1],
+   # Generalizations of Bartels-Stewart Schur form based method is employed [1],
    # with the modifications proposed by Hammarling [2] and Penzl [3].
+   # For `BlasFloat` type data, the generalized Sylvester equations 
+   # are solved using the recursive blocking based algorithm of [4].
 
    # Reference:
 
@@ -676,6 +700,9 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    # [3] Penzl, T.
    #     Numerical solution of generalized Lyapunov equations.
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
+   # [4] I. Jonsson and B. Kågström, Recursive blocked algorithms for solving triangular systems — 
+   #     Part II: Two-sided and generalized Sylvester and Lyapunov matrix equations, 
+   #     ACM Trans. Math. Software, 28 (2002), pp. 416–435.
 
    n = LinearAlgebra.checksquare(A)
    (typeof(E) == UniformScaling{Bool} || (isequal(E,I) &&  size(E,1) == n)) && (return plyaps(A, B))
@@ -687,10 +714,8 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
    (xor(adj,isa(E,Adjoint)) || xor(adj,isa(B,Adjoint))) &&
       error("Only calls with A, E and B or with A', E' and B' allowed")
 
-
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    
-
    if adj
       nb, mb = size(B)
       nb == n || throw(DimensionMismatch("B must be a matrix of column dimension $n"))
@@ -699,25 +724,22 @@ function plyaps(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling{Bool}}
       mb == n || throw(DimensionMismatch("B must be a matrix of row dimension $n"))
    end
 
-
-
    eltype(A) == T2 || (adj ? A = convert(Matrix{T2},A.parent)' : A = convert(Matrix{T2},A))
    eltype(E) == T2 || (adj ? E = convert(Matrix{T2},E.parent)' : E = convert(Matrix{T2},E))
    eltype(B) == T2 || (adj ? B = convert(Matrix{T2},B.parent)' : B = convert(Matrix{T2},B))
-   ZERO = zero(T2)
 
    U = utriuB(B)
    if adj
       if disc
-         plyapds!(A.parent, E.parent, U; adj)
+         plyapds!(A.parent, E.parent, U; adj, blocksize)
       else
-         plyapcs!(A.parent, E.parent, U; adj)
+         plyapcs!(A.parent, E.parent, U; adj, blocksize)
       end
    else
       if disc
-         plyapds!(A, E, U; adj)
+         plyapds!(A, E, U; adj, blocksize)
       else
-         plyapcs!(A, E, U; adj)
+         plyapcs!(A, E, U; adj, blocksize)
       end
    end
    return utnormalize!(U,adj)
@@ -1115,7 +1137,6 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, bl
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
 
-
    Wr = Vector{T1}(undef,n)
    Wz = similar(Wr,n,1)
    if adj
@@ -1148,10 +1169,8 @@ function plyapcs!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, bl
                k += 1
             end  
             # Solve S1'*ubar+ubar*β + z = 0
-            if T <: BlasComplex
-                #sylvcs_blocked!(view(A,j1,j1), β, z; adjA = true, adjB = false, blocksize); 
-               _, scale = LAPACK.trsyl!('C','N', view(A,j1,j1), β, z)
-               # scale == ONE || error("Singular Lyapunov equation")
+            if T1 <: BlasComplex
+               sylvcs_blocked!(view(A,j1,j1), β, z; adjA = true, adjB = false, blocksize); 
             else
                sylvcs1!(view(A,j1,j1), β, z; adj)
                rmul!(z,-1)
@@ -1220,12 +1239,10 @@ end
 function plyapds!(A::Diagonal{T1}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
    n = size(A,1)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
-   ZERO = zero(T1)
    ONE = one(T1)
    Amax = maximum(abs.(A.diag))
    Amax >= ONE && error("A is not convergent")
 
-   TWO = 2*ONE
    EPS = eps(T1)
    SMLNUM = sqrt(_safemin(T1))/EPS
    BIGNUM = ONE / SMLNUM
@@ -1433,7 +1450,7 @@ function plyapds!(A::Diagonal{T1}, R::UpperTriangular{T1}; adj::Bool = false, bl
 end
 
 """
-    plyapcs!(A,E,R;adj = false)
+    plyapcs!(A,E,R;adj = false, blocksize = 64)
 
 Solve the generalized positive continuous Lyapunov matrix equation
 
@@ -1443,10 +1460,12 @@ for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `
 The pair `(A,E)` is in a generalized real/complex Schur form and `R` is an upper
 triangular matrix. The pencil `A-λE` must have only eigenvalues with negative
 real parts. `R` contains on output the solution `U`.
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 """
-function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: Real
+function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
    n = LinearAlgebra.checksquare(A)
-   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R, adj = adj); return)
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapcs!(A, R; adj, blocksize); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
@@ -1461,6 +1480,7 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    # determine the structure of the generalized real Schur form
    ba, p = sfstruct(A)
 
+   T1 <: BlasReal && (WS = Matrix{T1}(undef,n,2))
    WB = Matrix{T1}(undef,n,2)
    WD = Matrix{T1}(undef,n,2)
    Wr = Matrix{T1}(undef,n,2)
@@ -1489,7 +1509,7 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              Mα[1,1] = TEMP/E[j,j]
              Mβ[1,1] = A[j,j]/E[j,j]
           else
-             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true)
+             pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), Mβ, Mα, adj = true)
           end
           if ll < p
              dll = 1:dl
@@ -1529,7 +1549,12 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              rmul!(z,-1)
              # Solve A[j1,j1]'*ubar+E[j1,j1]'*ubar*β + z = 0
              E1 = view(E,j1,j1)
-             gsylvs!(view(A,j1,j1), view(η,dll,dll), E1, β, z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = true, adjBD = false)
+             if T1 <: BlasReal
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, view(A,j1,j1), view(η,dll,dll), E1, β, z,
+                                 true, false, 1, false, false, blocksize)
+             else
+                gsylvs!(view(A,j1,j1), view(η,dll,dll), E1, β, z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = true, adjBD = false)
+             end
              #R[l,j1] = z'
              transpose!(view(R,l,j1),z)
              # update the Cholesky factor R2'*R2 <- R2'*R2 + y'*y
@@ -1561,7 +1586,7 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              Mα[1,1] = TEMP/E[j,j]
              Mβ[1,1] = A[j,j]/E[j,j]
           else
-             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false)
+             pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), Mβ, Mα, adj = false)
           end
           if ll > 1
              dll = 1:dl
@@ -1597,9 +1622,14 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              dl == 1 || (axpy!(R[js-1,js],view(A,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(A,j1,js),view(z,:,2)))
              mul!(z, v, transpose(β), 1, 1)
              rmul!(z,-1)
-             # Solve S1*ubar+ubar*β' + z = 0
+             # Solve A[j1,j1]*ubar+E[j1,j1]*ubar*β' + z = 0
              E1 = view(E,j1,j1)
-             gsylvs!(view(A,j1,j1), view(η,dll,dll), E1, β, z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = false, adjBD = true)
+             if T1 <: BlasReal
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, view(A,j1,j1), view(η,dll,dll), E1, β, z,
+                                 false, true, 1, false, false, blocksize)
+             else
+                gsylvs!(view(A,j1,j1), view(η,dll,dll), E1, β, z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = false, adjBD = true)
+             end
              #R[j1,l] = z
              copyto!(view(R,j1,l), z)
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
@@ -1615,11 +1645,11 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    end
    return R
 end
-function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}},R::UpperTriangular{T1}; adj = false, blocksize::Int = 64)  where T1 <: Complex
    n = LinearAlgebra.checksquare(A)
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
    (typeof(E) == UniformScaling{Bool} || isempty(E) || (isequal(E,I) && size(E,1) == n)) &&
-         (plyapcs!(A, R, adj = adj); return)
+         (plyapcs!(A, R; adj, blocksize); return)
 
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
 
@@ -1632,6 +1662,7 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
 
+   T1 <: BlasComplex && (WS = Matrix{T1}(undef,n,1))
    WB = Vector{T1}(undef,n)
    WD = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
@@ -1678,7 +1709,12 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              #  #z = rbar*α + A[l,j1]'*R[l,l]' + E[l,j1]'*R[l,l]'*β
              # Solve A[j1,j1]'*ubar+E[j1,j1]'*ubar*β + z = 0
              E1 = view(E,j1,j1)
-             gsylvs!(view(A,j1,j1), η, E1, β, z, view(WB,j1), view(WD,j1); adjAC=true, adjBD=false)
+             if T1 <: BlasComplex
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, view(A,j1,j1), η, E1, β, z,
+                                 true, false, 1, false, false, blocksize)
+             else
+                gsylvs!(view(A,j1,j1), η, E1, β, z, view(WB,j1), view(WD,j1); adjAC=true, adjBD=false)
+             end
              # v <- v + E1'*z
              mul!(v, UpperTriangular(E1)', z, 1, 1)
              #R[l,j1] = z'
@@ -1729,9 +1765,14 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
                  v[ii] = E[ii,j+1]*R[j+1,j+1]
                  z[ii] = -(rbar[ii]*α' + A[ii,j+1]*R[j+1,j+1] + v[ii]*β[1,1]')
              end
-             # Solve S1*ubar+ubar*β' + z = 0
+             # Solve A[j1,j1]*ubar+E[j1,j1]*ubar*β' + z = 0
              E1 = view(E,j1,j1)
-             gsylvs!(view(A,j1,j1), η, E1, β, z, view(WB,j1), view(WD,j1); adjAC=false, adjBD=true)
+             if T1 <: BlasComplex
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, view(A,j1,j1), η, E1, β, z,
+                                 false, true, 1, false, false, blocksize)
+             else
+                gsylvs!(view(A,j1,j1), η, E1, β, z, view(WB,j1), view(WD,j1); adjAC=false, adjBD=true)
+             end
              # v <- v + E1*z
              mul!(v, UpperTriangular(E1), z, 1, 1)
              #R[j1,l] = z
@@ -1749,7 +1790,7 @@ function plyapcs!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    return R
 end
 """
-    plyapds!(A, R; adj = false)
+    plyapds!(A, R; adj = false, blocksize = 64)
 
 Solve the positive discrete Lyapunov matrix equation
 
@@ -1760,6 +1801,8 @@ for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `
 complex Schur form and `R` is an upper triangular matrix.
 `A` must have only eigenvalues with moduli less than one.
 `R` contains on output the upper triangular solution `U`.
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 """
 function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, blocksize = 64)  where T1 <: Real
    # check for diagonal A
@@ -2097,7 +2140,7 @@ function plyapds!(A::AbstractMatrix{T1}, R::UpperTriangular{T1}; adj = false, bl
    return R
 end
 """
-    plyapds!(A,E,R;adj = false)
+    plyapds!(A,E,R;adj = false, blocksize = 64)
 
 Solve the generalized positive discrete Lyapunov matrix equation
 
@@ -2107,8 +2150,10 @@ for `X = op(U)*op(U)'`, where `op(K) = K` if `adj = false` and `op(K) = K'` if `
 The pair `(A,E)` of square real or complex matrices is in a generalized Schur form
 and `R` is an upper triangular matrix. `A-λE` must have only eigenvalues with
 moduli less than one. `R` contains on output the upper triangular solution `U`.
+The parameter `blocksize` (Default: `blocksize = 64`) specifies the blocksize to be used in the recursive blocking based Sylvester equation solvers. 
+This option can be used only for `BlasFloat` type data. 
 """
-function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false)  where T1 <: Real
+function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj::Bool = false, blocksize::Int = 64)  where T1 <: Real
    # The method of [1] for the discrete case is implemented.
 
    # [1] Penzl, T.
@@ -2116,19 +2161,12 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    #     Advances in Comp. Math., vol. 8, pp. 33-48, 1998.
 
    n = LinearAlgebra.checksquare(A)
-   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R; adj, blocksize); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
-   # ONE = one(T1)
-   # ZERO = zero(T1)
-   # small = safemin(T1)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
-
    ONE = one(T1)
    ZERO = zero(T1)
-   TWO = 2*ONE
    EPS = eps(T1)
    SMLNUM = sqrt(_safemin(T1))/EPS
    BIGNUM = ONE / SMLNUM
@@ -2138,6 +2176,7 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    # determine the structure of the real Schur form
    ba, p = sfstruct(A)
 
+   T1 <: BlasReal && (WS = Matrix{T1}(undef,n,2))
    WB = Matrix{T1}(undef,n,2)
    WD = Matrix{T1}(undef,n,2)
    Wr = Matrix{T1}(undef,n,2)
@@ -2166,7 +2205,7 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              Mα[1,1] = TEMP/E[j,j]
              Mβ[1,1] = A[j,j]/E[j,j]
           else
-            Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = true, disc = true)
+             pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), Mβ, Mα, adj = true, disc = true)
           end
           if ll < p
              dll = 1:dl
@@ -2205,9 +2244,14 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              end
              mul!(z, v, β, -1, 1)
 
-             # Solve S1'*ubar*β+ubar + z = 0
+             # Solve S1'*ubar*β-E[j1,j1]'*ubar + z = 0
              S1 = view(A,j1,j1)
-             gsylvs!(S1, β, view(E,j1,j1), view(η,dll,dll), z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = true, adjBD = false)
+             if T1 <: BlasReal
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, S1, β, view(E,j1,j1), view(η,dll,dll), z,
+                                 true, false, 1, false, false, blocksize)
+             else
+                gsylvs!(S1, β, view(E,j1,j1), view(η,dll,dll), z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = true, adjBD = false)
+             end
              # R[l,j1] = z'
              transpose!(view(R,l,j1),z)
              #v += S1'*z
@@ -2244,7 +2288,7 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              Mα[1,1] = TEMP/E[j,j]
              Mβ[1,1] = A[j,j]/E[j,j]
           else
-             Mβ, Mα = pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), adj = false, disc = true)
+             pglyap2!(view(A,l,l), view(E,l,l), view(R,l,l), Mβ, Mα, adj = false, disc = true)
           end
           if ll > 1
              dll = 1:dl
@@ -2278,9 +2322,14 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
              axpy!(R[k,k],view(E,j1,k),view(z,:,1))
              dl == 1 || (axpy!(R[js-1,js],view(E,j1,js-1),view(z,:,2)); axpy!(R[js,js],view(E,j1,js),view(z,:,2)))
 
-             # Solve S1*ubar*β'+ubar + z = 0
+             # Solve S1*ubar*β'-E[j1,j1]*ubar + z = 0
              S1 = view(A,j1,j1)
-             gsylvs!(S1, β, view(E,j1,j1), view(η,dll,dll), z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = false, adjBD = true)
+             if T1 <: BlasReal
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, S1, β, view(E,j1,j1), view(η,dll,dll), z,
+                                 false, true, 1, false, false, blocksize)
+             else
+                gsylvs!(S1, β, view(E,j1,j1), view(η,dll,dll), z, view(WB,j1,1:2), view(WD,j1,1:2); adjAC = false, adjBD = true)
+             end
              #R[j1,l] = z
              copyto!(view(R,j1,l),z)
              # update the Cholesky factor R1*R1' <- R1*R1' + y*y'
@@ -2299,27 +2348,20 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
    end
    return R
 end
-function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false)  where T1 <: Complex
+function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScaling{Bool}}, R::UpperTriangular{T1}; adj = false, blocksize::Int = 64)  where T1 <: Complex
    n = LinearAlgebra.checksquare(A)
-   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R, adj = adj); return)
+   (typeof(E) == UniformScaling{Bool} || (isequal(E,I) && size(E,1) == n)) && (plyapds!(A, R; adj, blocksize); return)
    LinearAlgebra.checksquare(E) == n || throw(DimensionMismatch("E must be a $n x $n matrix or I"))
    LinearAlgebra.checksquare(R) == n || throw(DimensionMismatch("R must be a $n x $n upper triangular matrix"))
 
-   # T = real(T1)
-   # ONE = one(T)
-   # small = safemin(T)*n*n
-   # BIGNUM = ONE / small
-   # SMIN = eps(max(maximum(abs.(A)),maximum(abs.(E))))
-
    T = real(T1)
    ONE = one(T)
-   ZERO = zero(T)
-   TWO = 2*ONE
    EPS = eps(T)
    SMLNUM = sqrt(_safemin(T))/EPS
    BIGNUM = ONE / SMLNUM
    SMIN = EPS*maximum(abs.(A))
 
+   T1 <: BlasComplex && (WS = Matrix{T1}(undef,n,1))
    WB = Vector{T1}(undef,n)
    WD = Vector{T1}(undef,n)
    Wr = Matrix{T1}(undef,n,1)
@@ -2361,9 +2403,14 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
                  z[ii] = -(rbar[ii]*α - R[js,js]*E[js,k]' + v[ii]*β[1,1])
                  k += 1
              end  
-             # Solve S1'*ubar*β+ubar + z = 0
+             # Solve S1'*ubar*β-E[j1,j1]'*ubar + z = 0
              S1 = view(A,j1,j1)
-             gsylvs!(S1, β, view(E,j1,j1), η, z, view(WB,j1), view(WD,j1); adjAC = true, adjBD = false)
+             if T1 <: BlasComplex
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, S1, β, view(E,j1,j1), η, z,
+                                 true, false, 1, false, false, blocksize)
+             else
+                gsylvs!(S1, β, view(E,j1,j1), η, z, view(WB,j1), view(WD,j1); adjAC = true, adjBD = false)
+             end
              # v <- v + S1'*z
              #mul!(v, UpperTriangular(S1)', z, 1, 1)
              mul!(v, S1', z, 1, 1)  # no allocations
@@ -2414,9 +2461,14 @@ function plyapds!(A::AbstractMatrix{T1}, E::Union{AbstractMatrix{T1},UniformScal
                  v[ii] = A[ii,js]*R[js,js]
                  z[ii] = -rbar[ii]*α' + E[ii,js]*R[js,js] - v[ii]*β[1,1]'
              end
-             # Solve S1*ubar*β'+ubar + z = 0
+             # Solve S1*ubar*β'-E[j1,j1]*ubar + z = 0
              S1 = view(A,j1,j1)
-             gsylvs!(S1, β, view(E,j1,j1), η, z, view(WB,j1), view(WD,j1); adjAC = false, adjBD = true)
+             if T1 <: BlasComplex
+                MatrixEquations._gsylvs_blocked!(WS, WB, WD, S1, β, view(E,j1,j1), η, z,
+                                 false, true, 1, false, false, blocksize)
+             else
+                gsylvs!(S1, β, view(E,j1,j1), η, z, view(WB,j1), view(WD,j1); adjAC = false, adjBD = true)
+             end
              # v <- v + S1*z
              #mul!(v, UpperTriangular(S1), z, 1, 1)
              mul!(v, S1, z, 1, 1)  # no allocations
@@ -2763,7 +2815,7 @@ function plyap2!(A::AbstractMatrix{T}, R::AbstractMatrix{T}, β::AbstractMatrix{
    return R
 end
 """
-    pglyap2!(A, E, R; adj = false, disc = false) -> (β, α)
+    pglyap2!(A, E, R, β, α; adj = false, disc = false) -> R
 
 Solve for the Cholesky factor  `U`  of  `X`,
 
@@ -2806,7 +2858,7 @@ can make one or more of the eigenvalues have a non-negative real part, if `disc 
 can make one or more of the eigenvalues lie outside the unit circle, if `disc = true`.
 If this situation is detected, an error message is issued.
 """
-function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: Real
+function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatrix{T1}, β::AbstractMatrix{T1}, α::AbstractMatrix{T1}; adj = false, disc = false) where T1 <: Real
    # This function is based on the SLICOT routine SG03BX, which implements the
    # generalization of the method due to Hammarling ([1], section 6) for Lyapunov
    # equations of order 2. A more detailed description is given in [2].
@@ -2821,405 +2873,384 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
 
    errtext = "Singular Lyapunov equation"
 
-   # ZERO = zero(T1)
-   # ONE = one(T1)
-   # TWO = 2*ONE
-   # SMLNUM = smlnum(T1)
-   # EPS = eps(T1)
-   # small = 2*SMLNUM/EPS
-   # BIGNUM = ONE / small
-   # SMIN = EPS*maximum(abs.(A))
-
    ONE = one(T1)
    ZERO = zero(T1)
    TWO = 2*ONE
    EPS = eps(T1)
    SMLNUM = sqrt(_safemin(T1))/EPS
-   BIGNUM = ONE / SMLNUM
-   SMIN = EPS*maximum(abs.(A))
    small = SMLNUM
 
-   #scale = ONE
    noadj = !adj
    ISCONT = !disc
-   #U = similar(R)
-   #U[2,1] = ZERO
-   β = similar(A)
-   AA  = similar(A)
-   EE  = similar(E)
-   RR  = similar(R)
-   QBR = similar(A)
-   QBI = similar(A)
-   QUR = similar(A)
-   QUI = similar(A)
-   UR = similar(A)
-   UI = similar(A)
-   M1R = similar(A)
-   M1I = similar(A)
-   M2R = similar(A)
-   M2I = similar(A)
-   β = similar(A)
-   α = similar(R)
-   # Make copies of A, E, and B.
-   AA = copy(A)
-   EE = copy(E)
-   RR = copy(R)
+
+   # Extract scalars to avoid array copying or allocations
+   AA11, AA12, AA21, AA22 = A[1,1], A[1,2], A[2,1], A[2,2]
+   EE11, EE12, EE21, EE22 = E[1,1], E[1,2], E[2,1], E[2,2]
+   RR11, RR12, RR21, RR22 = R[1,1], R[1,2], R[2,1], R[2,2]
+
    if noadj
-      V = AA[1,1]
-      AA[1,1] = AA[2,2]
-      AA[2,2] = V
-      V = EE[1,1]
-      EE[1,1] = EE[2,2]
-      EE[2,2] = V
-      V = RR[1,1]
-      RR[1,1] = RR[2,2]
-      RR[2,2] = V
+      AA11, AA22 = AA22, AA11
+      EE11, EE22 = EE22, EE11
+      RR11, RR22 = RR22, RR11
    end
-   if iszero(EE[2,1])
-      # handle the case when EE is upper triangular (required by lag2)
-      scale1, scale2, LAMR, W, LAMI = _lag2(AA,EE,small)
+   if iszero(EE21)
+      scale1, scale2, LAMR, W, LAMI = _lag2(AA11, AA12, AA21, AA22, EE11, EE12, EE22, small)
    else
-      # handle the case when EE is full
-      E1 = copy(EE)
-      G, E1[1,1] = givens(E1[1,1],E1[2,1],1,2)
-      lmul!(G,view(E1,:,2)); E1[2,1] = ZERO
-      scale1, scale2, LAMR, W, LAMI = _lag2(lmul!(G,copy(AA)),E1,small)
-   end
+      E11, E12, E21, E22 = EE11, EE12, EE21, EE22
+      G, E11 = givens(E11, E21, 1, 2)
+      E12_new = G.c * E12 + G.s * E22
+      E22_new = -G.s * E12 + G.c * E22
+      
+      A11_new = G.c * AA11 + G.s * AA21
+      A12_new = G.c * AA12 + G.s * AA22
+      A21_new = -G.s * AA11 + G.c * AA21
+      A22_new = -G.s * AA12 + G.c * AA22
+
+      scale1, scale2, LAMR, W, LAMI = _lag2(A11_new, A12_new, A21_new, A22_new, E11, E12_new, E22_new, small)
+   end  
+ 
    LAMI == ZERO && error("The pair (A,E) has real generalized eigenvalues")
-   # Compute right orthogonal transformation matrix Q (modified to cope with nonzero E[2,1])
-   @inbounds CR, CI, SR, SI, L =  cgivensc2( scale1*AA[1,1] - EE[1,1]*LAMR,
-                                   -EE[1,1]*LAMI, scale1*AA[2,1] - EE[2,1]*LAMR, -EE[2,1]*LAMI, small )
-   QR = [ CR SR; -SR CR ]
-   QI = [ -CI  -SI; -SI CI ]
-   #  A := Q * A
-   AR = QR*AA
-   AI = QI*AA
-   #  E := Q * E
-   ER = QR*EE
-   EI = QI*EE
-   # Compute left orthogonal transformation matrix Z.
-   @inbounds CR, CI, SR, SI, L =  cgivensc2( ER[2,2], EI[2,2], ER[2,1], EI[2,1], small )
-   ZR =  [ CR SR; -SR CR ]
-   ZI =  [ CI -SI; -SI -CI ]
+   # Compute left orthogonal transformation matrix Q (modified to cope with nonzero E[2,1])
+   CR, CI, SR, SI, L = cgivensc2(scale1*AA11 - EE11*LAMR, -EE11*LAMI, scale1*AA21 - EE21*LAMR, -EE21*LAMI, small)   
+
+   # Explicit scalar 2x2 operations
+   # QR = [ CR SR; -SR CR ]
+   # QI = [ -CI  -SI; -SI CI ]
+   # A := Q * A (AR = QR*AA, AI = QI*AA)
+   AR11 =  CR*AA11 + SR*AA21; AR12 =  CR*AA12 + SR*AA22
+   AR21 = -SR*AA11 + CR*AA21; AR22 = -SR*AA12 + CR*AA22
+   AI11 = -CI*AA11 - SI*AA21; AI12 = -CI*AA12 - SI*AA22
+   AI21 = -SI*AA11 + CI*AA21; AI22 = -SI*AA12 + CI*AA22
+
+   # E := Q * E (ER = QR*EE, EI = QI*EE)
+   ER11 =  CR*EE11 + SR*EE21; ER12 =  CR*EE12 + SR*EE22
+   ER21 = -SR*EE11 + CR*EE21; ER22 = -SR*EE12 + CR*EE22
+   EI11 = -CI*EE11 - SI*EE21; EI12 = -CI*EE12 - SI*EE22
+   EI21 = -SI*EE11 + CI*EE21; EI22 = -SI*EE12 + CI*EE22
+ 
+   # Compute right orthogonal transformation matrix Z.
+   # ZR =  [ CR SR; -SR CR ]
+   # ZI =  [ CI -SI; -SI -CI ]
+   CR1, CI1, SR1, SI1, L = cgivensc2(ER22, EI22, ER21, EI21, small)
+   ZR11, ZR12, ZR21, ZR22 =  CR1,  SR1, -SR1,  CR1
+   ZI11, ZI12, ZI21, ZI22 =  CI1, -SI1, -SI1, -CI1
+
    # E := E * Z
-   @inbounds TR = ER[1:1,:]*ZR - EI[1:1,:]*ZI
-   @inbounds TI = ER[1:1,:]*ZI + EI[1:1,:]*ZR
-   @inbounds ER[1:1,:] = TR
-   @inbounds EI[1:1,:] = TI
-   ER[2,1] = ZERO
-   ER[2,2] = L
-   EI[2,1] = ZERO
-   EI[2,2] = ZERO
+   # E[1,:] := E[1,:] * Z
+   # TR = ER[1,:]*ZR - EI[1,:]*ZI
+   # TI = ER[1,:]*ZI + EI[1,:]*ZR
+   # ER[1,:] = TR, EI[1,:] = TI
+   TR11 = ER11*ZR11 + ER12*ZR21 - EI11*ZI11 - EI12*ZI21
+   TR12 = ER11*ZR12 + ER12*ZR22 - EI11*ZI12 - EI12*ZI22
+   TI11 = ER11*ZI11 + ER12*ZI21 + EI11*ZR11 + EI12*ZR21
+   TI12 = ER11*ZI12 + ER12*ZI22 + EI11*ZR12 + EI12*ZR22
+
+   ER11, ER12 = TR11, TR12
+   EI11, EI12 = TI11, TI12
+   ER21, ER22 = ZERO, L
+   EI21, EI22 = ZERO, ZERO  
 
    # Make main diagonal entries of E real and positive.
-   @inbounds V = hypot( ER[1,1], EI[1,1] )
-   @inbounds XR, XI = _ladiv(V, ZERO, ER[1,1], EI[1,1])
-   ER[1,1] = V
-   EI[1,1] = ZERO
-   YR = ZR[1,1]
-   YI = ZI[1,1]
-   ZR[1,1] = XR*YR - XI*YI
-   ZI[1,1] = XR*YI + XI*YR
-   YR = ZR[2,1]
-   YI = ZI[2,1]
-   ZR[2,1] = XR*YR - XI*YI
-   ZI[2,1] = XR*YI + XI*YR
-   # A := A * Z
-   @inbounds TR = AR*ZR - AI*ZI
-   @inbounds AI = AI*ZR + AR*ZI
-   @inbounds AR = TR
+   V = hypot(ER11, EI11)
+   XR, XI = _ladiv(V, ZERO, ER11, EI11)
+   ER11, EI11 = V, ZERO
+   YR11, YI11 = ZR11, ZI11
+   ZR11 = XR*YR11 - XI*YI11
+   ZI11 = XR*YI11 + XI*YR11
+   YR21, YI21 = ZR21, ZI21
+   ZR21 = XR*YR21 - XI*YI21
+   ZI21 = XR*YI21 + XI*YR21
+
+   # # End of QZ-step.
+   # BR = RR*ZR
+   # BI = RR*ZI
+
+   # A := A * Z (TR = AR*ZR - AI*ZI, TI = AI*ZR + AR*ZI, AR = TR, AI = TI)
+   TR11 = AR11*ZR11 + AR12*ZR21 - AI11*ZI11 - AI12*ZI21
+   TR12 = AR11*ZR12 + AR12*ZR22 - AI11*ZI12 - AI12*ZI22
+   TR21 = AR21*ZR11 + AR22*ZR21 - AI21*ZI11 - AI22*ZI21
+   TR22 = AR21*ZR12 + AR22*ZR22 - AI21*ZI12 - AI22*ZI22
+
+   TI11 = AI11*ZR11 + AI12*ZR21 + AR11*ZI11 + AR12*ZI21
+   TI12 = AI11*ZR12 + AI12*ZR22 + AR11*ZI12 + AR12*ZI22
+   TI21 = AI21*ZR11 + AI22*ZR21 + AR21*ZI11 + AR22*ZI21
+   TI22 = AI21*ZR12 + AI22*ZR22 + AR21*ZI12 + AR22*ZI22
+
+   AR11, AR12, AR21, AR22 = TR11, TR12, TR21, TR22
+   AI11, AI12, AI21, AI22 = TI11, TI12, TI21, TI22
    # End of QZ-step.
-   @inbounds BR = RR*ZR
-   @inbounds BI = RR*ZI
+
+   # B = RR * Z (BR = RR*ZR, BI = RR*ZI)
+   BR11 = RR11*ZR11 + RR12*ZR21; BR12 = RR11*ZR12 + RR12*ZR22
+   BR21 = RR21*ZR11 + RR22*ZR21; BR22 = RR21*ZR12 + RR22*ZR22
+   BI11 = RR11*ZI11 + RR12*ZI21; BI12 = RR11*ZI12 + RR12*ZI22
+   BI21 = RR21*ZI11 + RR22*ZI21; BI22 = RR21*ZI12 + RR22*ZI22
+
    # Overwrite B with the upper triangular matrix of its
    # QR-factorization. The elements on the main diagonal are real
    # and non-negative.
-   @inbounds CR, CI, SR, SI, L = cgivensc2( BR[1,1], BI[1,1], BR[2,1], BI[2,1], small )
-   QBR[1,1] =  CR
-   QBR[1,2] =  SR
-   QBR[2,1] = -SR
-   QBR[2,2] =  CR
-   QBI[1,1] = -CI
-   QBI[1,2] = -SI
-   QBI[2,1] = -SI
-   QBI[2,2] =  CI
-   @inbounds TR = QBR*BR[:,2] - QBI*BI[:,2]
-   @inbounds TI = QBI*BR[:,2] + QBR*BI[:,2]
-   @inbounds BR[:,2] = TR
-   @inbounds BI[:,2] = TI
-   BR[1,1] = L
-   BR[2,1] = ZERO
-   BI[1,1] = ZERO
-   BI[2,1] = ZERO
-   V = hypot( BR[2,2], BI[2,2] )
-   if V >= max( EPS*max( BR[1,1], hypot( BR[1,2], BI[1,2] ) ), SMLNUM )
-      XR, XI = _ladiv( V, ZERO, BR[2,2], BI[2,2] )
-      BR[2,2] = V
-      YR = QBR[2,1]
-      YI = QBI[2,1]
-      QBR[2,1] = XR*YR - XI*YI
-      QBI[2,1] = XR*YI + XI*YR
-      YR = QBR[2,2]
-      YI = QBI[2,2]
-      QBR[2,2] = XR*YR - XI*YI
-      QBI[2,2] = XR*YI + XI*YR
-   else
-      BR[2,2] = ZERO
-   end
-   BI[2,2] = ZERO
 
+   CR1, CI1, SR1, SI1, L1 = cgivensc2(BR11, BI11, BR21, BI21, small)
+   QBR11, QBR12, QBR21, QBR22 =  CR1,  SR1, -SR1, CR1
+   QBI11, QBI12, QBI21, QBI22 = -CI1, -SI1, -SI1, CI1
+
+   # TR = QBR*BR[:,2] - QBI*BI[:,2]
+   # TI = QBI*BR[:,2] + QBR*BI[:,2]
+   # BR[:,2] = TR
+   # BI[:,2] = TI
+   # BR[1,1] = L
+   # BR[2,1] = ZERO
+   # BI[1,1] = ZERO
+   # BI[2,1] = ZERO
+
+   TR12 = QBR11*BR12 + QBR12*BR22 - QBI11*BI12 - QBI12*BI22
+   TR22 = QBR21*BR12 + QBR22*BR22 - QBI21*BI12 - QBI22*BI22
+   TI12 = QBI11*BR12 + QBI12*BR22 + QBR11*BI12 + QBR12*BI22
+   TI22 = QBI21*BR12 + QBI22*BR22 + QBR21*BI12 + QBR22*BI22
+
+   BR12, BR22 = TR12, TR22
+   BI12, BI22 = TI12, TI22
+   BR11, BR21, BI11, BI21 = L1, ZERO, ZERO, ZERO
+
+   V = hypot(BR22, BI22)
+   if V >= max(EPS*max(BR11, hypot(BR12, BI12)), SMLNUM)
+      XR, XI = _ladiv(V, ZERO, BR22, BI22)
+      BR22 = V
+      QBR21, QBI21 = XR*QBR21 - XI*QBI21, XR*QBI21 + XI*QBR21
+      QBR22, QBI22 = XR*QBR22 - XI*QBI22, XR*QBI22 + XI*QBR22
+   else
+      BR22 = ZERO
+   end
+   BI22 = ZERO
+   
    # Compute the Cholesky factor of the solution of the reduced
    # equation. The solution may be scaled to avoid overflow.
 
-   if ISCONT
+   # Cholesky Step Variables
+   UR11 = UR12 = UR22 = ZERO
+   UI11 = UI12 = UI22 = ZERO
 
+   M1R11 = M1R12 = M1R21 = M1R22 = ZERO
+   M1I11 = M1I12 = M1I21 = M1I22 = ZERO
+   M2R11 = M2R12 = M2R21 = M2R22 = ZERO
+   M2I11 = M2I12 = M2I21 = M2I22 = ZERO   
+   
+   if ISCONT
       # Continuous-time equation.
 
       # Step I:  Compute U[1,1]. Set U[2,1] = 0.
-      V = -TWO*( AR[1,1]*ER[1,1] + AI[1,1]*EI[1,1] )
-      V <= ZERO && error("The eigenvalues of the pencil A - λE  are not in the open right half plane")
-      V = sqrt( V )
-      T = TWO*abs( BR[1,1] )*SMLNUM
+      V = -TWO*(AR11*ER11 + AI11*EI11)
+      V <= ZERO && error("The eigenvalues of the pencil A - λE are not in the open right half plane")
+      V = sqrt(V)
+      T = TWO*abs(BR11)*SMLNUM
       T > V && error("$errtext")
-      UR[1,1] = BR[1,1]/V
-      UI[1,1] = ZERO
-      UR[2,1] = ZERO
-      UI[2,1] = ZERO
+      UR11 = BR11/V
 
       # Step II:  Compute U[1,2].
-
-      T = max( EPS*max( BR[2,2], hypot( BR[1,2], BI[1,2] ) ), SMLNUM )
-      if abs( BR[1,1] ) < T
-         UR[1,2] = ZERO
-         UI[1,2] = ZERO
-      else
-         XR = AR[1,1]*ER[1,2] + AI[1,1]*EI[1,2]
-         XI = AI[1,1]*ER[1,2] - AR[1,1]*EI[1,2]
-         XR = XR + AR[1,2]*ER[1,1] + AI[1,2]*EI[1,1]
-         XI = XI - AI[1,2]*ER[1,1] + AR[1,2]*EI[1,1]
-         XR = -BR[1,2]*V - XR*UR[1,1]
-         XI =  BI[1,2]*V - XI*UR[1,1]
-         YR =  AR[2,2]*ER[1,1] + AI[2,2]*EI[1,1]
-         YI = -AI[2,2]*ER[1,1] + AR[2,2]*EI[1,1]
-         YR = YR + ER[2,2]*AR[1,1] + EI[2,2]*AI[1,1]
-         YI = YI - EI[2,2]*AR[1,1] + ER[2,2]*AI[1,1]
-         T  = TWO*hypot( XR, XI )*SMLNUM
-         T > hypot( YR, YI ) && error("$errtext")
-         UR[1,2], UI[1,2] = _ladiv( XR, XI, YR, YI )
-         UI[1,2] = -UI[1,2]
+      T = max(EPS*max(BR22, hypot(BR12, BI12)), SMLNUM)
+      if abs(BR11) >= T
+         XR = AR11*ER12 + AI11*EI12 + AR12*ER11 + AI12*EI11
+         XI = AI11*ER12 - AR11*EI12 - AI12*ER11 + AR12*EI11
+         XR = -BR12*V - XR*UR11
+         XI =  BI12*V - XI*UR11
+         YR = AR22*ER11 + AI22*EI11 + ER22*AR11 + EI22*AI11
+         YI = -AI22*ER11 + AR22*EI11 - EI22*AR11 + ER22*AI11
+         T  = TWO*hypot(XR, XI)*SMLNUM
+         T > hypot(YR, YI) && error("$errtext")
+         UR12, UI12 = _ladiv(XR, XI, YR, YI)
+         UI12 = -UI12
       end
 
       # Step III:  Compute U[2,2].
-
-      XR = ( ER[1,2]*UR[1,1] + ER[2,2]*UR[1,2] - EI[2,2]*UI[1,2] )*V
-      XI = (-EI[1,2]*UR[1,1] - ER[2,2]*UI[1,2] - EI[2,2]*UR[1,2] )*V
-      T  = TWO*hypot( XR, XI )*SMLNUM
-      T > hypot( ER[1,1], EI[1,1] ) && error("$errtext")
-      YR, YI = _ladiv( XR, XI, ER[1,1], -EI[1,1] )
-      YR =  BR[1,2] - YR
-      YI = -BI[1,2] - YI
-      V  = -TWO*( AR[2,2]*ER[2,2] + AI[2,2]*EI[2,2] )
+      XR = (ER12*UR11 + ER22*UR12 - EI22*UI12)*V
+      XI = (-EI12*UR11 - ER22*UI12 - EI22*UR12)*V
+      T  = TWO*hypot(XR, XI)*SMLNUM
+      T > hypot(ER11, EI11) && error("$errtext")
+      YR, YI = _ladiv(XR, XI, ER11, -EI11)
+      YR =  BR12 - YR
+      YI = -BI12 - YI
+      V  = -TWO*(AR22*ER22 + AI22*EI22)
       V <= ZERO && error("The eigenvalues of the pencil A - λE have no negative real parts")
-      V = sqrt( V )
-      W = hypot4( BR[2,2], BI[2,2], YR, YI )
+      V = sqrt(V)
+      W = hypot4(BR22, BI22, YR, YI)
       T = TWO*W*SMLNUM
       T > V && error("$errtext")
-      UR[2,2] = W/V
-      UI[2,2] = ZERO
+      UR22 = W/V
 
-      # Compute matrices M1 and M2 for the reduced equation.
+      BETAR, BETAI = _ladiv(AR11, AI11, ER11, EI11)
+      M1R11, M1I11 = BETAR, BETAI
+      M1R22, M1I22 = BETAR, -BETAI
+      ALPHA = sqrt(-TWO*BETAR)
+      M2R11 = ALPHA
 
-      M1R[2,1] = ZERO
-      M1I[2,1] = ZERO
-      M2R[2,1] = ZERO
-      M2I[2,1] = ZERO
-      BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
-      M1R[1,1] =  BETAR
-      M1I[1,1] =  BETAI
-      M1R[2,2] =  BETAR
-      M1I[2,2] = -BETAI
-      ALPHA = sqrt( -TWO*BETAR )
-      M2R[1,1] = ALPHA
-      M2I[1,1] = ZERO
-      V  = ER[1,1]*ER[2,2]
-      XR = ( -BR[1,1]*ER[1,2] + ER[1,1]*BR[1,2] )/V
-      XI = ( -BR[1,1]*EI[1,2] + ER[1,1]*BI[1,2] )/V
-      YR =  XR - ALPHA*UR[1,2]
-      YI = -XI + ALPHA*UI[1,2]
-      if ( YR != ZERO ) || ( YI != ZERO )
-         M2R[1,2] =  YR/UR[2,2]
-         M2I[1,2] = -YI/UR[2,2]
-         M2R[2,2] =  BR[2,2]/( ER[2,2]*UR[2,2] )
-         M2I[2,2] =  ZERO
-         M1R[1,2] = -ALPHA*M2R[1,2]
-         M1I[1,2] = -ALPHA*M2I[1,2]
+      V  = ER11*ER22
+      XR = (-BR11*ER12 + ER11*BR12)/V
+      XI = (-BR11*EI12 + ER11*BI12)/V
+      YR =  XR - ALPHA*UR12
+      YI = -XI + ALPHA*UI12
+
+      if (abs(YR) > SMLNUM) || (abs(YI) > SMLNUM)
+         M2R12 =  YR/UR22
+         M2I12 = -YI/UR22
+         M2R22 =  BR22/(ER22*UR22)
+         M1R12 = -ALPHA*M2R12
+         M1I12 = -ALPHA*M2I12
       else
-         M2R[1,2] = ZERO
-         M2I[1,2] = ZERO
-         M2R[2,2] = ALPHA
-         M2I[2,2] = ZERO
-         M1R[1,2] = ZERO
-         M1I[1,2] = ZERO
+         M2R22 = ALPHA
       end
    else
-
-      # Discrete-time equation.
-
-      # Step I:  Compute U[1,1]. Set U[2,1] = 0.
-      T = max(abs(AR[1,1]),abs(AI[1,1]),abs(ER[1,1]),abs(EI[1,1]))
-      #V = ER[1,1]^2 + EI[1,1]^2 - AR[1,1]^2 - AI[1,1]^2
-      V = (ER[1,1]/T)^2 + (EI[1,1]/T)^2 - (AR[1,1]/T)^2 - (AI[1,1]/T)^2
-      V <= ZERO && error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
-      V = T*sqrt( V )
-      T = TWO*abs( BR[1,1] )*SMLNUM
+      T = max(abs(AR11), abs(AI11), abs(ER11), abs(EI11))
+      V = (ER11/T)^2 + (EI11/T)^2 - (AR11/T)^2 - (AI11/T)^2
+      V <= ZERO && error("The eigenvalues of the pencil A - λE are not inside the unit circle")
+      V = T*sqrt(V)
+      T = TWO*abs(BR11)*SMLNUM
       T > V && error("$errtext")
-      UR[1,1] = BR[1,1]/V
-      UI[1,1] = ZERO
-      UR[2,1] = ZERO
-      UI[2,1] = ZERO
-      # Step II:  Compute U[1,2].
+      UR11 = BR11/V
 
-      T = max( EPS*max( BR[2,2], hypot( BR[1,2], BI[1,2] ) ), SMLNUM )
-      if abs( BR[1,1] ) < T
-         UR[1,2] = ZERO
-         UI[1,2] = ZERO
-      else
-         XR =  AR[1,1]*AR[1,2] + AI[1,1]*AI[1,2]
-         XI =  AI[1,1]*AR[1,2] - AR[1,1]*AI[1,2]
-         XR =  XR - ER[1,2]*ER[1,1] - EI[1,2]*EI[1,1]
-         XI =  XI + EI[1,2]*ER[1,1] - ER[1,2]*EI[1,1]
-         XR = -BR[1,2]*V - XR*UR[1,1]
-         XI =  BI[1,2]*V - XI*UR[1,1]
-         YR =  AR[2,2]*AR[1,1] + AI[2,2]*AI[1,1]
-         YI = -AI[2,2]*AR[1,1] + AR[2,2]*AI[1,1]
-         YR = YR - ER[2,2]*ER[1,1] - EI[2,2]*EI[1,1]
-         YI = YI + EI[2,2]*ER[1,1] - ER[2,2]*EI[1,1]
-         T  = TWO*hypot( XR, XI )*SMLNUM
-         T > hypot( YR, YI ) && error("$errtext")
-         t1, t2 = _ladiv( XR, XI, YR, YI )
-         UR[1,2] = t1
-         UI[1,2] = -t2
+      T = max(EPS*max(BR22, hypot(BR12, BI12)), SMLNUM)
+      if abs(BR11) >= T
+         XR =  AR11*AR12 + AI11*AI12 - ER12*ER11 - EI12*EI11
+         XI =  AI11*AR12 - AR11*AI12 + EI12*ER11 - ER12*EI11
+         XR = -BR12*V - XR*UR11
+         XI =  BI12*V - XI*UR11
+         YR =  AR22*AR11 + AI22*AI11 - ER22*ER11 - EI22*EI11
+         YI = -AI22*AR11 + AR22*AI11 + EI22*ER11 - ER22*EI11
+         T  = TWO*hypot(XR, XI)*SMLNUM
+         T > hypot(YR, YI) && error("$errtext")
+         t1, t2 = _ladiv(XR, XI, YR, YI)
+         UR12, UI12 = t1, -t2
       end
-      # Step III:  Compute U[2,2].
 
-      XR =  ER[1,2]*UR[1,1] + ER[2,2]*UR[1,2] - EI[2,2]*UI[1,2]
-      XI = -EI[1,2]*UR[1,1] - ER[2,2]*UI[1,2] - EI[2,2]*UR[1,2]
-      YR =  AR[1,2]*UR[1,1] + AR[2,2]*UR[1,2] - AI[2,2]*UI[1,2]
-      YI = -AI[1,2]*UR[1,1] - AR[2,2]*UI[1,2] - AI[2,2]*UR[1,2]
-      V  = ER[2,2]^2 + EI[2,2]^2 - AR[2,2]^2 - AI[2,2]^2
-      V <= ZERO && error("The eigenvalues of the pencil A - λE  are not inside the unit circle")
-      V = sqrt( V )
-      T = max( abs( BR[2,2] ), abs( BR[1,2] ), abs( BI[1,2] ),
-               abs( XR ), abs( XI ), abs( YR ), abs( YI) )
+      XR =  ER12*UR11 + ER22*UR12 - EI22*UI12
+      XI = -EI12*UR11 - ER22*UI12 - EI22*UR12
+      YR =  AR12*UR11 + AR22*UR12 - AI22*UI12
+      YI = -AI12*UR11 - AR22*UI12 - AI22*UR12
+      V  = ER22^2 + EI22^2 - AR22^2 - AI22^2
+      V <= ZERO && error("The eigenvalues of the pencil A - λE are not inside the unit circle")
+      V = sqrt(V)
+      T = max(abs(BR22), abs(BR12), abs(BI12), abs(XR), abs(XI), abs(YR), abs(YI))
       if T <= SMLNUM
          W = ZERO
       else
-         W = ( BR[2,2]/T )^2 + ( BR[1,2]/T )^2 + ( BI[1,2]/T )^2 -
-             ( XR/T )^2 - ( XI/T )^2 + ( YR/T )^2 + ( YI/T )^2
-         #  the condition below usually does not occur -> we simply set W = 0
-         #  and thus U22 = 0
-         W < ZERO ? W = ZERO : W = T*sqrt( W )
+         W = (BR22/T)^2 + (BR12/T)^2 + (BI12/T)^2 - (XR/T)^2 - (XI/T)^2 + (YR/T)^2 + (YI/T)^2
+         W = W < ZERO ? ZERO : T*sqrt(W)
       end
       T = TWO*W*SMLNUM
       T > V && error("$errtext")
-      UR[2,2] = W/V
-      UI[2,2] = ZERO
+      UR22 = W/V
 
-      #Compute matrices M1 and M2 for the reduced equation.
-
-      B11  = BR[1,1]/ER[1,1]
-      T    = ER[1,1]*ER[2,2]
-      B12R = ( ER[1,1]*BR[1,2] - BR[1,1]*ER[1,2] )/T
-      B12I = ( ER[1,1]*BI[1,2] - BR[1,1]*EI[1,2] )/T
-      B22  = BR[2,2]/ER[2,2]
-      M1R[2,1] = ZERO
-      M1I[2,1] = ZERO
-      M2R[2,1] = ZERO
-      M2I[2,1] = ZERO
-      BETAR, BETAI = _ladiv( AR[1,1], AI[1,1], ER[1,1], EI[1,1] )
-      M1R[1,1] =  BETAR
-      M1I[1,1] =  BETAI
-      M1R[2,2] =  BETAR
-      M1I[2,2] = -BETAI
-      V = hypot( BETAR, BETAI )
-      ALPHA = sqrt( ( ONE - V )*( ONE + V ) )
-      M2R[1,1] = ALPHA
-      M2I[1,1] = ZERO
-      XR = ( AI[1,1]*EI[1,2] - AR[1,1]*ER[1,2] )/T + AR[1,2]/ER[2,2]
-      XI = ( AR[1,1]*EI[1,2] + AI[1,1]*ER[1,2] )/T - AI[1,2]/ER[2,2]
+      B11  = BR11/ER11
+      T    = ER11*ER22
+      B12R = (ER11*BR12 - BR11*ER12)/T
+      B12I = (ER11*BI12 - BR11*EI12)/T
+      B22  = BR22/ER22
+      BETAR, BETAI = _ladiv(AR11, AI11, ER11, EI11)
+      M1R11, M1I11 = BETAR, BETAI
+      M1R22, M1I22 = BETAR, -BETAI
+      V = hypot(BETAR, BETAI)
+      ALPHA = sqrt((ONE - V)*(ONE + V))
+      M2R11 = ALPHA
+      XR = (AI11*EI12 - AR11*ER12)/T + AR12/ER22
+      XI = (AR11*EI12 + AI11*ER12)/T - AI12/ER22
       XR = -TWO*BETAI*B12I - B11*XR
       XI = -TWO*BETAI*B12R - B11*XI
-      V  =  ONE + ( BETAI - BETAR )*( BETAI + BETAR )
+      V  = ONE + (BETAI - BETAR)*(BETAI + BETAR)
       W  = -TWO*BETAI*BETAR
-      YR, YI = _ladiv( XR, XI, V, W )
-     #if ( YR != ZERO ) || ( YI != ZERO )
-      # - to avoid NaNs, the above has been changed to:
-      if ( abs(YR) > SMLNUM ) || ( abs(YI) > SMLNUM )
-         M2R[1,2] =  ( YR*BETAR - YI*BETAI )/UR[2,2]
-         M2I[1,2] = -( YI*BETAR + YR*BETAI )/UR[2,2]
-         M2R[2,2] =  B22/UR[2,2]
-         M2I[2,2] =  ZERO
-         M1R[1,2] = -ALPHA*YR/UR[2,2]
-         M1I[1,2] =  ALPHA*YI/UR[2,2]
+      YR, YI = _ladiv(XR, XI, V, W)
+
+      if (abs(YR) > SMLNUM) || (abs(YI) > SMLNUM)
+         M2R12 =  (YR*BETAR - YI*BETAI)/UR22
+         M2I12 = -(YI*BETAR + YR*BETAI)/UR22
+         M2R22 =  B22/UR22
+         M1R12 = -ALPHA*YR/UR22
+         M1I12 =  ALPHA*YI/UR22
       else
-         M2R[1,2] = ZERO
-         M2I[1,2] = ZERO
-         M2R[2,2] = ALPHA
-         M2I[2,2] = ZERO
-         M1R[1,2] = ZERO
-         M1I[1,2] = ZERO
+         M2R22 = ALPHA
       end
    end
+ 
+   # # Transform U back:  U := U * Q.
+   # # (Note:  Z is used as workspace.)
+   # ZR = UR*QR - UI*QI
+   # ZI = UR*QI + UI*QR
 
-   # Transform U back:  U := U * Q.
-   # (Note:  Z is used as workspace.)
-   @inbounds ZR = UR*QR - UI*QI
-   @inbounds ZI = UR*QI + UI*QR
+   # Transform U back: U := U * Q
+   ZR11 =  UR11*CR + UI11*CI - UR12*SR + UI12*SI
+   ZR12 =  UR11*SR + UI11*SI + UR12*CR - UI12*CI
+   ZR21 = -UR22*SR + UI22*SI
+   ZR22 =  UR22*CR - UI22*CI
+
+   ZI11 =  UI11*CR - UR11*CI - UI12*SR - UR12*SI
+   ZI12 =  UI11*SR - UR11*SI + UI12*CR + UR12*CI
+   ZI21 = -UI22*SR - UR22*SI
+   ZI22 =  UI22*CR + UR22*CI
 
    # Overwrite U with the upper triangular matrix of its
    # QR-factorization. The elements on the main diagonal are real
    # and non-negative.
 
-   CR, CI, SR, SI, L = cgivensc2( ZR[1,1], ZI[1,1], ZR[2,1], ZI[2,1], small )
-   QUR[1,1] =  CR
-   QUR[1,2] =  SR
-   QUR[2,1] = -SR
-   QUR[2,2] =  CR
-   QUI[1,1] = -CI
-   QUI[1,2] = -SI
-   QUI[2,1] = -SI
-   QUI[2,2] =  CI
-   UR[:,2] = QUR*ZR[:,2] - QUI*ZI[:,2]
-   #U[:,2] = QUR*ZR[:,2] - QUI*ZI[:,2]
-   UI[:,2] = QUI*ZR[:,2] + QUR*ZI[:,2]
-   U11 = L
-   #U[2,1] = ZERO
-   U12 = UR[1,2]
-   U22 = UR[2,2]
-   V = hypot( U22, UI[2,2] )
-   if V  !=  ZERO
-      XR, XI = _ladiv( V, ZERO, U22, UI[2,2] )
-      YR = QUR[2,1]
-      YI = QUI[2,1]
-      QUR[2,1] = XR*YR - XI*YI
-      QUI[2,1] = XR*YI + XI*YR
-      YR = QUR[2,2]
-      YI = QUI[2,2]
-      QUR[2,2] = XR*YR - XI*YI
-      QUI[2,2] = XR*YI + XI*YR
+   CR, CI, SR, SI, L = cgivensc2(ZR11, ZI11, ZR21, ZI21, small)
+   QUR11, QUR12, QUR21, QUR22 =  CR,  SR, -SR, CR
+   QUI11, QUI12, QUI21, QUI22 = -CI, -SI, -SI, CI
+
+   UR12 = QUR11*ZR12 + QUR12*ZR22 - QUI11*ZI12 - QUI12*ZI22
+   UR22 = QUR21*ZR12 + QUR22*ZR22 - QUI21*ZI12 - QUI22*ZI22
+   UI12 = QUI11*ZR12 + QUI12*ZR22 + QUR11*ZI12 + QUR12*ZI22
+   UI22 = QUI21*ZR12 + QUI22*ZR22 + QUR21*ZI12 + QUR22*ZI22
+   U11  = L
+   U12 = UR12
+   U22  = UR22
+
+   V = hypot(U22, UI22)
+   if V > SMLNUM
+      XR, XI = _ladiv(V, ZERO, U22, UI22)
+      YR = QUR21; YI = QUI21
+      QUR21 = XR*YR - XI*YI
+      QUI21 = XR*YI + XI*YR
+      YR = QUR22; YI = QUI22
+      QUR22 = XR*YR - XI*YI
+      QUI22 = XR*YI + XI*YR
    end
    U22 = V
 
-   # Transform the matrices M1 and M2 back.
+   # Transform the matrices M1 and M2 
+   # M1 := QU * M1 * QU^H, M2 := QB^H * M2 * QU^H
 
-   # M1 := QU * M1 * QU^H
-   @inbounds TR = M1R*QUR' + M1I*QUI'
-   @inbounds TI = -M1R*QUI' + M1I*QUR'
-   @inbounds β = QUR*TR - QUI*TI
-   # M2 := QB^H * M2 * QU^H
-   @inbounds TR = M2R*QUR' + M2I*QUI'
-   @inbounds TI = -M2R*QUI' + M2I*QUR'
-   @inbounds α = QBR'*TR + QBI'*TI
+   # TR = M1R*QUR' + M1I*QUI'
+   TR11 = M1R11*QUR11 + M1R12*QUR12 + M1I11*QUI11 + M1I12*QUI12
+   TR12 = M1R11*QUR21 + M1R12*QUR22 + M1I11*QUI21 + M1I12*QUI22
+   TR21 = M1R21*QUR11 + M1R22*QUR12 + M1I21*QUI11 + M1I22*QUI12
+   TR22 = M1R21*QUR21 + M1R22*QUR22 + M1I21*QUI21 + M1I22*QUI22
+
+   # TI = -M1R*QUI' + M1I*QUR'
+   TI11 = -M1R11*QUI11 - M1R12*QUI12 + M1I11*QUR11 + M1I12*QUR12
+   TI12 = -M1R11*QUI21 - M1R12*QUI22 + M1I11*QUR21 + M1I12*QUR22
+   TI21 = -M1R21*QUI11 - M1R22*QUI12 + M1I21*QUR11 + M1I22*QUR12
+   TI22 = -M1R21*QUI21 - M1R22*QUI22 + M1I21*QUR21 + M1I22*QUR22
+
+   # β = QUR*TR - QUI*TI
+   β[1,1] = QUR11*TR11 + QUR12*TR21 - QUI11*TI11 - QUI12*TI21
+   β[1,2] = QUR11*TR12 + QUR12*TR22 - QUI11*TI12 - QUI12*TI22
+   β[2,1] = QUR21*TR11 + QUR22*TR21 - QUI21*TI11 - QUI22*TI21
+   β[2,2] = QUR21*TR12 + QUR22*TR22 - QUI21*TI12 - QUI22*TI22
+
+   # TR = M2R*QUR' + M2I*QUI'
+   TR11 = M2R11*QUR11 + M2R12*QUR12 + M2I11*QUI11 + M2I12*QUI12
+   TR12 = M2R11*QUR21 + M2R12*QUR22 + M2I11*QUI21 + M2I12*QUI22
+   TR21 = M2R21*QUR11 + M2R22*QUR12 + M2I21*QUI11 + M2I22*QUI12
+   TR22 = M2R21*QUR21 + M2R22*QUR22 + M2I21*QUI21 + M2I22*QUI22
+
+   # TI = -M2R*QUI' + M2I*QUR'
+   TI11 = -M2R11*QUI11 - M2R12*QUI12 + M2I11*QUR11 + M2I12*QUR12
+   TI12 = -M2R11*QUI21 - M2R12*QUI22 + M2I11*QUR21 + M2I12*QUR22
+   TI21 = -M2R21*QUI11 - M2R22*QUI12 + M2I21*QUR11 + M2I22*QUR12
+   TI22 = -M2R21*QUI21 - M2R22*QUI22 + M2I21*QUR21 + M2I22*QUR22
+
+   # α = QBR'*TR + QBI'*TI
+   α[1,1] = QBR11*TR11 + QBR21*TR21 + QBI11*TI11 + QBI21*TI21
+   α[1,2] = QBR11*TR12 + QBR21*TR22 + QBI11*TI12 + QBI21*TI22
+   α[2,1] = QBR12*TR11 + QBR22*TR21 + QBI12*TI11 + QBI22*TI21
+   α[2,2] = QBR12*TR12 + QBR22*TR22 + QBI12*TI12 + QBI22*TI22
 
    # If the transposed equation (op(K)=K^T, K=A,B,E,U) is to be
    # solved, transpose the matrix U with respect to the
@@ -3227,20 +3258,16 @@ function pglyap2!(A::AbstractMatrix{T1}, E::AbstractMatrix{T1}, R::AbstractMatri
    # and the anti-diagonal.
 
    if noadj
-      V = U11
-      U11 = U22
-      U22 = V
-      V = β[1,1]
-      β[1,1] = β[2,2]
-      β[2,2] = V
-      V = α[1,1]
-      α[1,1] = α[2,2]
-      α[2,2] = V
+      U11, U22 = U22, U11
+      β[1,1], β[2,2] = β[2,2], β[1,1]
+      α[1,1], α[2,2] = α[2,2], α[1,1]
    end
+
    R[1,1] = U11
    R[1,2] = U12
+   R[2,1] = ZERO
    R[2,2] = U22
-   return β, α
+   return R
 end
 """
     cgivens2(ar, ai, b, small) -> (cr, ci, s, d)

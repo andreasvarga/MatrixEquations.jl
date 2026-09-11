@@ -3246,7 +3246,7 @@ end
       end
       #R = kron(B,transpose(A)) + kron(D,transpose(C))
    end
-   luslv!(R,Y,na*nb) && throw("ME:SingularException: A has eigenvalue(s) α and B has eingenvalu(s) β such that αβ = -1")
+   luslv!(R,Y,na*nb) && throw("ME:SingularException: `A-λC` and `D+λB` have common eigenvalues")
    if na == 1 && nb == 2
       @inbounds E[1,1] = Y[1]
       @inbounds E[1,2] = Y[2]
