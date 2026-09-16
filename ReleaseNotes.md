@@ -1,5 +1,8 @@
 # Release Notes
 
+## Version 2.6.7
+- recursive blocking implemented for solving Sylvester systems of equations in `sylvsys` for `BlasFloat` data
+
 ## Version 2.6.6
 Enhancing generalized `plyapc` and `plyapd` solvers:
 - ensuring 0 allocation for `pglyap2!`

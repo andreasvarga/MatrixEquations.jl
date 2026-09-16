@@ -835,6 +835,16 @@ Ty == Float64 ? reltol = eps(float(10*n*m)) : reltol = eps(10*n*m*one(Ty))
 @test norm(ac*x-y*bc-cc)/max(norm(x),norm(y)) < reltol &&
       norm(dc*x-y*ec-fc)/max(norm(x),norm(y)) < reltol
 
+
+if Ty <: BlasFloat
+@time x, y = sylvsys(ar,br,cr,dr,er,fr,blocksize = 5)
+@test norm(ar*x+y*br-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(dr*x+y*er-fr)/max(norm(x),norm(y)) < reltol
+
+@time x, y = sylvsys(ac,bc,cc,dc,ec,fc,blocksize = 5)
+@test norm(ac*x+y*bc-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(dc*x+y*ec-fc)/max(norm(x),norm(y)) < reltol
+end
 end
 end
 
@@ -974,10 +984,11 @@ if Ty <: LinearAlgebra.BlasFloat
    
 end
 
+for isgn in (1,-1)
 x = copy(cr); y = copy(fr);
-@time x, y =  sylvsyss!(as, bs, x, ds, es, y)
-@test norm(as*x+y*bs-cr)/max(norm(x),norm(y)) < reltol &&
-      norm(ds*x+y*es-fr)/max(norm(x),norm(y)) < reltol
+@time x, y =  sylvsyss!(as, bs, x, ds, es, y; isgn)
+@test norm(as*x+isgn*y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(ds*x+isgn*y*es-fr)/max(norm(x),norm(y)) < reltol
 
 x = copy(cr); y = copy(fr);
 @time x, y =  dsylvsyss!(false,as, bs, x, ds, es, y)
@@ -990,9 +1001,9 @@ x = copy(cr); y = copy(fr);
       norm(x*bs'+y*es'-fr)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
-@time x, y =  sylvsyss!(acs, bcs, x, dcs, ecs, y)
-@test norm(acs*x+y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
-      norm(dcs*x+y*ecs-fc)/max(norm(x),norm(y)) < reltol
+@time x, y =  sylvsyss!(acs, bcs, x, dcs, ecs, y; isgn)
+@test norm(acs*x+isgn*y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(dcs*x+isgn*y*ecs-fc)/max(norm(x),norm(y)) < reltol
 
 x = copy(cc); y = copy(fc);
 @time x, y =  dsylvsyss!(false,acs, bcs, x, dcs, ecs, y)
@@ -1004,6 +1015,19 @@ x = copy(cc); y = copy(fc);
 @test norm(acs'*x+dcs'*y-cc)/max(norm(x),norm(y)) < reltol &&
       norm(x*bcs'+y*ecs'-fc)/max(norm(x),norm(y)) < reltol
 
+if Ty <: BlasFloat
+x = copy(cr); y = copy(fr);
+@time sylvsyss_blocked!(as, bs, x, ds, es, y; isgn, blocksize = 5)
+@test norm(as*x+isgn*y*bs-cr)/max(norm(x),norm(y)) < reltol &&
+      norm(ds*x+isgn*y*es-fr)/max(norm(x),norm(y)) < reltol
+
+x = copy(cc); y = copy(fc);
+@time sylvsyss_blocked!(acs, bcs, x, dcs, ecs, y; isgn, blocksize = 5)
+@test norm(acs*x+isgn*y*bcs-cc)/max(norm(x),norm(y)) < reltol &&
+      norm(dcs*x+isgn*y*ecs-fc)/max(norm(x),norm(y)) < reltol
+
+end
+end
 end
 end
 
