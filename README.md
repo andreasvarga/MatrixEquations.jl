@@ -99,4 +99,4 @@ A complete list of implemented functions is available [here](https://sites.googl
 
 ## Future plans
 
-The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Riccati equations, as those arising in game-theoretic optimization problems. Further performance improvements are still possible by employing blocking based variants of solvers for Sylvester systems.
+The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates, or solvers for new classes of Riccati equations, as those arising in game-theoretic optimization problems. 

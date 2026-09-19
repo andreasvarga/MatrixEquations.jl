@@ -2,6 +2,7 @@
 
 ## Version 2.6.7
 - recursive blocking implemented for solving Sylvester systems of equations in `sylvsys` for `BlasFloat` data
+- recursive blocking implemented for solving dual Sylvester systems of equations in `dsylvsys` for `BlasFloat` data
 
 ## Version 2.6.6
 Enhancing generalized `plyapc` and `plyapd` solvers:
