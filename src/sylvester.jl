@@ -517,27 +517,25 @@ function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstra
 
    A_c = Matrix{T2}(A)
    B_c = Matrix{T2}(B)
-   C_c = Matrix{T2}(C)
+   X = Matrix{T2}(C)
    D_c = Matrix{T2}(D)
    E_c = Matrix{T2}(E)
-   F_c = Matrix{T2}(F)
+   Y = Matrix{T2}(F)
 
    # AS, DS, Q1, Z1 = schur(A_c,D_c)
    # BS, ES, Q2, Z2 = schur(B_c,E_c)
    SF1 = schur!(A_c,D_c)
    SF2 = schur!(B_c,E_c)
 
-   tmp1 = Matrix{T2}(undef, m, n)
-   X   = Matrix{T2}(undef, m, n)
-   Y   = Matrix{T2}(undef, m, n)
+   tmp = Matrix{T2}(undef, m, n)
+   
+   # X = adjoint(Q1) * (C*Z2)
+   # Y = adjoint(Q1) * (F*Z2)
+   mul!(tmp, X, SF2.Z)
+   mul!(X, SF1.Q', tmp)
 
-   # X = adjoint(Q1) * (C_c*Z2)
-   # Y = adjoint(Q1) * (F_c*Z2)
-   mul!(tmp1, C_c, SF2.Z)
-   mul!(X, SF1.Q', tmp1)
-
-   mul!(tmp1, F_c, SF2.Z)
-   mul!(Y, SF1.Q', tmp1)
+   mul!(tmp, Y, SF2.Z)
+   mul!(Y, SF1.Q', tmp)
 
    if T2 <: BlasFloat 
       sylvsyss_blocked!(SF1.S,SF2.S,X,SF1.T,SF2.T,Y; blocksize)
@@ -547,11 +545,11 @@ function sylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstra
 
    # X = Z1*(X * adjoint(Z2))
    # Y = Q1*(Y * adjoint(Q2))
-   mul!(tmp1, X, SF2.Z')
-   mul!(X, SF1.Z, tmp1)
+   mul!(tmp, X, SF2.Z')
+   mul!(X, SF1.Z, tmp)
 
-   mul!(tmp1, Y, SF2.Q')
-   mul!(Y, SF1.Q, tmp1)
+   mul!(tmp, Y, SF2.Q')
+   mul!(Y, SF1.Q, tmp)
 
    return X, Y
 end
@@ -660,14 +658,12 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
          E_c = Matrix{T2}(E)
       end
    end
-   C_c = Matrix{T2}(C)
-   F_c = Matrix{T2}(F)  
+   X = Matrix{T2}(C)
+   Y = Matrix{T2}(F)  
 
    realcase = T2 <: AbstractFloat
    realcase ? trans = 'T' : trans = 'C'
-   tmp1 = Matrix{T2}(undef, m, n)
-   X   = Matrix{T2}(undef, m, n)
-   Y   = Matrix{T2}(undef, m, n)
+   tmp = Matrix{T2}(undef, m, n)
 
    # AS, DS, Q1, Z1 = schur(A_c,D_c)
    # BS, ES, Q2, Z2 = schur(B_c,E_c)
@@ -676,10 +672,10 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
 
    if transsylv
       # X = adjoint(Z1) * (C*Z2) , Y = adjoint(Q1) * (F*Q2)
-      mul!(tmp1, C_c, SF2.Z)
-      mul!(X, SF1.Z', tmp1)
-      mul!(tmp1, F_c, SF2.Q)
-      mul!(Y, SF1.Q', tmp1)
+      mul!(tmp, X, SF2.Z)
+      mul!(X, SF1.Z', tmp)
+      mul!(tmp, Y, SF2.Q)
+      mul!(Y, SF1.Q', tmp)
 
       if T2 <: BlasFloat 
          dsylvsyss_blocked!(SF1.S,SF2.S,X,SF1.T,SF2.T,Y; blocksize)
@@ -688,43 +684,43 @@ function dsylvsys(A::AbstractMatrix,B::AbstractMatrix,C::AbstractMatrix,D::Abstr
       end
 
       # X <- Q1*(X * adjoint(Z2)), Y <- Q1*(Y * adjoint(Z2))
-      mul!(tmp1, X, SF2.Z')
-      mul!(X, SF1.Q, tmp1)
-      mul!(tmp1, Y, SF2.Z')
-      mul!(Y, SF1.Q, tmp1)
+      mul!(tmp, X, SF2.Z')
+      mul!(X, SF1.Q, tmp)
+      mul!(tmp, Y, SF2.Z')
+      mul!(Y, SF1.Q, tmp)
    else
       if T2 <: BlasFloat 
          # X = adjoint(Z1) * (C*Z2)
          # Y = adjoint(Q1) * (F*Q2)
-         mul!(tmp1, C_c, SF2.Z)
-         mul!(X, SF1.Z', tmp1)
+         mul!(tmp, X, SF2.Z)
+         mul!(X, SF1.Z', tmp)
 
-         mul!(tmp1, F_c, SF2.Q)
-         mul!(Y, SF1.Q', tmp1)
+         mul!(tmp, Y, SF2.Q)
+         mul!(Y, SF1.Q', tmp)
 
          # (AS, DS), (BS, ES) contains the generalized Schur pairs of the 
          # conjugate transposed (A',D') and (B',E') pairs, respectively
          dsylvsyss_blocked!(SF1.S,SF2.S,X,SF1.T,SF2.T,Y; blocksize)
 
          # X <- Q1*(X * adjoint(Z2)), Y <- Q1*(Y * adjoint(Z2))
-         mul!(tmp1, X, SF2.Z')
-         mul!(X, SF1.Q, tmp1)
-         mul!(tmp1, Y, SF2.Z')
-         mul!(Y, SF1.Q, tmp1)
+         mul!(tmp, X, SF2.Z')
+         mul!(X, SF1.Q, tmp)
+         mul!(tmp, Y, SF2.Z')
+         mul!(Y, SF1.Q, tmp)
       else
          # X = adjoint(Q1) * (C*Q2), Y = adjoint(Z1) * (F*Z2)
-         mul!(tmp1, C_c, SF2.Q)
-         mul!(X, SF1.Q', tmp1)
-         mul!(tmp1, F_c, SF2.Z)
-         mul!(Y, SF1.Z', tmp1)
+         mul!(tmp, X, SF2.Q)
+         mul!(X, SF1.Q', tmp)
+         mul!(tmp, Y, SF2.Z)
+         mul!(Y, SF1.Z', tmp)
 
          dsylvsyss!(false,SF1.S,SF2.S,X,SF1.T,SF2.T,Y)
 
          # x <- Z1*(X * adjoint(Q2)), Y <- Z1*(Y * adjoint(Q2))
-         mul!(tmp1, X, SF2.Q')
-         mul!(X, SF1.Z, tmp1)
-         mul!(tmp1, Y, SF2.Q')
-         mul!(Y, SF1.Z, tmp1)
+         mul!(tmp, X, SF2.Q')
+         mul!(X, SF1.Z, tmp)
+         mul!(tmp, Y, SF2.Q')
+         mul!(Y, SF1.Z, tmp)
       end
    end
    return X, Y
