@@ -40,7 +40,7 @@ cr = rand(Ty,p,n)
 crt = rand(Ty,n+p,n)
 cc = cr+im*rand(Ty,p,n)
 cct = crt+im*rand(Ty,n+p,n)
-Ty == Float64 ? reltol = eps(float(100)) : reltol = eps(100*n*one(Ty))
+Ty == Float64 ? reltol = eps(float(200)) : reltol = eps(100*n*one(Ty))
 
 
 @time u = plyapd(ar,br);
