@@ -44,6 +44,7 @@ The current version of the package includes the following functions:
 | **[`garec`](@ref)** |  Solution of the generalized continuous Riccati equation|
 | **[`ared`](@ref)**  |  Solution of the discrete Riccati equation|
 | **[`gared`](@ref)** |  Solution of the generalized discrete Riccati equation|
+| **[`nare`](@ref)**  |  Solution of the nonsymmetric/nonhermitian Riccati equations|
 
  **Solution of Sylvester equations and systems**
 

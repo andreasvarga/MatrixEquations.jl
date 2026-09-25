@@ -5,6 +5,7 @@
 ```@docs
 arec
 ared
+nare
 ```
 
 ## Generalized Riccati Matrix Equations

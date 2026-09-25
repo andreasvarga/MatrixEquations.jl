@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 2.7.0
+
+- new solver `nare` for nonsymmetric/nonhermitian Riccati matrix equations
+
 ## Version 2.6.7
 - recursive blocking implemented for solving Sylvester systems of equations in `sylvsys` for `BlasFloat` data
 - recursive blocking implemented for solving dual Sylvester systems of equations in `dsylvsys` for `BlasFloat` data

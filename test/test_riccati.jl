@@ -7,10 +7,226 @@ using Test
 using GenericSchur
 using GenericLinearAlgebra
 
+function randomDoublyStochasticMatrix(n; num_perm = n^2)
+
+    M = zeros(n,n)
+    α = rand(num_perm)
+    α = α / sum(α)
+
+    for i=1:num_perm
+        perm = randperm(n)
+        for j=1:n
+            M[perm[j],j] += α[i]
+        end
+    end
+
+    return M
+end
+
+
+
 println("Test_riccati")
 
 @testset "Testing algebraic Riccati equation solvers" begin
 
+@testset "Nonsymmetri/nonhermitian Riccati equation" begin
+
+# only double precision tests are performed
+
+# unilateral quadratic matrix equation (UQME): Kressner et al. 2019
+n = 50; 
+A1 = diagm(0 => 30*ones(n),-1=>-10*ones(n-1),1=>-10*ones(n-1) ); A1[1,1] = 20; A1[n,n] = 20. ; 
+A2 = zeros(n,n); G = -Matrix{Float64}(I,n,n); 
+Q = diagm(0 => 15*ones(n),-1=>-5*ones(n-1),1=>-5*ones(n-1) );
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(x*x+A1*x+Q) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10 
+
+# left and right stabilization example with Q = 0
+A1 = [-2 0 0;0 1 0;0 0 4]; A2 = [5 0; 0 1]; G = [5 1 0; 1 2 1]; Q = zeros(3,2);
+K = [0 0; 6 0; -30 5];
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && x ≈ K && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10 && 
+      maximum(real(eigvals(A1-x*G))) < 0 && maximum(real(eigvals(A2-G*x))) < 0 
+
+# positive solution: Example 6.1 of Guo (SIMAX 2001)
+n = 100;
+R = rand(n,n);
+W = diagm(R*ones(n))-R; 
+α = 0.1; #α = -0.001; α = 0.; 
+M = W + α*I;
+i1 =1:div(n,2); i2 = div(n,2)+1:n;
+A2 = -M[i1,i1]; A1 = -M[i2,i2]; G = -M[i1,i2]; Q = -M[i2,i1];
+D = M[i1,i1]; A = M[i2,i2]; C = M[i1,i2]; B = -M[i2,i1];
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(x*C*x-x*D-A*x+B) < 1e-10 
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+
+# positive solution: Example 6.2 of Guo (SIMAX 2001)
+m = 50; 
+R = randomDoublyStochasticMatrix(2m);
+a = 1; 
+M = a*(I - R); 
+i1 =1:m; i2 = m+1:n;
+A2 = -M[i1,i1]; A1 = -M[i2,i2]; G = -M[i1,i2]; Q = -M[i2,i1];
+D = M[i1,i1]; A = M[i2,i2]; C = M[i1,i2]; B = -M[i2,i1];
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(x*C*x-x*D-A*x+B) < 1e-10 
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+# doubly stochastic solution: Example 6.2 of Guo (SIMAX 2001)
+m = 100
+B = C = Matrix{Float64}(I,m,m);
+A = D = diagm(1 => -ones(m-1), 0 => 2*ones(m),-m+1 => [-1]);
+A1 = -A; A2 = -D; G = -C; Q = B;
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(x*C*x-x*D-A*x+B) < 1e-10 
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 && 
+      norm(x*ones(m)-ones(m),Inf) < 1e-7 && norm(x'*ones(m)-ones(m),Inf) < 1e-7 &&
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+# positive solution:  
+A1 = A2 = G = -Matrix{Float64}(I,2,2)
+Q = [0 1;1 0]
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 &&
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+# positive solution: Example 2.1 SIMAX Guo & Laub (SIMAX 2000)
+
+c1 = c2 = 1/2;
+w1 = 3/4;
+w2 = 1/4;
+c = 1/2;
+α = 0.1
+α = 0.2
+e = ones(2,1); q = [c1/2/w1;c2/2/w2]
+δ1 = 1/c/w1/(1+α); δ2 = 1/c/w2/(1+α)
+d1 = 1/c/w1/(1-α); d2 = 1/c/w2/(1-α)
+
+A1 = -(diagm([δ1; δ2]) − e*q'); # -A
+A2 = -(diagm([d1; d2]) − q*e'); # -D
+G = -q*q'; # -C
+Q = e*e';  # B
+# -XD -AX + XCX + B = 0
+x, ev = nare(A1,A2,G,Q; as=false);
+
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 &&
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+# positive solution: Example 5.1 SIMAX Guo & Laub (SIMAX 2000)
+α = 4.27; α = 6.;
+A1 = -[α -2;-1 α]; 
+A2 = -[5 -1; -1 4];
+G = -[3 4;2 1];
+Q = [1 1;2 1]
+x, ev = nare(A1,A2,G,Q; as=false);
+
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 &&  minimum(x) > 0.0 &&
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+
+
+# positive stochastic solution: Example Guo & Higham   SIMAX 2007
+m = n = 100;
+A = diagm(0 => 3*ones(m), 1 => -ones(m-1), -m+1 => [-1]); A[m,m]=1.9;   
+B = diagm(0 => ones(m), 1 => ones(m-1)); B[m,m] = 0.9
+C = diagm(0 => ones(m), -1 => ones(m-1));   
+D = diagm(0 => 3*ones(m), 1 => -ones(m-1), -m+1 => [-1]); D[1,1] = 2.;
+A1 = -A; A2 = -D; G = -C; Q = B;
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(x*C*x-x*D-A*x+B) < 1e-10 
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 &&  minimum(x) > 0.0 &&
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+
+nm = 10; n = 5; m = nm-n; i1 = 1:n; i2 = n+1:nm
+M = [0.92038    0.539384   0.830556  0.856029   0.25361    0.115753  0.0487206  0.034561   0.724532   0.875804
+ 0.533231   0.0199564  0.97188   0.395389   0.140877   0.770254  0.289926   0.270919   0.219031   0.847851
+ 0.406041   0.203171   0.195407  0.491316   0.581786   0.869959  0.723029   0.755385   0.230713   0.805813
+ 0.481145   0.771876   0.294938  0.470606   0.0478576  0.90678   0.754986   0.0837657  0.0170108  0.0886567
+ 0.0884447  0.172554   0.619271  0.435887   0.935235   0.607263  0.748878   0.560723   0.761095   0.256845
+ 0.892364   0.767856   0.512534  0.474933   0.462245   0.385894  0.647882   0.651101   0.690611   0.664415
+ 0.400024   0.357446   0.225022  0.255931   0.762162   0.625031  0.208448   0.833267   0.736438   0.588668
+ 0.942787   0.0715331  0.50873   0.0556853  0.649507   0.319407  0.070113   0.642313   0.14744    0.0204208
+ 0.885485   0.594088   0.896687  0.694776   0.235911   0.823385  0.136315   0.346832   0.893713   0.995861
+ 0.457231   0.881096   0.710535  0.538029   0.455018   0.399169  0.238008   0.884699   0.6813     0.0830576];
+@views A2 = M[i1,i1]; G = M[i1,i2]; Q = M[i2,i1]; A1 = M[i2,i2];
+#x, ev = nare(M11,M12,M21,M22; as=false);
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+
+nm = 10; n = 5; m = nm-n; i1 = 1:n; i2 = n+1:nm
+M = [ 0.206894  0.647987   0.978259  0.573942    0.760473  0.721102   0.991653  0.665694    0.49927    0.0283918
+ 0.485164  0.671879   0.912292  0.962415    0.182261  0.466124   0.558987  0.807104    0.419912   0.629134
+ 0.834098  0.590364   0.953538  0.766051    0.121736  0.70641    0.263044  0.524945    0.0338247  0.533112
+ 0.553465  0.0635469  0.83314   0.828064    0.115488  0.0109646  0.948111  0.0772236   0.313495   0.447261
+ 0.430239  0.0123586  0.712853  0.00642428  0.809065  0.401336   0.559325  0.968344    0.625919   0.338503
+ 0.521394  0.026751   0.15523   0.0862366   0.203291  0.759901   0.10982   0.00902374  0.305064   0.022878
+ 0.771858  0.616199   0.268513  0.400727    0.792068  0.526531   0.98098   0.500107    0.234162   0.289052
+ 0.875481  0.36195    0.808351  0.772763    0.616048  0.212764   0.857495  0.893323    0.021414   0.360048
+ 0.946474  0.158071   0.285827  0.286346    0.602634  0.545074   0.381267  0.77789     0.483196   0.0706794
+ 0.186945  0.361477   0.293914  0.386531    0.944161  0.344333   0.587848  0.595932    0.715252   0.839841]
+ # A1X + XA2 - XGX + Q = 0.
+@views A2 = M[i1,i1]; G = M[i1,i2]; Q = M[i2,i1]; A1 = M[i2,i2];
+x, ev = nare(A1,A2,G,Q; as=false);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+x, ev = nare(A1,A2,G,Q; as=true);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+x, ev = nare(A1,A2,G,Q; as=false, disc = true);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+@test_throws "suitable" x, ev = nare(A1,A2,G,Q; as=true, disc = true)
+x, ev = nare(A1,A2,G,Q; as=false, disc = true, stab = false);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+
+A2 = -M[i1,i1]; G = -M[i1,i2]; Q = -M[i2,i1]; A1 = -M[i2,i2];      
+x, ev = nare(A1,A2,G,Q; as=true);
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
+
+A2 = 2M[i1,i1]; G = 2M[i1,i2]; Q = 2M[i2,i1]; A1 = 2M[i2,i2]; 
+x, ev = nare(A1,A2,G,Q; as=true,disc = true);  
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10   
+
+
+A2 = .2M[i1,i1]; G = .2M[i1,i2]; Q = .2M[i2,i1]; A1 = .2M[i2,i2]; 
+x, ev = nare(A1,A2,G,Q; as=false,disc = true);  
+@test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
+      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10   
+
+end      
 
 # only double precision tests are performed
 
@@ -62,7 +278,17 @@ rc = rc1*rc1'
 norm(sort(real(clseig))-sort(real(eigvals(ar-gr*x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-gr*x))))/norm(clseig)  < rtol
 
+@time x, clseig = nare(ar',ar,gr,Qr)
+@test norm(ar'*x+x*ar-x*gr*x+Qr)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-gr*x))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-gr*x))))/norm(clseig)  < rtol
+
 @time x, clseig = arec(ar,gr,Qr,as = true)
+@test norm(ar'*x+x*ar-x*gr*x+Qr)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-gr*x))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-gr*x))))/norm(clseig)  < rtol
+
+@time x, clseig = nare(ar',ar,gr,Qr,as = true)
 @test norm(ar'*x+x*ar-x*gr*x+Qr)/max(1,norm(x)) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-gr*x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-gr*x))))/norm(clseig)  < rtol
@@ -103,6 +329,11 @@ norm(sort(real(clseig))-sort(real(eigvals(ar'-gr*x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar'-gr*x))))/norm(clseig)  < rtol
 
 @time x, clseig = arec(ac,gc,qc)
+@test norm(ac'*x+x*ac-x*gc*x+qc)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ac-gc*x))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ac-gc*x))))/norm(clseig)  < rtol
+
+@time x, clseig = nare(ac',ac,gc,qc)
 @test norm(ac'*x+x*ac-x*gc*x+qc)/max(1,norm(x)) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ac-gc*x))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ac-gc*x))))/norm(clseig)  < rtol
@@ -458,6 +689,13 @@ rezn = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol)
 
+# without scaling
+@time X, clseig = nare(A',A,G,Q; scaling = 'N')
+rezn = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test !(rezn < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol)
+
 # with block scaling
 @time X, clseig = arec(A,G,Q; scaling = 'B')
 rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
@@ -465,8 +703,22 @@ rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
+# with block scaling
+@time X, clseig = nare(A',A,G,Q; scaling = 'B')
+rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test  rezb < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
 # extended precision with block scaling
 @time X, clseig = arec(BigFloat.(A),G,Q; scaling = 'B')
+rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test  rezb < 1.e-60*reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+# extended precision with block scaling
+@time X, clseig = nare(BigFloat.(A)',BigFloat.(A),G,Q; scaling = 'B')
 rezb = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 @test  rezb < 1.e-60*reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
@@ -480,7 +732,21 @@ norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
 # with special scaling
+@time X, clseig = nare(A',A,G,Q; scaling = 'S')
+rezs = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezs < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+# with special scaling
 @time X, clseig, Z, scalinfo = arec(A,G,Q; scaling = 'K', nrm = Inf)
+rezk = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezk < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+# with special scaling
+@time X, clseig, Z, scalinfo = nare(A',A,G,Q; scaling = 'K', nrm = Inf)
 rezk = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 @test rezk < reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
@@ -488,6 +754,13 @@ norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
 
 # with general scaling
 @time X, clseig = arec(A,G,Q; scaling = 'G')
+rezg = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
+@test rezg < reltol &&
+norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A-G*X))))/norm(clseig)  < reltol
+
+# with general scaling
+@time X, clseig = nare(A',A,G,Q; scaling = 'G')
 rezg = norm(A'*X+X*A-X*G*X+Q)/max(1,norm(X))
 @test rezg < reltol &&
 norm(sort(real(clseig))-sort(real(eigvals(A-G*X))))/norm(clseig)  < reltol &&
@@ -755,7 +1028,7 @@ rezn  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X))
 
 @time X, clseig, F, Z, scalinfo = garec(A, E, B, R, Q; scaling = 'K')
 rezk  = norm(A'*X*E+E'*X*A-E'*X*B*inv(R)*B'*X*E+Q)/max(1,norm(X)) 
-@show rezk, rezn, norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig), norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)
+# @show rezk, rezn, norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig), norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)
 @test rezk < 1.e-3*rezn 
 @test norm(sort(real(clseig))-sort(real(eigvals(A-B*F,E))))/norm(clseig)  < reltol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A-B*F,E))))/norm(clseig)  < reltol
