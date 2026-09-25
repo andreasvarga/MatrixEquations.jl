@@ -61,7 +61,7 @@ The current version of the package includes the following functions:
  `A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0`.
 * **gared**  Solution of the generalized discrete Riccati equation
  `A'XA - E'XE - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0`.
-* **nare**  Solution of the nonsymmetric/nonhermitian Riccati equations `A1X+XA2-XRX+Q = 0`.
+* **nare**  Solution of the nonsymmetric/nonhermitian Riccati equation `A1X+XA2-XRX+Q = 0`.
  
 
  **Solution of Sylvester equations and systems**
