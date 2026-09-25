@@ -1,3 +1,126 @@
+
+"""
+    nare(A1, A2, G, Q = 0; scaling = 'B', pow2 = false, as = false, disc = false, stab = true, 
+         rtol::Real = nϵ, nrm = 1) -> (X, EVALS, Z, scalinfo)
+
+Compute `X`, the stabilizing solution (if `as = false`) or
+anti-stabilizing solution (if `as = true`) of the _nonsymmetric/nonhermitian algebraic Riccati equation_ (NARE)
+
+     A1X + XA2 - XGX + Q = 0,
+
+where `A1`, `A2`, `G` and `Q` are `m×m`, `n×n`, `n×m` and `m×n` matrices, respectively, and `X` is an `m×n` matrix.    
+An extension of the Schur-form technique of [1] is used. 
+
+To enhance the accuracy of computations, a block scaling of matrices `G` and `Q` is performed, if  
+the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(Q) > norm(G)` and `norm(G) > 0`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting. 
+Scaling can be disabled with the choice `scaling = 'N'`.
+If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
+and `ϵ` is the _machine epsilon_ of the element type of `A1`.
+
+`EVALS` is a vector containing `n` stable or `n` anti-stable eigenvalues of the Hamiltonian-like matrix `H := [A1 -G; -Q -A2]`, if `stab = true`.
+These are also the eigenvalues of `A2-GX`. If `stab = false`, the eigenvalues must not be all stable or all anti-stable. 
+The selection of the eigenvalues is performed as follows. If `disc = false`, then the `n` eigenvalues with the smallest real parts are selected if `as = false`, 
+or with the largest real parts if `as = true`.  If `disc = true`, then the `n` eigenvalues with the smallest moduli are selected if `as = false`, 
+or with the largest moduli if `as = true`. Possible permutations of eigenvalues can occur if the `n`-th eigenvalue
+belongs to a complex conjugated pair.  
+
+`Z = [U; V]` is an orthogonal basis for the stable/anti-stable deflating subspace corresponding to `EVALS`, such that `X = Sx*(V/U)*Sxi`, 
+where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
+as `scalinfo.Sx` and `scalinfo.Sxi`, respectively.
+
+_Note:_ To solve the continuous-time nonsymmetric/nonhermitian algebraic Riccati equation
+
+     A1'X + XA2 - XB1R^(-1)B2'X + Q = 0,
+
+with `R` a nonsingular matrix and `B1` and `B2` of compatible size matrices, `G = B1R^(-1)B2'` must be provided. 
+This approach is not numerically suited when `R` is ill-conditioned and/or `B1` and `B2` have large norms.  
+
+`Reference:`
+
+[1] Laub, A.J., A Schur Method for Solving Algebraic Riccati equations.
+    IEEE Trans. Auto. Contr., AC-24, pp. 913-921, 1979.
+"""
+function nare(A1::AbstractMatrix, A2::AbstractMatrix, G::AbstractMatrix, Q::AbstractMatrix;
+              disc = false, scaling = 'B', pow2 = false, as = false, stab = true, 
+              rtol::Real = size(A1,1)*eps(real(float(one(eltype(A1))))), nrm = 1)
+   m = LinearAlgebra.checksquare(A1)
+   n = LinearAlgebra.checksquare(A2)
+   (n,m) == size(G) || throw(DimensionMismatch("G must be a $n x $m matrix"))
+   (m,n) == size(Q) || throw(DimensionMismatch("Q must be a $m x $n matrix"))
+   T = promote_type( eltype(A1), eltype(A2), eltype(G), eltype(Q) )
+
+   T <: BlasFloat || (T = promote_type(Float64,T))
+   eltype(A1) == T || (A1 = convert(Matrix{T},A1))
+   eltype(A2) == T || (A2 = convert(Matrix{T},A2))
+   eltype(G) == T || (G = convert(Matrix{T},G))
+   eltype(Q) == T || (Q = convert(Matrix{T},Q))
+
+   n == 0 && (return  zeros(T,m,0), zeros(T,0), zeros(T,m,0), (Sx = I, Sxi = I(0)) )
+    
+   # perform scaling if appropriate
+   # H = [A2 -G; -Q -A1]
+   H, Sx, Sxi = balhamlike(A1, A2, G, Q; scaling, pow2, nrm)
+   
+   SF = schur(H)
+   nm = n+m
+   if stab
+      ns = disc ? count(abs.(SF.values) .< 1) : count(real(SF.values) .< 0) 
+      (as ? nm-ns >= n : ns >= n) || error("The matrix [A1 -G; -Q -A2] has less than $n suitable eigenvalues")
+   else
+      ns = nm
+   end
+    
+   select = zeros(Bool, nm)
+   if disc
+      ind = sortperm(SF.values, by = abs, rev = as)
+   else
+      ind = sortperm(SF.values, by = real, rev = as)
+   end
+   if T <: Real
+      if ind[n] < nm && SF.T[ind[n]+1, ind[n]] != zero(T) 
+         as ? nm-ns < n+1 : ns < n+1 && error("The matrix [A1 -G; -Q -A2]  has a complex Jordan block for the $n-th eigenvalue")
+         na = 0
+         for i in n-1:-1:1
+             if na == 0 && imag(SF.values[ind[i]]) == 0
+                na = n-2
+                select[ind[i]] = false
+             else
+                select[ind[i]] = true
+             end
+         end
+         if na == n-2
+            select[ind[n]] = true
+            select[ind[n+1]] = true
+            na = n
+         else
+            na = n-1
+            for i in n+2:ns
+                imag(SF.values[ind[i]]) == 0 && (select[ind[i]] = true; na = n; break)
+            end
+         end
+         na < n && error("The matrix [A1 -G; -Q -A2] has a complex Jordan block for the $n-th eigenvalue")
+      else
+         for i in 1:n
+             select[ind[i]] = true
+         end
+      end
+   end
+   ordschur!(SF, select)
+  
+   ix = 1:n
+   F = _LUwithRicTest(SF.Z[ix, ix],rtol)
+   x = SF.Z[n+1:nm, ix]/F
+   lmul!(Sx,x); rmul!(x,Sxi)
+   scalinfo = (Sx = Sx, Sxi = Sxi)
+   return  x, SF.values[ix], SF.Z[:,ix], scalinfo
+end
+
 """
     arec(A, G, Q = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, Z, scalinfo)
 
@@ -112,7 +235,7 @@ function arec(A::AbstractMatrix, G::Union{AbstractMatrix,UniformScaling,Real,Com
     n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,m,0) )
     
     # perform scaling if appropriate
-    H, Sx, Sxi = balham(A, G, Q; scaling, pow2, nrm)
+    H, Sx, Sxi = balhamlike(A', A, G, Q; scaling, pow2, nrm)
     S = schur!(H)
 
     as ? select = real(S.values) .> 0 : select = real(S.values) .< 0
@@ -1079,12 +1202,12 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     scalinfo = (Sx = Sx, Sxi = Sxi, Sr = Sr)
     return  LinearAlgebra._hermitianpart!(x), clseig, f, z[:,i1], scalinfo
 end
-function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
-   # Scaling function to be used in conjunction with arec(A,G,Q)
-   H = [A -G; -Q -A']
+function balhamlike(A1, A2, G, Q; scaling = 'B', pow2 = false, nrm = 1)
+   # Scaling function to be used in conjunction with nare(A1,A2,G,Q)
+   H = [A2 -G; -Q -A1]
    scaling == 'N' && (return H, I, I)
-   n = size(A,1)
-   i1 = 1:n; i2 = n+1:2n
+   n = size(A2,1); m = size(A1,1)
+   i1 = 1:n; i2 = n+1:n+m
    At1 = view(H,i1,i1)
    Gt = view(H,i1,i2)
    Qt = view(H,i2,i1)
@@ -1122,7 +1245,7 @@ function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
       ldiv!(Sx,Qt); rdiv!(Qt,Sx)  # Qt <- Sx\(Qt/Sx)
       qs = sqrt(opnorm(Qt,1))
       gs = sqrt(opnorm(Gt,1))
-      if qs > 10*gs
+      if qs > 10*gs && gs > 0
          scal = qs/gs  
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
@@ -1146,7 +1269,7 @@ function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
 
       qs = sqrt(opnorm(Qt,1))
       gs = sqrt(opnorm(Gt,1))
-      if qs > 10*gs
+      if qs > 10*gs && gs > 0
          scal = qs/gs  
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
@@ -1164,7 +1287,7 @@ function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
 
       qs = sqrt(opnorm(Qt,1))
       gs = sqrt(opnorm(Gt,1))
-      if qs > 10*gs
+      if qs > 10*gs && gs > 0
          scal = qs/gs  
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
@@ -1179,7 +1302,7 @@ function balham(A, G, Q; scaling = 'B', pow2 = false, nrm = 1)
       d = lsbalance!(H).diag
       qs = sqrt(opnorm(Qt,1))
       gs = sqrt(opnorm(Gt,1))
-      if qs > 10*gs
+      if qs > 10*gs && gs > 0
          scal = qs/gs  
          scalsr = sqrt(scal)
          lmul!(scal,Gt); ldiv!(scal,Qt)
