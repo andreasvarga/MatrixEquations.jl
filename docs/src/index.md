@@ -45,6 +45,7 @@ The current version of the package includes the following functions:
 | **[`ared`](@ref)**  |  Solution of the discrete Riccati equation|
 | **[`gared`](@ref)** |  Solution of the generalized discrete Riccati equation|
 | **[`nare`](@ref)**  |  Solution of the nonsymmetric/nonhermitian Riccati equation|
+| **[`umqu`](@ref)**  |  Solution of the unilateral matrix quadratic equation|
 
  **Solution of Sylvester equations and systems**
 

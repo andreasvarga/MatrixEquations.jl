@@ -3,6 +3,7 @@
 ## Version 2.7.0
 
 - new solver `nare` for nonsymmetric/nonhermitian Riccati matrix equations
+- new solver `uqme` for quadratic matrix equations
 
 ## Version 2.6.7
 - recursive blocking implemented for solving Sylvester systems of equations in `sylvsys` for `BlasFloat` data

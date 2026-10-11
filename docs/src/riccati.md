@@ -1,4 +1,4 @@
-# Riccati Matrix Equation Solvers
+# Riccati and Quadratic Matrix Equation Solvers
 
 ## Standard Riccati Matrix Equations
 
@@ -14,3 +14,10 @@ nare
 garec
 gared
 ```
+
+## Quadratic Matrix Equations
+
+```@docs
+uqme
+```
+

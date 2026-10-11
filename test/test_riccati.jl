@@ -6,6 +6,8 @@ using MatrixEquations
 using Test
 using GenericSchur
 using GenericLinearAlgebra
+using Polynomials
+using Combinatorics
 
 function randomDoublyStochasticMatrix(n; num_perm = n^2)
 
@@ -24,10 +26,323 @@ function randomDoublyStochasticMatrix(n; num_perm = n^2)
 end
 
 
-
 println("Test_riccati")
 
-@testset "Testing algebraic Riccati equation solvers" begin
+@testset "Testing algebraic Riccati/quadratic equation solvers" begin
+
+
+# @testset "Unilateral quadratic matrix equation" begin
+
+
+# 2.3.1 Example 1: Choudhry, Serdica Math. Journal, 2019 
+A = [ 1 1; 5 2 ]; B = [2 1;-1 2]; C = [7 -6; 2 -12];
+@time x, ev, _, _, indeig = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10   
+      
+@time x1, ev1, _, _, indeig1 = uqme(A,B,C; as=false, disc=true, rev = true);      
+@test norm(A*x1*x1+B*x1+C) < 1e-10 && x ≈ x1 &&
+      norm(sort(real(ev1))-sort(real(eigvals(x1)))) < 1e-10 &&
+      norm(sort(imag(ev1))-sort(imag(eigvals(x1)))) < 1e-10   
+
+
+# determine all real solutions
+sols = Vector{Matrix{Float64}}(undef, 0)     
+inds = Vector{Vector{Int}}(undef, 0)  
+norms = Vector{Float64}(undef, 0)  
+vind = collect(combinations(vec(1:4),2))
+for k in 1:length(vind)
+    try x, ev, _, _, indeig = uqme(A,B,C; indeig = vind[k], rtol = 1.e-10);
+        push!(sols,x)  
+        push!(inds,indeig) 
+        push!(norms,norm(A*x*x+B*x+C))
+    catch
+        continue
+    end
+end 
+@test norm(norms,Inf) < 1.e-10
+
+x, ev, _, _, indeig = uqme(I,A\B,A\C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10      
+
+# determine all real solutions
+sols = Vector{Matrix{Float64}}(undef, 0)     
+inds = Vector{Vector{Int}}(undef, 0)  
+norms = Vector{Float64}(undef, 0)  
+vind = collect(combinations(vec(1:4),2))
+for k in 1:length(vind)
+    try x, ev, _, _, indeig = uqme(I,A\B,A\C; indeig = vind[k], rtol = 1.e-10);
+        push!(sols,x)  
+        push!(inds,indeig) 
+        push!(norms,norm(A*x*x+B*x+C))
+    catch
+        continue
+    end
+end 
+@test norm(norms,Inf) < 1.e-10
+
+
+
+# 3.2.1 Example 1: Choudhry, Serdica Math. Journal, 2019 
+A = [ 1 2 3; -1 0 1; 1 1 1]; B = [2 0 1;3 1 0; 7 2 1]; 
+C = [7 7 -37;3 2 -7; -10 -7 -24];
+@time x, ev, _, _, indeig = uqme(A,B,C; as=false, disc=false, scaling = 'N');
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+@time x1, ev1 = uqme(A,B,C; as=false, disc=false, indeig, scaling = 'B');
+@test x ≈ x1 && ev ≈ ev1
+
+@time x, ev, _, _, indeig = uqme(A,B,C; as=true, disc=false, scaling = 'K');
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+@time x, ev = uqme(A,B,C; as=false, disc=true, scaling = 'G');
+@test norm(A*x*x+B*x+C) < 1e-8 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
+
+@time x, ev = uqme(A,B,C; as=true, disc=true, scaling = 'S');
+@test norm(A*x*x+B*x+C) < 1e-8 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
+
+
+# determine all real solutions using random index permutations
+sols = Vector{Matrix{Float64}}(undef, 0)     
+inds = Vector{Vector{Int}}(undef, 0)  
+norms = Vector{Float64}(undef, 0)  
+for k in 1:100
+    try x, ev, _, _, indeig = uqme(A,B,C; indeig = randperm(6));
+        push!(sols,x)  
+        push!(inds,indeig) 
+        push!(norms,norm(A*x*x+B*x+C))
+   catch
+        continue
+    end
+end 
+@test norm(norms,Inf) < 1.e-10
+
+# determine all complex solutions
+solsc = Vector{Matrix{Complex{Float64}}}(undef, 0)     
+indsc = Vector{Vector{Int}}(undef, 0)  
+normsc = Vector{Float64}(undef, 0)  
+
+for k in 1:20
+    try x, ev, _, _, indeig = uqme(Complex{Float64}.(A),B,C; indeig = randperm(6));
+        push!(solsc,x)  
+        push!(indsc,indeig) 
+        push!(normsc,norm(A*x*x+B*x+C))
+    catch
+        continue
+    end
+end 
+@test norm(normsc,Inf) < 1.e-10
+
+# 3.2.2 Example 2: Choudhry, Serdica Math. Journal, 2019 
+A = [ 1 2 3; -1 0 2; 1 1 1]; B = [2 0 1;3 1 0; 1 2 1]; 
+C = [7 7 -37;9 7 -15; -4 -1 -18];
+@time x, ev, _, _, indeig = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+# determine all real solutions
+sols = Vector{Matrix{Float64}}(undef, 0)     
+inds = Vector{Vector{Int}}(undef, 0)  
+norms = Vector{Float64}(undef, 0)  
+vind = collect(combinations(vec(1:6),3))
+for k in 1:length(vind)
+    try x, ev, _, _, indeig = uqme(A,B,C; indeig = vind[k], rtol = 1.e-10);
+        push!(sols,x)  
+        push!(inds,indeig) 
+        push!(norms,norm(A*x*x+B*x+C))
+    catch
+        continue
+    end
+end 
+@test norm(norms,Inf) < 1.e-10
+
+# determine all complex solutions
+solsc = Vector{Matrix{Complex{Float64}}}(undef, 0)     
+indsc = Vector{Vector{Int}}(undef, 0)  
+normsc = Vector{Float64}(undef, 0)  
+vind = collect(combinations(vec(1:6),3))
+
+vind = collect(combinations(vec(1:6),3))
+for k in 1:length(vind)
+    try x, ev, _, _, indeig = uqme(Complex{Float64}.(A),B,C; indeig = vind[k], rtol = 1.e-10);
+        push!(solsc,x)  
+        push!(indsc,indeig) 
+        push!(normsc,norm(A*x*x+B*x+C))
+    catch
+        continue
+    end
+end 
+@test norm(normsc,Inf) < 1.e-10
+
+
+# Example Higham & Kim (SIMAX. 2001)
+# no real solution exists for this example
+
+A = Complex{Float64}.([17.6 1.28 2.89
+1.28 0.824 0.413
+2.89 0.413 0.725]);
+B = Complex{Float64}.([7.66 2.45 2.1
+0.23 1.04 0.223
+0.6 0.756 0.658]);
+C = Complex{Float64}.([
+121 18.9 15.9
+0 2.7 0.145
+11.9 3.64 15.5]);
+@test_throws "complex Jordan block" x, ev = uqme(real(A),real(B),real(C));
+
+@time x, ev = uqme(A,B,C);
+@test norm(A*x*x+B*x+C) < 1e-8 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+
+# Example: quasi-birth–death process to solve R = β(A0+RA1+R^2A2): Higham & Kim (Math. Comp. 2000)
+Q(g,x) = [g*x[1] (1-g)*x[1] 0 0 0;
+          g*x[2] 0 (1-g)*x[2] 0 0;
+          g*x[3] 0 0 (1-g)*x[3] 0;
+          g*x[4] 0 0 0 (1-g)*x[4];
+          g*x[5] 0 0 0 (1-g)*x[5]];
+g = 0.2; b = [1, 0.4, 0.25, 0.1, 0.]; d = [0, 0.5, 0.55, 0.8, 1]; β = 0.5;
+A0 = Q(g,b); A1 = Q(g,ones(5)-b-d); A2 = Q(g,d);
+A = β*A2'; B = β*A1'-I; C = β*A0';
+@time x, ev = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+
+# Erfanifar & Hajarian Example 3, IET CTA, 2024
+
+n = 100;
+A = diagm(0=>1.5*ones(n),1=>7.5*ones(n-1),-1=>7.5*ones(n-1))+0.5*im*ones(n,n);
+B = diagm(0=>30*ones(n),1=>-5.5*ones(n-1),
+-1=>-(2.5*im+4.5)*ones(n-1));B[1,1] =21; B[n,n] = 21; B += 0.2*im*randn(n,n);
+C = diagm(0=>2.5*im*ones(n),1=>1.5*im*ones(n-1),-1=>1.5*im*ones(n-1))-0.2*ones(n,n);
+@time x, ev = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-8 && # norm(A*x*x+B*x+C) > 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
+# perform a Newton step to increase accuracy
+E = gsylv(A,x,A*x+B,I(n),(A*x+B)*x+C)
+x2 = x-E;
+@test norm(A*x2*x2+B*x2+C) < norm(A*x*x+B*x+C)
+
+
+# Erfanifar & Hajarian Example 2, IET CTA, 2024
+
+n = 100;
+A = diagm(0=>(-1.5*im+1)*ones(n),1=>-2*ones(n-1),-1=>-ones(n-1))+0.5*im*ones(n,n);
+B = diagm(0=>-25*ones(n),1=>-5*ones(n-1),2=>(-im-0.5)*ones(n-2),
+-1=>-6*ones(n-1),-2=>(1-2*im)*ones(n-2));B[1,1] = 4; B[n,n] = 4;
+C = diagm(0=>-im*ones(n),1=>-0.5*ones(n-1),-1=>-1.5*ones(n-1))-0.2*ones(n,n);
+@time x, ev = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+n = 10;
+A = diagm(0=>(-1.5*im+1)*ones(n),1=>-2*ones(n-1),-1=>-ones(n-1))+0.5*im*ones(n,n);
+B = diagm(0=>-25*ones(n),1=>-5*ones(n-1),2=>(-im-0.5)*ones(n-2),
+-1=>-6*ones(n-1),-2=>(1-2*im)*ones(n-2));B[1,1] = 4; B[n,n] = 4;
+C = diagm(0=>-im*ones(n),1=>-0.5*ones(n-1),-1=>-1.5*ones(n-1))-0.2*ones(n,n);
+@time x, ev = uqme(Complex{BigFloat}.(A),Complex{BigFloat}.(B),Complex{BigFloat}.(C); as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-70 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-70 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-70 
+
+
+
+# Erfanifar & Hajarian Example 1, IET CTA, 2024
+n = 100;
+A = diagm(0=>-1.5*ones(n),1=>-6*ones(n-1),-1=>-7*ones(n-1))-0.2*ones(n,n);
+B = diagm(0=>45*ones(n),1=>-5*ones(n-1),-1=>-7*ones(n-1));B[1,1] = 15; B[n,n] = 15;
+C = diagm(0=>-ones(n),1=>-0.4*ones(n-1),-1=>-0.5*ones(n-1))-0.2*ones(n,n);
+@time x, ev = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-8 && norm(A*x*x+B*x+C) > 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
+
+# Newton step with exact line search
+tmp = A*x+B
+Qx = tmp*x+C
+E = gsylv(A,x,tmp,I(n),Qx)
+α = norm(Qx,2)^2
+tmp = A*E*E
+γ = norm(tmp,2)^2
+β = tr(Qx'*tmp*tmp'*Qx)
+p = Polynomial([α, -2α, α+β, -β, γ ])
+pd = Polynomial([-2α,2(α+β),-3β,4γ])
+r = roots(pd); 
+tmin = real(r[findall(imag.(r) .== 0)])
+x2 = x-tmin[1]*E;
+@test norm(A*x2*x2+B*x2+C) < norm(A*x*x+B*x+C)
+
+
+# p = 5;
+# F1 = diagm(0=> 2*ones(p), -1 => ones(p-1), 1 => ones(p-1)); F1[1,1]=3; F1[p,p]=3; rmul!(F1,1/8)
+# F2 = diagm(0=> 3*ones(p), -1 => ones(p-1), 1 => ones(p-1)); F2[1,1]=4; F2[p,p]=4; rmul!(F2,1/10)
+# E0 = [zeros(p,p) F1; F2 zeros(p,p)];
+# E1 = zeros(2p,2p);
+# E2 = [zeros(p,p) F2; F1 zeros(p,p)];
+# A = -E2; B = I-E1; C = -E0;
+# x, ev = uqme(A,B,C; as=false, disc=true,stab = false);
+# @test norm(A*x*x+B*x+C) < 1e-10 &&
+#       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
+#       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
+
+# Example 1: Li & Meini, arxiv:2026
+
+E0 = [0 0 0 1/4;
+33/160 0 0 0;
+1/4 0 0 0;
+0 1/4 0 0];
+E1 = [0 0 0 0;
+0 0 3/4 0;
+0 3/4 0 0;
+0 0 0 0];
+E2 = [0 3/4 0 0;
+0 0 0 7/160;
+0 0 0 0;
+3/4 0 0 0];
+A = -E2; B = I-E1; C = -E0;
+@time x, ev = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
+
+
+# Example 1: Tisseur, LAA 2000
+A = [0.81 -0.38; -0.41 0.19];
+B = [-0.24 0.97; -0.021 0.086];
+C = [-0.11 -0.057; -0.88 -0.46]; 
+@time x, ev = uqme(A,B,C; as=true, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+# unilateral quadratic matrix equation (UQME): Kressner et al. 2019
+n = 50; 
+A = I(n); 
+B = diagm(0 => 30*ones(n),-1=>-10*ones(n-1),1=>-10*ones(n-1) ); B[1,1] = 20; B[n,n] = 20. ; 
+C = diagm(0 => 15*ones(n),-1=>-5*ones(n-1),1=>-5*ones(n-1) );
+@time x, ev = uqme(A,B,C; as=true, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+end
 
 @testset "Nonsymmetri/nonhermitian Riccati equation" begin
 
@@ -38,19 +353,20 @@ n = 50;
 A1 = diagm(0 => 30*ones(n),-1=>-10*ones(n-1),1=>-10*ones(n-1) ); A1[1,1] = 20; A1[n,n] = 20. ; 
 A2 = zeros(n,n); G = -Matrix{Float64}(I,n,n); 
 Q = diagm(0 => 15*ones(n),-1=>-5*ones(n-1),1=>-5*ones(n-1) );
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(x*x+A1*x+Q) < 1e-10 &&
-      norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
-      norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10 
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
 
 # left and right stabilization example with Q = 0
 A1 = [-2 0 0;0 1 0;0 0 4]; A2 = [5 0; 0 1]; G = [5 1 0; 1 2 1]; Q = zeros(3,2);
 K = [0 0; 6 0; -30 5];
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && x ≈ K && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10 && 
       maximum(real(eigvals(A1-x*G))) < 0 && maximum(real(eigvals(A2-G*x))) < 0 
+
 
 # positive solution: Example 6.1 of Guo (SIMAX 2001)
 n = 100;
@@ -61,7 +377,7 @@ M = W + α*I;
 i1 =1:div(n,2); i2 = div(n,2)+1:n;
 A2 = -M[i1,i1]; A1 = -M[i2,i2]; G = -M[i1,i2]; Q = -M[i2,i1];
 D = M[i1,i1]; A = M[i2,i2]; C = M[i1,i2]; B = -M[i2,i1];
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(x*C*x-x*D-A*x+B) < 1e-10 
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
@@ -76,7 +392,7 @@ M = a*(I - R);
 i1 =1:m; i2 = m+1:n;
 A2 = -M[i1,i1]; A1 = -M[i2,i2]; G = -M[i1,i2]; Q = -M[i2,i1];
 D = M[i1,i1]; A = M[i2,i2]; C = M[i1,i2]; B = -M[i2,i1];
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(x*C*x-x*D-A*x+B) < 1e-10 
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
@@ -98,7 +414,7 @@ x, ev = nare(A1,A2,G,Q; as=false);
 # positive solution:  
 A1 = A2 = G = -Matrix{Float64}(I,2,2)
 Q = [0 1;1 0]
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 &&
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
@@ -120,7 +436,7 @@ A2 = -(diagm([d1; d2]) − q*e'); # -D
 G = -q*q'; # -C
 Q = e*e';  # B
 # -XD -AX + XCX + B = 0
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && minimum(x) > 0.0 &&
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
@@ -132,7 +448,7 @@ A1 = -[α -2;-1 α];
 A2 = -[5 -1; -1 4];
 G = -[3 4;2 1];
 Q = [1 1;2 1]
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 &&  minimum(x) > 0.0 &&
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
@@ -147,7 +463,7 @@ B = diagm(0 => ones(m), 1 => ones(m-1)); B[m,m] = 0.9
 C = diagm(0 => ones(m), -1 => ones(m-1));   
 D = diagm(0 => 3*ones(m), 1 => -ones(m-1), -m+1 => [-1]); D[1,1] = 2.;
 A1 = -A; A2 = -D; G = -C; Q = B;
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(x*C*x-x*D-A*x+B) < 1e-10 
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 &&  minimum(x) > 0.0 &&
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
@@ -167,7 +483,7 @@ M = [0.92038    0.539384   0.830556  0.856029   0.25361    0.115753  0.0487206  
  0.457231   0.881096   0.710535  0.538029   0.455018   0.399169  0.238008   0.884699   0.6813     0.0830576];
 @views A2 = M[i1,i1]; G = M[i1,i2]; Q = M[i2,i1]; A1 = M[i2,i2];
 #x, ev = nare(M11,M12,M21,M22; as=false);
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
@@ -186,47 +502,65 @@ M = [ 0.206894  0.647987   0.978259  0.573942    0.760473  0.721102   0.991653  
  0.186945  0.361477   0.293914  0.386531    0.944161  0.344333   0.587848  0.595932    0.715252   0.839841]
  # A1X + XA2 - XGX + Q = 0.
 @views A2 = M[i1,i1]; G = M[i1,i2]; Q = M[i2,i1]; A1 = M[i2,i2];
-x, ev = nare(A1,A2,G,Q; as=false);
+@time x, ev = nare(A1,A2,G,Q; as=false, disc = false);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
 
-x, ev = nare(A1,A2,G,Q; as=true);
+@time x, ev = nare(A1,A2,G,Q; as=true, disc = false);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
 
-x, ev = nare(A1,A2,G,Q; as=false, disc = true);
+@time x, ev = nare(A1,A2,G,Q; as=false, disc = true);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
 
-@test_throws "suitable" x, ev = nare(A1,A2,G,Q; as=true, disc = true)
-x, ev = nare(A1,A2,G,Q; as=false, disc = true, stab = false);
+@test_throws "suitable" x, ev = nare(A1,A2,G,Q; as=true, disc = true, stab = true)
+@time x, ev = nare(A1,A2,G,Q; as=false, disc = true, stab = false);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
 
 
 A2 = -M[i1,i1]; G = -M[i1,i2]; Q = -M[i2,i1]; A1 = -M[i2,i2];      
-x, ev = nare(A1,A2,G,Q; as=true);
+@time x, ev = nare(A1,A2,G,Q; as=true);
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10
 
 A2 = 2M[i1,i1]; G = 2M[i1,i2]; Q = 2M[i2,i1]; A1 = 2M[i2,i2]; 
-x, ev = nare(A1,A2,G,Q; as=true,disc = true);  
+@time x, ev = nare(A1,A2,G,Q; as=true,disc = true);  
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10   
 
 
 A2 = .2M[i1,i1]; G = .2M[i1,i2]; Q = .2M[i2,i1]; A1 = .2M[i2,i2]; 
-x, ev = nare(A1,A2,G,Q; as=false,disc = true);  
+@time x, ev = nare(A1,A2,G,Q; as=false,disc = true);  
 @test norm(-x*G*x+x*A2+A1*x+Q) < 1e-10 && 
       norm(sort(real(ev))-sort(real(eigvals(A2-G*x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(A2-G*x)))) < 1e-10   
 
+
+# determine all real solutions
+sols = Vector{Matrix{Float64}}(undef, 0)     
+evs = Vector{Vector{ComplexF64}}(undef, 0)     
+inds = Vector{Vector{Int}}(undef, 0)  
+norms = Vector{Float64}(undef, 0)  
+vind = collect(combinations(vec(1:nm),5))
+for k in 1:length(vind)
+    try x, ev, _, _, indeig = nare(A1,A2,G,Q; indeig = vind[k]);
+        push!(sols,x)  
+        push!(evs,ev)  
+        push!(inds,indeig) 
+        push!(norms,norm(-x*G*x+x*A2+A1*x+Q))
+    catch
+        continue
+    end
+end 
+@test norm(norms,Inf) < 1.e-10      
 end      
 
 # only double precision tests are performed
@@ -1226,4 +1560,4 @@ end
 
 end 
 
-end
+

@@ -1,7 +1,250 @@
-
 """
-    nare(A1, A2, G, Q = 0; scaling = 'B', pow2 = false, as = false, disc = false, stab = true, 
-         rtol::Real = nϵ, nrm = 1) -> (X, EVALS, Z, scalinfo)
+    uqme(A, B, C; as = true, disc = true, scaling = 'B', pow2 = false,  
+         rtol::Real = nϵ, nrm = 1, indeig) -> (X, EVALS, Z, scalinfo, ind)
+
+Compute a solvent `X` of the _unilateral matrix quadratic equation_ (UMQE)
+
+     AX^2 + BX + C = 0,
+
+where `A`, `B` and `C` are `n×n` matrices, and `X` is an `n×n` matrix.    
+The generalized Schur-form based technique of [1] is used, where deflating subspaces `[U; V]` corresponding 
+to the selected `n` generalized eigenvalues of a suitable pencil `F-λG` are determined and `X = V*inv(U)` is the resulting solvent.    
+If `as = true` and `disc = true` the dominant solvent is attempted to be computed (default), corresponding
+to the eigenvalues with the largest moduli, while if `as = false` and `disc = true`, 
+the minimal solvent is targetted, corresponding to the eigenvalues with the smallest moduli. 
+Alternative solvents can be targetted
+by selecting eigenvalues with largest real parts with `as = true` and `disc = false` or  
+smallest real parts using `as = false` and `disc = false`. 
+Solvents corrsponding to arbitrary collections of eigenvalues can be selected by specifying
+their indices via `indeig = ind`, where `ind` must be an integer vector with at least `n` uniques indices
+being part of a permutation of the vector `1:2*n`. For real data, the indices must additionally indicate a symmetric set of complex conjugate 
+eigenvalues. The case `A = I` is explicitly handled, by solving a (simpler) nonsymmetric/nonhermitian algebraic Riccati equation. 
+
+To enhance the accuracy of computations, a block scaling of matrices `I` and `C` is performed, if  
+the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(C) > 1`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+An alternative, experimental structure preserving scaling can be performed using the option `scaling = 'S'`. 
+A symmetric matrix equilibration based scaling is employed if `scaling = 'K'`, for which the underlying vector norm 
+can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting. 
+Scaling can be disabled with the choice `scaling = 'N'`.
+If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
+and `ϵ` is the _machine epsilon_ of the element type of `C`.
+
+`EVALS` is a vector containing `n` generalized eigenvalues of the pencil `F-λG`, where `F = [0 I; -C -B]` and `G = [I 0; 0 A]`.
+These are also the eigenvalues of `X`. The selection of the eigenvalues is performed as follows. 
+If `disc = true`, then the `n` eigenvalues with the smallest moduli are selected if `as = false`, 
+or with the largest moduli if `as = true`. If `disc = false`, then the `n` eigenvalues with the smallest real parts are selected if `as = false`, 
+or with the largest real parts if `as = true`.  Possible permutations of eigenvalues can occur if the `n`-th eigenvalue
+belongs to a complex conjugated pair. The _exact_ infinite eigenvalues (e.g., if `A` is singular) are excluded from any selection.   
+
+`Z = [U; V]` is an orthogonal basis for the deflating subspace corresponding to `EVALS`, such that `X = Sx*(V/U)*Sxi`, 
+where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
+as `scalinfo.Sx` and `scalinfo.Sxi`, respectively. 
+
+'ind' contains the indices of the eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
+
+_Note:_ Generically, for complex data, there are up most `C(2n,n)` complex solvents which correspond to all possible _combinations_ of `n` eigenvalues of the `2n` 
+eigenvalues of the pencil `F-λG`. For real data, there are usually less solvents than for complex data. All solvents can be determined by generating an exhaustive set
+of `C(2n,n)` permutations and checking for each case if a solution exists (see some of the attached tests examples using `try/catch` constructs).    
+
+`Reference:`
+
+[1] N. J. Higham and H.-M. Kim, Numerical analysis of a quadratic matrix equation.
+    IMA Journal of Numerical Analysis 20:499–519, 2000.
+"""
+function uqme(A::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, C::AbstractMatrix;
+              disc = true, as = true, scaling = 'B', pow2 = false, rev = false, indeig = missing, 
+              rtol::Real = size(C,1)*eps(real(float(one(eltype(C))))), nrm = 1)
+   iszero(A) && throw(ArgumentError("first order equation with A = 0"))         
+   ident = A == I
+   n = LinearAlgebra.checksquare(C)
+   ident || (n == LinearAlgebra.checksquare(A))
+   n == LinearAlgebra.checksquare(B)
+   T = promote_type( eltype(A), eltype(B), eltype(C) )
+
+   T <: BlasFloat || (T = promote_type(Float64,T))
+   ident || eltype(A) == T || (A = convert(Matrix{T},A))
+   eltype(B) == T || (B = convert(Matrix{T},B))
+   eltype(C) == T || (C = convert(Matrix{T},C))
+
+   n == 0 && (return  zeros(T,0,0), zeros(T,0), zeros(T,0,0), (Sx = I, Sxi = I(0)), zeros(Int,0) )
+    
+   # perform scaling if appropriate
+   if ident
+      rev = false
+      # H = [0 I; -C -B]
+      H, Sx, Sxi = balhamlike(B, zeros(T,n,n), -I(n), C; scaling, pow2, nrm)
+      SF = schur(H)
+   else
+      #F = [0 I; -C -B]; G = [I 0; 0 A];
+      F, G, Sx, Sxi = baluqme(A, B, C; scaling, pow2, nrm)
+      SF = rev ? schur(G,F) : schur(F,G)
+      rev && (as = !as)
+   end
+   n2 = 2n
+   ns = n2 
+   select = zeros(Bool, n2)
+   if indeig === missing
+      if disc
+         #indeig = sortperm(SF.values, by = abs, rev = as)
+         indeig = sortperm(SF.values, by = x -> isfinite(x) ? abs(x) : as ? -Inf : Inf, rev = as)
+      else
+         #indeig = sortperm(SF.values, by = real, rev = as)
+         indeig = sortperm(SF.values, by = x -> isfinite(x) ? real(x) : as ? -Inf : Inf, rev = as)
+      end
+      # correct ordering of complex conjugated pairs 
+      if T <: Real && n > 1
+         if imag(SF.values[indeig[n]]) != 0 && !(SF.values[indeig[n-1]] ≈ conj(SF.values[indeig[n]]))
+            indeig[n] > indeig[n+1] && ((indeig[n],indeig[n+1]) =  (indeig[n+1],indeig[n])) 
+         end
+      end
+   else
+     (length(indeig) >= n && issubset(indeig, vec(1:n2))) || throw(DimensionMismatch("indeig = $indeig must be a part of permutation of 1:$n2"))
+      allunique(indeig) || throw(ArgumentError("all elements of indeig = $indeig must be unique"))
+      if T <: Real 
+         is_conjugate_symmetric(SF.values[view(indeig,1:n)]) || throw(ArgumentError("the selected subset is not conjugate symmetric"))
+      end
+      sort!(view(indeig,1:n))
+   end
+   for i in 1:n
+       select[indeig[i]] = true
+   end
+
+   if T <: Real
+      # check for possibly misplaced complex conjugated pairs
+      if imag(SF.values[indeig[n]]) != 0 && !(SF.values[indeig[n-1]] ≈ conj(SF.values[indeig[n]])) &&
+         (indeig[n] == n2 || SF.S[indeig[n]+1, indeig[n]] != zero(T))
+         na = 0
+         for i in n-1:-1:1
+             if na == 0 && imag(SF.values[indeig[i]]) == 0
+                na = n-2
+                select[indeig[i]] = false
+             else
+                select[indeig[i]] = true
+             end
+         end
+         if na == n-2
+            select[indeig[n]] = true
+            select[indeig[n+1]] = true
+            na = n
+         else
+            na = n-1
+            for i in n+2:ns
+                imag(SF.values[indeig[i]]) == 0 && (select[indeig[i]] = true; na = n; break)
+            end
+         end
+         na < n && error("The matrix pencil F-λG has a complex Jordan block for the $n-th eigenvalue")
+      end
+   end
+   ordschur!(SF, select)
+
+   ix = 1:n
+   F = _LUwithRicTest(SF.Z[ix, ix],rtol)
+   x = SF.Z[n+1:n2, ix]/F
+   lmul!(Sx,x); rmul!(x,Sxi)
+   scalinfo = (Sx = Sx, Sxi = Sxi)
+   return  x, rev ? one(T)./(SF.values[ix]) : SF.values[ix], SF.Z[:,ix], scalinfo, indeig[1:n]
+end
+
+function is_conjugate_symmetric(v; tol=1e-7)
+    matched = falses(length(v))
+    
+    for i in 1:length(v)
+        matched[i] && continue
+        z = v[i]
+        
+        # If it's effectively real, it doesn't require a distinct pair
+        if abs(imag(z)) <= tol
+            matched[i] = true
+            continue
+        end
+        
+        # Look for an unmatched conjugate partner
+        partner_idx = findfirst(k -> !matched[k] && abs(v[k] - conj(z)) <= tol, 1:length(v))
+        
+        if partner_idx !== nothing
+            matched[i] = true
+            matched[partner_idx] = true
+        else
+            return false # Found a complex eigenvalue without its conjugate
+        end
+    end
+    
+    return true
+end
+# """
+#     sort_real_schur_by_magnitude!(F::Schur)
+
+# Sorts a Real Schur factorization in-place by decreasing order of eigenvalue magnitudes,
+# enforcing and preserving 2x2 blocks for complex conjugate pairs.
+# """
+# function sort_real_schur_by_magnitude!(F::Schur{T, <:AbstractMatrix{T}}) where {T<:Real}
+#     n = length(F.values)
+#     i = 1
+    
+#     while i < n
+#         # Identify the block boundary starting at index i
+#         # A 2x2 block has imaginary component on the subdiagonal of F.T
+#         i_block_size = (i < n && !iszero(F.T[i+1, i])) ? 2 : 1
+        
+#         # Find the block with the maximum magnitude starting from current position i
+#         max_idx = i
+#         max_mag = abs(F.values[i])
+        
+#         j = i + i_block_size
+#         while j <= n
+#             j_mag = abs(F.values[j])
+#             if j_mag > max_mag
+#                 max_mag = j_mag
+#                 max_idx = j
+#             end
+#             # Skip the second element if position j is part of a 2x2 block
+#             j += (j < n && !iszero(F.T[j+1, j])) ? 2 : 1
+#         end
+        
+#         # Move the largest block to position i if it's not already there
+#         if max_idx != i
+#             select = zeros(Bool, n)
+            
+#             # If target is part of a 2x2 block, mark both elements true
+#             if max_idx < n && !iszero(F.T[max_idx+1, max_idx])
+#                 select[max_idx] = true
+#                 select[max_idx + 1] = true
+#             elseif max_idx > 1 && !iszero(F.T[max_idx, max_idx-1])
+#                 select[max_idx - 1] = true
+#                 select[max_idx] = true
+#             else
+#                 select[max_idx] = true
+#             end
+            
+#             # Reorder: selected block moves up towards index i
+#             ordschur!(F, select)
+#         else
+#             i += i_block_size
+#         end
+#     end
+#     return F
+# end
+# function sort_schur_by_magnitude!(F::Schur)
+#     n = length(F.values)
+#     # Perform a bubble/selection sort using ordschur!
+#     for i in 1:n-1
+#         # Find the index of the largest eigenvalue magnitude from i to n
+#         idx = argmax(abs.(F.values[i:n])) + i - 1
+#         if idx != i
+#             # Create a logical mask selecting the element at idx to move to position i
+#             select = zeros(Bool, n)
+#             select[idx] = true
+#             ordschur!(F, select)
+#         end
+#     end
+#     return F
+# end
+"""
+    nare(A1, A2, G, Q; scaling = 'B', pow2 = false, as = false, disc = false, stab = true, 
+         rtol::Real = nϵ, nrm = 1, indeig) -> (X, EVALS, Z, scalinfo, ind)
 
 Compute `X`, the stabilizing solution (if `as = false`) or
 anti-stabilizing solution (if `as = true`) of the _nonsymmetric/nonhermitian algebraic Riccati equation_ (NARE)
@@ -9,7 +252,13 @@ anti-stabilizing solution (if `as = true`) of the _nonsymmetric/nonhermitian alg
      A1X + XA2 - XGX + Q = 0,
 
 where `A1`, `A2`, `G` and `Q` are `m×m`, `n×n`, `n×m` and `m×n` matrices, respectively, and `X` is an `m×n` matrix.    
-An extension of the Schur-form technique of [1] is used. 
+An extension of the Schur-form technique of [1] is used, where a suitable invariant subspace `[U; V]` corresponding 
+to the selected `n` eigenvalues of a Hamiltonian-like matrix `H` are determined and 
+`X = V*inv(U)` is the resulting solution. Solvents corrsponding to arbitrary collections of `n` eigenvalues of `H`
+can be selected by specifying
+their indices via `indeig = ind`, where `ind` must be an integer vector with at least `n` uniques indices
+being part of a permutation of the vector `1:n+m`. For real data, the indices must additionally indicate a symmetric set of complex conjugate 
+eigenvalues.    
 
 To enhance the accuracy of computations, a block scaling of matrices `G` and `Q` is performed, if  
 the default setting `scaling = 'B'` is used. This scaling is however performed only if `norm(Q) > norm(G)` and `norm(G) > 0`.
@@ -30,16 +279,22 @@ or with the largest real parts if `as = true`.  If `disc = true`, then the `n` e
 or with the largest moduli if `as = true`. Possible permutations of eigenvalues can occur if the `n`-th eigenvalue
 belongs to a complex conjugated pair.  
 
-`Z = [U; V]` is an orthogonal basis for the stable/anti-stable deflating subspace corresponding to `EVALS`, such that `X = Sx*(V/U)*Sxi`, 
+`Z = [U; V]` is an orthogonal basis for the invariant subspace corresponding to `EVALS`, such that `X = Sx*(V/U)*Sxi`, 
 where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx` and `scalinfo.Sxi`, respectively.
 
-_Note:_ To solve the continuous-time nonsymmetric/nonhermitian algebraic Riccati equation
+'ind' contains the indices of the eigenvalues used to compute the invariant subspace underlying the computation of the resulting solvent `X`. 
+
+_Note 1:_ To solve the continuous-time nonsymmetric/nonhermitian algebraic Riccati equation
 
      A1'X + XA2 - XB1R^(-1)B2'X + Q = 0,
 
 with `R` a nonsingular matrix and `B1` and `B2` of compatible size matrices, `G = B1R^(-1)B2'` must be provided. 
 This approach is not numerically suited when `R` is ill-conditioned and/or `B1` and `B2` have large norms.  
+
+_Note 2:_ Generically, for complex data, there are up most `C(n+m,n)` complex solvents which correspond to all possible _combinations_ of `n` eigenvalues of the `n+m` 
+eigenvalues of the matrix `H`. For real data, there are usually less solvents than for complex data. All solvents can be determined by generating an exhaustive set
+of `C(n+m,n)` permutations and checking for each case if a solution exists (see some of the attached tests examples using `try/catch` constructs).    
 
 `Reference:`
 
@@ -48,7 +303,7 @@ This approach is not numerically suited when `R` is ill-conditioned and/or `B1` 
 """
 function nare(A1::AbstractMatrix, A2::AbstractMatrix, G::AbstractMatrix, Q::AbstractMatrix;
               disc = false, scaling = 'B', pow2 = false, as = false, stab = true, 
-              rtol::Real = size(A1,1)*eps(real(float(one(eltype(A1))))), nrm = 1)
+              rtol::Real = size(A1,1)*eps(real(float(one(eltype(A1))))), nrm = 1, indeig = missing)
    m = LinearAlgebra.checksquare(A1)
    n = LinearAlgebra.checksquare(A2)
    (n,m) == size(G) || throw(DimensionMismatch("G must be a $n x $m matrix"))
@@ -75,40 +330,64 @@ function nare(A1::AbstractMatrix, A2::AbstractMatrix, G::AbstractMatrix, Q::Abst
    else
       ns = nm
    end
-    
+
    select = zeros(Bool, nm)
-   if disc
-      ind = sortperm(SF.values, by = abs, rev = as)
+   if indeig === missing
+      if disc
+         #indeig = sortperm(SF.values, by = abs, rev = as)
+         indeig = sortperm(SF.values, by = x -> isfinite(x) ? abs(x) : as ? -Inf : Inf, rev = as)
+      else
+         #indeig = sortperm(SF.values, by = real, rev = as)
+         indeig = sortperm(SF.values, by = x -> isfinite(x) ? real(x) : as ? -Inf : Inf, rev = as)
+      end
+      # correct ordering of complex conjugated pairs 
+      if T <: Real && n > 1
+         if imag(SF.values[indeig[n]]) != 0 && !(SF.values[indeig[n-1]] ≈ conj(SF.values[indeig[n]]))
+            indeig[n] > indeig[n+1] && ((indeig[n],indeig[n+1]) =  (indeig[n+1],indeig[n])) 
+         end
+      end
    else
-      ind = sortperm(SF.values, by = real, rev = as)
+      (length(indeig) >= n && issubset(indeig, vec(1:nm))) || throw(DimensionMismatch("indeig = $indeig must be a part of permutation of 1:$nm"))
+      allunique(indeig) || throw(ArgumentError("all elements of indeig = $indeig must be unique"))
+      if T <: Real 
+         is_conjugate_symmetric(SF.values[view(indeig,1:n)]) || throw(ArgumentError("the selected subset is not conjugate symmetric"))
+      end
+      sort!(view(indeig,1:n))
    end
+   for i in 1:n
+       select[indeig[i]] = true
+   end
+
    if T <: Real
-      if ind[n] < nm && SF.T[ind[n]+1, ind[n]] != zero(T) 
+#      if indeig[n] < nm && SF.T[indeig[n]+1, indeig[n]] != zero(T) 
+      # check for possibly misplaced complex conjugated pairs
+      if imag(SF.values[indeig[n]]) != 0 && !(SF.values[indeig[n-1]] ≈ conj(SF.values[indeig[n]])) &&
+         (indeig[n] == nm || SF.T[indeig[n]+1, indeig[n]] != zero(T))
          as ? nm-ns < n+1 : ns < n+1 && error("The matrix [A1 -G; -Q -A2]  has a complex Jordan block for the $n-th eigenvalue")
          na = 0
          for i in n-1:-1:1
-             if na == 0 && imag(SF.values[ind[i]]) == 0
+             if na == 0 && imag(SF.values[indeig[i]]) == 0
                 na = n-2
-                select[ind[i]] = false
+                select[indeig[i]] = false
              else
-                select[ind[i]] = true
+                select[indeig[i]] = true
              end
          end
          if na == n-2
-            select[ind[n]] = true
-            select[ind[n+1]] = true
+            select[indeig[n]] = true
+            select[indeig[n+1]] = true
             na = n
          else
             na = n-1
             for i in n+2:ns
-                imag(SF.values[ind[i]]) == 0 && (select[ind[i]] = true; na = n; break)
+                imag(SF.values[indeig[i]]) == 0 && (select[indeig[i]] = true; na = n; break)
             end
          end
          na < n && error("The matrix [A1 -G; -Q -A2] has a complex Jordan block for the $n-th eigenvalue")
-      else
-         for i in 1:n
-             select[ind[i]] = true
-         end
+      # else
+      #    for i in 1:n
+      #        select[indeig[i]] = true
+      #    end
       end
    end
    ordschur!(SF, select)
@@ -118,7 +397,7 @@ function nare(A1::AbstractMatrix, A2::AbstractMatrix, G::AbstractMatrix, Q::Abst
    x = SF.Z[n+1:nm, ix]/F
    lmul!(Sx,x); rmul!(x,Sxi)
    scalinfo = (Sx = Sx, Sxi = Sxi)
-   return  x, SF.values[ix], SF.Z[:,ix], scalinfo
+   return  x, SF.values[ix], SF.Z[:,ix], scalinfo, indeig[1:n]
 end
 
 """
@@ -255,9 +534,9 @@ function _LUwithRicTest(Z11::AbstractArray{T},rtol::Real) where {T <: BlasFloat}
       F = LinearAlgebra.lu(Z11)
       Z11norm = opnorm(Z11,1)
       Z11norm > 2*rtol ? (rcond = LAPACK.gecon!('1',F.factors,Z11norm)) : (rcond = zero(eltype(Z11)))
-      rcond <= rtol ? error("no finite solution exists for the Riccati equation") : (return  F)
+     rcond <= rtol ? error("no finite solution exists for the quadratic matrix equation") : (return  F)
     catch
-      error("no finite solution exists for the Riccati equation")
+      error("no finite solution exists for the quadratic matrix equation")
    end
 end
 function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
@@ -267,7 +546,7 @@ function _LUwithRicTest(Z11::AbstractArray,rtol::Real)
       # Z11norm > 2*rtol ? (rcond = LAPACK.gecon!('1',F.factors,Z11norm)) : (rcond = zero(eltype(Z11)))
       # rcond <= rtol ? error("no finite solution exists for the Riccati equation") : (return  F)
     catch
-      error("no finite solution exists for the Riccati equation")
+      error("no finite solution exists for the quadratic matrix equation")
    end
 end
 """
@@ -1315,6 +1594,105 @@ function balhamlike(A1, A2, G, Q; scaling = 'B', pow2 = false, nrm = 1)
       return H, I, I
    end
 end
+function baluqme(A, B, C; scaling = 'B', pow2 = false, nrm = 1) 
+   # Scaling function to be used in conjunction with uqme(A,B,C)
+   n = size(A,1); 
+   T = eltype(A)
+   H = [zeros(T,n,n) I; -C -B]; J = [I zeros(T,n,n); zeros(T,n,n) A];
+   scaling == 'N' && (return H, J, I, I)
+   n2 = 2n; i1 = 1:n; i2 = n+1:n2
+   Gt = view(H,i1,i2)
+   Qt = view(H,i2,i1)
+   TR = real(T)
+   radix = TR(2.)
+   if scaling == 'B'
+      qs = sqrt(opnorm(Qt,1))
+      gs = abs(one(T))
+      if qs > gs 
+         scal = qs  
+         scalsr = sqrt(scal) 
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal 
+         return H, J, scalsr*I, scalsr*I
+      else    
+         return H, J, I, I
+      end
+   elseif scaling == 'S'
+      # structure preserving scaling enhanced, if appropriate, with block scaling
+      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      if nh > 0 && nj > 0
+         M = nj * abs.(H) + nh/nj * abs.(J);
+      else
+         M = abs.(H) + abs.(J);
+      end     
+      d = lsbalance!(M).diag
+      s = log2.(d); # unconstrained balancing diag(D1,D2)
+      sx = round.(Int,(-s[i1]+s[i2])/2);
+      # impose that diagonal scaling has the form diag(Sx,1./Sx)  
+      D = Diagonal(radix.^[sx ; -sx])
+      lmul!(D,H); rdiv!(H,D)
+      lmul!(D,J); rdiv!(J,D)
+      Sx = Diagonal(D.diag[i1]) # Sx = sqrt(D2/D1)
+
+      # check if block scaling is appropriate
+      qs = sqrt(opnorm(Qt,1))
+      gs = sqrt(opnorm(Gt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         lmul!(scalsr,Sx) 
+         lmul!(scal,Gt); ldiv!(scal,Qt)
+      end         
+      return H, J, Sx, Sx
+   elseif scaling == 'K'
+      # structure preserving scaling enhanced, if appropriate, with block scaling
+      # nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      # nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      # if nh > 0 && nj > 0
+      #    M = nj * abs.(H) + nh/nj * abs.(J);
+      # else
+      #    M = abs.(H) + abs.(J);
+      # end   
+      M = abs.(H) + abs.(J)
+      ind = [i2;i1]  
+      dl, dr = symscal!(view(M,ind,:); nrm, maxiter = 1000)
+      pow2 && (dr .= radix .^(round.(Int,log2.(dr))); dl = dr) 
+      Dl = Diagonal(dl); Dr = Diagonal(dr)
+      lmul!(Dl,view(H,ind,:)); rmul!(H,Dr)
+      lmul!(Dl,view(J,ind,:)); rmul!(J,Dr)
+
+      qs = sqrt(opnorm(Qt,1))
+      gs = one(T)
+      if qs > 10
+         scal = qs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         lmul!(scalsr,view(Dr.diag,i2)); ldiv!(scalsr,view(Dr.diag,i1))
+      end
+
+      return H, J, Diagonal(Dr.diag[i2]), inv(Diagonal(Dr.diag[i1])) 
+   elseif scaling == 'G'
+      # general scaling enhanced, if appropriate, with a block scaling
+      _, D2 = regbalance!(H, J; tol = 0.1)
+      qs = sqrt(opnorm(Qt,1))
+      gs = one(T)
+      if qs > 10
+         scal = qs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); lmul!(scal,Gt)  # Q -> Q/scal; G -> G * scal
+         lmul!(scalsr,view(D2.diag,i2)); ldiv!(scalsr,view(D2.diag,i1))
+      end
+      return H, J, Diagonal(D2.diag[i2]), inv(Diagonal(D2.diag[i1])) 
+   else
+      @warn "No such scaling option: no scaling is performed"
+      return H, J, I, I
+   end
+end
+
 function balham(A, E, G, Q; scaling = 'B', pow2 = false, nrm = 1) 
    # Scaling function to be used in conjunction with garec(A,E,G,Q)
    n = size(A,1); 
@@ -2074,7 +2452,6 @@ _Note:_ This function is an extension of the MATLAB function `rowcolsums.m` of [
           ldiv!(dl,MA); ldiv!(dl,MB)
           el = minimum(dl.diag)/maximum(dl) 
           rdiv!(Dl,dl)
-         #  @show i, er, el
           max(1-er,1-el) < tol/2 && break
           conv = false
       end
