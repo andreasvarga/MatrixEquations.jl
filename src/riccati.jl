@@ -359,7 +359,6 @@ function nare(A1::AbstractMatrix, A2::AbstractMatrix, G::AbstractMatrix, Q::Abst
    end
 
    if T <: Real
-#      if indeig[n] < nm && SF.T[indeig[n]+1, indeig[n]] != zero(T) 
       # check for possibly misplaced complex conjugated pairs
       if imag(SF.values[indeig[n]]) != 0 && !(SF.values[indeig[n-1]] ≈ conj(SF.values[indeig[n]])) &&
          (indeig[n] == nm || SF.T[indeig[n]+1, indeig[n]] != zero(T))

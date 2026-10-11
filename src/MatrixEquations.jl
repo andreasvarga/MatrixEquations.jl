@@ -30,7 +30,6 @@ export opnorm1, opnorm1est, oprcondest, opsepest
 export lyapop, invlyapop, sylvop, invsylvop, sylvsysop, invsylvsysop, trmatop, eliminationop, duplicationop
 export tulyaplikeop, hulyaplikeop, lyaplikeop, gsylvop
 export plyapci, plyapdi
-export lyapc02, lyapcs02!, lyapc12, lyapcs12!
 
 include("meutil.jl")
 include("sylvester.jl")
