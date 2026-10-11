@@ -37,4 +37,4 @@ Test = "1"
 julia = "1.10"
 
 [targets]
-test = ["BandedMatrices", "GenericSchur", "GenericLinearAlgebra", "IterativeSolvers", "JLD2", "KrylovKit", "Random", "SparseArrays", "Test"]
+test = ["BandedMatrices", "Combinatorics", "GenericSchur", "GenericLinearAlgebra", "IterativeSolvers", "JLD2", "KrylovKit", "Polynomials", "Random", "SparseArrays", "Test"]

@@ -36,7 +36,7 @@ The current version of the package includes the following functions:
 | **[`plyapc`](@ref)** | Solution of the positive continuous Lyapunov equations|
 | **[`plyapd`](@ref)** | Solution of the positive discrete Lyapunov equations|
 
- **Solution of algebraic  Riccati equations**
+ **Solution of algebraic  Riccati and quadratic matrix equations**
 
 | Function | Description |
 | :--- | :--- |
@@ -45,7 +45,7 @@ The current version of the package includes the following functions:
 | **[`ared`](@ref)**  |  Solution of the discrete Riccati equation|
 | **[`gared`](@ref)** |  Solution of the generalized discrete Riccati equation|
 | **[`nare`](@ref)**  |  Solution of the nonsymmetric/nonhermitian Riccati equation|
-| **[`umqu`](@ref)**  |  Solution of the unilateral matrix quadratic equation|
+| **[`umqe`](@ref)**  |  Solution of the unilateral matrix quadratic equation|
 
  **Solution of Sylvester equations and systems**
 

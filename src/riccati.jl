@@ -2,7 +2,7 @@
     uqme(A, B, C; as = true, disc = true, scaling = 'B', pow2 = false,  
          rtol::Real = nϵ, nrm = 1, indeig) -> (X, EVALS, Z, scalinfo, ind)
 
-Compute a solvent `X` of the _unilateral matrix quadratic equation_ (UMQE)
+Compute a solvent `X` of the _unilateral quadratic matrix equation_ (UQMU)
 
      AX^2 + BX + C = 0,
 
@@ -43,7 +43,7 @@ belongs to a complex conjugated pair. The _exact_ infinite eigenvalues (e.g., if
 where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx` and `scalinfo.Sxi`, respectively. 
 
-'ind' contains the indices of the eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
+`ind` contains the indices of the eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
 
 _Note:_ Generically, for complex data, there are up most `C(2n,n)` complex solvents which correspond to all possible _combinations_ of `n` eigenvalues of the `2n` 
 eigenvalues of the pencil `F-λG`. For real data, there are usually less solvents than for complex data. All solvents can be determined by generating an exhaustive set
@@ -283,7 +283,7 @@ belongs to a complex conjugated pair.
 where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx` and `scalinfo.Sxi`, respectively.
 
-'ind' contains the indices of the eigenvalues used to compute the invariant subspace underlying the computation of the resulting solvent `X`. 
+`ind` contains the indices of the eigenvalues used to compute the invariant subspace underlying the computation of the resulting solvent `X`. 
 
 _Note 1:_ To solve the continuous-time nonsymmetric/nonhermitian algebraic Riccati equation
 
