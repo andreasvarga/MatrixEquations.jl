@@ -41,11 +41,12 @@ The current version of the package includes the following functions:
 | Function | Description |
 | :--- | :--- |
 | **[`arec`](@ref)**  |  Solution of the continuous Riccati equations|
-| **[`garec`](@ref)** |  Solution of the generalized continuous Riccati equation|
-| **[`ared`](@ref)**  |  Solution of the discrete Riccati equation|
-| **[`gared`](@ref)** |  Solution of the generalized discrete Riccati equation|
-| **[`nare`](@ref)**  |  Solution of the nonsymmetric/nonhermitian Riccati equation|
-| **[`uqme`](@ref)**  |  Solution of the unilateral quadratic matrix equation|
+| **[`narec`](@ref)**  |  Solution of the nonsymmetric/nonhermitian continuous Riccati equations|
+| **[`garec`](@ref)** |  Solution of the generalized continuous Riccati equations|
+| **[`ared`](@ref)**  |  Solution of the discrete Riccati equations|
+| **[`gared`](@ref)** |  Solution of the generalized discrete Riccati equations|
+| **[`nare`](@ref)**  |  Solution of the nonsymmetric/nonhermitian Riccati equations|
+| **[`uqme`](@ref)**  |  Solution of the unilateral quadratic matrix equations|
 
  **Solution of Sylvester equations and systems**
 

@@ -55,6 +55,7 @@ The current version of the package includes the following functions:
 
 * **arec**  Solution of the continuous Riccati equations `A'X+XA-XRX+Q = 0` and
  `A'X+XA-(XB+S)R^(-1)(B'X+S')+Q = 0`.
+* **narec**  Solution of the nonsymmetric/nonhermitian continuous Riccati equations `A2'X+XA1-(XB1+S1)R^(-1)(B2'X+S2')+Q = 0`.
 * **garec** Solution of the generalized continuous Riccati equation
  `A'XE+E'XA-(E'XB+S)R^(-1)(B'XE+S')+Q = 0`.
 * **ared** Solution of the discrete Riccati equation

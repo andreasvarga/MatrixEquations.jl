@@ -20,7 +20,7 @@ export _lanv2, _safemin, _lag2, _ladiv
 export lyapc, lyapd, lyapcs!, lyapds!, tlyapc, tulyapc!, hlyapc, hulyapc! 
 export cgls, lyapci, lyapdi, tlyapci, hlyapci, tulyapci, hulyapci, sylvci, sylvdi, gsylvi, gtsylvi, ghsylvi
 export plyapc, plyaps, plyapcs!, plyapd, plyapds!  
-export arec, ared, garec, gared, nare, uqme
+export arec, ared, garec, gared, nare, uqme, narec
 export sylvc, sylvd, gsylv, sylvcs!, sylvcs1!, sylvcs2!, sylvds!, gsylvs!
 export lyapcs_blocked!, lyapds_blocked!, sylvcs_blocked!, sylvds_blocked!, gsylvs_blocked!, sylvsyss_blocked!, dsylvsyss_blocked!
 export sylvsys, dsylvsys, sylvsyss!, dsylvsyss!, tgsyl!
