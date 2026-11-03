@@ -5,6 +5,7 @@
 - new solver `narec` for nonsymmetric/nonhermitian continuous Riccati matrix equations
 - new solver `nared` for nonsymmetric/nonhermitian discrete Riccati matrix equations
 - updated solvers `uqme` and `nare` with additional outputs and new options
+- updated fully generic solvers `garec` and `gared` over real and complex data
 
 ## Version 2.7.0
 

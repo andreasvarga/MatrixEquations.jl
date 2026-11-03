@@ -48,6 +48,11 @@ A = [ 1 1; 5 2 ]; B = [2 1;-1 2]; C = [7 -6; 2 -12];
       norm(sort(real(ev1))-sort(real(eigvals(x1)))) < 1e-10 &&
       norm(sort(imag(ev1))-sort(imag(eigvals(x1)))) < 1e-10   
 
+Abf = BigFloat.([ 1 1; 5 2 ]); Bbf = BigFloat.([2 1;-1 2]); Cbf = BigFloat.([7 -6; 2 -12]);
+@time x, ev, _, _, indeig, heigs = uqme(Abf,Bbf,Cbf; as=false, disc=true);
+@test norm(Abf*x*x+Bbf*x+Cbf) < 1e-70 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-70 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-70 
 
 # determine all real solutions
 sols = Vector{Matrix{Float64}}(undef, 0)     
@@ -243,6 +248,14 @@ A = β*A2'; B = β*A1'-I; C = β*A0';
 @test norm(A*x*x+B*x+C) < 1e-10 &&
       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
+
+g = BigFloat(0.2); b = BigFloat.([1, 0.4, 0.25, 0.1, 0.]); d = BigFloat.([0, 0.5, 0.55, 0.8, 1]); β = BigFloat(0.5);
+A0 = Q(g,b); A1 = Q(g,ones(5)-b-d); A2 = Q(g,d);
+A = β*A2'; B = β*A1'-I; C = β*A0';
+@time x, ev, Z, scalinfo, ind, heigs = uqme(A,B,C; as=false, disc=true);
+@test norm(A*x*x+B*x+C) < 1e-70 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-70 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-70 
 
       
 
@@ -708,7 +721,21 @@ norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
 norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
 
+(ar1, ar2, br1, br2, rr, Qr, sr1, sr2, rrp) = (BigFloat.([0.5186557138979574 -0.7953357716286895 -0.13965163099627015; 1.0665449746409734 0.6088478332750862 -0.4354477612047091; 0.1346237794131495 -0.275096710601077 -0.8266369768501854]), 
+BigFloat.([0.439592295754915 1.6095385548830956 1.7450266867150095 0.9515226624325183 -0.45299430608369196; -1.1894770349215864 -1.833127306090445 -1.1647538251650997 -1.5539239104835676 0.499385904304347; -0.6942200110837333 0.34956600124480836 0.8296168635771622 0.3587636372051262 -0.41622240959483986; 0.265105372330221 0.22867388814844122 -1.6329916213697853 -1.4226690615687332 1.5368687390076006; -1.1757417631847757 0.03885753635651309 -0.446824369041719 0.5801034932261181 -0.03471186320555784]), 
+BigFloat.([0.5186348112743987 0.7474991470255862; 0.955498078107626 0.6830083502644749; 0.6611924906668183 0.6823004349691932]), 
+BigFloat.([0.12014651554785749 0.4453129602766438; 0.0004102814170844349 0.6839214359424151; 0.38047361736968777 0.551220186101371; 0.34537796132599685 0.5618344798799988; 0.42173503122390266 0.941521683484576]), 
+BigFloat.([0.05371792299042739 0.04619284070374271; 0.04619284070374271 0.6730150626829626]), 
+BigFloat.([0.21283054369611235 0.6265483296015649 0.4348130180922076; 0.30156829151199144 0.909711693125952 0.6116994206160582; 0.10360378494080247 0.28603624909442293 0.21547127081093073; 0.1737405801997451 0.5564421145975516 0.3459193005135064; 0.023361389826095407 0.09644201409099488 0.04216966977854824]), 
+BigFloat.([0.006107781332820873 0.009531391224963772; 0.0013325850570732102 0.0016990247858977737; 0.0022257836809778686 0.0004310378757048017; 0.00861942877183638 0.008869774550033002; 0.009363944250960697 0.008906153251790238]), 
+BigFloat.([0.005823564901536618 0.008126468121332591; 0.008481271880855925 0.0064250239975366785; 0.00015305440259740676 0.0052437417322659784]), 
+BigFloat.([1.048489154541614 0.3863247698690497; 0.386714282642807 0.16481751126973057]))
 
+@time x, clseig, f, Z, scalinfo, ind, heigs = narec(ar1, ar2, br1, br2, rr, Qr, sr1, sr2,orth=true)
+@test norm(ar2'*x+x*ar1-(x*br1+sr1)*inv(rr)*(br2'*x+sr2')+Qr)/max(1,norm(x))  < 1.e-70&&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-70 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-70 &&
+heigs == narec(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; onlyeigvals = true, orth=true)
 
 
 
@@ -954,58 +981,62 @@ A = [1 0;0 5/22]; B11 = [1 0;0 1]; B12 = [1;0;;];
 Q1 = [1 0;0 0]; Q2 = [1 1;1 2]; R11=[2 -1;-1 1]; R22 = [1;;];
 # Nash-game
 A1 = A; A2 = [A zeros(2,2); zeros(2,2) A]; B1 = [B11 B12]; B2 = [B11 zeros(2,1); zeros(2,2) B12];
-Q = [Q1;Q2]; R = [R11 zeros(2,1); zeros(1,2) R22]; S1 = zeros(4,3); S2 = zeros(2,3);
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2) 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+Qr = [Q1;Q2]; R = [R11 zeros(2,1); zeros(1,2) R22]; S1 = zeros(4,3); S2 = zeros(2,3);
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2) 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x1, clseig1, F1, Z1, scalinfo1, ind1, heigs1 = nared(A1, A2, B1, B2, R, Q, S1, S2, indeig = ind)
+@time x1, clseig1, F1, Z1, scalinfo1, ind1, heigs1 = nared(A1, A2, B1, B2, R, Qr, S1, S2, indeig = ind)
 @test x ≈ x1 && clseig ≈ clseig1 && F ≈ F1 && ind == ind1
 
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(BigFloat.(A1), A2, B1, B2, R, Qr, S1, S2) 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-70 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-70 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-70
 
-@time x2, clseig2, F2, Z2, scalinfo2, ind2, heigs2 = nared(A1, A2, B1, B2, R, Q, S1, S2,as=true) 
+@time x2, clseig2, F2, Z2, scalinfo2, ind2, heigs2 = nared(A1, A2, B1, B2, R, Qr, S1, S2,as=true) 
 @test isnothing(x2) &&
 norm(sort(real(heigs))-sort(real(heigs2)))/norm(heigs)  < 1.e-10 &&
 norm(sort(imag(heigs))-sort(imag(heigs2)))/norm(heigs)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'N') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'N') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'B') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'B') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'S') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'S') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'K') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'K') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'D') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'D') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'R') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'R') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'T') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'T') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
-@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'G') 
-@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Qr, S1, S2, scaling = 'G') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Qr)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
@@ -2216,13 +2247,22 @@ rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xb = norm(X-Xr)/norm(X)
 @test rezb < rezn && xb < xn
 
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'B')
+rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xb = norm(X-Xr)/norm(X)
+@test rezb < rezn && xb < xn
+
 @time X, clseig, F = ared(BigFloat.(A),B,R,Q; scaling = 'B')
 rezb = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xb = norm(X-Xr)/norm(X)
 @test rezb < rezn && xb < xn
 
-
 @time X, clseig, F = ared(A,B,R,Q; scaling = 'S')
+rezs = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xs = norm(X-Xr)/norm(X)
+@test rezs < rezn && xs < xn
+
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'S')
 rezs = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xs = norm(X-Xr)/norm(X)
 @test rezs < rezn && xs < xn
@@ -2232,7 +2272,17 @@ rezk = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xk = norm(X-Xr)/norm(X)
 @test rezk < rezn && xk < xn
 
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'K')
+rezk = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xk = norm(X-Xr)/norm(X)
+@test rezk < rezn && xk < xn
+
 @time X, clseig, F = ared(A,B,R,Q; scaling = 'D')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xd = norm(X-Xr)/norm(X)
+@test rezd < rezn && xd < xn
+
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'D')
 rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xd = norm(X-Xr)/norm(X)
 @test rezd < rezn && xd < xn
@@ -2242,12 +2292,27 @@ rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xd = norm(X-Xr)/norm(X)
 @test rezd < rezn && xd < xn
 
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'R')
+rezd = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xd = norm(X-Xr)/norm(X)
+@test rezd < rezn && xd < xn
+
 @time X, clseig, F = ared(A,B,R,Q; scaling = 'T')
 rezt = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xt = norm(X-Xr)/norm(X)
 @test rezt < rezn && xt < xn
 
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'T')
+rezt = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xt = norm(X-Xr)/norm(X)
+@test rezt < rezn && xt < xn
+
 @time X, clseig, F = ared(A,B,R,Q; scaling = 'G')
+rezg = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
+xg = norm(X-Xr)/norm(X)
+@test rezg < rezn && xg < xn
+
+@time X, clseig, F = nared(A,A,B,B,R,Q; scaling = 'G')
 rezg = norm(A'*X*A-X-A'*X*B*inv(R+B'*X*B)*B'*X*A+Q)/max(1,norm(X))
 xg = norm(X-Xr)/norm(X)
 @test rezg < rezn && xg < xn

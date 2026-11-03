@@ -1289,10 +1289,10 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, G::Un
     T <: BlasFloat  || (T = promote_type(Float64,T))
 
     # use complex version because the generalized Schur form decomposition available only for complex data 
-    if !(T <: BlasFloat || T <: Complex) 
-       sol = garec(tocomplex(A),tocomplex(E),tocomplex(G),tocomplex(Q); scaling, nrm, pow2, as, rtol)
-       return real(sol[1]), sol[2], Matrix(qr([real(sol[3]) imag(sol[3])]).Q)[:,1:size(A,1)], sol[4]
-    end
+    #  if !(T <: BlasFloat || T <: Complex) 
+    #     sol = garec(tocomplex(A),tocomplex(E),tocomplex(G),tocomplex(Q); scaling, nrm, pow2, as, rtol)
+    #     return real(sol[1]), sol[2], Matrix(qr([real(sol[3]) imag(sol[3])]).Q)[:,1:size(A,1)], sol[4]
+    #  end
 
     n = LinearAlgebra.checksquare(A)
     eident = (E == I)
@@ -1505,10 +1505,10 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     T <: BlasFloat  || (T = promote_type(Float64,T))
    
     # use complex version because the generalized Schur form decomposition available only for complex data 
-    if !(T <: BlasFloat || T <: Complex) 
-       sol = garec(tocomplex(A),tocomplex(E),tocomplex(B),tocomplex(G),tocomplex(R),tocomplex(Q),tocomplex(S); scaling, pow2, as, rtol, nrm)
-       return real(sol[1]), isreal(sol[2]) ? real(sol[2]) : sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
-    end
+    #  if !(T <: BlasFloat || T <: Complex) 
+    #     sol = garec(tocomplex(A),tocomplex(E),tocomplex(B),tocomplex(G),tocomplex(R),tocomplex(Q),tocomplex(S); scaling, pow2, as, rtol, nrm)
+    #     return real(sol[1]), isreal(sol[2]) ? real(sol[2]) : sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
+    #  end
 
     n = LinearAlgebra.checksquare(A)
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
@@ -2027,10 +2027,10 @@ function gared(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     T = promote_type( eltype(A), eltype(B), eltype(R), eltype(Q), eltype(S) )
     T <: BlasFloat  || (T = promote_type(Float64,T))
     # use complex version because the generalized Schur form decomposition available only for complex data 
-    if !(T <: BlasFloat || T <: Complex) 
-       sol = gared(tocomplex(A),tocomplex(E),tocomplex(B),tocomplex(R),tocomplex(Q),tocomplex(S); scaling, nrm, pow2, as, rtol)
-       return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
-    end
+    #  if !(T <: BlasFloat || T <: Complex) 
+    #     sol = gared(tocomplex(A),tocomplex(E),tocomplex(B),tocomplex(R),tocomplex(Q),tocomplex(S); scaling, nrm, pow2, as, rtol)
+    #     return real(sol[1]), sol[2], real(sol[3]), Matrix(qr([real(sol[4]) imag(sol[4])]).Q)[:,1:size(A,1)], sol[5]
+    #  end
 
     n = LinearAlgebra.checksquare(A)
     typeof(B) <: AbstractVector ? (nb, m) = (length(B), 1) : (nb, m) = size(B)
