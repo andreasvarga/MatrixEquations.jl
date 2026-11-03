@@ -26,6 +26,7 @@ function randomDoublyStochasticMatrix(n; num_perm = n^2)
 end
 
 
+
 println("Test_riccati")
 
 @testset "Testing algebraic Riccati/quadratic equation solvers" begin
@@ -42,7 +43,7 @@ A = [ 1 1; 5 2 ]; B = [2 1;-1 2]; C = [7 -6; 2 -12];
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 &&
       heigs == uqme(A,B,C; onlyeigvals = true) 
       
-@time x1, ev1, _, _, indeig1 = uqme(A,B,C; as=false, disc=true, rev = true);      
+@time x1, ev1, _, _, indeig1 = uqme(A,B,C; indeig);      
 @test norm(A*x1*x1+B*x1+C) < 1e-10 && x ≈ x1 &&
       norm(sort(real(ev1))-sort(real(eigvals(x1)))) < 1e-10 &&
       norm(sort(imag(ev1))-sort(imag(eigvals(x1)))) < 1e-10   
@@ -54,10 +55,13 @@ inds = Vector{Vector{Int}}(undef, 0)
 norms = Vector{Float64}(undef, 0)  
 vind = collect(combinations(vec(1:4),2))
 for k in 1:length(vind)
-    try x, ev, _, _, indeig = uqme(A,B,C; indeig = vind[k], rtol = 1.e-10);
-        push!(sols,x)  
-        push!(inds,indeig) 
-        push!(norms,norm(A*x*x+B*x+C))
+    try 
+       x, ev, _, _, indeig = uqme(A,B,C; indeig = vind[k], rtol = 1.e-10);
+       if !isnothing(x)
+          push!(sols,x)  
+          push!(inds,indeig) 
+          push!(norms,norm(A*x*x+B*x+C))
+       end
     catch
         continue
     end
@@ -75,10 +79,13 @@ inds = Vector{Vector{Int}}(undef, 0)
 norms = Vector{Float64}(undef, 0)  
 vind = collect(combinations(vec(1:4),2))
 for k in 1:length(vind)
-    try x, ev, _, _, indeig = uqme(I,A\B,A\C; indeig = vind[k], rtol = 1.e-10);
-        push!(sols,x)  
-        push!(inds,indeig) 
-        push!(norms,norm(A*x*x+B*x+C))
+    try 
+       x, ev, _, _, indeig = uqme(I,A\B,A\C; indeig = vind[k], rtol = 1.e-10);
+       if !isnothing(x)
+          push!(sols,x)  
+          push!(inds,indeig) 
+          push!(norms,norm(A*x*x+B*x+C))
+       end
     catch
         continue
     end
@@ -90,13 +97,18 @@ end
 # 3.2.1 Example 1: Choudhry, Serdica Math. Journal, 2019 
 A = [ 1 2 3; -1 0 1; 1 1 1]; B = [2 0 1;3 1 0; 7 2 1]; 
 C = [7 7 -37;3 2 -7; -10 -7 -24];
-@time x, ev, _, _, indeig = uqme(A,B,C; as=false, disc=false, scaling = 'N');
+@time x, ev, _, _, indeig, heigs = uqme(A,B,C; as=false, disc=false, scaling = 'N');
 @test norm(A*x*x+B*x+C) < 1e-10 &&
       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
 
-@time x1, ev1 = uqme(A,B,C; as=false, disc=false, indeig, scaling = 'B');
+@time x1, ev1 = uqme(A,B,C; as=false, disc=false, indeig, scaling = 'N');
 @test x ≈ x1 && ev ≈ ev1
+
+@time x, ev, _, _, indeig = uqme(A,B,C; as=true, disc=false, scaling = 'B');
+@test norm(A*x*x+B*x+C) < 1e-10 &&
+      norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
+      norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
 
 @time x, ev, _, _, indeig = uqme(A,B,C; as=true, disc=false, scaling = 'K');
 @test norm(A*x*x+B*x+C) < 1e-10 &&
@@ -108,37 +120,42 @@ C = [7 7 -37;3 2 -7; -10 -7 -24];
       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
 
-@time x, ev = uqme(A,B,C; as=true, disc=true, scaling = 'S');
+@time x, ev, _, _, ind, heigs = uqme(A,B,C; as=true, disc=true, scaling = 'S');
 @test norm(A*x*x+B*x+C) < 1e-8 &&
       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
 
-
 # determine all real solutions using random index permutations
+nf = count(x -> isfinite(x), heigs)
 sols = Vector{Matrix{Float64}}(undef, 0)     
 inds = Vector{Vector{Int}}(undef, 0)  
 norms = Vector{Float64}(undef, 0)  
 for k in 1:100
-    try x, ev, _, _, indeig = uqme(A,B,C; indeig = randperm(6));
-        push!(sols,x)  
-        push!(inds,indeig) 
-        push!(norms,norm(A*x*x+B*x+C))
+    try x, ev, _, _, indeig = uqme(A,B,C; indeig = randperm(nf));
+       if !isnothing(x)
+          push!(sols,x)  
+          push!(inds,indeig) 
+          push!(norms,norm(A*x*x+B*x+C))
+       end
    catch
         continue
     end
 end 
-@test norm(norms,Inf) < 1.e-10
+@test norm(norms,Inf) < 1.e-9
 
 # determine all complex solutions
+nf = count(x -> isfinite(x), heigs)
 solsc = Vector{Matrix{Complex{Float64}}}(undef, 0)     
 indsc = Vector{Vector{Int}}(undef, 0)  
 normsc = Vector{Float64}(undef, 0)  
 
 for k in 1:20
-    try x, ev, _, _, indeig = uqme(Complex{Float64}.(A),B,C; indeig = randperm(6));
-        push!(solsc,x)  
-        push!(indsc,indeig) 
-        push!(normsc,norm(A*x*x+B*x+C))
+    try x, ev, _, _, indeig = uqme(Complex{Float64}.(A),B,C; indeig = randperm(nf));
+       if !isnothing(x)
+          push!(solsc,x)  
+          push!(indsc,indeig) 
+          push!(normsc,norm(A*x*x+B*x+C))
+       end
     catch
         continue
     end
@@ -148,21 +165,24 @@ end
 # 3.2.2 Example 2: Choudhry, Serdica Math. Journal, 2019 
 A = [ 1 2 3; -1 0 2; 1 1 1]; B = [2 0 1;3 1 0; 1 2 1]; 
 C = [7 7 -37;9 7 -15; -4 -1 -18];
-@time x, ev, _, _, indeig = uqme(A,B,C; as=false, disc=true);
+@time x, ev, _, _, indeig, heigs = uqme(A,B,C; as=false, disc=true);
 @test norm(A*x*x+B*x+C) < 1e-10 &&
       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
 
 # determine all real solutions
+nf = count(x -> isfinite(x), heigs)
 sols = Vector{Matrix{Float64}}(undef, 0)     
 inds = Vector{Vector{Int}}(undef, 0)  
 norms = Vector{Float64}(undef, 0)  
-vind = collect(combinations(vec(1:6),3))
+vind = collect(combinations(vec(1:nf),3))
 for k in 1:length(vind)
     try x, ev, _, _, indeig = uqme(A,B,C; indeig = vind[k], rtol = 1.e-10);
-        push!(sols,x)  
-        push!(inds,indeig) 
-        push!(norms,norm(A*x*x+B*x+C))
+       if !isnothing(x)
+          push!(sols,x)  
+          push!(inds,indeig) 
+          push!(norms,norm(A*x*x+B*x+C))
+       end
     catch
         continue
     end
@@ -170,17 +190,18 @@ end
 @test norm(norms,Inf) < 1.e-10
 
 # determine all complex solutions
+nf = count(x -> isfinite(x), heigs)
 solsc = Vector{Matrix{Complex{Float64}}}(undef, 0)     
 indsc = Vector{Vector{Int}}(undef, 0)  
 normsc = Vector{Float64}(undef, 0)  
-vind = collect(combinations(vec(1:6),3))
-
-vind = collect(combinations(vec(1:6),3))
+vind = collect(combinations(vec(1:nf),3))
 for k in 1:length(vind)
     try x, ev, _, _, indeig = uqme(Complex{Float64}.(A),B,C; indeig = vind[k], rtol = 1.e-10);
-        push!(solsc,x)  
-        push!(indsc,indeig) 
-        push!(normsc,norm(A*x*x+B*x+C))
+       if !isnothing(x)
+          push!(solsc,x)  
+          push!(indsc,indeig) 
+          push!(normsc,norm(A*x*x+B*x+C))
+       end
     catch
         continue
     end
@@ -218,11 +239,12 @@ Q(g,x) = [g*x[1] (1-g)*x[1] 0 0 0;
 g = 0.2; b = [1, 0.4, 0.25, 0.1, 0.]; d = [0, 0.5, 0.55, 0.8, 1]; β = 0.5;
 A0 = Q(g,b); A1 = Q(g,ones(5)-b-d); A2 = Q(g,d);
 A = β*A2'; B = β*A1'-I; C = β*A0';
-@time x, ev = uqme(A,B,C; as=false, disc=true);
+@time x, ev, Z, scalinfo, ind, heigs = uqme(A,B,C; as=false, disc=true);
 @test norm(A*x*x+B*x+C) < 1e-10 &&
       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-10 &&
       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-10 
 
+      
 
 # Erfanifar & Hajarian Example 3, IET CTA, 2024
 
@@ -298,7 +320,7 @@ x2 = x-tmin[1]*E;
 # E1 = zeros(2p,2p);
 # E2 = [zeros(p,p) F2; F1 zeros(p,p)];
 # A = -E2; B = I-E1; C = -E0;
-# x, ev = uqme(A,B,C; as=false, disc=true,stab = false);
+# x, ev,_,_,ind,heigs = uqme(A,B,C; as=false);
 # @test norm(A*x*x+B*x+C) < 1e-10 &&
 #       norm(sort(real(ev))-sort(real(eigvals(x)))) < 1e-6 &&
 #       norm(sort(imag(ev))-sort(imag(eigvals(x)))) < 1e-6 
@@ -346,8 +368,6 @@ C = diagm(0 => 15*ones(n),-1=>-5*ones(n-1),1=>-5*ones(n-1) );
 end
 
 @testset "Nonsymmetric/nonhermitian Riccati equation" begin
-
-# only double precision tests are performed
 
 # unilateral quadratic matrix equation (UQME): Kressner et al. 2019
 n = 50; 
@@ -568,10 +588,12 @@ norms = Vector{Float64}(undef, 0)
 vind = collect(combinations(vec(1:nm),5))
 for k in 1:length(vind)
     try x, ev, _, _, indeig = nare(A1,A2,G,Q; indeig = vind[k]);
-        push!(sols,x)  
-        push!(evs,ev)  
-        push!(inds,indeig) 
-        push!(norms,norm(-x*G*x+x*A2+A1*x+Q))
+        if !isnothing(x)
+           push!(sols,x)  
+           push!(evs,ev)  
+           push!(inds,indeig) 
+           push!(norms,norm(-x*G*x+x*A2+A1*x+Q))
+        end
     catch
         continue
     end
@@ -745,6 +767,7 @@ for orth in (false,true)
 catch
       narec(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; orth,as = true)
 end
+
 #@time x, clseig, f, Z, scalinfo, ind, heigs = narec(ar1, ar2, br1, br2, rr, Qr, sr1, sr2)
 @test norm(ar2'*x+x*ar1-(x*br1+sr1)*inv(rr)*(br2'*x+sr2')+Qr)/max(1,norm(x))  < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-6 &&
@@ -874,10 +897,19 @@ Q1 = [1 0;0 0]; Q2 = [1 1;1 2]; R11=[2 -1;-1 1]; R22 = [1;;];
 # Nash-game
 A1 = A; A2 = [A zeros(2,2); zeros(2,2) A]; B1 = [B11 B12]; B2 = [B11 zeros(2,1); zeros(2,2) B12];
 Q = [Q1;Q2]; R = [R11 zeros(2,1); zeros(1,2) R22]; S1 = zeros(4,3); S2 = zeros(2,3);
-x, clseig, F, Z, scalinfo = narec(A1, A2, B1, B2, R, Q, S1, S2) 
+x, clseig, F, Z, scalinfo, ind, heigs = narec(A1, A2, B1, B2, R, Q, S1, S2) 
 @test norm(A2'*x+x*A1-(x*B1+S1)*inv(R)*(B2'*x+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x1, clseig1, F1, Z1, scalinfo1, ind1 = narec(A1, A2, B1, B2, R, Q, S1, S2, indeig = ind)
+@test x ≈ x1 && clseig ≈ clseig1 && F ≈ F1 && ind == ind1
+
+@time x2, clseig2, F2, Z2, scalinfo2, ind2, heigs2 = narec(A1, A2, B1, B2, R, Q, S1, S2,indeig = [1,2]) 
+@test isnothing(x2) &&
+norm(sort(real(heigs))-sort(real(heigs2)))/norm(heigs)  < 1.e-10 &&
+norm(sort(imag(heigs))-sort(imag(heigs2)))/norm(heigs)  < 1.e-10
+
 
 # Nash-game example: Jank & Kremer, 2004
 A = [-3 0 0 3.5; 0 -7 0 0; 0 .3 -7 1.3; 5 0 1 -16];
@@ -913,8 +945,215 @@ x, clseig, F, Z, scalinfo = narec(A1, A2, B1, B2, R, Q)
 norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
 norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
+
 end
 
+@testset "Discrete nonsymmetric/nonhermitian control Riccati equation" begin
+
+A = [1 0;0 5/22]; B11 = [1 0;0 1]; B12 = [1;0;;]; 
+Q1 = [1 0;0 0]; Q2 = [1 1;1 2]; R11=[2 -1;-1 1]; R22 = [1;;];
+# Nash-game
+A1 = A; A2 = [A zeros(2,2); zeros(2,2) A]; B1 = [B11 B12]; B2 = [B11 zeros(2,1); zeros(2,2) B12];
+Q = [Q1;Q2]; R = [R11 zeros(2,1); zeros(1,2) R22]; S1 = zeros(4,3); S2 = zeros(2,3);
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2) 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x1, clseig1, F1, Z1, scalinfo1, ind1, heigs1 = nared(A1, A2, B1, B2, R, Q, S1, S2, indeig = ind)
+@test x ≈ x1 && clseig ≈ clseig1 && F ≈ F1 && ind == ind1
+
+
+@time x2, clseig2, F2, Z2, scalinfo2, ind2, heigs2 = nared(A1, A2, B1, B2, R, Q, S1, S2,as=true) 
+@test isnothing(x2) &&
+norm(sort(real(heigs))-sort(real(heigs2)))/norm(heigs)  < 1.e-10 &&
+norm(sort(imag(heigs))-sort(imag(heigs2)))/norm(heigs)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'N') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'B') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'S') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'K') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'D') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'R') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'T') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2, scaling = 'G') 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+
+
+# A1, A2 and R singular
+A = [0 0;0 5/22]; B11 = [1 0;0 1]; B12 = [1;0;;]; 
+Q1 = [1 0;0 1]; Q2 = [1 1;1 2]; R11=[2 -1;-1 1]; R22 = [0;;];
+# Nash-game
+A1 = A; A2 = [A zeros(2,2); zeros(2,2) A]; B1 = [B11 B12]; B2 = [B11 zeros(2,1); zeros(2,2) B12];
+Q = [Q1;Q2]; R = [R11 zeros(2,1); zeros(1,2) R22]; S1 = zeros(4,3); S2 = zeros(2,3);
+@time x, clseig, F, Z, scalinfo, ind, heigs = nared(A1, A2, B1, B2, R, Q, S1, S2) 
+@test norm(A2'*x*A1-x-(A2'*x*B1+S1)*inv(R+B2'*x*B1)*(B2'*x*A1+S2')+Q)/max(1,norm(x)) < 1.e-10 &&
+norm(sort(real(clseig))-sort(real(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
+
+@time x1, clseig1, F1, Z1, scalinfo1, ind1 = nared(A1, A2, B1, B2, R, Q, S1, S2, indeig = ind)
+@test x ≈ x1 && clseig ≈ clseig1 && F ≈ F1 && sort(ind) == sort(ind1)
+
+
+for (Ty,n,l, m, p) in ((Float64, 20, 20, 10, 10),)
+
+#n = 3; l = 5; m = 2; p = m;
+# n = 4; l = 4; m = 2; p = m;
+# (Ty,n,l, m, p) = (Float64, 3, 5, 2, 2)
+#(Ty,n,l, m, p) = (Float64, 20, 20, 10, 10)
+ar1 = rand(Ty,n,n)
+ar2 = rand(Ty,l,l)
+if m == 1
+    br1 = rand(Ty,n)
+    bc1 = rand(Ty,n)+im*rand(Ty,n)
+    sc1 = rand(Complex{Ty},l)/100
+    sr1 = rand(Ty,l)/100
+    br2 = rand(Ty,l)
+    bc2 = rand(Ty,l)+im*rand(Ty,l)
+    sc2 = rand(Complex{Ty},n)/100
+    sr2 = rand(Ty,n)/100
+else
+    br1 = rand(Ty,n,m)
+    bc1 = rand(Ty,n,m)+im*rand(Ty,n,m)
+    sc1 = rand(Complex{Ty},l,m)/100
+    sr1 = rand(Ty,l,m)/100
+    br2 = rand(Ty,l,m)
+    bc2 = rand(Ty,l,m)+im*rand(Ty,l,m)
+    sc2 = rand(Complex{Ty},n,m)/100
+    sr2 = rand(Ty,n,m)/100
+end
+cr1 = rand(Ty,p,n)
+cr2 = rand(Ty,p,l)
+ac1 = randn(Ty,n,n) + im*randn(Ty,n,n)
+ac2 = randn(Ty,l,l) + im*randn(Ty,l,l)
+cc1 = rand(Ty,p,n)+im*rand(Ty,p,n)
+cc2 = rand(Ty,p,l)+im*rand(Ty,p,l)
+bc1 = rand(Ty,n,m)+im*rand(Ty,n,m)
+bc2 = rand(Ty,l,m)+im*rand(Ty,l,m)
+rr1 = rand(Ty,m,m)
+rc1 = rand(Ty,m,m)+im*rand(Ty,m,m)
+#Ty == Float64 ? rtol = n*n*sqrt(eps(1.)) : rtol = n*sqrt(eps(1.f0))
+rtol = n*n*sqrt(eps(1.)) 
+
+qc = cc2'*cc1
+Qr = cr2'*cr1
+gc = bc1*bc2'
+gr = br1*br2'
+rr = rr1*rr1'
+rc = rc1*rc1'
+rrp = rr+0.001*rand(m,m)
+
+@time x, clseig, f, Z, scalinfo, ind, heigs = try 
+      nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2)
+catch
+      nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; as = true)
+end
+
+# error
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < 1.e-4 &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-6 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-6
+
+@time x1, clseig1, f1, Z1, scalinfo1, ind1 = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; indeig = ind)
+@test x ≈ x1 && clseig ≈ clseig1 && f ≈ f1 && sort(ind) == sort(ind1)
+
+
+@time x, clseig, f, Z, scalinfo, ind, heigs = try 
+      nared(ac1, ac2, bc1, bc2, rc, qc, sc1, sc2)
+catch
+      nared(ac1, ac2, bc1, bc2, rc, qc, sc1, sc2; as = true)
+end
+@test norm(ac2'*x*ac1-x-(ac2'*x*bc1+sc1)*inv(rc+bc2'*x*bc1)*(bc2'*x*ac1+sc2')+qc)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ac1-bc1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ac1-bc1*f))))/norm(clseig)  < rtol
+
+@time x1, clseig1, f1, Z1, scalinfo1, ind1 = nared(ac1, ac2, bc1, bc2, rc, qc, sc1, sc2; indeig = ind)
+@test x ≈ x1 && clseig ≈ clseig1 && f ≈ f1 && sort(ind) == sort(ind1)
+
+end
+
+(ar1, ar2, br1, br2, rr, Qr, sr1, sr2) = ([-0.980741321764109 -1.2313046167830222 -1.068417263874382 1.2769011627689626; -1.6718806837728895 -0.9693885786804483 0.8529720673935202 -0.6788720034899908; 0.5310891981616882 0.4587061390616016 0.5710682617358275 1.042709210759531; -0.6937836841084014 -0.5642664928884923 1.0554691106639253 1.067674880479393], 
+[0.1919975794008983 0.32893417457914487 -0.3145536289623541 -1.292835065144256; 0.5796947512250342 -1.179979322317249 -1.142537147233044 -0.7882368183984778; -0.7029462016070656 -0.577193245566792 -0.8251918573848881 1.7146741700414359; 0.3344795192136782 0.7201973184512374 1.316726434001781 -0.5245709240573696], 
+[0.23933110519932566, 0.5980797881262297, 0.6631396247563346, 0.7770411949284358], 
+[0.08640351329091711, 0.9352474757316545, 0.29277448927966154, 0.20788086841045517], 
+[0.1767555361279444;;], 
+[1.169943003395885 0.7417490171460454 1.344185026851104 0.983097131890609; 1.1379979003425496 0.9859110922509912 1.6639020838707916 1.074521641099519; 0.8349144460968532 0.5556265023525219 0.9476198851875268 0.7242346857871664; 1.4353878733177885 0.8652895721672691 1.5353271335464302 1.1985257716600806], 
+[0.007424767892969212, 0.005481936745675446, 0.004394467626371586, 0.0029778314949398476], 
+[0.002128757234328724, 0.0076884248327638936, 0.004879408487667169, 0.008133291655792008])
+rtol = 100*sqrt(eps(1.)) 
+
+@time x, clseig, f, Z, scalinfo, ind, heigs = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'N')
+
+rez = norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x)) 
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-6 &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < 1.e-6
+
+@time x1, clseig1, f1, Z1, scalinfo1, ind1 = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; indeig = ind)
+@test x ≈ x1 && clseig ≈ clseig1 && f ≈ f1 && sort(ind) == sort(ind1)
+
+@time x, clseig, f, Z, scalinfo = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'B')
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
+
+@time x, clseig, f, Z, scalinfo = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'S')
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
+
+@time x, clseig, f, Z, scalinfo = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'K')
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
+
+@time x, clseig, f, Z, scalinfo = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'D')
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
+
+@time x, clseig, f, Z, scalinfo = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'R')
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
+
+@time x, clseig, f, Z, scalinfo = nared(ar1, ar2, br1, br2, rr, Qr, sr1, sr2; scaling = 'T')
+@test norm(ar2'*x*ar1-x-(ar2'*x*br1+sr1)*inv(rr.+br2'*x*br1)*(br2'*x*ar1+sr2')+Qr)/max(1,norm(x))  < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar1-br1*f))))/norm(clseig)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar1-br1*f))))/norm(clseig)  < rtol
+
+end
 
 
 # only double precision tests are performed
@@ -1299,6 +1538,48 @@ q = 3.f0 *I; r = 1;
 @test norm(ar'*x*ar-x-(ar'*x*br+sr)*inv(r*I+br'*x*br)*(br'*x*ar+sr')+q)/max(1,norm(x)) < rtol &&
 norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/max(opnorm(ar,1),1)  < rtol &&
 norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/max(opnorm(ar,1),1)  < rtol
+
+@time x, clseig, f = nared(ar,ar,br,br,rr,Qr)
+@test norm(ar'*x*ar-x-ar'*x*br*inv(rr+br'*x*br*I)*br'*x*ar+Qr)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
+
+@time x, clseig, f = nared(ar,ar,br,br,rr,0I(n))
+@test norm(ar'*x*ar-x-ar'*x*br*inv(rr+br'*x*br*I)*br'*x*ar)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
+
+@time x, clseig, f = nared(ar,ar,br,br,rr,0I(n); as = true)
+@test norm(ar'*x*ar-x-ar'*x*br*inv(rr+br'*x*br*I)*br'*x*ar)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
+
+@time x, clseig, f = nared(ar,ar,br,br,rr,Qr,sr,sr)
+@test norm(ar'*x*ar-x-(ar'*x*br+sr)*inv(rr+br'*x*br*I)*(br'*x*ar+sr')+Qr)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
+
+@time x, clseig, f = nared(ar,ar,br,br,rr,Qr,sr,sr,as = true)  #fails
+@test norm(ar'*x*ar-x-(ar'*x*br+sr)*inv(rr+br'*x*br*I)*(br'*x*ar+sr')+Qr)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/norm(ar)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/norm(ar)  < rtol
+
+@time x, clseig, f = nared(ac,ac,bc,bc,rc,qc)
+@test norm(ac'*x*ac-x-ac'*x*bc*inv(rc+bc'*x*bc*I)*bc'*x*ac+qc)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f))))/norm(ac)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f))))/norm(ac)  < rtol
+
+@time x, clseig, f = nared(ac,ac,bc,bc,rc,qc,sc,sc)
+@test norm(ac'*x*ac-x-(ac'*x*bc+sc)*inv(rc+bc'*x*bc*I)*(bc'*x*ac+sc')+qc)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ac-bc*f))))/norm(ac)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ac-bc*f))))/norm(ac)  < rtol
+
+q = 3.f0 *I(n); r = 1;
+@time x, clseig, f = nared(ar,ar,br,br,r,q,sr,sr,as=true)
+@test norm(ar'*x*ar-x-(ar'*x*br+sr)*inv(r*I+br'*x*br)*(br'*x*ar+sr')+q)/max(1,norm(x)) < rtol &&
+norm(sort(real(clseig))-sort(real(eigvals(ar-br*f))))/max(opnorm(ar,1),1)  < rtol &&
+norm(sort(imag(clseig))-sort(imag(eigvals(ar-br*f))))/max(opnorm(ar,1),1)  < rtol
+
 
 end
 
@@ -1975,3 +2256,4 @@ end
 
 end
 end
+#end

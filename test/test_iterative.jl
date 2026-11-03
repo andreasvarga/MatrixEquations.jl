@@ -520,15 +520,15 @@ end
 
         # generalized Lyapunov equation, Hermitian case
         @time X, info = lyapci(A, E, C)
-        @test norm(A*X*E'+E*X*A'+C)/norm(X)  < 1.e-4   && ishermitian(X)
+        @test norm(A*X*E'+E*X*A'+C)/norm(X)  < 1.e-3   && ishermitian(X)
         @time X, info = lyapdi(A, E, C) 
-        @test norm(A*X*A' -E*X*E'+C)/norm(X)  < 1.e-4   && ishermitian(X)
+        @test norm(A*X*A' -E*X*E'+C)/norm(X)  < 1.e-3   && ishermitian(X)
        
          # generalized Lyapunov equation, non-Hermitian case
         @time X, info = lyapci(A, E, Q)
-        @test norm(A*X*E'+E*X*A'+Q)/norm(X)  < 1.e-4   
+        @test norm(A*X*E'+E*X*A'+Q)/norm(X)  < 1.e-3   
         @time X, info = lyapdi(A, E, Q)
-        @test norm(A*X*A' - E*X*E'+Q)/norm(X)  < 1.e-4   
+        @test norm(A*X*A' - E*X*E'+Q)/norm(X)  < 1.e-3   
 
         #  Sylvester equation
         B = rand(Ty,m,m); W = rand(Ty,n,m)

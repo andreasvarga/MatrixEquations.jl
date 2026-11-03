@@ -7,6 +7,7 @@ arec
 ared
 nare
 narec
+nared
 ```
 
 ## Generalized Riccati Matrix Equations

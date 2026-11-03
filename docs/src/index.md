@@ -44,6 +44,7 @@ The current version of the package includes the following functions:
 | **[`narec`](@ref)**  |  Solution of the nonsymmetric/nonhermitian continuous Riccati equations|
 | **[`garec`](@ref)** |  Solution of the generalized continuous Riccati equations|
 | **[`ared`](@ref)**  |  Solution of the discrete Riccati equations|
+| **[`nared`](@ref)**  |  Solution of the nonsymmetric/nonhermitian discrete Riccati equations|
 | **[`gared`](@ref)** |  Solution of the generalized discrete Riccati equations|
 | **[`nare`](@ref)**  |  Solution of the nonsymmetric/nonhermitian Riccati equations|
 | **[`uqme`](@ref)**  |  Solution of the unilateral quadratic matrix equations|

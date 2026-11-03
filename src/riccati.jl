@@ -8,16 +8,17 @@ Compute a solvent `X` of the _unilateral quadratic matrix equation_ (UQMU)
 
 where `A`, `B` and `C` are `n×n` matrices, and `X` is an `n×n` matrix.    
 The generalized Schur-form based technique of [1] is used, where deflating subspaces `[U; V]` corresponding 
-to the selected `n` generalized eigenvalues of a suitable pencil `F-λG` are determined and `X = V*inv(U)` is the resulting solvent.    
+to the selected `n` finite generalized eigenvalues of a suitable pencil `F-λG` are determined and `X = V*inv(U)` is the resulting solvent.
+A preliminary deflating of infinite eigenvalues is performed in the case of a singular `A`.     
 If `as = true` and `disc = true` the dominant solvent is attempted to be computed (default), corresponding
 to the eigenvalues with the largest moduli, while if `as = false` and `disc = true`, 
 the minimal solvent is targetted, corresponding to the eigenvalues with the smallest moduli. 
 Alternative solvents can be targetted
 by selecting eigenvalues with largest real parts with `as = true` and `disc = false` or  
 smallest real parts using `as = false` and `disc = false`. 
-Solvents corrsponding to arbitrary collections of eigenvalues can be selected by specifying
+Solvents corresponding to arbitrary collections of eigenvalues can be selected by specifying
 their indices via `indeig = ind`, where `ind` must be an integer vector with at least `n` uniques indices
-being part of a permutation of the vector `1:2*n`. For real data, the indices must additionally indicate a symmetric set of complex conjugate 
+being part of a permutation of the vector `1:nf`, where `nf` is the number of finite eigenvalues. For real data, the indices must additionally indicate a symmetric set of complex conjugate 
 eigenvalues. The case `A = I` is explicitly handled, by solving a (simpler) nonsymmetric/nonhermitian algebraic Riccati equation. 
 
 To enhance the accuracy of computations, a block scaling of matrices `I` and `C` is performed, if  
@@ -30,22 +31,28 @@ Scaling can be disabled with the choice `scaling = 'N'`.
 If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (default: `pow2 = false`).
 
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
-and `ϵ` is the _machine epsilon_ of the element type of `C`.
+and `ϵ` is the _machine epsilon_ of the element type of `C`. For rank determinations, rank revealing QR-decomposition with column pivoting is used,
+where besides `rtol`, and absolute tolerance `atol` (Default: `atol = 0`), is also used. 
 
-`EVALS` is a vector containing `n` eigenvalues of the pencil `F-λG`, where `F = [0 I; -C -B]` and `G = [I 0; 0 A]`.
+`X` is a solvent of the quadratic matrix equation for the selected/chosen finite generalized 
+eigenvalues of the pair `(F,G)`, where `F = [0 I; -C -B]` and `G = [I 0; 0 A]`. 
+`X = nothing` if no such a solution exists, in which case `Z`, `ind` and `HEVALS` (see below) contain additional information to serve
+for possible alternative choices. 
+
+`EVALS` is a vector containing `n` generalized eigenvalues of the pair `(F,G)`, which underlies the computation of the solution. 
 These are also the eigenvalues of `X`. The selection of the eigenvalues is performed as follows. 
 If `disc = true`, then the `n` eigenvalues with the smallest moduli are selected if `as = false`, 
 or with the largest moduli if `as = true`. If `disc = false`, then the `n` eigenvalues with the smallest real parts are selected if `as = false`, 
 or with the largest real parts if `as = true`.  Possible permutations of eigenvalues can occur if the `n`-th eigenvalue
-belongs to a complex conjugated pair. The _exact_ infinite eigenvalues (e.g., if `A` is singular) are excluded from any selection.   
+belongs to a complex conjugated pair. The infinite eigenvalues (e.g., if `A` is singular) are excluded from any selection.   
 
 `Z = [U; V]` is an orthogonal basis for thenarec(A1, A2, B1, B2, R, Q, S1 = 0, S2 = 0; deflating subspace corresponding to `EVALS`, such that `X = Sx*(V/U)*Sxi`, 
 where `Sx` and `Sxi` are diagonal scaling matrices contained in the named tuple `scalinfo` 
 as `scalinfo.Sx` and `scalinfo.Sxi`, respectively. 
 
-`ind` contains the indices of the eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
+`ind` contains the indices of the finite eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
 
-`HEVALS` is a vector containing the `2n` eigenvalues of the pencil `F-λG`. 
+`HEVALS` is a vector containing the `2n` generalized eigenvalues of the pair `(F,G)`. 
 Only `HEVALS` can be computed with the call `HEVALS = uqme(A, B, C; onlyeigvals = true, ...)`. 
 
 _Note:_ Generically, for complex data, there are up most `C(2n,n)` complex solvents which correspond to all possible _combinations_ of `n` eigenvalues of the `2n` 
@@ -58,9 +65,9 @@ of `C(2n,n)` permutations and checking for each case if a solution exists (see s
     IMA Journal of Numerical Analysis 20:499–519, 2000.
 """
 function uqme(A::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, C::AbstractMatrix;
-              disc = true, as = true, scaling = 'B', pow2 = false, rev = false, indeig = missing, 
+              disc = true, as = true, scaling = 'B', pow2 = false, indeig = missing, 
+              atol::Real = zero(real(float(one(eltype(C))))), 
               rtol::Real = size(C,1)*eps(real(float(one(eltype(C))))), nrm = 1, onlyeigvals = false)
-   iszero(A) && throw(ArgumentError("first order equation with A = 0"))         
    ident = A == I
    n = LinearAlgebra.checksquare(C)
    ident || (n == LinearAlgebra.checksquare(A))
@@ -73,31 +80,43 @@ function uqme(A::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, 
    eltype(C) == T || (C = convert(Matrix{T},C))
 
    n == 0 && (onlyeigvals ? (return zeros(T,0)) : (return zeros(T,0,0), zeros(T,0), zeros(T,0,0), (Sx = I, Sxi = I(0)), zeros(Int,0), zeros(T,0)) )
-    
+   Asing = false
+   n2 = 2*n
    # perform scaling if appropriate
    if ident
-      rev = false
       # H = [0 I; -C -B]
       H, Sx, Sxi = balhamlike(B, zeros(T,n,n), -I(n), C; scaling, pow2, nrm)
+      (nf,ni) = (2n, 0) 
       SF = schur(H)
    else
-      #F = [0 I; -C -B]; G = [I 0; 0 A];
+      # F = [0 I; -C -B]; G = [I 0; 0 A];
       F, G, Sx, Sxi = baluqme(A, B, C; scaling, pow2, nrm)
-      SF = rev ? schur(G,F) : schur(F,G)
-      rev && (as = !as)
+      indA = n+1:n2
+      try 
+         _LUwithRicTest(view(G,indA,indA), rtol)
+      catch
+         Asing = true
+      end
+      if Asing
+         _, z, nf, ni = _sepfinite_infinite!(F, G; withZ = true,  atol, rtol);
+         indf = 1:nf
+         SF = schur(view(F,indf,indf),view(G,indf,indf))
+      else
+         (nf,ni) = (n2, 0) 
+         SF = schur(F,G)
+      end
    end
-   heigs = copy(SF.values)
+   heigs = [SF.values; Inf*ones(T,ni)]
    onlyeigvals && (return heigs)
-   n2 = 2n
-   ns = n2 
-   select = zeros(Bool, n2)
+   ns = nf 
+   select = zeros(Bool, nf)
    if indeig === missing
       if disc
-         #indeig = sortperm(SF.values, by = abs, rev = as)
-         indeig = sortperm(SF.values, by = x -> isfinite(x) ? abs(x) : as ? -Inf : Inf, rev = as)
+         indeig = sortperm(SF.values, by = abs, rev = as)
+         #indeig = sortperm(SF.values; by = x -> isfinite(x) ? abs(x) : as ? -Inf : Inf, rev = as)
       else
-         #indeig = sortperm(SF.values, by = real, rev = as)
-         indeig = sortperm(SF.values, by = x -> isfinite(x) ? real(x) : as ? -Inf : Inf, rev = as)
+         indeig = sortperm(SF.values, by = real, rev = as)
+         #indeig = sortperm(SF.values; by = x -> isfinite(x) ? real(x) : as ? -Inf : Inf, rev = as)
       end
       # correct ordering of complex conjugated pairs 
       if T <: Real && n > 1
@@ -106,7 +125,7 @@ function uqme(A::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, 
          end
       end
    else
-     (length(indeig) >= n && issubset(indeig, vec(1:n2))) || throw(DimensionMismatch("indeig = $indeig must be a part of permutation of 1:$n2"))
+     (length(indeig) >= n && issubset(indeig, vec(1:nf))) || throw(DimensionMismatch("indeig = $indeig must be a part of permutation of 1:$nf"))
       allunique(indeig) || throw(ArgumentError("all elements of indeig = $indeig must be unique"))
       if T <: Real 
          is_conjugate_symmetric(SF.values[view(indeig,1:n)]) || throw(ArgumentError("the selected subset is not conjugate symmetric"))
@@ -120,7 +139,7 @@ function uqme(A::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, 
    if T <: Real
       # check for possibly misplaced complex conjugated pairs
       if imag(SF.values[indeig[n]]) != 0 && !(SF.values[indeig[n-1]] ≈ conj(SF.values[indeig[n]])) &&
-         (indeig[n] == n2 || SF.S[indeig[n]+1, indeig[n]] != zero(T))
+         (indeig[n] == nf || SF.S[indeig[n]+1, indeig[n]] != zero(T))
          na = 0
          for i in n-1:-1:1
              if na == 0 && imag(SF.values[indeig[i]]) == 0
@@ -146,15 +165,27 @@ function uqme(A::Union{AbstractMatrix,UniformScaling{Bool}}, B::AbstractMatrix, 
    end
    ordschur!(SF, select)
 
+   if Asing
+      Z = view(z,:,1:nf)*SF.Z
+   else
+      Z = SF.Z
+   end
    ix = 1:n
-   F = _LUwithRicTest(SF.Z[ix, ix],rtol)
-   x = SF.Z[n+1:n2, ix]/F
+   try
+      F = _LUwithRicTest(Z[ix, ix],rtol)
+   catch
+      printstyled(stderr, "ERROR: ", color=:red, bold=true)
+      println(stderr,"no solution exists for the quadratic matrix equation for the selected eigenvalues")
+      # println(stderr,"       check output parameters ind and HEVALS for possible other choices")
+      return nothing, nothing, Z[:,ix], nothing, indeig[1:n], heigs
+   end
+   x = Z[n+1:n2, ix]/F
    lmul!(Sx,x); rmul!(x,Sxi)
    scalinfo = (Sx = Sx, Sxi = Sxi)
-   return  x, rev ? one(T)./(SF.values[ix]) : SF.values[ix], SF.Z[:,ix], scalinfo, indeig[1:n], heigs
+   return  x, SF.values[ix], Z[:,ix], scalinfo, indeig[1:n], heigs
 end
 
-function is_conjugate_symmetric(v; tol=1e-7)
+function is_conjugate_symmetric(v; tol = zero(real(eltype(v))))
     matched = falses(length(v))
     
     for i in 1:length(v)
@@ -162,13 +193,14 @@ function is_conjugate_symmetric(v; tol=1e-7)
         z = v[i]
         
         # If it's effectively real, it doesn't require a distinct pair
-        if abs(imag(z)) <= tol
+        if abs(imag(z)) <= tol || !isfinite(z)
             matched[i] = true
             continue
         end
         
         # Look for an unmatched conjugate partner
-        partner_idx = findfirst(k -> !matched[k] && abs(v[k] - conj(z)) <= tol, 1:length(v))
+        #partner_idx = findfirst(k -> !matched[k] && abs(v[k] - conj(z)) <= tol, 1:length(v))
+        partner_idx = findfirst(k -> !matched[k] && v[k] ≈ conj(z), 1:length(v))
         
         if partner_idx !== nothing
             matched[i] = true
@@ -180,6 +212,61 @@ function is_conjugate_symmetric(v; tol=1e-7)
     
     return true
 end
+
+# function sepzeroeigs!(A::AbstractMatrix{T}; tol::Real = 1.e-10, fast::Bool = true  ) where {T}
+#    n = size(A,1)
+#    n1 = n
+#    Q = Matrix{T}(I(n))
+#    r1 = 0
+#    while true 
+#       i1 = 1:n1
+#       F = qr(view(A,i1,i1),ColumnNorm());
+#       r1 = count(x -> x > tol, abs.(diag(F.R)))  
+#       r1 == n1 && break
+#       lmul!(F.Q',view(A,i1,:))
+#       rmul!(view(A,i1,i1),F.Q)
+#       rmul!(view(Q,:,i1),F.Q)
+#       fill!(view(A,r1+1:n1,i1),zero(T))
+#       n1 = r1
+#    end
+#    return A, Q        
+# end
+function _sepfinite_infinite!(A::AbstractMatrix{T}, E::AbstractMatrix{T}; atol::Real = zero(real(T)), 
+       rtol::Real = (min(size(E)...)*eps(real(float(one(T)))))*iszero(atol), withQ::Bool = false, withZ::Bool = false ) where {T}
+   #
+   # _sepfinite_infinite!(A,E; atol, rtol, withQ = false, withZ = false) -> Q, Z, nf, ni 
+   #
+   # separate the infinite eigenvalues of the pencil A-λE using orthogonal reduction
+   # to a block triangular form 
+   #                   ( Af-λEf  Ax-λEx )
+   #     Q'*(A-λE)*Z = (                ) , where Af-λEf is nf × nf and Ai-λEi is ni × ni.
+   #                   (   0     Ai-λEi )
+   n = size(A,1)
+   n1 = n
+   Q = withQ ? Matrix{T}(I(n)) : nothing
+   Z = withZ ? Matrix{T}(I(n)) : nothing
+   r1 = 0
+   while true 
+      i1 = 1:n1
+      F = qr(view(E,i1,i1),ColumnNorm());
+      r1 = count(x -> x > max(rtol*abs(F.R[1,1]),atol), abs.(diag(F.R)))  
+      r1 == n1 && break
+      lmul!(F.Q',view(E,i1,:))
+      lmul!(F.Q',view(A,i1,:))
+      withQ && rmul!(view(Q,:,i1),F.Q)
+      fill!(view(E,r1+1:n1,i1),zero(T))
+      Fc = qr(view(A,r1+1:n1,i1)')
+      rmul!(view(A,i1,i1),Fc.Q)
+      reverse!(view(A,i1,i1),dims=2)
+      fill!(view(A,r1+1:n1,1:r1),zero(T))
+      rmul!(view(E,1:r1,i1),Fc.Q)
+      reverse!(view(E,1:r1,i1),dims=2)
+      withZ && (rmul!(view(Z,:,i1),Fc.Q); reverse!(view(Z,:,i1),dims=2))
+      n1 = r1
+   end
+   return Q, Z, r1, n-r1  
+end
+
 # """
 #     sort_real_schur_by_magnitude!(F::Schur)
 
@@ -278,7 +365,12 @@ If `pow2 = true`, the scaling elements are enforced to the nearest power of 2 (d
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A`
 and `ϵ` is the _machine epsilon_ of the element type of `A1`.
 
-`EVALS` is a vector containing `n` stable or `n` anti-stable eigenvalues of the Hamiltonian-like matrix `H := [A1 -G; -Q -A2]`, if `stab = true`.
+`X` is a stabilizing or anti-stabilizing solvent of the Riccati equation for the selected/chosen eigenvalues 
+of the Hamiltonian-like matrix `H := [A1 -G; -Q -A2]`.0 -B2' 0 ]`. 
+`X = nothing` if no such a solution exists, in which case `Z`, `ind` and `HEVALS` (see below) contain additional information to serve
+for possible alternative choices. 
+
+`EVALS` is a vector containing `n` stable or `n` anti-stable eigenvalues of `H`, if `stab = true`.
 These are also the eigenvalues of `A2-GX`. If `stab = false`, the eigenvalues must not be all stable or all anti-stable. 
 The selection of the eigenvalues is performed as follows. If `disc = false`, then the `n` eigenvalues with the smallest real parts are selected if `as = false`, 
 or with the largest real parts if `as = true`.  If `disc = true`, then the `n` eigenvalues with the smallest moduli are selected if `as = false`, 
@@ -291,7 +383,7 @@ as `scalinfo.Sx` and `scalinfo.Sxi`, respectively.
 
 `ind` contains the indices of the eigenvalues used to compute the invariant subspace underlying the computation of the resulting solvent `X`. 
 
-`HEVALS` is a vector containing `n+m` eigenvalues of the Hamiltonian-like matrix `H := [A1 -G; -Q -A2]`. 
+`HEVALS` is a vector containing `n+m` eigenvalues of the Hamiltonian-like matrix `H`. 
 Only `HEVALS` can be computed with the call `HEVALS = nare(A1, A2, G, Q; onlyeigvals = true, ...)`. 
 
 _Note 1:_ To solve the continuous-time nonsymmetric/nonhermitian algebraic Riccati equation
@@ -400,7 +492,13 @@ function nare(A1::AbstractMatrix, A2::AbstractMatrix, G::AbstractMatrix, Q::Abst
    ordschur!(SF, select)
   
    ix = 1:n
-   F = _LUwithRicTest(SF.Z[ix, ix],rtol)
+   F = try _LUwithRicTest(SF.Z[ix, ix],rtol)
+   catch
+      printstyled(stderr, "ERROR: ", color=:red, bold=true)
+      println(stderr,"no solution exists for the Riccati matrix equation for the selected eigenvalues")
+      # println(stderr,"       check output parameters ind and HEVALS for possible other choices")
+      return nothing, nothing, SF.Z[:,ix], nothing, indeig[1:n], heigs
+   end
    x = SF.Z[n+1:nm, ix]/F
    lmul!(Sx,x); rmul!(x,Sxi)
    scalinfo = (Sx = Sx, Sxi = Sxi)
@@ -846,9 +944,13 @@ If `orth = true`, two experimental scaling procedures can be activated using the
 By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A1`
 and `ϵ` is the _machine epsilon_ of the element type of `A1`.
 
+`X` is a stabilizing or anti-stabilizing solvent of the Riccati equation for the selected/chosen finite generalized 
+eigenvalues of the pair `(H,J)`, where `H = [ A1 0 B1; -Q -A2' -S1; S2' B2' R ]` and `J = [ I 0 0; 0 I 0; 0 0 0 ]`. 
+`X = nothing` if no such a solution exists, in which case `Z`, `ind` and `HEVALS` (see below) contain additional information to serve
+for possible alternative choices. 
+
 `EVALS` is a vector containing `n` stable or `n` anti-stable finite generalized eigenvalues of the 
-pair `(H,J)`, where `H = [ A1 0 B1; -Q -A2' -S1; S2' B2' R ]` and `J = [ I 0 0; 0 I 0; 0 0 0 ]`, 
-which underlies the computation of the solution. These are also the eigenvalues of `A1-B1F`. 
+pair `(H,J)`, which underlies the computation of the solution. These are also the eigenvalues of `A1-B1F`. 
 
 `F` is the stabilizing or anti-stabilizing gain matrix `F = R^(-1)(B2'X+S2')`.
 
@@ -861,7 +963,7 @@ An orthogonal basis `Z` can be determined with an increased computational cost, 
 `ind` contains the indices of the eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
 
 `HEVALS` is a vector containing the `n+l` finite eigenvalues of the pair `(H,J)`. 
-Only `HEVALS` can be computed with the call `narec(A1, A2, B1, B2, R, Q, S1 = 0, S2 = 0; onlyeigvals = true, ...)`. 
+Only `HEVALS` can be computed with the call `HEVALS = narec(A1, A2, B1, B2, R, Q, S1 = 0, S2 = 0; onlyeigvals = true, ...)`. 
 
 _Note_: The considered nonsymmetric/nonhermitian Riccati equation is related to the computation of Nash equilibria
  in non-cooperative differential games [4]. The option to select eigenvalues via `indeig = ind` is instrumental for determining
@@ -975,6 +1077,7 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
       if S0flag1 && S0flag2
          sol = nare(A2',A1, G, Q; scaling, nrm, pow2, as, disc = false, stab, rtol, indeig, onlyeigvals)
          onlyeigvals && (return sol)
+         isnothing(sol[1]) && (return sol[1], sol[2], nothing, sol[3], sol[4], sol[5], sol[6]) 
          hermR ? w2 = SR.Z*Bu2' : w2 = SVD.V*Bu2' 
          f = w2*sol[1]
          z = [sol[3]; w2*(sol[3])[n+1:end,:]]
@@ -988,6 +1091,7 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
          A1 -= Bu1*Su2'
          sol = nare(A2',A1, G, Q; scaling, nrm, pow2, as, disc = false, stab, rtol, indeig, onlyeigvals)
          onlyeigvals && (return sol)
+         isnothing(sol[1]) && (return sol[1], sol[2], nothing, sol[3:end]...) 
          hermR ? w1 = SR.Z*Su2' : w1 = SVD.V*Su2' 
          hermR ? w2 = SR.Z*Bu2' : w2 = SVD.V*Bu2' 
          f = w1+w2*sol[1]
@@ -1001,6 +1105,7 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
          A2 -= Bu2*Su1'
          sol = nare(A2',A1, G, Q; scaling, nrm, pow2, as, disc = false, stab, rtol, indeig, onlyeigvals)
          onlyeigvals && (return sol)
+         isnothing(sol[1]) && (return sol[1], sol[2], nothing, sol[3:end]...) 
          hermR ? w2 = SR.Z*Bu2' : w2 = SVD.V*Bu2' 
          f = w2*sol[1]
          z = [sol[3]; w2*(sol[3])[n+1:end,:]]
@@ -1018,6 +1123,7 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
          A2 -= Bu2*Su1'
          sol = nare(A2',A1, G, Q; scaling, nrm, pow2, as, disc = false, stab, rtol, indeig, onlyeigvals)
          onlyeigvals && (return sol)
+         isnothing(sol[1]) && (return sol[1], sol[2], nothing, sol[3:end]...) 
          hermR ? w1 = SR.Z*Su2' : w1 = SVD.V*Su2' 
          hermR ? w2 = SR.Z*Bu2' : w2 = SVD.V*Bu2' 
          f = w1+w2*sol[1]
@@ -1044,7 +1150,7 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
       i3 = nl+1:nl+m
       #W = qr(Matrix([S; B; R]));
       W = qr!(copy(H[i3,:]'))
-      cond(W.R) * epsm  < 1 || error("The extended Hamiltonian-like/skew-Hamiltonian pencil is not regular")
+      cond(W.R) * epsm  < 1 || error("The extended Hamiltonian-like pencil is not regular")
 
       #z = W.Q[:,m+1:m+n2]
       z = W.Q*[fill(false,m,nl); I ]
@@ -1060,8 +1166,8 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
       select = zeros(Bool, nl)
       if indeig === missing
          indeig = sortperm(heigs, by = real, rev = as)
-         as ? (real(heigs[indeig[n]]) > 0) : (real(heigs[indeig[n]]) < 0) ||
-            error("The extended Hamiltonian-like/skew-Hamiltonian pencil has less than $n suitable eigenvalues")
+         (as ? (real(heigs[indeig[n]]) > 0) : (real(heigs[indeig[n]]) < 0)) ||
+            error("The extended Hamiltonian-like pencil has less than $n suitable eigenvalues")
          # correct ordering of complex conjugated pairs 
          if T <: Real && n > 1
             if imag(heigs[indeig[n]]) != 0 && !(heigs[indeig[n-1]] ≈ conj(heigs[indeig[n]]))
@@ -1105,7 +1211,7 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
                    imag(heigs[indeig[i]]) == 0 && (select[indeig[i]] = true; na = n; break)
                end
             end
-            na < n && error("The extended Hamiltonian-like/skew-Hamiltonian pencil has a complex block for the $n-th eigenvalue")
+            na < n && error("The extended Hamiltonian-like pencil has a complex block for the $n-th eigenvalue")
          end
       end
 
@@ -1114,7 +1220,13 @@ function narec(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2:
 
       z[:,i1] = z[:,iric]*LPS.Z[:,i1];
 
-      F = _LUwithRicTest(z[i1,i1],rtol)
+      F = try _LUwithRicTest(z[i1,i1],rtol)
+      catch
+         printstyled(stderr, "ERROR: ", color=:red, bold=true)
+         println(stderr,"no solution exists for the Riccati matrix equation for the selected eigenvalues")
+         # println(stderr,"       check output parameters ind and HEVALS for possible other choices")
+        return nothing, nothing, nothing, z[:,i1], nothing, indeig[1:n], heigs
+      end
       x = z[n+1:end,i1]/F
       f = -x[l+1:end,:]; lmul!(Sr,f); rmul!(f,Sxi)
       x = x[1:l,:]; lmul!(Sx,x); rmul!(x,Sxi)
@@ -1499,7 +1611,6 @@ function garec(A::AbstractMatrix, E::Union{AbstractMatrix,UniformScaling}, B::Ab
     return  LinearAlgebra._hermitianpart!(x), LPS.values[i1] , f, z[:,i1], scalinfo
 end
 
-
 """
     ared(A, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
@@ -1590,6 +1701,230 @@ function ared(A::AbstractMatrix, B::AbstractVecOrMat, R::Union{AbstractMatrix,Un
               scaling = 'B', pow2 = false, as = false, rtol::Real = size(A,1)*eps(real(float(one(eltype(A))))), nrm = 1)
     gared(A, I, B, R, Q, S; scaling, nrm, pow2, as, rtol)
 end
+"""
+    nared(A1, A2, B1, B2, R, Q, S1 = 0, S2 = 0; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1, indeig) -> (X, EVALS, F, Z, scalinfo, ind, HEVALS)
+
+Computes `X`, the stabilizing solution (if `as = false`) or
+anti-stabilizing solution (if `as = true`) of the discrete-time nonsymmetric/nonhermitian
+algebraic Riccati equation
+
+     A2'XA1 - X - (A2'XB1+S1)(R+B2'XB1)^(-1)(B2'XA1+S2') + Q = 0,
+
+where `A1` is an `n×n` matrix, `A2` is an `l×l` matrix, and `B1`, `B2`, `R`, `Q`, `S1`, `S2` are `n×m`, `l×m`, `m×m`, `l×n`, `l×m`, `n×m` matrices, respectively,
+with `R` nonsingular. Scalar-valued `R` is interpreted as an appropriately sized uniform scaling operator `R*I`.
+`S1` and `S2`, if not specified, are set to zero matrices of appropriate sizes. 
+The generalized Schur method of [1] and [2] is used. 
+Solvents corrsponding to arbitrary collections of `n` generalized finite eigenvalues of the pair `(H,J)` (see below)
+can be selected by specifying their indices via `indeig = ind`, where `ind` must be an integer vector 
+with at least `n` uniques indices being part of a permutation of the vector `1:n+l`. 
+For real data, the indices must additionally indicate a symmetric set of complex conjugate eigenvalues.    
+
+To enhance the accuracy of computations, a block oriented scaling of matrices `R`, `Q` and `S1` is performed 
+using the default setting `scaling = 'B'`. This scaling is performed only if `norm(Q) > norm(B1)^2/norm(R)`.
+A general, eigenvalue computation oriented scaling combined with a block scaling is used if `scaling = 'G'` is selected. 
+If `A1` and `A2` have the same sizes, an alternative, structure preserving scaling can be performed using the option `scaling = 'S'`. 
+For the same case, a symmetric matrix equilibration based scaling can be employed if `scaling = 'K'`, 
+for which the underlying vector norm can be specified using the keyword argument `nrm = p`, where `p = 1` is the default setting.   
+Experimental structure preserving scalings can be performed using the options `scaling = 'D'`, `scaling = 'R'` and `scaling = 'T'`
+(the last two only if `A1` and `A2` have the same sizes). Scaling can be disabled with the choice `scaling = 'N'`.
+
+By default, the lower bound for the 1-norm reciprocal condition number `rtol` is `n*ϵ`, where `n` is the order of `A1`
+and `ϵ` is the _machine epsilon_ of the element type of `A1`.
+
+`X` is a stabilizing or anti-stabilizing solvent of the Riccati equation for the selected/chosen finite generalized 
+eigenvalues of the pair `(H,J)`, where `H = [ A1 0 B1; -Q I -S1; S2' 0 R ]` and `J = [ I 0 0; 0 A2' 0; 0 -B2' 0 ]`. 
+`X = nothing` if no such a solution exists, in which case `Z`, `ind` and `HEVALS` (see below) contain additional information to serve
+for possible alternative choices. 
+
+`EVALS` is a vector containing `n` stable or `n` anti-stable finite generalized eigenvalues of the 
+pair `(H,J)`, which underlies the computation of the solution. These are also the eigenvalues of `A1-B1F`. 
+
+`F` is the stabilizing or anti-stabilizing gain matrix `F = (R+B2'XB1)^(-1)(B2'X*A1+S2')`.
+
+`Z = [U; V; W]` is an orthogonal basis for the relevant stable/anti-stable deflating subspace 
+such that `X = Sx*(V/U)*Sxi` and  `F = -Sr*(W/U)*Sxi`, 
+where `Sx`, `Sxi` and `Sr` are diagonal scaling matrices contained in the named tuple `scalinfo` 
+as `scalinfo.Sx`, `scalinfo.Sxi` and `scalinfo.Sr`, respectively.
+
+`ind` contains the indices of the eigenvalues used to compute the deflating subspace underlying the computation of the resulting solvent `X`. 
+
+`HEVALS` is a vector containing the `n+l` finite generalized eigenvalues of the pair `(H,J)`. 
+Only `HEVALS` can be computed with the call `HEVALS = nared(A1, A2, B1, B2, R, Q, S1 = 0, S2 = 0; onlyeigvals = true, ...)`. 
+
+_Note_: The considered nonsymmetric/nonhermitian Riccati equation is related to the computation of Nash equilibria
+ in non-cooperative differential games [2]. The option to select eigenvalues via `indeig = ind` is instrumental for determining
+ various solvents.  
+ 
+`Reference:`
+
+[1] W.F. Arnold, III and A.J. Laub,
+    Generalized Eigenproblem Algorithms and Software for Algebraic Riccati Equations,
+    Proc. IEEE, 72:1746-1754, 1984.
+
+[3] M. Jungers, C. Oara, H.-A. Khandil and R. Stefan. General matrix pencil techniques for solving discrete-time
+    nonsymmetric algebraic Riccati equations, SIAM Journal on Matrix Analysis and Applications, 31:1257-1278, 2009.
+"""
+function nared(A1::AbstractMatrix, A2::AbstractMatrix, B1::AbstractVecOrMat, B2::AbstractVecOrMat, 
+              R::Union{AbstractMatrix,UniformScaling,Real,Complex}, Q::AbstractMatrix,
+              S1::AbstractVecOrMat = zeros(eltype(B1),size(A2,1),size(B1,2)), 
+              S2::AbstractVecOrMat = zeros(eltype(B2),size(A1,1),size(B2,2)); 
+              scaling = 'B', pow2 = false, as = false, rtol::Real = size(A1,1)*eps(real(float(one(eltype(A1))))), 
+              nrm = 1, indeig = missing, onlyeigvals = false)
+
+   T = promote_type( eltype(A1), eltype(A2), eltype(B1), eltype(B2), eltype(Q), eltype(R), eltype(S1), eltype(S2) )
+
+   n = LinearAlgebra.checksquare(A1)
+   l = LinearAlgebra.checksquare(A2)
+   typeof(B1) <: AbstractVector ? (nb, m) = (length(B1), 1) : (nb, m) = size(B1)
+   n == nb || throw(DimensionMismatch("B1 must be a matrix with row dimension $n or a vector of length $n"))
+   typeof(B2) <: AbstractVector ? (nb2, m2) = (length(B2), 1) : (nb2, m2) = size(B2)
+   l == nb2 || throw(DimensionMismatch("B2 must be a matrix with row dimension $l or a vector of length $l"))
+   m == m2 || throw(DimensionMismatch("B2 must be a matrix with column dimension $m or a vector"))
+   (l,n) == size(Q) || throw(DimensionMismatch("Q must be an $l x $n matrix"))
+   typeof(S1) <: AbstractVector ? (ls, ms) = (length(S1), 1) : (ls, ms) = size(S1)
+   (l == ls && m == ms) ||
+      throw(DimensionMismatch("S1 must be an $l x $m matrix or a vector of length $l"))
+   typeof(S2) <: AbstractVector ? (ns, ms) = (length(S2), 1) : (ns, ms) = size(S2)
+   (n == ns && m == ms) ||
+      throw(DimensionMismatch("S2 must be a $n x $m matrix or a vector of length $n"))
+   T <: BlasFloat || (T = promote_type(Float64,T))
+   TR = real(T)
+   epsm = eps(TR)
+   eltype(A1) == T || (A1 = convert(Matrix{T},A1))
+   eltype(A2) == T || (A2 = convert(Matrix{T},A2))
+   eltype(B1) == T || (typeof(B1) <: AbstractVector ? B1 = convert(Vector{T},B1) : B1 = convert(Matrix{T},B1))
+   eltype(B2) == T || (typeof(B2) <: AbstractVector ? B2 = convert(Vector{T},B2) : B2 = convert(Matrix{T},B2))
+   if typeof(R) <: AbstractArray
+      LinearAlgebra.checksquare(R) == m || 
+         throw(DimensionMismatch("R must be an invertible matrix of dimension $m × $m"))
+      eltype(R) == T || (R = convert(Matrix{T},R))
+   else
+      R = Matrix{T}(R*I,m,m)
+   end
+   eltype(Q) == T || (Q = convert(Matrix{T},Q))
+   if eltype(S1) != T
+      if typeof(S1) <: AbstractVector
+         S1 = convert(Vector{T},S1)
+      else
+         S1 = convert(Matrix{T},S1)
+      end
+   end
+   if eltype(S2) != T
+      if typeof(S2) <: AbstractVector
+         S2 = convert(Vector{T},S2)
+      else
+         S2 = convert(Matrix{T},S2)
+      end
+   end
+
+   n == 0 && (onlyeigvals ? (return zeros(T,0)) : (return zeros(T,0,0), zeros(T,0), zeros(T,m,0), zeros(T,m,0), (Sx = Diagonal(zeros(T,0)), Sxi = Diagonal(zeros(T,0)), Sr = Diagonal(zeros(T,m))), zeros(int,0), zeros(T,0)) ) 
+
+   #  Method:  A stable/antistable deflating subspace Z1 = [Z11; Z21; Z31] of the pencil
+   #               [  A1   0   B1 ]      [ I  0    0 ]
+   #      H -s J = [ -Q    I  -S1 ]  - s [ 0  A2'  0 ]
+   #               [  S2'  0   R  ]      [ 0 -B2'  0 ]
+   # is determined and the solution X and feedback F are computed as
+   #          X = Z21*inv(Z11),   F = -Z31*inv(Z11).
+   nl = n+l
+   ns = nl
+   # H = [A1 zeros(T,n,l) B1; -Q I -S1; S2' zeros(T,m,l) R];
+   # J = [Matrix{T}(I(n)) zeros(T,n,l+m); 
+   #      zeros(T,l,n) A2' zeros(T,l,m); zeros(T,m,n) -B2' zeros(T,m,m)];
+   # (Sx,Sxi,Sr) = (I,I,I)
+   H, J, Sx, Sxi, Sr = balsymplike(A1, A2, B1, B2, R, Q, S1, S2; scaling, pow2, nrm)
+   # deflate m simple infinite eigenvalues
+   iric = 1:nl
+   i1 = 1:n
+   i2 = n+1:nl
+   i2m = n+1:nl+m
+   i3 = nl+1:nl+m
+   F = qr(J[i2m,i2])
+   #L2 = F.Q'*[-Q  I -S1; S2' 0 R]
+   L2 = F.Q'*H[i2m,:]
+   P2 = [zeros(T,l,n) F.R zeros(T,l,m)]
+   G = qr(L2[l+1:l+m,:]')
+   cond(G.R) * epsm  < 1 || error("The extended symplectic-like pencil is not regular")
+   z = (G.Q*I)[:,[m+1:m+nl; 1:m]]
+   # L1 = [ A1 0 B1; L2[i1,:]]*z
+   L1 = [ view(H,i1,:); L2[1:l,:]]*z
+   # P1 = [ I 0 0; P2]*z
+   P1 = [ view(J,i1,:); P2]*z
+
+   LPS = schur(P1[iric,iric],L1[iric,iric]) 
+
+   heigs = LPS.beta ./ LPS.alpha 
+   onlyeigvals && (return heigs)
+   select = zeros(Bool, nl)
+   if indeig === missing
+      indeig = sortperm(heigs, by = abs, rev = as)
+      (as && abs(heigs[indeig[n]]) > 1) || (!as && abs(heigs[indeig[n]]) < 1) ||
+            error("The extended symplectic-like pencil has less than $n suitable eigenvalues")
+      # correct ordering of complex conjugated pairs 
+      if T <: Real && n > 1
+         if imag(heigs[indeig[n]]) != 0 && !(heigs[indeig[n-1]] ≈ conj(heigs[indeig[n]]))
+            indeig[n] > indeig[n+1] && ((indeig[n],indeig[n+1]) =  (indeig[n+1],indeig[n])) 
+         end
+      end
+   else
+      (length(indeig) >= n && issubset(indeig, vec(1:nl))) || throw(DimensionMismatch("indeig = $indeig must be a part of permutation of 1:$nl"))
+      allunique(indeig) || throw(ArgumentError("all elements of indeig = $indeig must be unique"))
+      if T <: Real 
+         is_conjugate_symmetric(heigs[view(indeig,1:n)]) || throw(ArgumentError("the selected subset is not conjugate symmetric"))
+      end
+      indeig = sort(view(indeig,1:n))
+   end
+   for i in 1:n
+       select[indeig[i]] = true
+   end
+
+   if T <: Real
+     # check for possibly misplaced complex conjugated pairs
+      if isfinite(heigs[indeig[n]]) && imag(heigs[indeig[n]]) != 0 && !(heigs[indeig[n-1]] ≈ conj(heigs[indeig[n]])) &&
+            (indeig[n] < nl && (LPS.S[indeig[n]+1, indeig[n]] != zero(T) ) )
+         as ? nl-ns < n+1 : ns < n+1 && error("The extended symplectic-like pencil has a complex block for the $n-th eigenvalue")
+         na = 0
+         for i in n-1:-1:1
+             if na == 0 && imag(heigs[indeig[i]]) == 0
+                na = n-2
+                select[indeig[i]] = false
+                indeig[i:n] = indeig[i+1:n+1] 
+             else
+                select[indeig[i]] = true
+             end
+         end
+         if na == n-2
+            select[indeig[n]] = true
+            select[indeig[n+1]] = true
+            na = n
+         else
+            na = n-1
+            for i in n+2:ns
+                imag(heigs[indeig[i]]) == 0 && (select[indeig[i]] = true; na = n; break)
+            end
+         end
+         na < n && error("The extended Hamiltonian-like/skew-Hamiltonian pencil has a complex block for the $n-th eigenvalue")
+      end
+   end
+
+   ordschur!(LPS, select)
+
+   z[:,i1] = z[:,iric]*LPS.Z[:,i1];
+
+   try
+      F = _LUwithRicTest(z[i1,i1],rtol)
+   catch
+      printstyled(stderr, "ERROR: ", color=:red, bold=true)
+      println(stderr,"no solution exists for the Riccati matrix equation for the selected eigenvalues")
+      # println(stderr,"       check output parameters ind and HEVALS for possible other choices")
+      return nothing, nothing, nothing, z[:,i1], nothing, indeig[1:n], as ? heigs : one(T)./heigs
+   end
+   x = z[n+1:end,i1]/F
+   f = -x[l+1:end,:]; lmul!(Sr,f); rmul!(f,Sxi)
+   x = x[1:l,:]; lmul!(Sx,x); rmul!(x,Sxi)
+   scalinfo = (Sx = Sx, Sxi = Sxi, Sr = Sr)
+   return  x, LPS.beta[i1] ./ LPS.alpha[i1], f, z[:,i1], scalinfo, indeig[1:n], heigs 
+end
+
 """
     gared(A, E, B, R, Q, S; scaling = 'B', pow2 = false, as = false, rtol::Real = nϵ, nrm = 1) -> (X, EVALS, F, Z, scalinfo)
 
@@ -2315,18 +2650,15 @@ function balhamlike(A1, A2, B1, B2, R, Q, S1, S2; scaling = 'B', pow2 = false, n
    n, m = size(B1,1), size(B1,2); l = size(B2,1); nl = n+l;
    T = eltype(A1) 
    H = [A1 zeros(T,n,l) B1; -Q -A2' -S1; S2' B2' R];
-   J = [Matrix{T}(I(nl)) zeros(T,nl,m); zeros(m,nl+m)];
+   J = [Matrix{T}(I(nl)) zeros(T,nl,m); zeros(T,m,nl+m)];
    scaling == 'N' && (return H, J, I, I, I)
 
    i1 = 1:n; i2 = n+1:nl; i3 = nl+1:nl+m; j2 = 1:nl
-   At1 = view(H,i1,i1)
    Bt1 = view(H,i1,i3)
-   Gt = view(H,i1,i2)
    Qt = view(H,i2,i1)
    St1 = view(H,i2,i3)
    St2 = view(H,i3,i1)
    Rt = view(H,i3,i3)
-   Et = view(J,i1,i1)  
    T = eltype(H)
    TR = real(T)
    radix = TR(2.)
@@ -2372,8 +2704,8 @@ function balhamlike(A1, A2, B1, B2, R, Q, S1, S2; scaling = 'B', pow2 = false, n
          scalsr = sqrt(scal)
          pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
          lmul!(scalsr,Sx); ldiv!(scalsr,Sr)
-         lmul!(scal,Gt); ldiv!(scal,Qt); ldiv!(scal,Rt)
-         ldiv!(scal,St); ldiv!(scal,St2)
+         ldiv!(scal,Qt); ldiv!(scal,Rt)
+         ldiv!(scal,St1); ldiv!(scal,St2)
       end      
 
       # adjust scaling of R 
@@ -2696,6 +3028,236 @@ function balsympl(A, E, B, R, Q, S; scaling = 'B', pow2 = false, nrm = 1)
       end
 
       return H, J, Diagonal(D2.diag[i2]), inv(Diagonal(D2.diag[i1])), Diagonal(D2.diag[i3]) 
+   end
+end
+
+function balsymplike(A1, A2, B1, B2, R, Q, S1, S2; scaling = 'B', pow2 = false, nrm = 1) 
+   # Scaling function to be used in conjunction with nared(A1, A2, B1, B2, R, Q, S1, S2)
+   n, m = size(B1,1), size(B1,2); l = size(B2,1); nl = n+l;
+   T = eltype(A1)
+   #               [  A1   0   B1 ]      [ I  0    0 ]
+   #      H -s J = [ -Q    I  -S1 ]  - s [ 0  A2'  0 ]
+   #               [  S2'  0   R  ]      [ 0 -B2'  0 ]
+   H = [A1 zeros(T,n,l) B1; -Q I -S1; S2' zeros(T,m,l) R];
+   J = [Matrix{T}(I(n)) zeros(T,n,l+m); 
+        zeros(T,l,n) A2' zeros(T,l,m); zeros(T,m,n) -B2' zeros(T,m,m)];
+   scaling == 'N' && (return H, J, I, I, I)
+   i1 = 1:n; i2 = n+1:nl; i3 = nl+1:nl+m; j2 = 1:nl
+   Bt1 = view(H,i1,i3)
+   Bt2 = view(J,i3,i2)
+   Qt = view(H,i2,i1)
+   St1 = view(H,i2,i3)
+   St2 = view(H,i3,i1)
+   Rt = view(H,i3,i3)
+   T = eltype(H)
+   TR = real(T)
+   radix = TR(2.)
+   if scaling == 'B'
+      i1 = 1:n; i2 = n+1:nl; i3 = nl+1:nl+m
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(B1,1)/sqrt(norm(Rt,1))
+      if (qs > gs) && (gs > 0)
+         scal = qs/gs  
+         scalsr = sqrt(scal)  
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt); # Q -> Q/scal; 
+         ldiv!(scal,St1); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                   # R -> R/scal
+         return H, J, scalsr*I, scalsr*I, (1/scalsr)*I
+      else    
+         return H, J, I, I, I
+      end
+   elseif scaling == 'S'
+      if l != n
+         @warn "Scaling option 'S' not applicable: no scaling is performed"
+         return H, J, I, I, I
+      end
+      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1) + norm(view(H,i2,i2)-Diagonal(view(H,i2,i2)),1) 
+      nj = norm(view(J,i1,i1)-Diagonal(view(J,i1,i1)),1) + norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      if nh > 0 && nj > 0
+         M = abs.(H) + nh/nj * abs.(J);
+      else
+         M = abs.(H) + abs.(J);
+      end  
+      d = lsbalance!(M).diag
+      s = log2.(d) 
+      sx = round.(Int,(-s[i1]+s[i2])/2); 
+      sr = -s[i3]
+      # impose that diagonal scaling has the form diag(Sx,1./Sx, Sr)  
+      D = Diagonal(radix.^[sx ; -sx ; sr])
+      lmul!(D,H); rdiv!(H,D)
+      lmul!(D,J); rdiv!(J,D)
+      Sx = Diagonal(radix.^sx) # Sx = sqrt(D2/D1)
+      Sr = Diagonal(radix.^sr)
+
+
+      # check if block scaling is appropriate
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(Bt1,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         lmul!(scalsr,Sx); ldiv!(scalsr,Sr)
+         ldiv!(scal,Qt); ldiv!(scal,Rt)
+         ldiv!(scal,St1); ldiv!(scal,St2)
+      end      
+      # adjust scaling of R 
+      rs = sqrt(norm(Rt,1))/max(norm(Bt1,1),norm(St1,1)); 
+      if 10*rs < 1 
+         pow2 && (rs = radix^(round(Int,log2(rs)))) 
+         lmul!(rs,view(H,i3,:)); rmul!(view(H,:,i3),rs); lmul!(rs,view(J,i3,:)); lmul!(rs,Sr)
+      end
+      return H, J, Sx, Sx, Sr
+   elseif scaling == 'K'
+      # symmetric scaling enhanced, if appropriate, with a block scaling
+      M = abs.(H) + abs.(J)
+      ind = [i2;i1;i3]  
+      dl, dr, info = symscal!(view(M,ind,:); nrm, maxiter = 1000)
+      pow2 && (dr .= radix .^(round.(Int,log2.(dr))); dl = dr) 
+
+      Dl = Diagonal(dl); Dr = Diagonal(dr)
+      lmul!(Dl,view(H,ind,:)); rmul!(H,Dr)
+      lmul!(Dl,view(J,ind,:)); rmul!(J,Dr)
+
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(Bt1,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,St1); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,view(Dr.diag,i2)); ldiv!(scalsr,view(Dr.diag,i1))
+         ldiv!(scalsr,view(Dr.diag,i3))
+      end
+      return H, J, Diagonal(Dr.diag[i2]), inv(Diagonal(Dr.diag[i1])), Diagonal(Dr.diag[i3])   
+   elseif scaling == 'D'
+      # descriptor system oriented general scaling enhanced, if appropriate, with block scaling
+      sr = ones(T,m)
+      copyto!(view(H,i3,i2),view(J,i3,i2))
+      _, D2  = lsbalance!(view(H,j2,j2),view(J,j2,j2),view(H,j2,i3),view(H,i3,j2); tol = 0.001, pow2)
+      copyto!(view(J,i3,i2),view(H,i3,i2)); fill!(view(H,i3,i2),zero(T))
+
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(Bt1,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,St1); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,view(D2.diag,i2)); ldiv!(scalsr,view(D2.diag,i1)); 
+         ldiv!(scalsr,sr)
+      end
+      # adjust scaling of R 
+      rs = sqrt(norm(Rt,1))/max(norm(Bt1,1),norm(St1,1)); 
+      if 10*rs < 1 
+         pow2 && (rs = radix^(round(Int,log2(rs)))) 
+         lmul!(rs,view(H,i3,:)); rmul!(view(H,:,i3),rs); lmul!(rs,view(J,i3,:)); lmul!(rs,sr)
+      end
+
+      return H, J, Diagonal(D2.diag[i2]), inv(Diagonal(D2.diag[i1])), Diagonal(sr) 
+   elseif scaling == 'R'
+      if l != n
+         @warn "Scaling option 'T' not applicable: no scaling is performed"
+         return H, J, I, I, I
+      end
+      sr = ones(T,m)
+      Ht = [A1 zeros(T,n,l) B1; -Q I -S1; S2' -B2' R];
+      Jt = [Matrix{T}(I(n)) zeros(T,n,l+m); 
+            zeros(T,l,n) A2' zeros(T,l,m); zeros(T,m,nl+m)];
+      S1,  = lsbalance!(view(Ht,j2,j2),view(Jt,j2,j2),view(Ht,j2,i3),view(Ht,i3,j2); tol = 0.001)
+
+      sx = round.(Int,(log2.(S1.diag[i1])-log2.(S1.diag[i2]))/2); # D=sqrt(D1/D2)
+      Sx = Diagonal(radix.^(sx)) 
+      D = Diagonal(radix.^[sx ; -sx])
+      lmul!(D,view(H,j2,:)); rdiv!(view(H,:,j2),D)
+      lmul!(D,view(J,j2,j2)); rdiv!(view(J,:,j2),D)
+
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(Bt1,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,St1); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,Sx); ldiv!(scalsr,sr)
+      end
+
+      # adjust scaling of R 
+      # rs = sqrt(norm(Rt,1))/max(norm(Bt,1),norm(St,1)); 
+      # if 10*rs < 1 
+      #    pow2 && (rs = radix^(round(Int,log2(rs)))) 
+      #    lmul!(rs,view(H,i3,:)); lmul!(rs,view(J,i3,:)); rmul!(view(H,:,i3),rs); lmul!(rs,sr)
+      # end
+      Sr = Diagonal(sr)
+      return H, J, Sx, Sx, Sr
+    elseif scaling == 'T'
+      # standard system oriented structure preserving scaling enhanced, if appropriate, with block scaling
+      if l != n
+         @warn "Scaling option 'T' not applicable: no scaling is performed"
+         return H, J, I, I, I
+      end
+      nh = norm(view(H,i1,i1)-Diagonal(view(H,i1,i1)),1)  
+      nj = norm(view(J,i2,i2)-Diagonal(view(J,i2,i2)),1) 
+      if nh > 0 && nj > 0
+         M = abs.(H) + nh/nj * abs.(J);
+      else
+         M = abs.(H) + abs.(J);
+      end     
+      sr = ones(T,m)
+      S1 = lsbalance!(view(M,j2,j2),view(M,j2,i3),view(M,i3,j2))
+      sx = round.(Int,(log2.(S1.diag[i2])-log2.(S1.diag[i1]))/2); # D=sqrt(D1/D2)
+      Sx = Diagonal(radix.^(sx)) 
+      D = Diagonal(radix.^[sx ; -sx])
+      lmul!(D,view(H,j2,:)); rdiv!(view(H,:,j2),D)
+      lmul!(D,view(J,j2,j2)); rdiv!(view(J,:,j2),D)
+
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(Bt2,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt);                 # Q -> Q/scal; 
+         ldiv!(scal,St1); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,Sx); ldiv!(scalsr,sr)
+      end
+      # adjust scaling of R 
+      rs = sqrt(norm(Rt,1))/max(norm(Bt1,1),norm(St1,1)); 
+      if 10*rs < 1 
+         pow2 && (rs = radix^(round(Int,log2(rs)))) 
+         lmul!(rs,view(H,i3,:)); lmul!(rs,view(J,i3,:)); rmul!(view(H,:,i3),rs); lmul!(rs,sr)
+      end
+
+      Sr = Diagonal(sr)
+      return H, J, Sx, Sx, Sr
+   elseif scaling == 'G'
+      # general scaling enhanced, if appropriate, with a block scaling
+      _, D2 = regbalance!(H, J; tol = 0.001, maxiter = 1000, pow2 = false)
+      qs = sqrt(opnorm(Qt,1)) + sqrt(opnorm(St2,1))
+      gs = norm(Bt1,1)/sqrt(norm(Rt,1))
+      if qs > 10*gs
+         scal = qs/gs  
+         scalsr = sqrt(scal)
+         pow2 && (scalsr = radix^(round(Int,log2(scalsr))); scal = scalsr^2) 
+         ldiv!(scal,Qt);                 # Q -> Q/scal; G -> G * scal
+         ldiv!(scal,St1); ldiv!(scal,St2) # S -> S/scal 
+         ldiv!(scal,Rt)                  # R -> R/scal
+         lmul!(scalsr,view(D2.diag,i2)); ldiv!(scalsr,view(D2.diag,i1)); 
+         ldiv!(scalsr,view(D2.diag,i3))
+      end
+
+      return H, J, Diagonal(D2.diag[i2]), inv(Diagonal(D2.diag[i1])), Diagonal(D2.diag[i3]) 
+   else
+      @warn "No such scaling option: no scaling is performed"
+      return H, J, I, I, I
    end
 end
 
