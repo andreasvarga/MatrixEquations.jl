@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 3.0.0
+
+Version bump to mark the end of planned developments.
+
 ## Version 2.7.1
 
 - new solver `narec` for nonsymmetric/nonhermitian continuous Riccati matrix equations

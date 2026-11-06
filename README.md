@@ -26,17 +26,10 @@ pkg> test MatrixEquations
 
 ## About
 
-This collection of Julia functions is an attemp to implement high performance
-numerical software to solve several classes of Lyapunov, Sylvester and Riccati matrix equations
-at a performance level comparable with efficient structure exploiting Fortran implementations, as those available in the Systems and Control Library [SLICOT](https://github.com/SLICOT).
-This goal has been fully achieved for Lyapunov and Sylvester equation solvers, for which the
-codes for both real and complex data perform at practically same performance level as similar functions available in
-the MATLAB Control System Toolbox (which rely on SLICOT).
-
+This collection of Julia functions implements high performance
+numerical software to solve several classes of Lyapunov, Sylvester and Riccati matrix equations at a performance level similar with that of efficient structure exploiting Fortran implementations available in the Systems and Control Library [SLICOT](https://github.com/SLICOT) and the Linear Algebra Package [LAPACK](https://github.com/Reference-LAPACK/lapack). 
 The available functions in the `MatrixEquation.jl` package cover both standard
-and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data. The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure
-exploiting solvers for which the input data are in Schur or generalized Schur forms. A comprehensive set of Lyapunov and Sylvester operators has been implemented, which allow the estimation of condition numbers of these operators. The implementation of Riccati equation solvers employ orthogonal Schur vectors
-based methods and their extensions to linear matrix pencil based reduction approaches. The calls of all functions with adjoint (in complex case) or transposed (in real case) arguments are fully supported by appropriate computational algorithms, thus the matrix copying operations are mostly avoided.
+and generalized continuous and discrete Lyapunov, Sylvester and Riccati equations for both real and complex data. The functions for the solution of Lyapunov and Sylvester equations rely on efficient structure exploiting solvers for which the input data are in Schur or generalized Schur forms. A comprehensive set of Lyapunov and Sylvester operators has been implemented, which allow the estimation of condition numbers of these operators. The implementation of Riccati equation solvers employ orthogonal Schur vectors based methods and their extensions to linear matrix pencil based reduction approaches. 
 
 The current version of the package includes the following functions:
 
@@ -44,10 +37,10 @@ The current version of the package includes the following functions:
 
 * **lyapc**   Solution of the continuous Lyapunov equations `AX+XA'+C = 0` and `AXE'+EXA'+C = 0`.
 * **lyapd**  Solution of discrete Lyapunov equations `AXA'-X +C = 0` and `AXA'-EXE'+C = 0`.
-* **tlyapc** Solution of the continuous T-Lyapunov equations `A*X±X^⊤*A^⊤+C = 0`.
-* **hlyapc** Solution of the continuous H-Lyapunov equations `A*X±X'*A'+C = 0`.
-* **tulyapc!** Solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.
-* **hulyapc!** Solution of the continuous H-Lyapunov equations `U*X'+X*U' = C` and `U'*X+X'*U = C` for `U` and `X` upper triangular.
+* **tlyapc** Solution of the continuous T-Lyapunov equations `AX±XᵀAᵀ+C = 0`.
+* **hlyapc** Solution of the continuous H-Lyapunov equations `AX±X'A'+C = 0`.
+* **tulyapc!** Solution of the continuous T-Lyapunov equations `UXᵀ+XUᵀ = C` and `UᵀX+XᵀU = C` for `U` and `X` upper triangular.
+* **hulyapc!** Solution of the continuous H-Lyapunov equations `UX'+XU' = C` and `U'X+X'U = C` for `U` and `X` upper triangular.
 * **plyapc**  Solution of the positive continuous Lyapunov equations `AX+XA'+BB' = 0` and `AXE'+EXA'+BB' = 0`.
 * **plyapd**  Solution of the positive discrete Lyapunov equations `AXA'-X +C = 0` and `AXA'-EXE'+C = 0`.
 
@@ -55,17 +48,17 @@ The current version of the package includes the following functions:
 
 * **arec**  Solution of the continuous Riccati equations `A'X+XA-XRX+Q = 0` and
  `A'X+XA-(XB+S)R^(-1)(B'X+S')+Q = 0`.
-* **narec**  Solution of the nonsymmetric/nonhermitian continuous Riccati equation `A2'X+XA1-(XB1+S1)R^(-1)(B2'X+S2')+Q = 0`.
+* **narec**  Solution of the nonsymmetric/nonhermitian continuous Riccati equation `A₂'X+XA₁-(XB₁+S₁)R^(-1)(B₂'X+S₂')+Q = 0`.
 * **garec** Solution of the generalized continuous Riccati equation
  `A'XE+E'XA-(E'XB+S)R^(-1)(B'XE+S')+Q = 0`.
 * **ared** Solution of the discrete Riccati equation
  `A'XA - X - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0`.
 * **nared** Solution of the nonsymmetric/nonhermitian discrete Riccati equation
- `A2'XA1 - X - (A2'XB1+S1)(R+B2'XB1)^(-1)(B2'XA1+S2') + Q = 0`.
+ `A₂'XA₁ - X - (A₂'XB₁+S₁)(R+B₂'XB₁)^(-1)(B₂'XA₁+S₂') + Q = 0`.
 * **gared**  Solution of the generalized discrete Riccati equation
  `A'XA - E'XE - (A'XB+S)(R+B'XB)^(-1)(B'XA+S') + Q = 0`.
-* **nare**  Solution of the nonsymmetric/nonhermitian Riccati equation `A1X+XA2-XRX+Q = 0`.
-* **uqme**  Solution of the unilateral quadratic matrix equation `AX^2 + BX + C = 0`.
+* **nare**  Solution of the nonsymmetric/nonhermitian Riccati equation `A₁X+XA₂-XRX+Q = 0`.
+* **uqme**  Solution of the unilateral quadratic matrix equation `AX² + BX + C = 0`.
  
 
  **Solution of Sylvester equations and systems**
@@ -82,15 +75,15 @@ The current version of the package includes the following functions:
 * **plyapci** Iterative solution of the low-rank positive continuous Lyapunov equations `AX+XA'+BB' = 0` and `AXE'+EXA'+BB' = 0`.
 * **lyapdi**  Iterative solution of the discrete Lyapunov equations `AXA'-X+C = 0` and `AXA'-EXE'+C = 0`.
 * **plyapdi** Iterative solution of the low-rank positive discrete Lyapunov equations `AXA'-X+BB' = 0` and `AXA'-EXE'+BB' = 0`.
-* **tlyapci** Iterative solution of the continuous T-Lyapunov equations `A*X+X^⊤*A^⊤ = C` and `A*X^⊤+X*A^⊤ = C`.
-* **hlyapci** Iterative solution of the continuous H-Lyapunov equations `A*X+X'*A' = C` and `A*X'+X*A' = C`.
-* **tulyapci** Iterative solution of the continuous T-Lyapunov equations `U*X^⊤+X*U^⊤ = C` and `U^⊤*X+X^⊤*U = C` for `U` and `X` upper triangular.
-* **hulyapci** Iterative solution of the continuous H-Lyapunov equations `U*X'+X*U' = C` and `U'*X+X'*U = C` for `U` and `X` upper triangular.
+* **tlyapci** Iterative solution of the continuous T-Lyapunov equations `AX+XᵀAᵀ = C` and `AXᵀ+XAᵀ = C`.
+* **hlyapci** Iterative solution of the continuous H-Lyapunov equations `AX+X'A' = C` and `AX'+XA' = C`.
+* **tulyapci** Iterative solution of the continuous T-Lyapunov equations `UXᵀ+XUᵀ = C` and `UᵀX+XᵀU = C` for `U` and `X` upper triangular.
+* **hulyapci** Iterative solution of the continuous H-Lyapunov equations `UX'+XU' = C` and `U'X+X'U = C` for `U` and `X` upper triangular.
 * **sylvci** Iterative solution of the (continuous) Sylvester equation `AX+XB = C`.
 * **sylvdi** Iterative solution of the (discrete) Sylvester equation `AXB+X = C`.
 * **gsylvi** Iterative solution of the generalized Sylvester equation `AXB+CXD = E`.
-* **gtsylvi** Iterative solution of the generalized T-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X^⊤*D_j = E`.
-* **ghsylvi** Iterative solution of the generalized H-Sylvester equations `∑ A_i*X*B_i + ∑ C_j*X'*D_j = E`.
+* **gtsylvi** Iterative solution of the generalized T-Sylvester equations `∑AᵢXBᵢ + ∑CⱼXᵀDⱼ = E`.
+* **ghsylvi** Iterative solution of the generalized H-Sylvester equations `∑AᵢXBᵢ + ∑CⱼX'Dⱼ = E`.
 * **cgls** The conjugate gradient method for nonsymmetric linear equations and least squares problems.
 
 **Norm, condition and separation estimation**
@@ -100,9 +93,4 @@ The current version of the package includes the following functions:
 * **oprcondest** Estimation of the reciprocal 1-norm condition number of a linear operator.
 * **opsepest** Estimation of the 1-norm separation a linear operator.
 
-The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For testing purposes, a set of solvers for various linear matrix equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. Based on the conjugate gradient method to solve linear systems or least-squares problems, several iterative solvers have been implemented, which potentially are applicable to solve linear matrix equations with large order dense and sparse matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators.  
-A complete list of implemented functions is available [here](https://sites.google.com/view/andreasvarga/home/software/matrix-equations-in-julia).
-
-## Future plans
-
-The collection of tools can be extended by adding new functionality, such as expert solvers, which additionally compute error bounds and condition estimates. 
+The general solvers of Lyapunov and Sylvester equations rely on a set of specialized solvers for real or complex matrices in appropriate Schur forms. For large dimensions these solvers employ recursive-blocking based algorithms which ensure substantial performance boosts. For testing purposes, a set of solvers for various linear matrix equations has been implemented, which employ the Kronecker-product expansion of the equations. These solvers are not recommended for large order matrices. Based on the conjugate gradient method to solve linear systems or least-squares problems, several iterative solvers have been implemented, which potentially are applicable to solve linear matrix equations with large order dense and sparse matrices. The norms, reciprocal condition numbers and separations can be estimated for a comprehensive set of predefined Lyapunov and Sylvester operators. The last additions include solvers for nonsymmetric/nonhermitian algebraic Riccati equations and quadratic matrix equations.  
