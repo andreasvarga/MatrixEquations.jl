@@ -46,17 +46,17 @@ The current version of the package includes the following functions:
 
  **Solution of algebraic  Riccati equations**
 
-* **arec**  Solution of the continuous Riccati equations `A'X+XA-XRX+Q = 0` and
+* **arec**  Solution of the continuous Riccati equations `A'X+XA-XRX+Q = 0` and  
  `A'X+XA-(XB+S)R⁻¹(B'X+S')+Q = 0`.
-* **narec**  Solution of the nonsymmetric/nonhermitian continuous Riccati equation 
+* **narec**  Solution of the nonsymmetric/nonhermitian continuous Riccati equation   
 `A₂'X+XA₁-(XB₁+S₁)R⁻¹(B₂'X+S₂')+Q = 0`.
-* **garec** Solution of the generalized continuous Riccati equation
+* **garec** Solution of the generalized continuous Riccati equation   
  `A'XE+E'XA-(E'XB+S)R⁻¹(B'XE+S')+Q = 0`.
-* **ared** Solution of the discrete Riccati equation
+* **ared** Solution of the discrete Riccati equation  
  `A'XA - X - (A'XB+S)(R+B'XB)⁻¹(B'XA+S') + Q = 0`.
-* **nared** Solution of the nonsymmetric/nonhermitian discrete Riccati equation
- `A₂'XA₁ - X - (A₂'XB₁+S₁)(R+B₂'XB₁)⁻¹(B₂'XA₁+S₂') + Q = 0`.
-* **gared**  Solution of the generalized discrete Riccati equation
+* **nared** Solution of the nonsymmetric/nonhermitian discrete Riccati equation   
+`A₂'XA₁ - X - (A₂'XB₁+S₁)(R+B₂'XB₁)⁻¹(B₂'XA₁+S₂') + Q = 0`.
+* **gared**  Solution of the generalized discrete Riccati equation   
  `A'XA - E'XE - (A'XB+S)(R+B'XB)⁻¹(B'XA+S') + Q = 0`.
 * **nare**  Solution of the nonsymmetric/nonhermitian Riccati equation `A₁X+XA₂-XRX+Q = 0`.
 * **uqme**  Solution of the unilateral quadratic matrix equation `AX² + BX + C = 0`.
