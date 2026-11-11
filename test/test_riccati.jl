@@ -1058,11 +1058,11 @@ norm(sort(imag(clseig))-sort(imag(eigvals(A1-B1*F))))/norm(clseig)  < 1.e-10
 
 
 for (Ty,n,l, m, p) in ((Float64, 20, 20, 10, 10),)
-
+Random.seed!(21235)
 #n = 3; l = 5; m = 2; p = m;
 # n = 4; l = 4; m = 2; p = m;
 # (Ty,n,l, m, p) = (Float64, 3, 5, 2, 2)
-#(Ty,n,l, m, p) = (Float64, 20, 20, 10, 10)
+(Ty,n,l, m, p) = (Float64, 20, 20, 10, 10)
 ar1 = rand(Ty,n,n)
 ar2 = rand(Ty,l,l)
 if m == 1
