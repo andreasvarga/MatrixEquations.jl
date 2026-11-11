@@ -1,5 +1,9 @@
 # Release Notes
 
+## Version 3.0.1
+
+Fix `safemin` for generic real data types. 
+
 ## Version 3.0.0
 
 Version bump to mark the end of planned developments.
